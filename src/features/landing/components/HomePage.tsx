@@ -157,7 +157,7 @@ export default function HomePage() {
       <footer className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="font-mono text-[10px] text-gray-400 uppercase tracking-[0.2em]">
-            VibeCV © 2026 — Propulsé par Gemini AI
+            Calibre © 2026 — Propulsé par Gemini AI
           </p>
         </div>
       </footer>

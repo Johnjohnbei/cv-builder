@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
-import { Lock, User, Chrome, FileText } from 'lucide-react';
+import { Lock, User, Chrome } from 'lucide-react';
+import { Logo } from '@/src/shared/ui/Logo';
 
 export default function AuthPage() {
   const [loading, setLoading] = useState(false);
@@ -11,9 +12,7 @@ export default function AuthPage() {
   const { isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (isSignedIn) {
-      navigate('/dashboard');
-    }
+    if (isSignedIn) navigate('/dashboard');
   }, [isSignedIn, navigate]);
 
   const handleGoogleLogin = async () => {
@@ -40,11 +39,8 @@ export default function AuthPage() {
           Connexion
         </div>
         <div className="p-8">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="w-8 h-8 bg-[#1A73E8] rounded flex items-center justify-center">
-              <FileText className="text-white w-4 h-4" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">VibeCV</span>
+          <div className="mb-8">
+            <Logo size="md" />
           </div>
 
           <h1 className="text-2xl font-bold text-[#202124] mb-2 tracking-tight">

@@ -1,4 +1,4 @@
-# VibeCV — Optimisez votre CV avec l'IA
+# Calibre — Optimisez votre CV avec l'IA
 
 Application web de création et d'optimisation de CV propulsée par Gemini AI. Importez votre CV, collez une offre d'emploi, et l'IA adapte votre parcours pour maximiser votre score ATS.
 

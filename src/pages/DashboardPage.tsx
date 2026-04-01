@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
+import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -194,12 +195,7 @@ export default function DashboardPage() {
       {/* Sidebar */}
       <aside className="stitch-sidebar">
         <div className="stitch-header">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-[#1A73E8] rounded flex items-center justify-center">
-              <FileText className="text-white w-4 h-4" />
-            </div>
-            <span className="font-bold text-sm tracking-tight">CV Builder</span>
-          </div>
+          <Logo size="sm" />
         </div>
         
         <nav className="flex-1 p-2 space-y-1">

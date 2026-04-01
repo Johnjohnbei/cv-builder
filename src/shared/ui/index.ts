@@ -13,3 +13,4 @@ export { Chip } from './Chip';
 export { Accordion } from './Accordion';
 export { Dropzone } from './Dropzone';
 export { ErrorBoundary } from './ErrorBoundary';
+export { Logo, CalibreSymbol } from './Logo';
