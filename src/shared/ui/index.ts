@@ -12,3 +12,4 @@ export { StatCard } from './StatCard';
 export { Chip } from './Chip';
 export { Accordion } from './Accordion';
 export { Dropzone } from './Dropzone';
+export { ErrorBoundary } from './ErrorBoundary';

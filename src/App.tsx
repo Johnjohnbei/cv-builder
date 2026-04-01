@@ -10,6 +10,7 @@ const AuthPage = lazy(() => import('./features/auth/components/AuthPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 const CoverLetterPage = lazy(() => import('./features/cover-letter/components/CoverLetterPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export default function App() {
   return (
@@ -48,6 +49,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </Router>
