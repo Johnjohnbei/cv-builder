@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Convex generated
+convex/_generated/
+
+# GSD / Pi
+.gsd/
+.bg-shell/
+
+# Misc
+*.tsbuildinfo

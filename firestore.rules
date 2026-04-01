@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase UID)
+    // Fields:
+    //   - id: string (required)
+    //   - email: string (required)
+    //   - full_name: string
+    //   - base_cv_json: map
+    //   - created_at: timestamp
+    //
+    // Sub-collection: jobs
+    // Document ID: jobId
+    // Fields:
+    //   - id: string (required)
+    //   - user_id: string (required)
+    //   - job_title: string (required)
+    //   - raw_text: string (required)
+    //   - created_at: timestamp
+    //
+    // Sub-collection: cvs
+    // Document ID: cvId
+    // Fields:
+    //   - id: string (required)
+    //   - user_id: string (required)
+    //   - job_id: string (required)
+    //   - tailored_content: map (required)
+    //   - created_at: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email']) &&
+             data.id is string &&
+             data.email is string &&
+             data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidJob(data) {
+      return data.keys().hasAll(['id', 'user_id', 'job_title', 'raw_text']) &&
+             data.id is string &&
+             data.user_id == request.auth.uid &&
+             data.job_title is string && data.job_title.size() > 0 &&
+             data.raw_text is string && data.raw_text.size() > 0;
+    }
+
+    function isValidCV(data) {
+      return data.keys().hasAll(['id', 'user_id', 'job_id', 'tailored_content']) &&
+             data.id is string &&
+             data.user_id == request.auth.uid &&
+             data.job_id is string &&
+             data.tailored_content is map;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /jobs/{jobId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidJob(request.resource.data);
+        allow update: if isOwner(userId) && isValidJob(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /cvs/{cvId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidCV(request.resource.data);
+        allow update: if isOwner(userId) && isValidCV(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
