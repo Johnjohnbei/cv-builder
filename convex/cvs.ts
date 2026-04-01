@@ -52,3 +52,15 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const getById = query({
+  args: { id: v.id("cvs") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const cv = await ctx.db.get(args.id);
+    if (!cv || cv.userId !== identity.subject) return null;
+    return cv;
+  },
+});

@@ -1434,6 +1434,43 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, experience: newExp} : null);
                             }}
                           />
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            <input
+                              className="bg-white border border-gray-200 rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-blue-600"
+                              value={exp.start_date}
+                              placeholder="Début"
+                              onChange={(e) => {
+                                const newExp = [...(cvData?.experience || [])];
+                                newExp[idx].start_date = e.target.value;
+                                setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                              }}
+                            />
+                            <input
+                              className="bg-white border border-gray-200 rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-blue-600 disabled:opacity-40"
+                              value={exp.end_date || ''}
+                              placeholder="Fin"
+                              disabled={exp.current}
+                              onChange={(e) => {
+                                const newExp = [...(cvData?.experience || [])];
+                                newExp[idx].end_date = e.target.value;
+                                setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                              }}
+                            />
+                            <label className="flex items-center gap-1 text-[8px] font-mono text-gray-500 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={exp.current}
+                                onChange={(e) => {
+                                  const newExp = [...(cvData?.experience || [])];
+                                  newExp[idx].current = e.target.checked;
+                                  if (e.target.checked) newExp[idx].end_date = '';
+                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                }}
+                                className="w-3 h-3"
+                              />
+                              Actuel
+                            </label>
+                          </div>
                           <div className="space-y-1 mt-2">
                             {exp.description?.map((bullet, bIdx) => (
                               <div key={bIdx} className="flex items-center gap-2 group/bullet">

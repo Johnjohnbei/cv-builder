@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const storeUser = useMutation(api.users.store);
   const createCV = useMutation(api.cvs.createMyCV);
   const removeCV = useMutation(api.cvs.remove);
+  const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
 
   const extractCVDataFromPDF = useAction(api.ai.extractCVDataFromPDF);
   const tailorCV = useAction(api.ai.tailorCV);
@@ -86,6 +87,7 @@ export default function DashboardPage() {
         
         if (user) {
           await storeUser();
+          await updateLastCV({ cvData: data });
         } else if (isGuest) {
           localStorage.setItem('guest_base_cv', JSON.stringify(data));
         }
@@ -158,6 +160,7 @@ export default function DashboardPage() {
       
       if (user) {
         await storeUser();
+        await updateLastCV({ cvData: optimizedData, jobDescription });
         navigate('/editor');
       } else if (isGuest) {
         localStorage.setItem('guest_last_optimized', JSON.stringify(optimizedData));
@@ -270,22 +273,44 @@ export default function DashboardPage() {
                   <div className="stitch-panel-header">01. SOURCE_DATA</div>
                   <div className="p-4">
                     {!baseCV ? (
-                      <div 
-                        {...getRootProps()} 
-                        className={cn(
-                          "border-2 border-dashed border-[#DADCE0] rounded p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors",
-                          isDragActive && "bg-blue-50 border-blue-400"
-                        )}
-                      >
-                        <input {...getInputProps()} />
-                        {isUploading ? (
-                          <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-600" />
-                        ) : (
-                          <>
-                            <Upload className="w-6 h-6 mx-auto text-gray-400 mb-2" />
-                            <p className="text-xs font-medium">Upload CV (PDF)</p>
-                          </>
-                        )}
+                      <div className="space-y-3">
+                        <div 
+                          {...getRootProps()} 
+                          className={cn(
+                            "border-2 border-dashed border-[#DADCE0] rounded p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors",
+                            isDragActive && "bg-blue-50 border-blue-400"
+                          )}
+                        >
+                          <input {...getInputProps()} />
+                          {isUploading ? (
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-600" />
+                          ) : (
+                            <>
+                              <Upload className="w-6 h-6 mx-auto text-gray-400 mb-2" />
+                              <p className="text-xs font-medium">Importer un CV (PDF)</p>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            const emptyCV: CVData = {
+                              personal_info: { name: '', email: '', title: '' },
+                              experience: [],
+                              education: [],
+                              skills: [],
+                              languages: [],
+                            };
+                            setBaseCV(emptyCV);
+                            if (user) {
+                              storeUser().then(() => updateLastCV({ cvData: emptyCV }));
+                            }
+                            navigate('/editor');
+                          }}
+                          className="w-full py-2 border border-dashed border-blue-300 text-blue-600 text-[10px] font-mono font-bold uppercase tracking-wider hover:bg-blue-50 transition-colors rounded flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Créer un CV vide
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-3">
