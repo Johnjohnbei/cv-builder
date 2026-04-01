@@ -2,11 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../shared/lib/cn';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { CVData } from '../types';
+import { CVData } from '../shared/types';
 
 interface ATSResult {
   score: number;

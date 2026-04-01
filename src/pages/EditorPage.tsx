@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CVData, DesignSettings } from '../types';
+import { CVData, DesignSettings } from '../shared/types';
 import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Mail, Phone, MapPin, Linkedin, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { cn } from '../lib/utils';
+import { cn } from '../shared/lib/cn';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
