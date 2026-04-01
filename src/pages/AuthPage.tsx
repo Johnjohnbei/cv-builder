@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
-import { Linkedin, Mail, Lock, User, Chrome, FileText, ArrowRight } from 'lucide-react';
+import { Lock, User, Chrome, FileText } from 'lucide-react';
 
 export default function AuthPage() {
   const [loading, setLoading] = useState(false);

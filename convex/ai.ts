@@ -13,6 +13,15 @@ function getAI() {
   return new GoogleGenAI({ apiKey });
 }
 
+function safeParseJSON(text: string | undefined, fallback: any = {}): any {
+  try {
+    return JSON.parse(text || JSON.stringify(fallback));
+  } catch (e) {
+    console.error("Failed to parse AI response as JSON:", text?.slice(0, 200));
+    throw new Error("L'IA a retourné une réponse invalide. Veuillez réessayer.");
+  }
+}
+
 export const extractCVDataFromPDF = action({
   args: { base64PDF: v.string() },
   handler: async (_ctx, args) => {
@@ -48,7 +57,7 @@ export const extractCVDataFromPDF = action({
       },
     });
 
-    return JSON.parse(response.text || "{}");
+    return safeParseJSON(response.text);
   },
 });
 
@@ -85,7 +94,7 @@ export const tailorCV = action({
       },
     });
 
-    return JSON.parse(response.text || "{}");
+    return safeParseJSON(response.text);
   },
 });
 
@@ -120,7 +129,7 @@ export const getATSAnalysis = action({
       },
     });
 
-    return JSON.parse(response.text || "{}");
+    return safeParseJSON(response.text);
   },
 });
 
@@ -220,7 +229,7 @@ export const optimizeCVForPage = action({
       },
     });
 
-    const optimizedData = JSON.parse(response.text || "{}");
+    const optimizedData = safeParseJSON(response.text);
 
     // Sanitize skills to ensure they are strings
     if (optimizedData.skills) {

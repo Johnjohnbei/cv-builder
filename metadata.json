@@ -1,8 +1,0 @@
-{
-  "name": "CV Builder",
-  "description": "Générateur de CV IA professionnel. Optimisez votre carrière avec l'IA. Créez des CV sur mesure, optimisés pour les ATS, à partir de votre profil LinkedIn.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}

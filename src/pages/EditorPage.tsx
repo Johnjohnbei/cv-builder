@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CVData, DesignSettings } from '../types';
-import { Download, Layout as LayoutIcon, Type, Eye, Save, ChevronLeft, Loader2, FileText, User, Settings, Share2, Mail, Phone, MapPin, Linkedin, Github, Globe, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap } from 'lucide-react';
+import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Mail, Phone, MapPin, Linkedin, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';

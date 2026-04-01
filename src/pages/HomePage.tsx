@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, FileText, Sparkles, Zap, ShieldCheck, Chrome, Terminal, Cpu } from 'lucide-react';
 import { motion } from 'motion/react';
