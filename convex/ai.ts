@@ -251,3 +251,86 @@ export const optimizeCVForPage = action({
     return optimizedData;
   },
 });
+
+export const generateCoverLetter = action({
+  args: {
+    cvData: v.any(),
+    jobDescription: v.string(),
+    companyName: v.optional(v.string()),
+    tone: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+    const tone = args.tone || "professionnel et engagé";
+    const company = args.companyName ? `pour l'entreprise ${args.companyName}` : "";
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_FLASH,
+      contents: `
+Tu es un expert en rédaction de lettres de motivation ${company}.
+Rédige une lettre de motivation percutante en français, ton ${tone}.
+
+CV du candidat :
+${JSON.stringify(args.cvData)}
+
+Offre d'emploi :
+${args.jobDescription}
+
+Règles :
+1. Maximum 400 mots
+2. Structure : accroche → compétences clés liées au poste → motivation → conclusion avec appel à l'action
+3. Utilise les mots-clés de l'offre naturellement
+4. Mentionne des réalisations concrètes du CV
+5. Pas de formules clichées ("je me permets de vous écrire", "veuillez agréer")
+6. Ton : direct, confiant, spécifique
+
+Retourne un objet JSON avec :
+- subject: l'objet du mail (court)
+- greeting: la formule d'appel
+- body: le corps de la lettre (en paragraphes séparés par \\n\\n)
+- closing: la formule de fin
+`,
+      config: { responseMimeType: "application/json" },
+    });
+
+    return safeParseJSON(response.text);
+  },
+});
+
+export const improveBulletPoint = action({
+  args: {
+    bullet: v.string(),
+    position: v.string(),
+    company: v.string(),
+    jobDescription: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+    const jobContext = args.jobDescription
+      ? `\n\nOffre ciblée :\n${args.jobDescription}`
+      : "";
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_FLASH,
+      contents: `
+Tu es un expert en rédaction de CV optimisés ATS.
+Améliore ce point d'expérience pour le rendre plus impactant.
+
+Poste : ${args.position} chez ${args.company}
+Point actuel : "${args.bullet}"${jobContext}
+
+Règles :
+1. Commence par un verbe d'action fort
+2. Ajoute des métriques/résultats quantifiables si possible
+3. Utilise des mots-clés pertinents pour le secteur
+4. Maximum 2 lignes
+5. Retourne exactement 3 suggestions alternatives
+
+Retourne un JSON : { "suggestions": ["suggestion1", "suggestion2", "suggestion3"] }
+`,
+      config: { responseMimeType: "application/json" },
+    });
+
+    return safeParseJSON(response.text);
+  },
+});

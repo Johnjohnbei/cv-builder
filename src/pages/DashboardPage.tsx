@@ -233,6 +233,13 @@ export default function DashboardPage() {
             <Search className="w-4 h-4" />
             <span>Analyse ATS</span>
           </button>
+          <a
+            href="/cover-letter"
+            className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Lettre de motivation</span>
+          </a>
         </nav>
 
         <div className="p-4 border-t border-[#DADCE0]">

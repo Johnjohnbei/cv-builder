@@ -40,6 +40,8 @@ export default function EditorPage() {
   const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [improvingBullet, setImprovingBullet] = useState<string | null>(null); // "expIdx-bulletIdx"
+  const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
   const cvRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
@@ -49,6 +51,7 @@ export default function EditorPage() {
   const storeUser = useMutation(api.users.store);
   const createCV = useMutation(api.cvs.createMyCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
+  const improveBulletAction = useAction(api.ai.improveBulletPoint);
 
   // Auto-hide notification
   useEffect(() => {
@@ -1472,29 +1475,81 @@ export default function EditorPage() {
                             </label>
                           </div>
                           <div className="space-y-1 mt-2">
-                            {exp.description?.map((bullet, bIdx) => (
-                              <div key={bIdx} className="flex items-center gap-2 group/bullet">
-                                <input 
-                                  className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-blue-600"
-                                  value={bullet}
-                                  onChange={(e) => {
-                                    const newExp = [...(cvData?.experience || [])];
-                                    newExp[idx].description[bIdx] = e.target.value;
-                                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                                  }}
-                                />
-                                <button 
-                                  onClick={() => {
-                                    const newExp = [...(cvData?.experience || [])];
-                                    newExp[idx].description = newExp[idx].description.filter((_, i) => i !== bIdx);
-                                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                                  }}
-                                  className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
-                                >
-                                  <Trash2 className="w-2 h-2" />
-                                </button>
-                              </div>
-                            ))}
+                            {exp.description?.map((bullet, bIdx) => {
+                              const bulletKey = `${idx}-${bIdx}`;
+                              return (
+                                <div key={bIdx} className="space-y-1">
+                                  <div className="flex items-center gap-1 group/bullet">
+                                    <input 
+                                      className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-blue-600"
+                                      value={bullet}
+                                      onChange={(e) => {
+                                        const newExp = [...(cvData?.experience || [])];
+                                        newExp[idx].description[bIdx] = e.target.value;
+                                        setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                      }}
+                                    />
+                                    <button
+                                      title="Améliorer avec l'IA"
+                                      disabled={improvingBullet === bulletKey}
+                                      onClick={async () => {
+                                        setImprovingBullet(bulletKey);
+                                        setBulletSuggestions(null);
+                                        try {
+                                          const result = await improveBulletAction({
+                                            bullet,
+                                            position: exp.position,
+                                            company: exp.company,
+                                          });
+                                          setBulletSuggestions({ key: bulletKey, suggestions: result.suggestions || [] });
+                                        } catch { /* ignore */ }
+                                        setImprovingBullet(null);
+                                      }}
+                                      className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                                    >
+                                      {improvingBullet === bulletKey
+                                        ? <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-500" />
+                                        : <Sparkles className="w-2.5 h-2.5" />}
+                                    </button>
+                                    <button 
+                                      onClick={() => {
+                                        const newExp = [...(cvData?.experience || [])];
+                                        newExp[idx].description = newExp[idx].description.filter((_, i) => i !== bIdx);
+                                        setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                      }}
+                                      className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                                    >
+                                      <Trash2 className="w-2 h-2" />
+                                    </button>
+                                  </div>
+                                  {bulletSuggestions?.key === bulletKey && (
+                                    <div className="ml-2 p-2 bg-blue-50 border border-blue-100 rounded space-y-1 animate-in fade-in duration-200">
+                                      <p className="text-[8px] font-mono text-blue-500 uppercase tracking-wider mb-1">Suggestions IA</p>
+                                      {bulletSuggestions.suggestions.map((sug, sIdx) => (
+                                        <button
+                                          key={sIdx}
+                                          onClick={() => {
+                                            const newExp = [...(cvData?.experience || [])];
+                                            newExp[idx].description[bIdx] = sug;
+                                            setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                            setBulletSuggestions(null);
+                                          }}
+                                          className="w-full text-left px-2 py-1 text-[9px] text-gray-700 hover:bg-blue-100 rounded transition-colors"
+                                        >
+                                          {sug}
+                                        </button>
+                                      ))}
+                                      <button
+                                        onClick={() => setBulletSuggestions(null)}
+                                        className="text-[8px] font-mono text-gray-400 hover:text-gray-600 mt-1"
+                                      >
+                                        Fermer
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             <button 
                               onClick={() => {
                                 const newExp = [...(cvData?.experience || [])];
@@ -2082,6 +2137,21 @@ export default function EditorPage() {
                       )}
                       <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
                         {isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        if (!cvData) return;
+                        const { exportToDocx } = await import('../shared/lib/export-docx');
+                        await exportToDocx(cvData);
+                        setNotification({ message: 'DOCX téléchargé !', type: 'success' });
+                      }}
+                      className="w-full py-3 px-4 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2 group"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
+                        TÉLÉCHARGER_DOCX
                       </span>
                     </button>
                   </div>
