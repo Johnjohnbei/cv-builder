@@ -36,3 +36,5 @@ convex/_generated/
 
 # Misc
 *.tsbuildinfo
+
+.vercel
