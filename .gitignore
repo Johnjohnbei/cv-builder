@@ -30,8 +30,9 @@ npm-debug.log*
 # Convex generated
 convex/_generated/
 
-# GSD / Pi
-.gsd/
+# GSD / Pi (keep agents/ for team sharing)
+.gsd/*
+!.gsd/agents/
 .bg-shell/
 
 # Misc
