@@ -6,9 +6,8 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { cn } from '../lib/utils';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { GoogleGenAI, Type as GenAIType } from "@google/genai";
 
 export default function EditorPage() {
   const [cvData, setCvData] = useState<CVData | null>(null);
@@ -49,6 +48,7 @@ export default function EditorPage() {
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const storeUser = useMutation(api.users.store);
   const createCV = useMutation(api.cvs.createMyCV);
+  const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
 
   // Auto-hide notification
   useEffect(() => {
@@ -891,55 +891,10 @@ export default function EditorPage() {
     setIsOptimizing(true);
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            text: `Tu es un expert en recrutement et en design de CV. Ta tâche est d'optimiser intelligemment ce CV pour qu'il tienne PARFAITEMENT sur ${designSettings.pageLimit} page(s) A4, sans simplement couper le contenu.
-            
-            Voici les données actuelles du CV :
-            ${JSON.stringify(cvData, null, 2)}
-            
-            STRATÉGIE D'OPTIMISATION INTELLIGENTE :
-            1. RÉSUMÉ : Raccourcis le résumé professionnel pour qu'il soit percutant mais concis (max 3-4 lignes).
-            2. EXPÉRIENCES : 
-               - Pour les expériences les plus anciennes ou les moins pertinentes, réduis le nombre de points (bullet points) à 1 ou 2 maximum.
-               - Reformule les descriptions pour qu'elles soient plus courtes tout en gardant les mots-clés importants.
-               - Si vraiment nécessaire pour tenir sur la page, fusionne ou supprime les expériences très courtes ou très anciennes (> 10 ans).
-            3. COMPÉTENCES : Regroupe les compétences de manière dense.
-            4. PRIORITÉ : Garde toujours les informations de contact et les formations les plus récentes.
-            
-            BUT : Le CV doit paraître complet et professionnel, pas tronqué. Il doit être optimisé pour la lecture rapide par un recruteur.
-            
-            Retourne UNIQUEMENT l'objet JSON complet du CV optimisé, respectant strictement la structure fournie.`
-          }
-        ],
-        config: {
-          responseMimeType: "application/json"
-        }
+      const optimizedData = await optimizeCVAction({
+        cvData,
+        pageLimit: designSettings.pageLimit || 1,
       });
-
-      const text = response.text;
-      const optimizedData = JSON.parse(text);
-      
-      // Sanitize skills to ensure they are strings
-      if (optimizedData.skills) {
-        optimizedData.skills = optimizedData.skills.map((cat: any) => ({
-          ...cat,
-          category: typeof cat.category === 'string' ? cat.category : 'Compétences',
-          items: Array.isArray(cat.items) 
-            ? cat.items.map((item: any) => {
-                if (typeof item === 'string') return item;
-                if (typeof item === 'object' && item !== null) {
-                  return item.name || item.skill || item.title || JSON.stringify(item);
-                }
-                return String(item);
-              })
-            : []
-        }));
-      }
       
       // Update state with optimized data
       setCvData(optimizedData);

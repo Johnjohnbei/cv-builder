@@ -1,0 +1,244 @@
+"use node";
+
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+import { GoogleGenAI } from "@google/genai";
+
+const MODEL_PRO = "gemini-2.5-pro-preview-05-06";
+const MODEL_FLASH = "gemini-2.0-flash";
+
+function getAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not set in Convex environment variables");
+  return new GoogleGenAI({ apiKey });
+}
+
+export const extractCVDataFromPDF = action({
+  args: { base64PDF: v.string() },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const prompt = `
+    Tu es un expert en recrutement. 
+    Extrais les informations professionnelles du PDF fourni et retourne-les au format JSON strict.
+    
+    Structure attendue :
+    {
+      "personal_info": { "name": "", "email": "", "phone": "", "location": "", "title": "", "summary": "" },
+      "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": boolean, "description": [""] } ],
+      "education": [ { "school": "", "degree": "", "field": "", "start_date": "", "end_date": "" } ],
+      "skills": [ { "category": "", "items": [""] } ],
+      "languages": [ { "name": "", "proficiency": "" } ]
+    }
+  `;
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_PRO,
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: "application/pdf",
+            data: args.base64PDF,
+          },
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    return JSON.parse(response.text || "{}");
+  },
+});
+
+export const tailorCV = action({
+  args: {
+    baseData: v.any(),
+    jobDescription: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const prompt = `
+    Tu es un expert en optimisation ATS (Applicant Tracking Systems) pour les années 2025-2026.
+    Adapte le CV suivant pour qu'il corresponde parfaitement à l'offre d'emploi fournie.
+    
+    Règles :
+    1. Utilise les mots-clés exacts de l'offre.
+    2. Réécris les points d'expérience pour mettre en avant les réalisations quantifiables.
+    3. Filtre les compétences non pertinentes.
+    4. Garde une structure JSON identique.
+
+    CV de base :
+    ${JSON.stringify(args.baseData)}
+
+    Offre d'emploi :
+    ${args.jobDescription}
+  `;
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_PRO,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    return JSON.parse(response.text || "{}");
+  },
+});
+
+export const getATSAnalysis = action({
+  args: {
+    cvData: v.any(),
+    jobDescription: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const prompt = `
+    Tu es un expert en recrutement et en systèmes ATS.
+    Analyse le CV suivant par rapport à l'offre d'emploi fournie.
+    
+    CV : ${JSON.stringify(args.cvData)}
+    Offre : ${args.jobDescription}
+
+    Retourne un objet JSON avec :
+    - score : un nombre entre 0 et 100
+    - missingKeywords : liste des mots-clés importants manquants
+    - strengths : points forts du CV pour ce poste
+    - improvements : conseils concrets d'amélioration
+    - ats_compatibility : 'LOW', 'MEDIUM' ou 'HIGH'
+  `;
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_FLASH,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    return JSON.parse(response.text || "{}");
+  },
+});
+
+export const extractJobDescriptionFromURL = action({
+  args: { url: v.string() },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const prompt = `
+    Tu es un expert en extraction de données. 
+    Analyse le contenu de cette URL : ${args.url}
+    
+    IMPORTANT : Extrais la description complète de l'offre d'emploi. 
+    Certaines informations peuvent être cachées dans des accordéons ou des sections repliables (comme sur Welcome to the Jungle). 
+    Assure-toi de récupérer :
+    - Le titre du poste
+    - Les missions et responsabilités
+    - Le profil recherché et les compétences (hard & soft skills)
+    - Les avantages et informations sur l'entreprise
+    
+    Retourne uniquement le texte de la description, structuré de manière lisible, sans fioritures ni commentaires.
+  `;
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_PRO,
+      contents: prompt,
+      config: {
+        tools: [{ urlContext: {} }, { googleSearch: {} }],
+      },
+    });
+
+    return response.text || "";
+  },
+});
+
+export const extractJobDescriptionFromPDF = action({
+  args: { base64PDF: v.string() },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const prompt = `
+    Analyse ce document PDF qui est une fiche de poste.
+    Extrais la description complète de l'offre d'emploi.
+    Retourne uniquement le texte de la description.
+  `;
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_FLASH,
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: "application/pdf",
+            data: args.base64PDF,
+          },
+        },
+      ],
+    });
+
+    return response.text || "";
+  },
+});
+
+export const optimizeCVForPage = action({
+  args: {
+    cvData: v.any(),
+    pageLimit: v.number(),
+  },
+  handler: async (_ctx, args) => {
+    const genAI = getAI();
+
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: [
+        {
+          text: `Tu es un expert en recrutement et en design de CV. Ta tâche est d'optimiser intelligemment ce CV pour qu'il tienne PARFAITEMENT sur ${args.pageLimit} page(s) A4, sans simplement couper le contenu.
+            
+            Voici les données actuelles du CV :
+            ${JSON.stringify(args.cvData, null, 2)}
+            
+            STRATÉGIE D'OPTIMISATION INTELLIGENTE :
+            1. RÉSUMÉ : Raccourcis le résumé professionnel pour qu'il soit percutant mais concis (max 3-4 lignes).
+            2. EXPÉRIENCES : 
+               - Pour les expériences les plus anciennes ou les moins pertinentes, réduis le nombre de points (bullet points) à 1 ou 2 maximum.
+               - Reformule les descriptions pour qu'elles soient plus courtes tout en gardant les mots-clés importants.
+               - Si vraiment nécessaire pour tenir sur la page, fusionne ou supprime les expériences très courtes ou très anciennes (> 10 ans).
+            3. COMPÉTENCES : Regroupe les compétences de manière dense.
+            4. PRIORITÉ : Garde toujours les informations de contact et les formations les plus récentes.
+            
+            BUT : Le CV doit paraître complet et professionnel, pas tronqué. Il doit être optimisé pour la lecture rapide par un recruteur.
+            
+            Retourne UNIQUEMENT l'objet JSON complet du CV optimisé, respectant strictement la structure fournie.`,
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const optimizedData = JSON.parse(response.text || "{}");
+
+    // Sanitize skills to ensure they are strings
+    if (optimizedData.skills) {
+      optimizedData.skills = optimizedData.skills.map((cat: any) => ({
+        ...cat,
+        category: typeof cat.category === "string" ? cat.category : "Compétences",
+        items: Array.isArray(cat.items)
+          ? cat.items.map((item: any) => {
+              if (typeof item === "string") return item;
+              if (typeof item === "object" && item !== null) {
+                return item.name || item.skill || item.title || JSON.stringify(item);
+              }
+              return String(item);
+            })
+          : [],
+      }));
+    }
+
+    return optimizedData;
+  },
+});

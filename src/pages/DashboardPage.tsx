@@ -3,9 +3,8 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { extractCVDataFromPDF, tailorCV, extractJobDescriptionFromURL, extractJobDescriptionFromPDF, getATSAnalysis } from '../services/ai';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CVData } from '../types';
 
@@ -43,6 +42,12 @@ export default function DashboardPage() {
   const createCV = useMutation(api.cvs.createMyCV);
   const removeCV = useMutation(api.cvs.remove);
 
+  const extractCVDataFromPDF = useAction(api.ai.extractCVDataFromPDF);
+  const tailorCV = useAction(api.ai.tailorCV);
+  const getATSAnalysis = useAction(api.ai.getATSAnalysis);
+  const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
+  const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
+
   useEffect(() => {
     if (user && convexUser?.baseCV) {
       setBaseCV(convexUser.baseCV);
@@ -76,7 +81,7 @@ export default function DashboardPage() {
     reader.onload = async () => {
       try {
         const base64 = (reader.result as string).split(',')[1];
-        const data = await extractCVDataFromPDF(base64);
+        const data = await extractCVDataFromPDF({ base64PDF: base64 });
         setBaseCV(data);
         
         if (user) {
@@ -108,7 +113,7 @@ export default function DashboardPage() {
     reader.onload = async () => {
       try {
         const base64 = (reader.result as string).split(',')[1];
-        const text = await extractJobDescriptionFromPDF(base64);
+        const text = await extractJobDescriptionFromPDF({ base64PDF: base64 });
         setJobDescription(text);
       } catch (error) {
         console.error('Job extraction error:', error);
@@ -130,7 +135,7 @@ export default function DashboardPage() {
     if (!jobUrl) return;
     setIsCrawling(true);
     try {
-      const text = await extractJobDescriptionFromURL(jobUrl);
+      const text = await extractJobDescriptionFromURL({ url: jobUrl });
       if (!text || text.length < 50) {
         setNotification({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Notez que les sites comme LinkedIn bloquent souvent l'accès direct. Veuillez copier-coller le texte de l'offre manuellement dans la zone 'Option C'.", type: 'error' });
       } else {
@@ -149,7 +154,7 @@ export default function DashboardPage() {
     setIsGenerating(true);
     
     try {
-      const optimizedData = await tailorCV(baseCV, jobDescription);
+      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription });
       
       if (user) {
         await storeUser();
@@ -170,7 +175,7 @@ export default function DashboardPage() {
     if (!baseCV || !jobDescription) return;
     setIsAnalyzing(true);
     try {
-      const result = await getATSAnalysis(baseCV, jobDescription);
+      const result = await getATSAnalysis({ cvData: baseCV, jobDescription });
       setAtsResult(result);
       setActiveView('ats');
     } catch (error) {
@@ -608,7 +613,7 @@ export default function DashboardPage() {
                   onClick={async () => {
                     try {
                       if (user) {
-                        await removeCV({ id: cvToDelete });
+                        await removeCV({ id: cvToDelete as any });
                       } else if (isGuest) {
                         const guestCVs = JSON.parse(localStorage.getItem('guest_cvs') || '[]');
                         const updatedCVs = guestCVs.filter((cv: any) => cv._id !== cvToDelete);
