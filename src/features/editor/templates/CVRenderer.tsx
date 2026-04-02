@@ -53,7 +53,7 @@ export function CVRenderer({ cvData, designSettings, selectedTemplate }: Props) 
                 <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Expérience Professionnelle</h2>
                 <div className="space-y-6">
                   {cvData.experience?.map((exp, idx) => (
-                    <div key={idx}>
+                    <div key={idx} data-cv-block="experience">
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="font-bold text-gray-900">{exp.position}</h3>
                         <span className="text-xs text-gray-500 font-mono">{exp.start_date} — {exp.current ? 'Présent' : exp.end_date}</span>
@@ -96,7 +96,7 @@ export function CVRenderer({ cvData, designSettings, selectedTemplate }: Props) 
                 <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Formation</h2>
                 <div className="space-y-4">
                   {cvData.education?.map((edu, idx) => (
-                    <div key={idx} className="space-y-1">
+                    <div key={idx} className="space-y-1" data-cv-block="education">
                       <p className="text-xs font-bold">{edu.degree}</p>
                       <p className="text-[10px] text-gray-500">{edu.school} • {edu.end_date}</p>
                     </div>

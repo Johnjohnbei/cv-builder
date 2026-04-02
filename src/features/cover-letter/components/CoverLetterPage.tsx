@@ -152,7 +152,7 @@ export default function CoverLetterPage() {
 
                 <div className="space-y-1">
                   <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Ton</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {[
                       { value: 'professionnel et engagé', label: 'Pro & engagé' },
                       { value: 'formel et académique', label: 'Formel' },

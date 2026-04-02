@@ -1,14 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CVData, DesignSettings } from '../shared/types';
-import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Mail, Phone, MapPin, Linkedin, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap } from 'lucide-react';
+import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Mail, Phone, MapPin, Linkedin, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+
+const TEMPLATE_NAMES: Record<string, string> = {
+  TEMPLATE_A: 'Classic',
+  TEMPLATE_B: 'Modern',
+  TEMPLATE_C: 'Minimal',
+  TEMPLATE_D: 'Creative',
+  TEMPLATE_E: 'Elegant',
+  TEMPLATE_F: 'Sidebar',
+};
 
 export default function EditorPage() {
   const [cvData, setCvData] = useState<CVData | null>(null);
@@ -231,7 +240,7 @@ export default function EditorPage() {
                   <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Expérience Professionnelle</h2>
                   <div className="space-y-6">
                     {cvData.experience?.map((exp, idx) => (
-                      <div key={idx}>
+                      <div key={idx} data-cv-block="experience">
                         <div className="flex justify-between items-start mb-1">
                           <h3 className="font-bold text-gray-900">{exp.position}</h3>
                           <span className="text-xs text-gray-500 font-mono">{exp.start_date} — {exp.current ? 'Présent' : exp.end_date}</span>
@@ -390,7 +399,7 @@ export default function EditorPage() {
                 </h2>
                 <div className="space-y-8">
                   {cvData.experience?.map((exp, idx) => (
-                    <div key={idx} className="relative pl-8 border-l border-gray-100">
+                    <div key={idx} data-cv-block="experience" className="relative pl-8 border-l border-gray-100">
                       <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
                       <div className="flex justify-between items-baseline mb-1">
                         <h3 className="font-bold text-gray-900">{exp.position}</h3>
@@ -461,7 +470,7 @@ export default function EditorPage() {
                 <h2 className={cn("text-gray-300 mb-8 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>Expérience</h2>
                 <div className="space-y-10">
                   {cvData.experience?.map((exp, idx) => (
-                    <div key={idx} className="grid grid-cols-[120px_1fr] gap-8">
+                    <div key={idx} data-cv-block="experience" className="grid grid-cols-[120px_1fr] gap-8">
                       <div className="text-[10px] font-mono text-gray-400 pt-1">
                         {exp.start_date} — {exp.current ? 'PRESENT' : exp.end_date}
                       </div>
@@ -572,7 +581,7 @@ export default function EditorPage() {
                   </div>
                   <div className="space-y-12">
                     {cvData.experience?.map((exp, idx) => (
-                      <div key={idx} className="space-y-3">
+                      <div key={idx} data-cv-block="experience" className="space-y-3">
                         <div className="flex justify-between items-baseline">
                           <h3 className="text-lg font-black uppercase tracking-tight">{exp.position}</h3>
                           <span className="text-[10px] font-bold stitch-mono bg-black text-white px-2 py-0.5">{exp.start_date} — {exp.current ? 'NOW' : exp.end_date}</span>
@@ -687,7 +696,7 @@ export default function EditorPage() {
                 </div>
                 <div className="space-y-8">
                   {cvData.experience?.map((exp, idx) => (
-                    <div key={idx} className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
+                    <div key={idx} data-cv-block="experience" className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
                       <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
                       <div className="flex justify-between items-baseline mb-2">
                         <h3 className="font-bold text-gray-900">{exp.position}</h3>
@@ -863,7 +872,7 @@ export default function EditorPage() {
                 </div>
                 <div className="space-y-10">
                   {cvData.experience?.map((exp, idx) => (
-                    <div key={idx} className="space-y-3">
+                    <div key={idx} data-cv-block="experience" className="space-y-3">
                       <div className="flex justify-between items-baseline">
                         <h3 className="text-lg font-bold text-gray-900">{exp.position}</h3>
                         <span className="text-[10px] font-bold text-gray-400">{exp.start_date} — {exp.current ? 'PRESENT' : exp.end_date}</span>
@@ -961,6 +970,7 @@ export default function EditorPage() {
     }
   };
 
+  // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
   const handleDownloadPDF = async () => {
     if (!cvRef.current) return;
     setIsExporting(true);
@@ -1020,12 +1030,10 @@ export default function EditorPage() {
     if (!cvRef.current) return;
     setIsPreviewing(true);
     
-    // Scroll preview container to top to ensure full capture
     if (previewContainerRef.current) {
       previewContainerRef.current.scrollTo(0, 0);
     }
     
-    // Small delay to ensure any layout shifts are settled
     await new Promise(resolve => setTimeout(resolve, 150));
     
     try {
@@ -1147,7 +1155,7 @@ export default function EditorPage() {
               <h3 className="text-lg font-bold">Changer de modèle ?</h3>
             </div>
             <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Vous êtes sur le point de passer au modèle <span className="font-bold text-gray-900">{pendingTemplate}</span>. 
+              Vous êtes sur le point de passer au modèle <span className="font-bold text-gray-900">{pendingTemplate ? TEMPLATE_NAMES[pendingTemplate] || pendingTemplate : ''}</span>. 
               Votre contenu sera conservé, mais certains réglages de design (polices, espacements) seront automatiquement ajustés pour correspondre au style du nouveau modèle.
             </p>
             <div className="flex gap-3">
@@ -1172,9 +1180,17 @@ export default function EditorPage() {
       )}
 
       {/* Sidebar Navigation (Stitch Style) */}
+      {/* Mobile overlay backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       <aside className={cn(
         "stitch-sidebar h-screen max-h-screen overflow-hidden shrink-0 transition-all duration-300 z-50",
-        isSidebarOpen ? "w-[320px]" : "w-0 -translate-x-full lg:w-0"
+        "fixed md:relative inset-y-0 left-0",
+        isSidebarOpen ? "w-[320px] max-w-[85vw] translate-x-0" : "w-0 -translate-x-full md:w-0"
       )}>
         <div className="stitch-header shrink-0 justify-between">
           <Link to="/dashboard">
@@ -1182,7 +1198,7 @@ export default function EditorPage() {
           </Link>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="p-1 hover:bg-gray-100 rounded transition-colors lg:hidden"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>
@@ -1410,7 +1426,7 @@ export default function EditorPage() {
                   {expandedSection === 'experience' && (
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                       {cvData?.experience?.map((exp, idx) => (
-                        <div key={idx} className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
+                        <div key={idx} data-cv-block="experience" className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
                           <button 
                             onClick={() => setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null)}
                             className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -2037,7 +2053,57 @@ export default function EditorPage() {
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">07. PDF_EXPORT_SETTINGS</div>
+                  <div className="stitch-panel-header">07. SECTIONS_VISIBLES</div>
+                  <div className="p-4 space-y-2">
+                    {[
+                      { id: 'summary', label: 'Résumé professionnel', icon: '📝' },
+                      { id: 'experience', label: 'Expériences', icon: '💼' },
+                      { id: 'education', label: 'Formations', icon: '🎓' },
+                      { id: 'skills', label: 'Compétences', icon: '⚡' },
+                      { id: 'languages', label: 'Langues', icon: '🌍' },
+                    ].map((section) => {
+                      const included = designSettings.includedSections?.includes(section.id) ?? true;
+                      return (
+                        <button
+                          key={section.id}
+                          onClick={() => {
+                            const current = designSettings.includedSections ?? ['personal', 'summary', 'experience', 'education', 'skills', 'languages'];
+                            const updated = included
+                              ? current.filter(s => s !== section.id)
+                              : [...current, section.id];
+                            // Always keep 'personal'
+                            if (!updated.includes('personal')) updated.unshift('personal');
+                            setDesignSettings(prev => ({ ...prev, includedSections: updated }));
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2 rounded border text-[10px] stitch-mono transition-colors flex items-center justify-between",
+                            included
+                              ? "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
+                              : "bg-gray-100 border-gray-200 text-gray-400 line-through"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{section.icon}</span>
+                            <span>{section.label}</span>
+                          </span>
+                          <div className={cn(
+                            "w-8 h-4 rounded-full relative transition-colors",
+                            included ? "bg-blue-600" : "bg-gray-300"
+                          )}>
+                            <div className={cn(
+                              "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all",
+                              included ? "left-4.5" : "left-0.5"
+                            )} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <p className="text-[9px] text-gray-400 mt-2 italic">Les sections cachées ne sont pas supprimées — elles sont juste masquées du PDF.</p>
+                  </div>
+                </section>
+
+                <section className="stitch-panel">
+                  <div className="stitch-panel-header">08. PDF_EXPORT_SETTINGS</div>
                   <div className="p-4 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -2193,7 +2259,10 @@ export default function EditorPage() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+              className={cn(
+                "p-2 hover:bg-gray-100 rounded-lg transition-colors",
+                isSidebarOpen ? "md:hidden" : ""
+              )}
             >
               <LayoutIcon className="w-5 h-5 text-gray-500" />
             </button>
@@ -2204,7 +2273,7 @@ export default function EditorPage() {
             </div>
           </div>
           
-          <div className="flex items-center bg-white border border-[#DADCE0] rounded-full px-3 py-1 gap-4 shadow-sm">
+          <div className="hidden sm:flex items-center bg-white border border-[#DADCE0] rounded-full px-3 py-1 gap-4 shadow-sm">
             <div className="flex items-center gap-2 border-r border-gray-100 pr-3">
               <button 
                 onClick={() => {
@@ -2248,7 +2317,7 @@ export default function EditorPage() {
           <div className="flex items-center space-x-2">
             <button 
               onClick={handleSaveDraft}
-              disabled={isSaving}
+              disabled={isSaving || !cvData}
               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
               title="Sauvegarder le brouillon"
             >
@@ -2257,7 +2326,7 @@ export default function EditorPage() {
             </button>
             <button 
               onClick={handleDownloadPDF}
-              disabled={isExporting}
+              disabled={isExporting || !cvData}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm"
               title="Exporter en PDF"
             >
@@ -2269,7 +2338,7 @@ export default function EditorPage() {
 
         <div 
           ref={previewContainerRef}
-          className="flex-1 overflow-auto p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
+          className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
           {/* Scaled Wrapper to ensure correct scroll area */}
           <div 
@@ -2302,8 +2371,19 @@ export default function EditorPage() {
                 </div>
               )}
               {cvData ? renderCV() : (
-                <div className="h-full flex items-center justify-center p-16">
-                  <p className="stitch-mono text-gray-400">NO_DATA_AVAILABLE</p>
+                <div className="h-full flex items-center justify-center p-8">
+                  <div className="text-center max-w-sm">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-sm font-bold text-gray-700 mb-2">Aucun CV chargé</h3>
+                    <p className="text-xs text-gray-500 mb-6">Importez un CV depuis le dashboard ou créez-en un nouveau pour commencer l'édition.</p>
+                    <Link 
+                      to="/dashboard" 
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Retour au dashboard
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

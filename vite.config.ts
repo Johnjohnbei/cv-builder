@@ -22,7 +22,7 @@ export default defineConfig(({mode}) => {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-clerk': ['@clerk/clerk-react'],
             'vendor-convex': ['convex', 'convex/react', 'convex/react-clerk'],
-            'vendor-pdf': ['jspdf', 'html2canvas'],
+            'vendor-pdf': ['jspdf', 'html2canvas-pro'],
             'vendor-ui': ['lucide-react', 'motion', 'clsx', 'tailwind-merge'],
           },
         },

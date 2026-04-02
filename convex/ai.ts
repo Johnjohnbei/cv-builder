@@ -4,8 +4,8 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { GoogleGenAI } from "@google/genai";
 
-const MODEL_PRO = "gemini-2.5-pro-preview-05-06";
-const MODEL_FLASH = "gemini-2.0-flash";
+const MODEL_PRO = "gemini-2.5-pro";
+const MODEL_FLASH = "gemini-2.5-flash";
 
 function getAI() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -71,19 +71,25 @@ export const tailorCV = action({
 
     const prompt = `
     Tu es un expert en optimisation ATS (Applicant Tracking Systems) pour les années 2025-2026.
-    Adapte le CV suivant pour qu'il corresponde parfaitement à l'offre d'emploi fournie.
+    Adapte le CV suivant pour qu'il corresponde au mieux à l'offre d'emploi fournie.
     
-    Règles :
-    1. Utilise les mots-clés exacts de l'offre.
-    2. Réécris les points d'expérience pour mettre en avant les réalisations quantifiables.
-    3. Filtre les compétences non pertinentes.
-    4. Garde une structure JSON identique.
+    RÈGLES FONDAMENTALES :
+    1. NE SUPPRIME JAMAIS aucune expérience, formation, compétence ou section. Toutes les données d'entrée DOIVENT être présentes dans la sortie.
+    2. Utilise les mots-clés exacts de l'offre dans les reformulations.
+    3. Réécris les bullet points d'expérience pour mettre en avant les réalisations quantifiables et pertinentes pour le poste.
+    4. Pour les expériences les plus pertinentes par rapport à l'offre : enrichis les descriptions, ajoute des mots-clés du poste, développe les résultats.
+    5. Pour les expériences moins pertinentes : raccourcis les descriptions (1-2 bullets) tout en les gardant.
+    6. Réécris le résumé professionnel (summary) pour qu'il cible directement le poste, en 3-4 phrases percutantes.
+    7. Réordonne les compétences pour mettre en premier celles qui correspondent à l'offre.
+    8. La structure JSON de sortie doit être IDENTIQUE à celle d'entrée — même nombre d'expériences, formations, etc.
 
     CV de base :
     ${JSON.stringify(args.baseData)}
 
     Offre d'emploi :
     ${args.jobDescription}
+    
+    Retourne UNIQUEMENT l'objet JSON complet du CV optimisé.
   `;
 
     const response = await genAI.models.generateContent({
@@ -202,26 +208,30 @@ export const optimizeCVForPage = action({
     const genAI = getAI();
 
     const response = await genAI.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: [
         {
-          text: `Tu es un expert en recrutement et en design de CV. Ta tâche est d'optimiser intelligemment ce CV pour qu'il tienne PARFAITEMENT sur ${args.pageLimit} page(s) A4, sans simplement couper le contenu.
+          text: `Tu es un expert en design de CV et en mise en page. Ta tâche est d'ajuster la DENSITÉ du contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4.
             
             Voici les données actuelles du CV :
             ${JSON.stringify(args.cvData, null, 2)}
             
-            STRATÉGIE D'OPTIMISATION INTELLIGENTE :
-            1. RÉSUMÉ : Raccourcis le résumé professionnel pour qu'il soit percutant mais concis (max 3-4 lignes).
-            2. EXPÉRIENCES : 
-               - Pour les expériences les plus anciennes ou les moins pertinentes, réduis le nombre de points (bullet points) à 1 ou 2 maximum.
-               - Reformule les descriptions pour qu'elles soient plus courtes tout en gardant les mots-clés importants.
-               - Si vraiment nécessaire pour tenir sur la page, fusionne ou supprime les expériences très courtes ou très anciennes (> 10 ans).
-            3. COMPÉTENCES : Regroupe les compétences de manière dense.
-            4. PRIORITÉ : Garde toujours les informations de contact et les formations les plus récentes.
+            RÈGLES FONDAMENTALES — NE SUPPRIME RIEN :
+            - Tu ne dois JAMAIS supprimer une expérience, une formation, une compétence ou une section.
+            - Toutes les entrées présentes en entrée DOIVENT être présentes en sortie.
+            - Le nombre d'expériences, formations, catégories de compétences et langues doit être IDENTIQUE.
             
-            BUT : Le CV doit paraître complet et professionnel, pas tronqué. Il doit être optimisé pour la lecture rapide par un recruteur.
+            STRATÉGIE D'AJUSTEMENT DE DENSITÉ :
+            1. RÉSUMÉ : Raccourcis à 2-3 phrases maximum, percutantes et denses.
+            2. EXPÉRIENCES RÉCENTES (< 5 ans) : Garde 2-3 bullet points, reformulés pour être concis mais impactants.
+            3. EXPÉRIENCES ANCIENNES (> 5 ans) : Réduis à 1 bullet point synthétique résumant l'essentiel.
+            4. DESCRIPTIONS : Reformule chaque bullet pour être plus court tout en gardant les chiffres clés et mots-clés.
+            5. COMPÉTENCES : Garde toutes les catégories et tous les items, mais formule-les de façon compacte.
+            6. FORMATIONS : Garde toutes les entrées, simplifie la présentation si nécessaire.
             
-            Retourne UNIQUEMENT l'objet JSON complet du CV optimisé, respectant strictement la structure fournie.`,
+            Le résultat doit paraître complet et professionnel, optimisé pour une lecture rapide.
+            
+            Retourne UNIQUEMENT l'objet JSON complet du CV ajusté, respectant strictement la structure fournie.`,
         },
       ],
       config: {

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm list:*)",
+      "Bash(where gsd:*)",
+      "Bash(npm bin:*)",
+      "Bash(npm prefix:*)"
+    ]
+  }
+}

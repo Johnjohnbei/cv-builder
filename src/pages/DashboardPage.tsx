@@ -193,7 +193,7 @@ export default function DashboardPage() {
   return (
     <div className="stitch-container">
       {/* Sidebar */}
-      <aside className="stitch-sidebar">
+      <aside className="stitch-sidebar dashboard-sidebar flex-col">
         <div className="stitch-header">
           <Logo size="sm" />
         </div>
@@ -266,9 +266,9 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 pb-20 md:pb-6">
           {activeView === 'console' ? (
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-4 lg:gap-6">
               
               {/* Left: Configuration */}
               <div className="col-span-12 lg:col-span-4 space-y-6">
@@ -306,6 +306,8 @@ export default function DashboardPage() {
                             setBaseCV(emptyCV);
                             if (user) {
                               storeUser().then(() => updateLastCV({ cvData: emptyCV }));
+                            } else if (isGuest) {
+                              localStorage.setItem('guest_last_optimized', JSON.stringify(emptyCV));
                             }
                             navigate('/editor');
                           }}
@@ -351,7 +353,7 @@ export default function DashboardPage() {
                 <section className="stitch-panel">
                   <div className="stitch-panel-header">03. JOB_SPECIFICATION</div>
                   <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[10px] stitch-mono text-gray-500 uppercase block mb-2">Option A: URL_SOURCE</label>
                         <div className="flex space-x-2">
@@ -400,7 +402,7 @@ export default function DashboardPage() {
                         className="stitch-input h-48 resize-none stitch-mono text-xs leading-relaxed"
                       />
                     </div>
-                    <div className="mt-4 flex justify-end space-x-3">
+                    <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-3">
                       <button
                         onClick={handleATSAnalysis}
                         disabled={!baseCV || jobDescription.length < 50 || isAnalyzing}
@@ -429,7 +431,7 @@ export default function DashboardPage() {
                   </div>
                 </section>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
                     { label: 'MATCH_SCORE', value: atsResult ? `${atsResult.score}%` : (baseCV && jobDescription.length > 100 ? '...' : '0%'), color: atsResult ? 'text-green-600' : 'text-gray-400' },
                     { label: 'KEYWORDS_FOUND', value: atsResult ? atsResult.missingKeywords.length : '0', color: 'text-blue-600' },
@@ -466,7 +468,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-400 mt-1">Lancez une analyse depuis la console avec un CV et une offre.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-12 gap-6">
+                <div className="grid grid-cols-12 gap-4 lg:gap-6">
                   <div className="col-span-12 lg:col-span-4 space-y-6">
                     <div className="stitch-panel p-6 text-center">
                       <div className="inline-flex items-center justify-center w-24 h-24 rounded-full border-4 border-blue-100 mb-4">
@@ -546,7 +548,21 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500">Gérez et éditez vos différentes versions de CV.</p>
                 </div>
                 <button 
-                  onClick={() => navigate('/editor')}
+                  onClick={() => {
+                    const emptyCV: CVData = {
+                      personal_info: { name: '', email: '', title: '' },
+                      experience: [],
+                      education: [],
+                      skills: [],
+                      languages: [],
+                    };
+                    if (user) {
+                      storeUser().then(() => updateLastCV({ cvData: emptyCV }));
+                    } else if (isGuest) {
+                      localStorage.setItem('guest_last_optimized', JSON.stringify(emptyCV));
+                    }
+                    navigate('/editor');
+                  }}
                   className="stitch-button-primary flex items-center space-x-2"
                 >
                   <Plus className="w-4 h-4" />
@@ -585,12 +601,16 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center text-[10px] text-gray-500 space-x-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span className="stitch-mono uppercase">Template: {cv.design?.template || 'Classic'}</span>
+                          <span className="stitch-mono uppercase">Template: {{ TEMPLATE_A: 'Classic', TEMPLATE_B: 'Modern', TEMPLATE_C: 'Minimal', TEMPLATE_D: 'Creative', TEMPLATE_E: 'Elegant', TEMPLATE_F: 'Sidebar' }[cv.design?.template as string] || cv.design?.template || 'Classic'}</span>
                         </div>
                         <button 
                           onClick={async () => {
                             if (user) {
                               await storeUser();
+                              await updateLastCV({ cvData: cv });
+                              navigate('/editor');
+                            } else if (isGuest) {
+                              localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
                               navigate('/editor');
                             }
                           }}
@@ -608,6 +628,47 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#DADCE0] flex items-center justify-around px-2 py-1 safe-area-bottom">
+        <button 
+          onClick={() => setActiveView('console')}
+          className={cn(
+            "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0",
+            activeView === 'console' ? "text-blue-600" : "text-gray-500"
+          )}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span>Console</span>
+        </button>
+        <button 
+          onClick={() => setActiveView('cvs')}
+          className={cn(
+            "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0",
+            activeView === 'cvs' ? "text-blue-600" : "text-gray-500"
+          )}
+        >
+          <FileText className="w-5 h-5" />
+          <span>CV</span>
+        </button>
+        <button 
+          onClick={() => setActiveView('ats')}
+          className={cn(
+            "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0",
+            activeView === 'ats' ? "text-blue-600" : "text-gray-500"
+          )}
+        >
+          <Search className="w-5 h-5" />
+          <span>ATS</span>
+        </button>
+        <a
+          href="/cover-letter"
+          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0 text-gray-500"
+        >
+          <FileText className="w-5 h-5" />
+          <span>Lettre</span>
+        </a>
+      </nav>
 
       {/* Notifications */}
       {notification && (
