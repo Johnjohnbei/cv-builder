@@ -340,23 +340,14 @@ export default function EditorPage() {
   };
 
   // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = () => {
     if (!cvRef.current) return;
-    setIsExporting(true);
-    try {
-      await renderPDF(cvRef.current, designSettings);
-      setNotification({ message: 'PDF téléchargé !', type: 'success' });
-    } catch (error) {
-      console.error('PDF export error:', error);
-      setNotification({ message: 'Erreur export PDF.', type: 'error' });
-    } finally {
-      setIsExporting(false);
-    }
+    renderPDF(cvRef.current, designSettings);
   };
 
-  const handlePreviewPDF = async () => {
-    // Same as download — html2pdf.js handles it
-    await handleDownloadPDF();
+  const handlePreviewPDF = () => {
+    if (!cvRef.current) return;
+    renderPDF(cvRef.current, designSettings);
   };
 
   if (isLoading) {
