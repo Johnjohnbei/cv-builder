@@ -16,45 +16,29 @@ interface ExportResult {
 /**
  * WYSIWYG PDF export.
  * 
- * Strategy: temporarily reset the element to scale(1) and position:relative,
- * capture at the CSS dimensions (210mm × N×297mm), then restore.
- * This guarantees the PDF matches the preview at 100% zoom.
+ * The cvElement has transform:scale(zoom) for the preview. We must temporarily
+ * reset it to scale(1) so html2canvas captures at the real CSS dimensions
+ * (210mm × N×297mm). After capture, we restore the original transform.
+ * 
+ * This is the ONLY DOM change we make, and it's restored in a finally block.
  */
 export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
   const { cvElement, designSettings } = options;
   const pageLimit = designSettings.pageLimit || 1;
 
-  // Save ALL inline styles that might affect layout
-  const saved = {
-    transform: cvElement.style.transform,
-    position: cvElement.style.position,
-    top: cvElement.style.top,
-    left: cvElement.style.left,
-  };
+  // Save and reset transform to capture at real CSS size
+  const savedTransform = cvElement.style.transform;
+  cvElement.style.transform = 'scale(1)';
 
-  // Reset to natural size — this is what the user sees at 100% zoom
-  cvElement.style.transform = 'none';
-  cvElement.style.position = 'relative';
-  cvElement.style.top = '0';
-  cvElement.style.left = '0';
-
-  // Let the browser recalculate layout
-  await new Promise(r => setTimeout(r, 100));
+  // Wait for browser to reflow at scale(1)
+  await new Promise(r => setTimeout(r, 150));
 
   try {
-    // Capture at exactly 210mm × (297mm × pages) = 794px × (1123px × pages)
-    const targetW = 794;
-    const targetH = 1123 * pageLimit;
-
     const canvas = await html2canvas(cvElement, {
       scale: 2,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      width: targetW,
-      height: targetH,
-      windowWidth: targetW,
-      windowHeight: targetH,
     });
 
     const pdf = new jsPDF({
@@ -90,12 +74,8 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
     const blob = pdf.output('blob');
     const url = URL.createObjectURL(blob);
     return { pdf, blob, url };
-
   } finally {
-    // Restore EVERYTHING
-    cvElement.style.transform = saved.transform;
-    cvElement.style.position = saved.position;
-    cvElement.style.top = saved.top;
-    cvElement.style.left = saved.left;
+    // Always restore the original transform
+    cvElement.style.transform = savedTransform;
   }
 }
