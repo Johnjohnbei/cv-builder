@@ -9,14 +9,11 @@ interface ExportResult {
 }
 
 /**
- * WYSIWYG PDF export using an offscreen clone.
+ * WYSIWYG PDF export.
  * 
- * NEVER modifies the original element. Instead:
- * 1. Clone the CV element
- * 2. Place the clone offscreen at exact A4 dimensions (no transform)
- * 3. Capture the clone with html2canvas
- * 4. Remove the clone
- * 5. Generate PDF from the capture
+ * Temporarily sets scale(1) on the original element to capture at real A4 size.
+ * The caller MUST set isExporting=true before calling to prevent auto-fit.
+ * transform is restored in the finally block.
  */
 export async function renderPDF(
   cvElement: HTMLElement,
@@ -24,25 +21,20 @@ export async function renderPDF(
 ): Promise<ExportResult> {
   const pageLimit = designSettings.pageLimit || 1;
 
-  // Clone and prepare offscreen
-  const clone = cvElement.cloneNode(true) as HTMLElement;
-  clone.style.transform = 'none';
-  clone.style.position = 'absolute';
-  clone.style.top = '-99999px';
-  clone.style.left = '-99999px';
-  clone.style.width = '210mm';
-  clone.style.height = `${297 * pageLimit}mm`;
-  clone.style.overflow = 'hidden';
-  clone.style.border = 'none';
-  clone.style.boxShadow = 'none';
-  clone.style.zIndex = '-1';
-  document.body.appendChild(clone);
+  // Save and temporarily reset for capture
+  const saved = {
+    transform: cvElement.style.transform,
+    border: cvElement.style.border,
+    boxShadow: cvElement.style.boxShadow,
+  };
+  cvElement.style.transform = 'scale(1)';
+  cvElement.style.border = 'none';
+  cvElement.style.boxShadow = 'none';
 
-  // Wait for layout
   await new Promise(r => setTimeout(r, 200));
 
   try {
-    const canvas = await html2canvas(clone, {
+    const canvas = await html2canvas(cvElement, {
       scale: 2,
       useCORS: true,
       logging: false,
@@ -83,33 +75,9 @@ export async function renderPDF(
     const url = URL.createObjectURL(blob);
     return { pdf, blob, url };
   } finally {
-    document.body.removeChild(clone);
+    // Restore everything
+    cvElement.style.transform = saved.transform;
+    cvElement.style.border = saved.border;
+    cvElement.style.boxShadow = saved.boxShadow;
   }
-}
-
-/** Print using native browser dialog (alternative) */
-export function printCV(cvElement: HTMLElement, designSettings: DesignSettings): void {
-  const pageLimit = designSettings.pageLimit || 1;
-  const clone = cvElement.cloneNode(true) as HTMLElement;
-  clone.style.transform = 'none';
-  clone.style.position = 'relative';
-  clone.style.width = '210mm';
-  clone.style.height = `${297 * pageLimit}mm`;
-  clone.style.overflow = 'hidden';
-  clone.style.border = 'none';
-  clone.style.boxShadow = 'none';
-
-  const styles = Array.from(document.styleSheets).map(s => {
-    try { return Array.from(s.cssRules).map(r => r.cssText).join('\n'); } catch { return ''; }
-  }).join('\n');
-
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><style>${styles}
-    @page { size: A4; margin: 0; }
-    body { margin: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    [data-cv-block] { break-inside: avoid !important; }
-  </style>${Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l => l.outerHTML).join('')}</head><body>${clone.outerHTML}</body></html>`);
-  w.document.close();
-  setTimeout(() => { try { w.print(); } catch {} }, 1000);
 }
