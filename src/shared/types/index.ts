@@ -22,7 +22,8 @@ export interface Experience {
   start_date: string;
   end_date?: string;
   current: boolean;
-  description: string[];
+  intro?: string;           // Short description of the role (1-2 lines, always visible except hidden)
+  description: string[];    // Action bullet points (shown based on displayMode)
   kpi?: string;
   displayMode?: ExperienceDisplayMode;
 }

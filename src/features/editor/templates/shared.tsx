@@ -53,36 +53,36 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
 }
 
 /**
- * Render experience bullets with proper compact/normal/extended handling.
- * compact: single paragraph (no bullet marker)
- * normal/extended: <ul> with bullets and optional KPI
+ * Render experience content: intro + action bullets + KPI.
  * 
- * @param bulletMarker - JSX element for the bullet marker (dot, slash, etc.)
+ * compact: intro paragraph only
+ * normal: intro + 2 action bullets
+ * extended: intro + 4 action bullets + KPI
  */
-export function renderExperienceBullets(
+export function renderExperienceContent(
   exp: import('@/src/shared/types').Experience,
+  intro: string | null,
   bullets: string[],
   bulletMarker: React.ReactNode,
   kpiColor: string,
 ) {
   const mode = exp.displayMode || 'normal';
   
-  if (mode === 'compact') {
-    return bullets[0] ? (
-      <p className="text-sm text-gray-600 leading-relaxed">{bullets[0]}</p>
-    ) : null;
-  }
-  
   return (
     <>
-      <ul className="space-y-2">
-        {bullets.map((bullet, bIdx) => (
-          <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-            {bulletMarker}
-            {bullet}
-          </li>
-        ))}
-      </ul>
+      {intro && (
+        <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>
+      )}
+      {bullets.length > 0 && (
+        <ul className="space-y-1.5 mt-1.5">
+          {bullets.map((bullet, bIdx) => (
+            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
+              {bulletMarker}
+              {bullet}
+            </li>
+          ))}
+        </ul>
+      )}
       {mode === 'extended' && exp.kpi && (
         <p className="text-xs font-bold mt-2 flex items-center gap-1.5" style={{ color: kpiColor }}>
           <span className="text-[10px]">📈</span> {exp.kpi}
@@ -91,3 +91,6 @@ export function renderExperienceBullets(
     </>
   );
 }
+
+// Keep old name as alias for backward compat during migration
+export const renderExperienceBullets = renderExperienceContent;

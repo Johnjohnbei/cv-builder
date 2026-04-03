@@ -1,8 +1,8 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
-import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
 export function TemplateD({ cvData, designSettings }: TemplateProps) {
@@ -64,9 +64,10 @@ export function TemplateD({ cvData, designSettings }: TemplateProps) {
                       <span className="text-[11px] font-bold stitch-mono px-3 py-1 shrink-0 whitespace-nowrap" style={{ backgroundColor: '#000', color: '#fff' }}>{formatDateShort(exp.start_date)} — {exp.current ? 'NOW' : formatDateShort(exp.end_date)}</span>
                     </div>
                     <p className="text-sm font-bold italic" style={{ color: secondaryColor }}>{exp.company}</p>
-                    {renderExperienceBullets(
+                    {renderExperienceContent(
                       exp,
-                      getVisibleBullets(exp),
+                      getIntro(exp),
+                    getActionBullets(exp),
                       <span className="font-bold" style={{ color: primaryColor }}>/</span>,
                       primaryColor,
                     )}

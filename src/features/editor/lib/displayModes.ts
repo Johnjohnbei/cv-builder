@@ -1,11 +1,11 @@
 import type { Experience, ExperienceDisplayMode, SkillCategory, SkillDisplayMode } from '@/src/shared/types';
 
 /**
- * Pure logic: returns the visible bullets for an experience based on its displayMode.
- * hidden: nothing rendered
- * compact: 1 bullet (summary line)
- * normal: 2 bullets (key actions)
- * extended: up to 5 bullets (detailed + KPI)
+ * Returns the action bullet points for an experience based on displayMode.
+ * The intro text is always shown separately (not included here).
+ * compact: 0 bullets (intro only)
+ * normal: 2 bullets
+ * extended: up to 4 bullets
  */
 export function getVisibleBullets(exp: Experience): string[] {
   const mode = getMode(exp);
@@ -13,10 +13,38 @@ export function getVisibleBullets(exp: Experience): string[] {
   
   switch (mode) {
     case 'hidden': return [];
-    case 'compact': return desc.slice(0, 1);
+    case 'compact': return [];  // intro only, no bullets
     case 'normal': return desc.slice(0, 2);
-    case 'extended': return desc.slice(0, 5);
+    case 'extended': return desc.slice(0, 4);
     default: return desc.slice(0, 2);
+  }
+}
+
+/**
+ * Returns the intro text for an experience.
+ * Falls back to first description item if no dedicated intro field.
+ */
+export function getIntro(exp: Experience): string | null {
+  if (exp.intro) return exp.intro;
+  // Fallback: use first description as intro if no dedicated field
+  return exp.description?.[0] || null;
+}
+
+/**
+ * Returns bullets EXCLUDING the intro (when intro comes from description[0]).
+ */
+export function getActionBullets(exp: Experience): string[] {
+  const mode = getMode(exp);
+  if (mode === 'hidden') return [];
+  
+  // If there's a dedicated intro, all description items are action bullets
+  const bullets = exp.intro ? (exp.description || []) : (exp.description || []).slice(1);
+  
+  switch (mode) {
+    case 'compact': return [];  // no action bullets
+    case 'normal': return bullets.slice(0, 2);
+    case 'extended': return bullets.slice(0, 4);
+    default: return bullets.slice(0, 2);
   }
 }
 

@@ -37,11 +37,11 @@ export const extractCVDataFromPDF = action({
        Si seule l'année est disponible, utilise juste "YYYY".
        Pour un poste actuel, met end_date à "" et current à true.
     
-    2. DESCRIPTIONS D'EXPÉRIENCE : Chaque bullet point doit être UNE action/résultat concis (1-2 lignes max).
-       Si le texte source est un long paragraphe, DÉCOUPE-le en bullets distincts.
-       Commence chaque bullet par un verbe d'action.
-       Maximum 5 bullets par expérience.
-       Inclus des métriques/chiffres quand disponibles.
+    2. EXPÉRIENCES : Chaque expérience a deux parties distinctes :
+       - "intro" : UNE phrase de description du rôle/contexte (1-2 lignes). Toujours présent.
+       - "description" : Liste de bullet points d'ACTIONS concrètes et résultats.
+       Chaque bullet commence par un verbe d'action. Maximum 4 bullets par expérience.
+       L'intro décrit LE QUOI, les bullets décrivent LE COMMENT et LES RÉSULTATS.
     
     3. TITRE PROFESSIONNEL : Utilise un titre court et percutant (max 5 mots).
        Pas de liste de postes, pas de "Ex-xxx".
@@ -57,7 +57,7 @@ export const extractCVDataFromPDF = action({
     Structure JSON attendue :
     {
       "personal_info": { "name": "", "email": "", "phone": "", "location": "", "title": "", "summary": "" },
-      "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": boolean, "description": ["bullet1", "bullet2"] } ],
+      "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": boolean, "intro": "Description courte du rôle (1-2 lignes)", "description": ["action bullet 1", "action bullet 2"] } ],
       "education": [ { "school": "", "degree": "", "field": "", "start_date": "", "end_date": "" } ],
       "skills": [ { "category": "", "items": ["item1", "item2"] } ],
       "languages": [ { "name": "", "proficiency": "" } ]
@@ -121,9 +121,28 @@ export const extractCVDataFromPDF = action({
 
     // Clean title: remove pipe-separated lists
     if (data.personal_info?.title && data.personal_info.title.length > 50) {
-      // Keep only the first part before | or ,
       const parts = data.personal_info.title.split(/[|,]/);
       data.personal_info.title = parts[0].trim();
+    }
+
+    // Normalize language proficiency: translate English LinkedIn levels to French
+    const proficiencyMap: Record<string, string> = {
+      'native or bilingual': 'Natif / Bilingue',
+      'native or bilingual proficiency': 'Natif / Bilingue',
+      'full professional': 'Courant (C1)',
+      'full professional proficiency': 'Courant (C1)',
+      'professional working': 'Professionnel (B2)',
+      'professional working proficiency': 'Professionnel (B2)',
+      'limited working': 'Intermédiaire (B1)',
+      'limited working proficiency': 'Intermédiaire (B1)',
+      'elementary': 'Débutant (A2)',
+      'elementary proficiency': 'Débutant (A2)',
+    };
+    if (data.languages) {
+      data.languages = data.languages.map((lang: any) => ({
+        ...lang,
+        proficiency: proficiencyMap[lang.proficiency?.toLowerCase?.().trim()] || lang.proficiency,
+      }));
     }
 
     return data;

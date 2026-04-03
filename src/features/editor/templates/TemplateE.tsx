@@ -1,8 +1,8 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
-import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
 export function TemplateE({ cvData, designSettings }: TemplateProps) {
@@ -18,7 +18,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white p-16 pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <div className="flex justify-between items-start mb-12">
           <div className="flex gap-8 items-start">
@@ -62,9 +62,10 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
                     <span className="text-[10px] font-bold opacity-50 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</span>
                   </div>
                   <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>{exp.company}</p>
-                  {renderExperienceBullets(
+                  {renderExperienceContent(
                     exp,
-                    getVisibleBullets(exp),
+                    getIntro(exp),
+                    getActionBullets(exp),
                     <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />,
                     primaryColor,
                   )}

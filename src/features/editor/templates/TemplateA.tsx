@@ -2,7 +2,7 @@ import { Mail, Phone, MapPin, Linkedin } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto } from './shared';
-import { getVisibleBullets, shouldShowKPI, isCompact, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { getVisibleBullets, getIntro, getActionBullets, shouldShowKPI, isCompact, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 import type { Experience } from '@/src/shared/types';
 
@@ -20,7 +20,8 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   // ─── Reusable experience block ───
   const renderExperience = (exp: Experience, idx: number) => {
-    const bullets = getVisibleBullets(exp);
+    const intro = getIntro(exp);
+    const bullets = getActionBullets(exp);
     return (
       <div key={idx} data-cv-block="experience">
         <div className="flex justify-between items-baseline gap-4 mb-1">
@@ -28,25 +29,24 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
           <span className="text-xs text-gray-500 font-mono shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}</span>
         </div>
         <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
-        {isCompact(exp) ? (
-          <p className="text-sm text-gray-600 leading-relaxed">{bullets[0]}</p>
-        ) : (
-          <>
-            <ul className="space-y-2">
-              {bullets.map((bullet, bIdx) => (
-                <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-                  <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-            {shouldShowKPI(exp) && (
-              <p className="text-xs font-bold mt-2 flex items-center gap-1.5" style={{ color: primaryColor }}>
-                <span className="text-[10px]">📈</span> {exp.kpi}
+        {intro && (
+          <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>
+        )}
+        {bullets.length > 0 && (
+          <ul className="space-y-1.5 mt-1.5">
+            {bullets.map((bullet, bIdx) => (
+              <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
+                <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        )}
+        {shouldShowKPI(exp) && (
+          <p className="text-xs font-bold mt-2 flex items-center gap-1.5" style={{ color: primaryColor }}>
+            <span className="text-[10px]">📈</span> {exp.kpi}
               </p>
             )}
-          </>
-        )}
       </div>
     );
   };
@@ -118,7 +118,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   // ─── Layout: conditional on pageLimit ───
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white p-16 pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
       {/* Header */}
       {includedSections.includes('personal') && (
         <div data-cv-section="header" className="border-b-2 pb-8 mb-8 flex justify-between items-start" style={{ borderColor: primaryColor }}>

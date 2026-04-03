@@ -1,8 +1,8 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
-import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
 export function TemplateF({ cvData, designSettings }: TemplateProps) {
@@ -120,9 +120,10 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
                     <span className="text-[10px] font-bold text-gray-400 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</span>
                   </div>
                   <p className="text-sm font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
-                  {renderExperienceBullets(
+                  {renderExperienceContent(
                     exp,
-                    getVisibleBullets(exp),
+                    getIntro(exp),
+                    getActionBullets(exp),
                     <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />,
                     primaryColor,
                   )}

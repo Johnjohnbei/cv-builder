@@ -1,8 +1,8 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
-import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
 export function TemplateC({ cvData, designSettings }: TemplateProps) {
@@ -18,7 +18,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white p-16 space-y-12 pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-12 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <header className="text-center space-y-4 flex flex-col items-center">
           {renderPhoto(cvData, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}
@@ -53,9 +53,10 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
                     <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
                     <p className="text-xs font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
                     <div className="pt-2">
-                      {renderExperienceBullets(
+                      {renderExperienceContent(
                         exp,
-                        getVisibleBullets(exp),
+                        getIntro(exp),
+                    getActionBullets(exp),
                         <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />,
                         primaryColor,
                       )}
