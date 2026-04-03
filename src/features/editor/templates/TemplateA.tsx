@@ -12,7 +12,6 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
   const includedSections = getIncludedSections(designSettings);
   const showPhoto = designSettings.showPhoto;
-  const isMultiPage = (designSettings.pageLimit || 1) > 1;
 
   const commonStyles = {
     '--primary': primaryColor,
@@ -137,27 +136,14 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
         </div>
       )}
 
-      {isMultiPage ? (
-        <>
-          {/* Multi-page: sidebar + profil in grid, then experiences full-width */}
-          <div className="grid grid-cols-3 gap-12 mb-8">
-            <div className="col-span-2">{summarySection}</div>
-            <div className="col-span-1">{sidebarContent}</div>
-          </div>
+      {/* Grid layout: profil + experiences left, sidebar right */}
+      <div className="grid grid-cols-3 gap-12">
+        <div className="col-span-2 space-y-8">
+          {summarySection}
           {experienceSection}
-        </>
-      ) : (
-        <>
-          {/* Single page: classic grid with experiences alongside sidebar */}
-          <div className="grid grid-cols-3 gap-12">
-            <div className="col-span-2 space-y-8">
-              {summarySection}
-              {experienceSection}
-            </div>
-            <div className="col-span-1">{sidebarContent}</div>
-          </div>
-        </>
-      )}
+        </div>
+        <div className="col-span-1">{sidebarContent}</div>
+      </div>
     </div>
   );
 }

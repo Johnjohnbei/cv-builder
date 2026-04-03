@@ -1153,9 +1153,17 @@ export default function EditorPage() {
                       <select 
                         value={designSettings.pageLimit}
                         onChange={(e) => {
-                          setDesignSettings(prev => ({ ...prev, pageLimit: parseInt(e.target.value) as 1 | 2 | 3 | 4 }));
+                          const newLimit = parseInt(e.target.value) as 1 | 2 | 3 | 4;
+                          setDesignSettings(prev => ({ ...prev, pageLimit: newLimit }));
+                          // Re-assign modes for the new page budget
+                          if (cvData) {
+                            const keywords = extractKeywords(jobDescription);
+                            const reassigned = autoAssignModes(cvData.experience, keywords, newLimit);
+                            setCvData(prev => prev ? { ...prev, experience: reassigned } : null);
+                          }
                           setUserModified(false);
                           fitIterations.current = 0;
+                          hasAutoAssigned.current = false; // allow re-fit
                         }}
                         className="bg-white border border-blue-200 rounded text-[10px] px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       >
