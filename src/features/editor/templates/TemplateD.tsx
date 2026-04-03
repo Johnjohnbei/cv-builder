@@ -39,7 +39,7 @@ export function TemplateD({ cvData, designSettings }: TemplateProps) {
       )}
 
       <div className="p-16 pt-12 grid grid-cols-[2fr_1fr] gap-16">
-        <div className="space-y-12">
+        <div className="space-y-8">
           {includedSections.includes('summary') && cvData.personal_info?.summary && (
             <section data-cv-section="summary">
               <div className="flex items-center gap-4 mb-6">
@@ -56,7 +56,7 @@ export function TemplateD({ cvData, designSettings }: TemplateProps) {
                 <h2 className={cn("italic", sectionTitleClasses)} style={{ color: primaryColor, fontSize: '1.5rem' }}>Expérience</h2>
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
-              <div className="space-y-12">
+              <div className="space-y-8">
                 {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                   <div key={idx} data-cv-block="experience" className="space-y-3">
                     <div className="flex justify-between items-baseline">
@@ -78,8 +78,8 @@ export function TemplateD({ cvData, designSettings }: TemplateProps) {
           )}
         </div>
 
-        <div className="space-y-12">
-          {includedSections.includes('skills') && (
+        <div className="space-y-8">
+          {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <section data-cv-section="skills">
               <h2 className={cn("italic mb-6 underline decoration-4 underline-offset-4", sectionTitleClasses)} style={{ textDecorationColor: secondaryColor, fontSize: '1.125rem' }}>Compétences</h2>
               <div className="space-y-6">

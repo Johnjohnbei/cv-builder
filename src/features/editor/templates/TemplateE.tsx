@@ -36,7 +36,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
         </div>
       )}
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary">
             <div className="flex items-center gap-4 mb-6">
@@ -76,7 +76,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
         )}
 
         <div className="grid grid-cols-2 gap-12">
-          {includedSections.includes('skills') && (
+          {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <section data-cv-section="skills">
               <div className="flex items-center gap-4 mb-6">
                 <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Compétences</h2>

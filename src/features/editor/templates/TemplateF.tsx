@@ -19,7 +19,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
 
   return (
     <div style={commonStyles} className={cn("w-full h-full bg-white grid grid-cols-[260px_1fr] pdf-safe", fontClass)}>
-      <aside className="p-12 border-r border-gray-100 space-y-12" style={{ backgroundColor: `${primaryColor}05` }}>
+      <aside className="p-12 border-r border-gray-100 space-y-8" style={{ backgroundColor: `${primaryColor}05` }}>
         {includedSections.includes('personal') && (
           <div className="space-y-4">
             {showPhoto && cvData.personal_info?.photo_url ? (
@@ -47,7 +47,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
           </section>
         )}
 
-        {includedSections.includes('skills') && (
+        {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
           <section data-cv-section="skills" className="space-y-4">
             <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Compétences</h2>
             <div className="space-y-4">
@@ -95,7 +95,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
         )}
       </aside>
 
-      <main className="p-12 space-y-12">
+      <main className="p-12 space-y-8">
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary" className="space-y-4">
             <div className="flex items-center gap-4">

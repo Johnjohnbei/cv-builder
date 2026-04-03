@@ -18,7 +18,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-12 pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-8 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <header className="text-center space-y-4 flex flex-col items-center">
           {renderPhoto(cvData, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}
@@ -32,7 +32,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
         </header>
       )}
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
             <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>Profil</h2>
@@ -68,17 +68,17 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
           </section>
         )}
 
-        <section data-cv-section="skills" className="grid grid-cols-2 gap-16">
-          {includedSections.includes('skills') && (
+        <section data-cv-section="skills" className="grid grid-cols-2 gap-8">
+          {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <div>
-              <h2 className={cn("text-gray-300 mb-6", sectionTitleClasses)} style={{ fontSize: '11px' }}>Compétences</h2>
-              <div className="flex flex-wrap gap-x-6 gap-y-3">
+              <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>Compétences</h2>
+              <div className="space-y-3">
                 {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                   <div key={idx} className="space-y-1">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{cat.category}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {getVisibleSkills(cat).map(skill => (
-                        <span key={skill} className="text-xs text-gray-700">{skill}</span>
+                        <span key={skill} className="text-[10px] text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{skill}</span>
                       ))}
                     </div>
                   </div>

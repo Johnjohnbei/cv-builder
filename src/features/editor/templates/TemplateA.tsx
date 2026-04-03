@@ -70,7 +70,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   const sidebarContent = (
     <div className="space-y-8">
-      {includedSections.includes('skills') && (
+      {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
         <section data-cv-section="skills">
           <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Compétences</h2>
           <div className="space-y-4">

@@ -68,7 +68,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
               </section>
             )}
 
-            {includedSections.includes('skills') && (
+            {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
               <section data-cv-section="skills">
                 <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Expertise</h2>
                 <div className="space-y-4">
@@ -77,7 +77,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
                       <h3 className="text-[9px] font-bold uppercase tracking-widest opacity-80">{cat.category}</h3>
                       <div className="flex flex-wrap gap-2">
                         {getVisibleSkills(cat).map(skill => (
-                          <span key={skill} className="px-2 py-1 bg-white/10 text-white text-[9px] font-medium rounded">
+                          <span key={skill} className="px-2 py-1 text-[9px] font-medium rounded" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}>
                             {skill}
                           </span>
                         ))}
@@ -91,7 +91,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
         </div>
       </div>
 
-      <div className="p-16 space-y-12">
+      <div className="p-16 space-y-8">
         {includedSections.includes('experience') && (
           <section data-cv-section="experience">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
