@@ -28,17 +28,42 @@ export const extractCVDataFromPDF = action({
     const genAI = getAI();
 
     const prompt = `
-    Tu es un expert en recrutement. 
+    Tu es un expert en recrutement et en structuration de données CV.
     Extrais les informations professionnelles du PDF fourni et retourne-les au format JSON strict.
     
-    Structure attendue :
+    RÈGLES IMPORTANTES :
+    
+    1. DATES : Utilise TOUJOURS le format "Mois YYYY" (ex: "Septembre 2016", "Janvier 2024").
+       Si seule l'année est disponible, utilise juste "YYYY".
+       Pour un poste actuel, met end_date à "" et current à true.
+    
+    2. DESCRIPTIONS D'EXPÉRIENCE : Chaque bullet point doit être UNE action/résultat concis (1-2 lignes max).
+       Si le texte source est un long paragraphe, DÉCOUPE-le en bullets distincts.
+       Commence chaque bullet par un verbe d'action.
+       Maximum 5 bullets par expérience.
+       Inclus des métriques/chiffres quand disponibles.
+    
+    3. TITRE PROFESSIONNEL : Utilise un titre court et percutant (max 5 mots).
+       Pas de liste de postes, pas de "Ex-xxx".
+    
+    4. SUMMARY : Maximum 3 phrases. Résume le profil, les spécialités et la valeur ajoutée.
+    
+    5. COMPÉTENCES : Regroupe en 2-4 catégories max. Chaque catégorie a 3-6 items.
+       Catégories typiques : "Métier/Product", "Technique", "Outils", "Soft Skills".
+       Chaque item est un mot ou expression courte (1-3 mots).
+    
+    6. LANGUES : Utilise les proficiencies standards : "Natif", "Bilingue", "Courant (C1)", "Intermédiaire (B1/B2)", "Débutant (A1/A2)".
+    
+    Structure JSON attendue :
     {
       "personal_info": { "name": "", "email": "", "phone": "", "location": "", "title": "", "summary": "" },
-      "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": boolean, "description": [""] } ],
+      "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": boolean, "description": ["bullet1", "bullet2"] } ],
       "education": [ { "school": "", "degree": "", "field": "", "start_date": "", "end_date": "" } ],
-      "skills": [ { "category": "", "items": [""] } ],
+      "skills": [ { "category": "", "items": ["item1", "item2"] } ],
       "languages": [ { "name": "", "proficiency": "" } ]
     }
+    
+    IMPORTANT : Retourne TOUTES les expériences du CV, même les anciennes. L'utilisateur choisira lesquelles afficher.
   `;
 
     const response = await genAI.models.generateContent({
@@ -57,7 +82,51 @@ export const extractCVDataFromPDF = action({
       },
     });
 
-    return safeParseJSON(response.text);
+    const data = safeParseJSON(response.text);
+
+    // ─── Post-processing: normalize and clean the extracted data ───
+    
+    // Normalize experience descriptions: split long paragraphs into bullets
+    if (data.experience) {
+      data.experience = data.experience.map((exp: any) => ({
+        ...exp,
+        current: exp.current === true || exp.end_date === '' || exp.end_date?.toLowerCase?.() === 'présent' || exp.end_date?.toLowerCase?.() === 'present',
+        end_date: (exp.current === true || exp.end_date?.toLowerCase?.() === 'présent' || exp.end_date?.toLowerCase?.() === 'present') ? '' : exp.end_date,
+        description: Array.isArray(exp.description) 
+          ? exp.description.flatMap((d: string) => {
+              // Split paragraphs that contain multiple sentences/bullets
+              if (typeof d === 'string' && d.length > 200) {
+                return d.split(/[•·\-–—]\s+|(?:\.\s+)(?=[A-Z])/).filter(s => s.trim().length > 10).map(s => s.trim());
+              }
+              return [typeof d === 'string' ? d.trim() : String(d)];
+            }).slice(0, 5) // max 5 bullets
+          : [],
+      }));
+    }
+
+    // Normalize skills: ensure items are strings
+    if (data.skills) {
+      data.skills = data.skills.map((cat: any) => ({
+        category: typeof cat.category === 'string' ? cat.category : 'Compétences',
+        items: Array.isArray(cat.items)
+          ? cat.items.map((item: any) => typeof item === 'string' ? item : item?.name || item?.skill || String(item)).slice(0, 8)
+          : [],
+      })).slice(0, 5); // max 5 categories
+    }
+
+    // Truncate summary if too long
+    if (data.personal_info?.summary && data.personal_info.summary.length > 300) {
+      data.personal_info.summary = data.personal_info.summary.substring(0, 297) + '...';
+    }
+
+    // Clean title: remove pipe-separated lists
+    if (data.personal_info?.title && data.personal_info.title.length > 50) {
+      // Keep only the first part before | or ,
+      const parts = data.personal_info.title.split(/[|,]/);
+      data.personal_info.title = parts[0].trim();
+    }
+
+    return data;
   },
 });
 
