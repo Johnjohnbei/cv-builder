@@ -14,59 +14,88 @@ interface ExportResult {
 }
 
 /**
- * WYSIWYG PDF export: captures the CV element EXACTLY as displayed.
+ * WYSIWYG PDF export.
  * 
- * No DOM manipulation at all. We capture the element including its
- * current zoom transform, then scale the image to fit A4 pages in the PDF.
+ * Strategy: temporarily reset the element to scale(1) and position:relative,
+ * capture at the CSS dimensions (210mm × N×297mm), then restore.
+ * This guarantees the PDF matches the preview at 100% zoom.
  */
 export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
   const { cvElement, designSettings } = options;
   const pageLimit = designSettings.pageLimit || 1;
 
-  // Capture exactly what's on screen — no style changes
-  const canvas = await html2canvas(cvElement, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-  });
+  // Save ALL inline styles that might affect layout
+  const saved = {
+    transform: cvElement.style.transform,
+    position: cvElement.style.position,
+    top: cvElement.style.top,
+    left: cvElement.style.left,
+  };
 
-  const pdf = new jsPDF({
-    orientation: designSettings.orientation || 'portrait',
-    unit: 'mm',
-    format: designSettings.paperSize || 'a4',
-  });
+  // Reset to natural size — this is what the user sees at 100% zoom
+  cvElement.style.transform = 'none';
+  cvElement.style.position = 'relative';
+  cvElement.style.top = '0';
+  cvElement.style.left = '0';
 
-  const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
-  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+  // Let the browser recalculate layout
+  await new Promise(r => setTimeout(r, 100));
 
-  if (pageLimit === 1) {
-    // Single page: scale the entire capture to fit A4
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfWidth, pdfHeight);
-  } else {
-    // Multi-page: slice the canvas into equal vertical segments
-    const sliceHeight = Math.round(canvas.height / pageLimit);
+  try {
+    // Capture at exactly 210mm × (297mm × pages) = 794px × (1123px × pages)
+    const targetW = 794;
+    const targetH = 1123 * pageLimit;
 
-    for (let i = 0; i < pageLimit; i++) {
-      if (i > 0) pdf.addPage();
+    const canvas = await html2canvas(cvElement, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: targetW,
+      height: targetH,
+      windowWidth: targetW,
+      windowHeight: targetH,
+    });
 
-      const srcY = i * sliceHeight;
-      const srcH = Math.min(sliceHeight, canvas.height - srcY);
-      if (srcH <= 0) break;
+    const pdf = new jsPDF({
+      orientation: designSettings.orientation || 'portrait',
+      unit: 'mm',
+      format: designSettings.paperSize || 'a4',
+    });
 
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = sliceHeight;
-      const ctx = pageCanvas.getContext('2d')!;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    if (pageLimit === 1) {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, pdfH);
+    } else {
+      const sliceH = Math.round(canvas.height / pageLimit);
+      for (let i = 0; i < pageLimit; i++) {
+        if (i > 0) pdf.addPage();
+        const srcY = i * sliceH;
+        const srcH = Math.min(sliceH, canvas.height - srcY);
+        if (srcH <= 0) break;
+
+        const page = document.createElement('canvas');
+        page.width = canvas.width;
+        page.height = sliceH;
+        const ctx = page.getContext('2d')!;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, page.width, page.height);
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+        pdf.addImage(page.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, pdfH);
+      }
     }
-  }
 
-  const blob = pdf.output('blob');
-  const url = URL.createObjectURL(blob);
-  return { pdf, blob, url };
+    const blob = pdf.output('blob');
+    const url = URL.createObjectURL(blob);
+    return { pdf, blob, url };
+
+  } finally {
+    // Restore EVERYTHING
+    cvElement.style.transform = saved.transform;
+    cvElement.style.position = saved.position;
+    cvElement.style.top = saved.top;
+    cvElement.style.left = saved.left;
+  }
 }
