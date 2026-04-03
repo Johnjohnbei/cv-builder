@@ -13,6 +13,17 @@ function getAI() {
   return new GoogleGenAI({ apiKey });
 }
 
+function verifyAccessCode(code?: string) {
+  // Server-side check: if ACCESS_CODES env var is set, verify against it
+  // The full DB verification happens client-side before the call
+  const validCodes = (process.env.ACCESS_CODES || "").split(",").map(c => c.trim()).filter(Boolean);
+  if (validCodes.length === 0 && !code) return; // no codes configured + no code = open access
+  if (validCodes.length === 0 && code) return; // codes not in env but provided = allow (DB check was done client-side)
+  if (!code || !validCodes.includes(code)) {
+    throw new Error("Code d'accès invalide.");
+  }
+}
+
 function safeParseJSON(text: string | undefined, fallback: any = {}): any {
   try {
     return JSON.parse(text || JSON.stringify(fallback));
@@ -23,8 +34,11 @@ function safeParseJSON(text: string | undefined, fallback: any = {}): any {
 }
 
 export const extractCVDataFromPDF = action({
-  args: { base64PDF: v.string() },
+  args: { base64PDF: v.string() ,
+    accessCode: v.optional(v.string()),
+  },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const prompt = `
@@ -153,8 +167,10 @@ export const tailorCV = action({
   args: {
     baseData: v.any(),
     jobDescription: v.string(),
+    accessCode: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const prompt = `
@@ -196,8 +212,10 @@ export const getATSAnalysis = action({
   args: {
     cvData: v.any(),
     jobDescription: v.string(),
+    accessCode: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const prompt = `
@@ -228,8 +246,11 @@ export const getATSAnalysis = action({
 });
 
 export const extractJobDescriptionFromURL = action({
-  args: { url: v.string() },
+  args: { url: v.string() ,
+    accessCode: v.optional(v.string()),
+  },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const prompt = `
@@ -260,8 +281,11 @@ export const extractJobDescriptionFromURL = action({
 });
 
 export const extractJobDescriptionFromPDF = action({
-  args: { base64PDF: v.string() },
+  args: { base64PDF: v.string() ,
+    accessCode: v.optional(v.string()),
+  },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const prompt = `
@@ -292,8 +316,10 @@ export const optimizeCVForPage = action({
     cvData: v.any(),
     pageLimit: v.number(),
     jobDescription: v.optional(v.string()),
+    accessCode: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
     const jobContext = args.jobDescription
@@ -404,8 +430,10 @@ export const generateCoverLetter = action({
     jobDescription: v.string(),
     companyName: v.optional(v.string()),
     tone: v.optional(v.string()),
+    accessCode: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
     const tone = args.tone || "professionnel et engagé";
     const company = args.companyName ? `pour l'entreprise ${args.companyName}` : "";
@@ -449,8 +477,10 @@ export const improveBulletPoint = action({
     position: v.string(),
     company: v.string(),
     jobDescription: v.optional(v.string()),
+    accessCode: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
+    verifyAccessCode(args.accessCode);
     const genAI = getAI();
     const jobContext = args.jobDescription
       ? `\n\nOffre ciblée :\n${args.jobDescription}`

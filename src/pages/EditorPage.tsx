@@ -57,6 +57,7 @@ export default function EditorPage() {
   const [improvingBullet, setImprovingBullet] = useState<string | null>(null); // "expIdx-bulletIdx"
   const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
   const [jobDescription, setJobDescription] = useState('');
+  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('calibre_access_code') || '');
   const [userModified, setUserModified] = useState(false);
   const cvRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -270,6 +271,7 @@ export default function EditorPage() {
       const optimizedData = await optimizeCVAction({
         cvData,
         pageLimit: designSettings.pageLimit || 1,
+        accessCode: localStorage.getItem("calibre_access_code") || "",
       });
       
       // Update state with optimized data
@@ -986,6 +988,7 @@ export default function EditorPage() {
                                         try {
                                           const result = await improveBulletAction({
                                             bullet,
+                                            accessCode: localStorage.getItem("calibre_access_code") || "",
                                             position: exp.position,
                                             company: exp.company,
                                           });

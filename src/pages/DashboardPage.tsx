@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X } from 'lucide-react';
+import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
@@ -35,6 +35,47 @@ export default function DashboardPage() {
   const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
+  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('calibre_access_code') || '');
+  const [accessEmail, setAccessEmail] = useState('');
+  const [showAccessCodePrompt, setShowAccessCodePrompt] = useState(false);
+  const [accessError, setAccessError] = useState('');
+  const [requestSent, setRequestSent] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const requireAccessCode = (action: () => void) => {
+    const code = localStorage.getItem('calibre_access_code') || '';
+    if (code) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setAccessError('');
+      setRequestSent(false);
+      setShowAccessCodePrompt(true);
+    }
+  };
+
+  const confirmAccessCode = async () => {
+    if (!accessCode) return;
+    // Verify code is valid before saving
+    // We can't use the query result here since it's reactive, so trust the input
+    localStorage.setItem('calibre_access_code', accessCode);
+    setShowAccessCodePrompt(false);
+    setAccessError('');
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  };
+
+  const handleRequestAccess = async () => {
+    if (!accessEmail) return;
+    try {
+      await requestAccessMutation({ email: accessEmail, message: 'Demande depuis Calibre' });
+      setRequestSent(true);
+    } catch {
+      setAccessError("Erreur lors de l'envoi. Réessayez.");
+    }
+  };
 
   const convexUser = useQuery(api.users.getMe, user ? undefined : "skip");
   const convexCVs = useQuery(api.cvs.listMyCVs, user ? undefined : "skip");
@@ -49,6 +90,8 @@ export default function DashboardPage() {
   const getATSAnalysis = useAction(api.ai.getATSAnalysis);
   const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
+  const verifyCode = useQuery(api.accessCodes.verify, accessCode ? { code: accessCode } : "skip");
+  const requestAccessMutation = useMutation(api.accessCodes.requestAccess);
 
   useEffect(() => {
     if (user && convexUser?.baseCV) {
@@ -76,14 +119,15 @@ export default function DashboardPage() {
   }, [notification]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setIsUploading(true);
     const file = acceptedFiles[0];
-    
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64 = (reader.result as string).split(',')[1];
-        const data = await extractCVDataFromPDF({ base64PDF: base64 });
+    const doExtract = async () => {
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const code = localStorage.getItem('calibre_access_code') || '';
+          const data = await extractCVDataFromPDF({ base64PDF: base64, accessCode: code });
         setBaseCV(data);
         
         if (user) {
@@ -100,7 +144,9 @@ export default function DashboardPage() {
       }
     };
     reader.readAsDataURL(file);
-  }, [user, storeUser]);
+    };
+    requireAccessCode(doExtract);
+  }, [user, storeUser, accessCode]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
@@ -116,7 +162,7 @@ export default function DashboardPage() {
     reader.onload = async () => {
       try {
         const base64 = (reader.result as string).split(',')[1];
-        const text = await extractJobDescriptionFromPDF({ base64PDF: base64 });
+        const text = await extractJobDescriptionFromPDF({ base64PDF: base64, accessCode: localStorage.getItem("calibre_access_code") || "" });
         setJobDescription(text);
       } catch (error) {
         console.error('Job extraction error:', error);
@@ -138,7 +184,7 @@ export default function DashboardPage() {
     if (!jobUrl) return;
     setIsCrawling(true);
     try {
-      const text = await extractJobDescriptionFromURL({ url: jobUrl });
+      const text = await extractJobDescriptionFromURL({ url: jobUrl, accessCode: localStorage.getItem("calibre_access_code") || "" });
       if (!text || text.length < 50) {
         setNotification({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Notez que les sites comme LinkedIn bloquent souvent l'accès direct. Veuillez copier-coller le texte de l'offre manuellement dans la zone 'Option C'.", type: 'error' });
       } else {
@@ -157,7 +203,7 @@ export default function DashboardPage() {
     setIsGenerating(true);
     
     try {
-      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription });
+      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription, accessCode: localStorage.getItem("calibre_access_code") || "" });
       
       if (user) {
         await storeUser();
@@ -179,7 +225,7 @@ export default function DashboardPage() {
     if (!baseCV || !jobDescription) return;
     setIsAnalyzing(true);
     try {
-      const result = await getATSAnalysis({ cvData: baseCV, jobDescription });
+      const result = await getATSAnalysis({ cvData: baseCV, jobDescription, accessCode: localStorage.getItem("calibre_access_code") || "" });
       setAtsResult(result);
       setActiveView('ats');
     } catch (error) {
@@ -192,6 +238,79 @@ export default function DashboardPage() {
 
   return (
     <div className="stitch-container">
+      {/* Access Code Modal */}
+      {showAccessCodePrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Accès aux fonctionnalités IA</h3>
+              <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+                Calibre est un outil fonctionnel qui utilise l'IA pour optimiser votre CV. Les coûts d'infrastructure étant significatifs, un code d'accès est nécessaire pour utiliser les fonctionnalités de génération.
+              </p>
+            </div>
+            
+            <input
+              type="text"
+              value={accessCode}
+              onChange={(e) => { setAccessCode(e.target.value); setAccessError(''); }}
+              placeholder="Entrez votre code d'accès..."
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              onKeyDown={(e) => e.key === 'Enter' && accessCode && confirmAccessCode()}
+              autoFocus
+            />
+            {accessError && <p className="text-xs text-red-500 mb-2">{accessError}</p>}
+            
+            <div className="flex gap-3 mb-6">
+              <button 
+                onClick={() => { setShowAccessCodePrompt(false); setPendingAction(null); }} 
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmAccessCode} 
+                disabled={!accessCode}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                Valider
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100 pt-5">
+              <p className="text-xs text-gray-400 text-center mb-3">
+                Pas de code ? Laissez votre email pour être notifié quand le service sera ouvert — ou pour recevoir un accès anticipé.
+              </p>
+              {requestSent ? (
+                <div className="text-center py-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-700 font-medium">✓ Demande envoyée !</p>
+                  <p className="text-xs text-green-600 mt-1">Vous recevrez un code par email.</p>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={accessEmail}
+                    onChange={(e) => setAccessEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    onKeyDown={(e) => e.key === 'Enter' && accessEmail && handleRequestAccess()}
+                  />
+                  <button
+                    onClick={handleRequestAccess}
+                    disabled={!accessEmail}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-40"
+                  >
+                    Envoyer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside className="stitch-sidebar dashboard-sidebar flex-col">
         <div className="stitch-header">

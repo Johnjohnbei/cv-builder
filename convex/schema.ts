@@ -37,4 +37,19 @@ export default defineSchema({
     closing: v.string(),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
+
+  accessCodes: defineTable({
+    code: v.string(),
+    maxUses: v.number(),
+    usedCount: v.number(),
+    expiresAt: v.string(),
+    createdAt: v.string(),
+    label: v.optional(v.string()),
+  }).index("by_code", ["code"]),
+
+  accessRequests: defineTable({
+    email: v.string(),
+    message: v.optional(v.string()),
+    createdAt: v.string(),
+  }),
 });
