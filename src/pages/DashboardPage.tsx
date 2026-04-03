@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles } from 'lucide-react';
+import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
@@ -31,6 +31,12 @@ export default function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeView, setActiveView] = useState<'console' | 'cvs' | 'ats'>('console');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [newCodeDays, setNewCodeDays] = useState(30);
+  const [newCodeUses, setNewCodeUses] = useState(50);
+  const [newCodeLabel, setNewCodeLabel] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
   const [savedCVs, setSavedCVs] = useState<any[]>([]);
   const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -92,6 +98,9 @@ export default function DashboardPage() {
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
   const verifyCode = useQuery(api.accessCodes.verify, accessCode ? { code: accessCode } : "skip");
   const requestAccessMutation = useMutation(api.accessCodes.requestAccess);
+  const generateCodeMutation = useMutation(api.accessCodes.generate);
+  const adminCodes = useQuery(api.accessCodes.list, isAdmin ? undefined : "skip");
+  const adminRequests = useQuery(api.accessCodes.listRequests, isAdmin ? undefined : "skip");
 
   useEffect(() => {
     if (user && convexUser?.baseCV) {
@@ -311,6 +320,81 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      {/* Admin Panel Modal */}
+      {showAdminPanel && isAdmin && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Admin — Codes d'accès</h3>
+              <button onClick={() => setShowAdminPanel(false)} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            
+            {/* Generate code */}
+            <div className="border rounded-lg p-4 mb-4 space-y-3">
+              <h4 className="text-sm font-bold text-gray-700">Générer un code</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-gray-500 block">Durée (jours)</label>
+                  <input type="number" value={newCodeDays} onChange={e => setNewCodeDays(+e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block">Max utilisations</label>
+                  <input type="number" value={newCodeUses} onChange={e => setNewCodeUses(+e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block">Label</label>
+                  <input type="text" value={newCodeLabel} onChange={e => setNewCodeLabel(e.target.value)} placeholder="beta" className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  const result = await generateCodeMutation({ maxUses: newCodeUses, durationDays: newCodeDays, label: newCodeLabel || undefined });
+                  setGeneratedCode(result.code);
+                }}
+                className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                Générer
+              </button>
+              {generatedCode && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-green-600 mb-1">Code généré :</p>
+                  <p className="text-lg font-bold font-mono text-green-800 select-all">{generatedCode}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Active codes */}
+            <div className="border rounded-lg p-4 mb-4">
+              <h4 className="text-sm font-bold text-gray-700 mb-2">Codes actifs ({adminCodes?.length || 0})</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {adminCodes?.map((c: any) => (
+                  <div key={c._id} className="flex justify-between items-center text-xs bg-gray-50 rounded px-3 py-2">
+                    <span className="font-mono font-bold">{c.code}</span>
+                    <span className="text-gray-500">{c.usedCount}/{c.maxUses} — {c.label || 'sans label'}</span>
+                    <span className={new Date(c.expiresAt) < new Date() ? 'text-red-500' : 'text-green-600'}>
+                      {new Date(c.expiresAt) < new Date() ? 'Expiré' : `→ ${new Date(c.expiresAt).toLocaleDateString()}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Access requests */}
+            <div className="border rounded-lg p-4">
+              <h4 className="text-sm font-bold text-gray-700 mb-2">Demandes d'accès ({adminRequests?.length || 0})</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {adminRequests?.map((r: any) => (
+                  <div key={r._id} className="flex justify-between items-center text-xs bg-gray-50 rounded px-3 py-2">
+                    <span className="font-medium">{r.email}</span>
+                    <span className="text-gray-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+                {(!adminRequests || adminRequests.length === 0) && <p className="text-xs text-gray-400">Aucune demande</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside className="stitch-sidebar dashboard-sidebar flex-col">
         <div className="stitch-header">
@@ -355,6 +439,15 @@ export default function DashboardPage() {
             <FileText className="w-4 h-4" />
             <span>Lettre de motivation</span>
           </a>
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdminPanel(true)}
+              className="w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium text-amber-600 hover:bg-amber-50 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Admin</span>
+            </button>
+          )}
         </nav>
 
         <div className="p-4 border-t border-[#DADCE0]">
