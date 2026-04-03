@@ -3,7 +3,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort } from '../lib/scoring';
+import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 
 export function TemplateF({ cvData, designSettings }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
@@ -87,7 +87,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
               {cvData.languages?.map((lang, idx) => (
                 <div key={idx} className="flex justify-between items-center">
                   <span className="text-[11px] font-bold text-gray-900">{lang.name}</span>
-                  <span className="text-[9px] uppercase tracking-widest text-gray-400">{lang.proficiency}</span>
+                  <span className="text-[9px] uppercase tracking-widest text-gray-400">{normalizeProficiency(lang.proficiency)}</span>
                 </div>
               ))}
             </div>

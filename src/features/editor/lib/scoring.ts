@@ -179,3 +179,23 @@ const STOP_WORDS = new Set([
   'vous', 'nous', 'être', 'avoir', 'tout', 'plus', 'très', 'votre', 'notre',
   'not', 'but', 'all', 'can', 'has', 'her', 'his', 'its', 'may', 'our', 'she',
 ]);
+
+// ─── Language proficiency normalization ───
+
+const PROFICIENCY_MAP: Record<string, string> = {
+  'native or bilingual': 'Natif / Bilingue',
+  'native or bilingual proficiency': 'Natif / Bilingue',
+  'full professional': 'Courant (C1)',
+  'full professional proficiency': 'Courant (C1)',
+  'professional working': 'Professionnel (B2)',
+  'professional working proficiency': 'Professionnel (B2)',
+  'limited working': 'Intermédiaire (B1)',
+  'limited working proficiency': 'Intermédiaire (B1)',
+  'elementary': 'Débutant (A2)',
+  'elementary proficiency': 'Débutant (A2)',
+};
+
+/** Normalize language proficiency to French labels */
+export function normalizeProficiency(proficiency: string): string {
+  return PROFICIENCY_MAP[proficiency.toLowerCase().trim()] || proficiency;
+}

@@ -3,7 +3,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort } from '../lib/scoring';
+import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 
 export function TemplateC({ cvData, designSettings }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
@@ -76,7 +76,11 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
                 {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                   <div key={idx} className="space-y-1">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{cat.category}</p>
-                    <p className="text-xs text-gray-700">{getVisibleSkills(cat).join(', ') || ''}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {getVisibleSkills(cat).map(skill => (
+                        <span key={skill} className="text-xs text-gray-700">{skill}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -104,7 +108,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
               {cvData.languages?.map((lang, idx) => (
                 <div key={idx} className="text-center">
                   <p className="text-xs font-bold text-gray-900 uppercase">{lang.name}</p>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest">{lang.proficiency}</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest">{normalizeProficiency(lang.proficiency)}</p>
                 </div>
               ))}
             </div>
