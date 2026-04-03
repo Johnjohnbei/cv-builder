@@ -62,8 +62,9 @@ export default function DashboardPage() {
 
   const confirmAccessCode = async () => {
     if (!accessCode) return;
-    // Verify code is valid before saving
-    // We can't use the query result here since it's reactive, so trust the input
+    // The verifyCode query runs reactively — check its result
+    // For immediate check, we trust the input and save; if the code is invalid, 
+    // the next page load will show the error via the reactive query
     localStorage.setItem('calibre_access_code', accessCode);
     setShowAccessCodePrompt(false);
     setAccessError('');

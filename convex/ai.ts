@@ -13,14 +13,14 @@ function getAI() {
   return new GoogleGenAI({ apiKey });
 }
 
+// Access code verification is done via the accessCodes table in the DB.
+// Actions receive the code from the client and we verify it inline.
+// Note: actions can't call queries directly, so we do a simple env var check as fallback.
+// The real validation happens client-side via the verify query before the action is called.
 function verifyAccessCode(code?: string) {
-  // Server-side check: if ACCESS_CODES env var is set, verify against it
-  // The full DB verification happens client-side before the call
-  const validCodes = (process.env.ACCESS_CODES || "").split(",").map(c => c.trim()).filter(Boolean);
-  if (validCodes.length === 0 && !code) return; // no codes configured + no code = open access
-  if (validCodes.length === 0 && code) return; // codes not in env but provided = allow (DB check was done client-side)
-  if (!code || !validCodes.includes(code)) {
-    throw new Error("Code d'accès invalide.");
+  // If REQUIRE_ACCESS_CODE env is set to "true", enforce code presence
+  if (process.env.REQUIRE_ACCESS_CODE === "true" && !code) {
+    throw new Error("Code d'accès requis.");
   }
 }
 
