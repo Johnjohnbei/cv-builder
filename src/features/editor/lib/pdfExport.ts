@@ -26,9 +26,13 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
   const { cvElement, designSettings } = options;
   const pageLimit = designSettings.pageLimit || 1;
 
-  // Save and reset transform to capture at real CSS size
+  // Save and reset transform + hide preview decorations for clean capture
   const savedTransform = cvElement.style.transform;
+  const savedBorder = cvElement.style.border;
+  const savedBoxShadow = cvElement.style.boxShadow;
   cvElement.style.transform = 'scale(1)';
+  cvElement.style.border = 'none';
+  cvElement.style.boxShadow = 'none';
 
   // Wait for browser to reflow at scale(1)
   await new Promise(r => setTimeout(r, 150));
@@ -75,7 +79,8 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
     const url = URL.createObjectURL(blob);
     return { pdf, blob, url };
   } finally {
-    // Always restore the original transform
     cvElement.style.transform = savedTransform;
+    cvElement.style.border = savedBorder;
+    cvElement.style.boxShadow = savedBoxShadow;
   }
 }
