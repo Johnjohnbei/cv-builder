@@ -2,10 +2,8 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import type { DesignSettings } from '@/src/shared/types';
 
-const A4_WIDTH_PX = 794;
-const A4_HEIGHT_PX = 1123;
-// Safe margin: 5mm ≈ 19px at 96dpi — printers can't print to the edge
-const PRINT_MARGIN_PX = 19;
+const A4_WIDTH_PX = 794;  // 210mm at 96dpi
+const A4_HEIGHT_PX = 1123; // 297mm at 96dpi
 
 interface ExportOptions {
   cvElement: HTMLElement;
@@ -19,71 +17,28 @@ interface ExportResult {
 }
 
 /**
- * Before capture: push blocks that straddle page boundaries to the next page.
- * Returns a cleanup function to remove the injected spacers.
- */
-function injectPageBreakSpacers(cvElement: HTMLElement, pageLimit: number): () => void {
-  if (pageLimit <= 1) return () => {};
-  
-  const spacers: HTMLElement[] = [];
-  const cvRect = cvElement.getBoundingClientRect();
-  
-  for (let page = 1; page < pageLimit; page++) {
-    const pageBreakY = page * A4_HEIGHT_PX;
-    
-    // Find all blocks near this page boundary
-    const blocks = cvElement.querySelectorAll<HTMLElement>('[data-cv-block], [data-cv-section]');
-    
-    for (const block of blocks) {
-      const rect = block.getBoundingClientRect();
-      const blockTop = rect.top - cvRect.top;
-      const blockBottom = rect.bottom - cvRect.top;
-      
-      // Block straddles the page boundary (starts before, ends after)
-      // Leave a safety zone of PRINT_MARGIN_PX on each side
-      if (blockTop < pageBreakY - PRINT_MARGIN_PX && blockBottom > pageBreakY + PRINT_MARGIN_PX) {
-        // Calculate how much space to add before this block to push it to next page
-        const pushNeeded = pageBreakY - blockTop + PRINT_MARGIN_PX;
-        
-        // Insert a spacer before this block
-        const spacer = document.createElement('div');
-        spacer.style.height = `${pushNeeded}px`;
-        spacer.style.width = '100%';
-        spacer.className = 'pdf-page-spacer';
-        block.parentElement?.insertBefore(spacer, block);
-        spacers.push(spacer);
-        break; // only fix the first straddling block per page boundary
-      }
-    }
-  }
-  
-  return () => {
-    spacers.forEach(s => s.remove());
-  };
-}
-
-/**
- * Export the CV preview to PDF.
+ * Export the CV to PDF.
  * 
- * Strategy:
- * 1. Neutralize zoom transform
- * 2. Inject spacers to push blocks that straddle page boundaries
- * 3. Capture with html2canvas
- * 4. Slice into A4 pages
- * 5. Clean up spacers and restore transform
+ * PRINCIPLE: What You See Is What You Get.
+ * We capture the CV element exactly as rendered, including its current 
+ * zoom transform. The only thing we do is tell html2canvas the "real" 
+ * dimensions (pre-transform) so it renders at full resolution.
  */
 export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
   const { cvElement, designSettings } = options;
   const pageLimit = designSettings.pageLimit || 1;
+  const totalHeightPx = A4_HEIGHT_PX * pageLimit;
 
+  // Get the current transform scale from the element's inline style
+  const currentTransform = cvElement.style.transform || 'none';
+  const scaleMatch = currentTransform.match(/scale\(([\d.]+)\)/);
+  const zoomScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+
+  // Temporarily set to scale(1) for a clean capture at full resolution
   const savedTransform = cvElement.style.transform;
-  const savedPosition = cvElement.style.position;
-  cvElement.style.transform = 'none';
-  cvElement.style.position = 'relative';
-
-  // Inject page break spacers to avoid cutting blocks
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const cleanupSpacers = injectPageBreakSpacers(cvElement, pageLimit);
+  cvElement.style.transform = 'scale(1)';
+  
+  // Wait for reflow
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
@@ -92,10 +47,10 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      width: A4_WIDTH_PX,
-      height: A4_HEIGHT_PX * pageLimit,
-      windowWidth: A4_WIDTH_PX,
     });
+
+    // Restore transform immediately
+    cvElement.style.transform = savedTransform;
 
     const pdf = new jsPDF({
       orientation: designSettings.orientation || 'portrait',
@@ -105,29 +60,32 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
 
     const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
     const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-    const canvasScale = 2;
 
-    // No extra margins — the template padding (p-16 = ~17mm) already provides print-safe margins
     if (pageLimit === 1) {
+      // Single page: place the full capture
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
     } else {
-      const pageHeightCanvas = A4_HEIGHT_PX * canvasScale;
+      // Multi-page: slice the canvas into equal parts
+      const canvasPageHeight = Math.round(canvas.height / pageLimit);
 
       for (let i = 0; i < pageLimit; i++) {
         if (i > 0) pdf.addPage();
 
-        const srcY = i * pageHeightCanvas;
-        const srcH = Math.min(pageHeightCanvas, canvas.height - srcY);
+        const srcY = i * canvasPageHeight;
+        const srcH = Math.min(canvasPageHeight, canvas.height - srcY);
         if (srcH <= 0) break;
 
+        // Create a page-sized slice
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
-        pageCanvas.height = pageHeightCanvas;
+        pageCanvas.height = canvasPageHeight;
         const ctx = pageCanvas.getContext('2d')!;
 
+        // White background
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
 
+        // Draw the slice
         ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
 
         pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
@@ -138,9 +96,9 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
     const url = URL.createObjectURL(blob);
     return { pdf, blob, url };
 
-  } finally {
-    cleanupSpacers();
+  } catch (e) {
+    // Restore transform even on error
     cvElement.style.transform = savedTransform;
-    cvElement.style.position = savedPosition;
+    throw e;
   }
 }
