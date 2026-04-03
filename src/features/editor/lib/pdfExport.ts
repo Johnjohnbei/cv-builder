@@ -106,14 +106,10 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
     const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
     const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
     const canvasScale = 2;
-    
-    // Print-safe margins: 5mm on each side
-    const margin = 5;
-    const imgWidth = pdfWidth - margin * 2;   // 200mm
-    const imgHeight = pdfHeight - margin * 2; // 287mm
 
+    // No extra margins — the template padding (p-16 = ~17mm) already provides print-safe margins
     if (pageLimit === 1) {
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgWidth, imgHeight);
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
     } else {
       const pageHeightCanvas = A4_HEIGHT_PX * canvasScale;
 
@@ -134,7 +130,7 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
 
         ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
 
-        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, imgWidth, imgHeight);
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
     }
 
