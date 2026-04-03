@@ -253,30 +253,72 @@ export const extractJobDescriptionFromURL = action({
     verifyAccessCode(args.accessCode);
     const genAI = getAI();
 
-    const prompt = `
-    Tu es un expert en extraction de données. 
-    Analyse le contenu de cette URL : ${args.url}
-    
-    IMPORTANT : Extrais la description complète de l'offre d'emploi. 
-    Certaines informations peuvent être cachées dans des accordéons ou des sections repliables (comme sur Welcome to the Jungle). 
-    Assure-toi de récupérer :
-    - Le titre du poste
-    - Les missions et responsabilités
-    - Le profil recherché et les compétences (hard & soft skills)
-    - Les avantages et informations sur l'entreprise
-    
-    Retourne uniquement le texte de la description, structuré de manière lisible, sans fioritures ni commentaires.
-  `;
+    // Step 1: Fetch the page HTML directly
+    let pageText = '';
+    try {
+      const response = await fetch(args.url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        },
+      });
+      const html = await response.text();
+      
+      // Extract text content: strip HTML tags, scripts, styles
+      pageText = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim()
+        .substring(0, 15000); // Limit to ~15K chars for Gemini context
+    } catch (e) {
+      // Fallback: let Gemini try with its tools
+      pageText = '';
+    }
 
-    const response = await genAI.models.generateContent({
+    // Step 2: Use Gemini to extract the job description from the text
+    const prompt = pageText
+      ? `Tu es un expert en extraction d'offres d'emploi.
+      
+Voici le contenu texte extrait de la page ${args.url} :
+
+${pageText}
+
+Extrais et structure la description complète de l'offre d'emploi :
+- Titre du poste
+- Entreprise
+- Missions et responsabilités
+- Profil recherché (compétences hard & soft)
+- Avantages et infos entreprise
+- Localisation, type de contrat, salaire si mentionnés
+
+Retourne le texte structuré, sans commentaires.`
+      : `Tu es un expert en extraction de données. 
+Analyse le contenu de cette URL : ${args.url}
+
+Extrais la description complète de l'offre d'emploi.
+Retourne le texte structuré.`;
+
+    const config: any = pageText
+      ? {} // We already have the text, no need for tools
+      : { tools: [{ urlContext: {} }, { googleSearch: {} }] }; // Fallback
+
+    const result = await genAI.models.generateContent({
       model: MODEL_PRO,
       contents: prompt,
-      config: {
-        tools: [{ urlContext: {} }, { googleSearch: {} }],
-      },
+      config,
     });
 
-    return response.text || "";
+    return result.text || "";
   },
 });
 
