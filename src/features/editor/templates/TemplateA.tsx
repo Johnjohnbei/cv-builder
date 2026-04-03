@@ -2,7 +2,7 @@ import { Mail, Phone, MapPin, Linkedin } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto } from './shared';
-import { getVisibleBullets, getIntro, getActionBullets, shouldShowKPI, isCompact, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 import type { Experience } from '@/src/shared/types';
 

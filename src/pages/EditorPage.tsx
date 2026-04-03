@@ -9,7 +9,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { renderPDF } from '../features/editor/lib/pdfExport';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
-import { getVisibleBullets, getVisibleSkills } from '../features/editor/lib/displayModes';
+import { getVisibleSkills } from '../features/editor/lib/displayModes';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience, formatDateShort } from '../features/editor/lib/scoring';
 import { condenseOneStep } from '../features/editor/lib/autoFit';
