@@ -283,3 +283,26 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #CBD5E0;
 }
+
+/* ─── Print styles ─── */
+@media print {
+  @page {
+    margin: 5mm;
+    size: A4 portrait;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  [data-cv-block] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  
+  [data-cv-section] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}

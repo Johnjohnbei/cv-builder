@@ -4,6 +4,8 @@ import type { DesignSettings } from '@/src/shared/types';
 
 const A4_WIDTH_PX = 794;
 const A4_HEIGHT_PX = 1123;
+// Safe margin: 5mm ≈ 19px at 96dpi — printers can't print to the edge
+const PRINT_MARGIN_PX = 19;
 
 interface ExportOptions {
   cvElement: HTMLElement;
@@ -17,23 +19,71 @@ interface ExportResult {
 }
 
 /**
+ * Before capture: push blocks that straddle page boundaries to the next page.
+ * Returns a cleanup function to remove the injected spacers.
+ */
+function injectPageBreakSpacers(cvElement: HTMLElement, pageLimit: number): () => void {
+  if (pageLimit <= 1) return () => {};
+  
+  const spacers: HTMLElement[] = [];
+  const cvRect = cvElement.getBoundingClientRect();
+  
+  for (let page = 1; page < pageLimit; page++) {
+    const pageBreakY = page * A4_HEIGHT_PX;
+    
+    // Find all blocks near this page boundary
+    const blocks = cvElement.querySelectorAll<HTMLElement>('[data-cv-block], [data-cv-section]');
+    
+    for (const block of blocks) {
+      const rect = block.getBoundingClientRect();
+      const blockTop = rect.top - cvRect.top;
+      const blockBottom = rect.bottom - cvRect.top;
+      
+      // Block straddles the page boundary (starts before, ends after)
+      // Leave a safety zone of PRINT_MARGIN_PX on each side
+      if (blockTop < pageBreakY - PRINT_MARGIN_PX && blockBottom > pageBreakY + PRINT_MARGIN_PX) {
+        // Calculate how much space to add before this block to push it to next page
+        const pushNeeded = pageBreakY - blockTop + PRINT_MARGIN_PX;
+        
+        // Insert a spacer before this block
+        const spacer = document.createElement('div');
+        spacer.style.height = `${pushNeeded}px`;
+        spacer.style.width = '100%';
+        spacer.className = 'pdf-page-spacer';
+        block.parentElement?.insertBefore(spacer, block);
+        spacers.push(spacer);
+        break; // only fix the first straddling block per page boundary
+      }
+    }
+  }
+  
+  return () => {
+    spacers.forEach(s => s.remove());
+  };
+}
+
+/**
  * Export the CV preview to PDF.
  * 
- * Strategy: capture the CV element AS-IS (with overflow:hidden and fixed height).
- * This ensures the PDF matches exactly what the user sees in the preview.
- * For multi-page, we capture the full container (pageLimit × 297mm) and slice 
- * it into individual A4 pages.
+ * Strategy:
+ * 1. Neutralize zoom transform
+ * 2. Inject spacers to push blocks that straddle page boundaries
+ * 3. Capture with html2canvas
+ * 4. Slice into A4 pages
+ * 5. Clean up spacers and restore transform
  */
 export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
   const { cvElement, designSettings } = options;
   const pageLimit = designSettings.pageLimit || 1;
 
-  // Save and neutralize any CSS transform (zoom) — we want 1:1 capture
   const savedTransform = cvElement.style.transform;
   const savedPosition = cvElement.style.position;
   cvElement.style.transform = 'none';
   cvElement.style.position = 'relative';
 
+  // Inject page break spacers to avoid cutting blocks
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cleanupSpacers = injectPageBreakSpacers(cvElement, pageLimit);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
@@ -53,16 +103,14 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
       format: designSettings.paperSize || 'a4',
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();  // 210mm
-    const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-    const canvasScale = 2; // matches html2canvas scale
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const canvasScale = 2;
 
     if (pageLimit === 1) {
-      // Single page — just place the full image
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
     } else {
-      // Multi-page — slice the canvas into pageLimit pages
-      const pageHeightCanvas = A4_HEIGHT_PX * canvasScale; // pixels per page in canvas space
+      const pageHeightCanvas = A4_HEIGHT_PX * canvasScale;
 
       for (let i = 0; i < pageLimit; i++) {
         if (i > 0) pdf.addPage();
@@ -73,19 +121,13 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
 
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
-        pageCanvas.height = pageHeightCanvas; // always full page height
+        pageCanvas.height = pageHeightCanvas;
         const ctx = pageCanvas.getContext('2d')!;
 
-        // Fill with white (in case content is shorter than page)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
 
-        // Draw the slice
-        ctx.drawImage(
-          canvas,
-          0, srcY, canvas.width, srcH,
-          0, 0, canvas.width, srcH,
-        );
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
 
         pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
@@ -96,6 +138,7 @@ export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
     return { pdf, blob, url };
 
   } finally {
+    cleanupSpacers();
     cvElement.style.transform = savedTransform;
     cvElement.style.position = savedPosition;
   }
