@@ -1,7 +1,7 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
 import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
@@ -19,7 +19,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
 
   return (
     <div style={commonStyles} className={cn("w-full h-full bg-white grid grid-cols-[1fr_2fr] pdf-safe", fontClass)}>
-      <div className="text-white p-12 flex flex-col justify-between" style={{ backgroundColor: primaryColor }}>
+      <div className="p-12 flex flex-col justify-between" style={{ backgroundColor: primaryColor, color: '#ffffff' }}>
         <div>
           {includedSections.includes('personal') && (
             <>
@@ -107,18 +107,12 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>{formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}</span>
                   </div>
                   <p className="text-sm font-medium text-gray-500 mb-3">{exp.company}</p>
-                  <ul className="space-y-2">
-                    {getVisibleBullets(exp).map((bullet, bIdx) => (
-                      <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-                        <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                        {bullet}
-                      </li>
-                    ))}
-                  </ul>
-
-                          {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
-                            <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
-                          )}
+                  {renderExperienceBullets(
+                    exp,
+                    getVisibleBullets(exp),
+                    <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />,
+                    primaryColor,
+                  )}
                 </div>
               ))}
             </div>

@@ -51,3 +51,43 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
     </div>
   );
 }
+
+/**
+ * Render experience bullets with proper compact/normal/extended handling.
+ * compact: single paragraph (no bullet marker)
+ * normal/extended: <ul> with bullets and optional KPI
+ * 
+ * @param bulletMarker - JSX element for the bullet marker (dot, slash, etc.)
+ */
+export function renderExperienceBullets(
+  exp: import('@/src/shared/types').Experience,
+  bullets: string[],
+  bulletMarker: React.ReactNode,
+  kpiColor: string,
+) {
+  const mode = exp.displayMode || 'normal';
+  
+  if (mode === 'compact') {
+    return bullets[0] ? (
+      <p className="text-sm text-gray-600 leading-relaxed">{bullets[0]}</p>
+    ) : null;
+  }
+  
+  return (
+    <>
+      <ul className="space-y-2">
+        {bullets.map((bullet, bIdx) => (
+          <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
+            {bulletMarker}
+            {bullet}
+          </li>
+        ))}
+      </ul>
+      {mode === 'extended' && exp.kpi && (
+        <p className="text-xs font-bold mt-2 flex items-center gap-1.5" style={{ color: kpiColor }}>
+          <span className="text-[10px]">📈</span> {exp.kpi}
+        </p>
+      )}
+    </>
+  );
+}

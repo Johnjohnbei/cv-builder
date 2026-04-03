@@ -1,7 +1,7 @@
 import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceBullets } from './shared';
 import { getVisibleBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort } from '../lib/scoring';
 
@@ -52,18 +52,14 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
                   <div className="space-y-2">
                     <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
                     <p className="text-xs font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
-                    <ul className="space-y-2 pt-2">
-                      {getVisibleBullets(exp).map((bullet, bIdx) => (
-                        <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-                          <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-
-                          {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
-                            <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
-                          )}
+                    <div className="pt-2">
+                      {renderExperienceBullets(
+                        exp,
+                        getVisibleBullets(exp),
+                        <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />,
+                        primaryColor,
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
