@@ -13,12 +13,7 @@ export function getVisibleBullets(exp: Experience): string[] {
   
   switch (mode) {
     case 'hidden': return [];
-    case 'compact': {
-      // In compact mode, truncate long bullets to ~80 chars
-      const first = desc[0];
-      if (!first) return [];
-      return [first.length > 100 ? first.substring(0, 97) + '...' : first];
-    }
+    case 'compact': return desc.slice(0, 1);
     case 'normal': return desc.slice(0, 2);
     case 'extended': return desc.slice(0, 5);
     default: return desc.slice(0, 2);
