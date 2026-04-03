@@ -1,5 +1,6 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "buildCommand": "npx convex deploy --cmd 'npx vite build' --cmd-url-env-var-name VITE_CONVEX_URL"
 }
