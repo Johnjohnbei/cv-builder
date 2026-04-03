@@ -203,35 +203,75 @@ export const optimizeCVForPage = action({
   args: {
     cvData: v.any(),
     pageLimit: v.number(),
+    jobDescription: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
     const genAI = getAI();
+
+    const jobContext = args.jobDescription
+      ? `
+    OFFRE D'EMPLOI CIBLÉE :
+    ${args.jobDescription}
+    
+    Utilise cette offre pour PRIORISER : les expériences et compétences les plus pertinentes pour ce poste doivent être les plus développées.`
+      : `
+    Pas d'offre d'emploi fournie. Priorise par RÉCENCE : les expériences les plus récentes sont les plus développées.`;
 
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [
         {
-          text: `Tu es un expert en design de CV et en mise en page. Ta tâche est d'ajuster la DENSITÉ du contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4.
-            
-            Voici les données actuelles du CV :
-            ${JSON.stringify(args.cvData, null, 2)}
-            
-            RÈGLES FONDAMENTALES — NE SUPPRIME RIEN :
-            - Tu ne dois JAMAIS supprimer une expérience, une formation, une compétence ou une section.
-            - Toutes les entrées présentes en entrée DOIVENT être présentes en sortie.
-            - Le nombre d'expériences, formations, catégories de compétences et langues doit être IDENTIQUE.
-            
-            STRATÉGIE D'AJUSTEMENT DE DENSITÉ :
-            1. RÉSUMÉ : Raccourcis à 2-3 phrases maximum, percutantes et denses.
-            2. EXPÉRIENCES RÉCENTES (< 5 ans) : Garde 2-3 bullet points, reformulés pour être concis mais impactants.
-            3. EXPÉRIENCES ANCIENNES (> 5 ans) : Réduis à 1 bullet point synthétique résumant l'essentiel.
-            4. DESCRIPTIONS : Reformule chaque bullet pour être plus court tout en gardant les chiffres clés et mots-clés.
-            5. COMPÉTENCES : Garde toutes les catégories et tous les items, mais formule-les de façon compacte.
-            6. FORMATIONS : Garde toutes les entrées, simplifie la présentation si nécessaire.
-            
-            Le résultat doit paraître complet et professionnel, optimisé pour une lecture rapide.
-            
-            Retourne UNIQUEMENT l'objet JSON complet du CV ajusté, respectant strictement la structure fournie.`,
+          text: `Tu es un expert en rédaction de CV professionnels et en optimisation de mise en page.
+
+Ta mission : réorganiser et ajuster le contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4 tout en maximisant l'impact professionnel.
+
+DONNÉES DU CV :
+${JSON.stringify(args.cvData, null, 2)}
+${jobContext}
+
+═══ RÈGLE ABSOLUE — NE SUPPRIME RIEN ═══
+Toutes les expériences, formations, compétences, langues présentes en entrée DOIVENT être présentes en sortie.
+Le nombre d'éléments dans chaque section doit être IDENTIQUE.
+Tu n'as le droit que de : réordonner, reformuler, condenser, enrichir, et changer le displayMode.
+
+═══ SYSTÈME DE BLOCS MODULABLES ═══
+
+Chaque expérience a un champ "displayMode" qui contrôle la place qu'elle prend :
+
+- "compact" : Le poste + entreprise + 1 ligne de description synthétique. Pour les postes anciens ou peu pertinents.
+- "normal" : Le poste + entreprise + 2 bullet points d'actions clés (une ligne chacun). Le mode par défaut.
+- "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés + un champ "kpi" avec un résultat chiffré. Pour les postes les plus importants.
+
+Chaque expérience a aussi un champ optionnel "kpi" (string) : un résultat chiffré clé (ex: "+35% de CA", "Management de 12 personnes", "Réduction de 40% des coûts"). Remplis-le UNIQUEMENT pour les expériences en mode "extended".
+
+═══ STRATÉGIE DE PRIORISATION ═══
+
+1. RÉORDONNE les expériences par pertinence (la plus importante en premier)
+2. ASSIGNE un displayMode à chaque expérience :
+   - TOP priorité (1-2 premières) → "extended" avec kpi rempli
+   - MOYENNE priorité → "normal"
+   - BASSE priorité (anciennes/peu pertinentes) → "compact"
+3. Ajuste le nombre de bullets selon le mode :
+   - "extended" : 3-5 bullets détaillés + kpi
+   - "normal" : exactement 2 bullets concis
+   - "compact" : 1 seule phrase descriptive dans description[0]
+
+4. RÉSUMÉ : 2-3 phrases percutantes.
+5. COMPÉTENCES : Réordonne — les plus pertinentes en premier.
+6. FORMATIONS et LANGUES : Garde tel quel.
+
+═══ QUALITÉ DES REFORMULATIONS ═══
+- Verbe d'action fort en début de bullet
+- Métriques/résultats quand possible
+- Concis : une ligne par bullet
+- Mots-clés du secteur / de l'offre
+
+═══ CONTRAINTE TAILLE ═══
+Pour ${args.pageLimit} page(s) A4, un bon équilibre est :
+- 1 page : max 1 extended + 1-2 normal + le reste compact
+- 2 pages : max 2-3 extended + 2-3 normal + le reste compact
+
+Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode et les extended DOIVENT avoir kpi.`,
         },
       ],
       config: {
@@ -255,6 +295,14 @@ export const optimizeCVForPage = action({
               return String(item);
             })
           : [],
+      }));
+    }
+
+    // Ensure displayMode is set on all experiences
+    if (optimizedData.experience) {
+      optimizedData.experience = optimizedData.experience.map((exp: any) => ({
+        ...exp,
+        displayMode: exp.displayMode || 'normal',
       }));
     }
 

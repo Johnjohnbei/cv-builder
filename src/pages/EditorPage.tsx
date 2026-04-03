@@ -2,13 +2,18 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CVData, DesignSettings } from '../shared/types';
 import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Mail, Phone, MapPin, Linkedin, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { renderPDF } from '../features/editor/lib/pdfExport';
+import { CVRenderer } from '../features/editor/templates';
+import { TemplateA as TemplateAComponent } from '../features/editor/templates/TemplateA';
+import { getVisibleBullets, getVisibleSkills } from '../features/editor/lib/displayModes';
+import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
+import { autoAssignModes, extractKeywords, scoreExperience, formatDateShort } from '../features/editor/lib/scoring';
+import { condenseOneStep } from '../features/editor/lib/autoFit';
 
 const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
@@ -52,6 +57,8 @@ export default function EditorPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [improvingBullet, setImprovingBullet] = useState<string | null>(null); // "expIdx-bulletIdx"
   const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
+  const [jobDescription, setJobDescription] = useState('');
+  const [userModified, setUserModified] = useState(false);
   const cvRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +69,37 @@ export default function EditorPage() {
   const createCV = useMutation(api.cvs.createMyCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
+
+  // ─── Overflow detection + auto-fit loop ───
+  const [overflowPx, setOverflowPx] = useState(0);
+  const fitIterations = useRef(0);
+  const MAX_FIT_ITERATIONS = 50; // safety limit
+  
+  useEffect(() => {
+    const el = cvRef.current;
+    if (!el) { setOverflowPx(0); return; }
+    
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const overflow = el.scrollHeight - el.clientHeight;
+        setOverflowPx(Math.max(0, overflow));
+        
+        // Auto-fit: condense one step if overflowing and not user-modified
+        if (overflow > 2 && !userModified && cvData && fitIterations.current < MAX_FIT_ITERATIONS) {
+          const keywords = extractKeywords(jobDescription);
+          const priorities = cvData.experience.map(exp => scoreExperience(exp, keywords));
+          const result = condenseOneStep(cvData.experience, cvData.skills, priorities);
+          if (result) {
+            fitIterations.current++;
+            setCvData(prev => prev ? { ...prev, experience: result.experiences, skills: result.skills } : null);
+          }
+          // If condenseOneStep returned null, we can't condense further — stop
+        }
+      });
+    });
+    
+    return () => cancelAnimationFrame(raf);
+  }, [cvData, designSettings, userModified, jobDescription]);
 
   // Auto-hide notification
   useEffect(() => {
@@ -97,6 +135,20 @@ export default function EditorPage() {
       setIsLoading(false);
     }
   }, [userData, user, isGuest]);
+
+  // Auto-assign display modes when CV is loaded without them
+  const hasAutoAssigned = useRef(false);
+  useEffect(() => {
+    if (!cvData || !cvData.experience?.length || hasAutoAssigned.current) return;
+    const hasAnyMode = cvData.experience.some(exp => exp.displayMode);
+    if (hasAnyMode) { hasAutoAssigned.current = true; return; }
+    
+    hasAutoAssigned.current = true;
+    fitIterations.current = 0; // allow auto-fit after initial assignment
+    const keywords = extractKeywords(jobDescription);
+    const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
+    setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
+  }, [cvData?.experience?.length]);
 
   // Auto-zoom to fit width
   useEffect(() => {
@@ -208,111 +260,7 @@ export default function EditorPage() {
     };
 
     if (selectedTemplate === 'TEMPLATE_A') {
-      return (
-        <div style={commonStyles} className={cn("w-full h-full bg-white p-16 pdf-safe", fontClass)}>
-          {includedSections.includes('personal') && (
-            <div className="border-b-2 pb-8 mb-8 flex justify-between items-start" style={{ borderColor: primaryColor }}>
-              <div className="flex-1">
-                <h1 className="text-4xl font-bold tracking-tighter uppercase" style={{ color: primaryColor }}>{cvData.personal_info?.name}</h1>
-                <p className="text-xl font-medium mt-1 text-gray-600">{cvData.personal_info?.title}</p>
-                <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-500 font-mono">
-                  <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</span>
-                  {cvData.personal_info?.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</span>}
-                  {cvData.personal_info?.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {cvData.personal_info?.location}</span>}
-                  {cvData.personal_info?.linkedin && <span className="flex items-center gap-1"><Linkedin className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
-                </div>
-              </div>
-              {renderPhoto("w-28 h-28 rounded-lg border-2 border-gray-100")}
-            </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-12">
-            <div className="col-span-2 space-y-8">
-              {includedSections.includes('summary') && cvData.personal_info?.summary && (
-                <section>
-                  <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Profil</h2>
-                  <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info?.summary}</p>
-                </section>
-              )}
-
-              {includedSections.includes('experience') && (
-                <section>
-                  <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Expérience Professionnelle</h2>
-                  <div className="space-y-6">
-                    {cvData.experience?.map((exp, idx) => (
-                      <div key={idx} data-cv-block="experience">
-                        <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-bold text-gray-900">{exp.position}</h3>
-                          <span className="text-xs text-gray-500 font-mono">{exp.start_date} — {exp.current ? 'Présent' : exp.end_date}</span>
-                        </div>
-                        <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
-                        <ul className="space-y-2">
-                          {exp.description?.map((bullet, bIdx) => (
-                            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-                              <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                              {bullet}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <div className="col-span-1 space-y-8">
-              {includedSections.includes('skills') && (
-                <section>
-                  <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Compétences</h2>
-                  <div className="space-y-4">
-                    {cvData.skills?.map((cat, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <h3 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: secondaryColor }}>{cat.category}</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {cat.items?.map(skill => (
-                            <span key={skill} className="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded uppercase tracking-wider">
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {includedSections.includes('education') && (
-                <section>
-                  <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Formation</h2>
-                  <div className="space-y-4">
-                    {cvData.education?.map((edu, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <p className="text-xs font-bold">{edu.degree}</p>
-                        <p className="text-[10px] text-gray-500">{edu.school} • {edu.end_date}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-                <section>
-                  <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Langues</h2>
-                  <div className="space-y-2">
-                    {cvData.languages?.map((lang, idx) => (
-                      <div key={idx} className="flex justify-between items-center">
-                        <span className="text-xs font-medium text-gray-700">{lang.name}</span>
-                        <span className="text-[10px] text-gray-500 font-mono uppercase tracking-tighter">{lang.proficiency}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
-          </div>
-        </div>
-      );
+      return <TemplateAComponent cvData={cvData} designSettings={designSettings} />;
     }
 
     if (selectedTemplate === 'TEMPLATE_B') {
@@ -335,7 +283,7 @@ export default function EditorPage() {
               )}
 
               {includedSections.includes('summary') && cvData.personal_info?.summary && (
-                <section className="mb-12">
+                <section data-cv-section="summary" className="mb-12">
                   <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Profil</h2>
                   <p className="text-[11px] leading-relaxed opacity-90">{cvData.personal_info?.summary}</p>
                 </section>
@@ -343,7 +291,7 @@ export default function EditorPage() {
 
               <div className="space-y-6">
                 {includedSections.includes('personal') && (
-                  <section>
+                  <section data-cv-section="contact">
                     <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Contact</h2>
                     <div className="space-y-3 text-[11px] opacity-90">
                       <div className="flex items-center gap-3"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</div>
@@ -354,7 +302,7 @@ export default function EditorPage() {
                 )}
 
                 {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-                  <section>
+                  <section data-cv-section="languages">
                     <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Langues</h2>
                     <div className="space-y-2">
                       {cvData.languages?.map((lang, idx) => (
@@ -368,14 +316,14 @@ export default function EditorPage() {
                 )}
 
                 {includedSections.includes('skills') && (
-                  <section>
+                  <section data-cv-section="skills">
                     <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Expertise</h2>
                     <div className="space-y-4">
-                      {cvData.skills?.map((cat, idx) => (
+                      {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                         <div key={idx} className="space-y-2">
                           <h3 className="text-[9px] font-bold uppercase tracking-widest opacity-80">{cat.category}</h3>
                           <div className="flex flex-wrap gap-2">
-                            {cat.items?.map(skill => (
+                            {getVisibleSkills(cat).map(skill => (
                               <span key={skill} className="px-2 py-1 bg-white/10 text-white text-[9px] font-medium rounded">
                                 {skill}
                               </span>
@@ -392,28 +340,32 @@ export default function EditorPage() {
 
           <div className="p-16 space-y-12">
             {includedSections.includes('experience') && (
-              <section>
+              <section data-cv-section="experience">
                 <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
                   <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
                   Expérience
                 </h2>
                 <div className="space-y-8">
-                  {cvData.experience?.map((exp, idx) => (
+                  {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                     <div key={idx} data-cv-block="experience" className="relative pl-8 border-l border-gray-100">
                       <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
-                      <div className="flex justify-between items-baseline mb-1">
+                      <div className="flex justify-between items-baseline gap-4 mb-1">
                         <h3 className="font-bold text-gray-900">{exp.position}</h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>{exp.start_date} — {exp.current ? 'Présent' : exp.end_date}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>{formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}</span>
                       </div>
                       <p className="text-sm font-medium text-gray-500 mb-3">{exp.company}</p>
                       <ul className="space-y-2">
-                        {exp.description?.map((bullet, bIdx) => (
+                        {getVisibleBullets(exp).map((bullet, bIdx) => (
                           <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
                             <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
                             {bullet}
                           </li>
                         ))}
                       </ul>
+
+                              {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
+                                <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
+                              )}
                     </div>
                   ))}
                 </div>
@@ -421,7 +373,7 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('education') && (
-              <section>
+              <section data-cv-section="education">
                 <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
                   <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
                   Formation
@@ -459,32 +411,36 @@ export default function EditorPage() {
 
           <div className="space-y-12">
             {includedSections.includes('summary') && cvData.personal_info?.summary && (
-              <section className="max-w-2xl mx-auto text-center">
+              <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
                 <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>Profil</h2>
                 <p className="text-sm text-gray-600 leading-relaxed italic">"{cvData.personal_info?.summary}"</p>
               </section>
             )}
 
             {includedSections.includes('experience') && (
-              <section>
+              <section data-cv-section="experience">
                 <h2 className={cn("text-gray-300 mb-8 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>Expérience</h2>
                 <div className="space-y-10">
-                  {cvData.experience?.map((exp, idx) => (
+                  {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                     <div key={idx} data-cv-block="experience" className="grid grid-cols-[120px_1fr] gap-8">
                       <div className="text-[10px] font-mono text-gray-400 pt-1">
-                        {exp.start_date} — {exp.current ? 'PRESENT' : exp.end_date}
+                        {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
                       </div>
                       <div className="space-y-2">
                         <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
                         <p className="text-xs font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
                         <ul className="space-y-2 pt-2">
-                          {exp.description?.map((bullet, bIdx) => (
+                          {getVisibleBullets(exp).map((bullet, bIdx) => (
                             <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
                               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
                               {bullet}
                             </li>
                           ))}
                         </ul>
+
+                              {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
+                                <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
+                              )}
                       </div>
                     </div>
                   ))}
@@ -492,15 +448,15 @@ export default function EditorPage() {
               </section>
             )}
 
-            <section className="grid grid-cols-2 gap-16">
+            <section data-cv-section="skills" className="grid grid-cols-2 gap-16">
               {includedSections.includes('skills') && (
                 <div>
                   <h2 className={cn("text-gray-300 mb-6", sectionTitleClasses)} style={{ fontSize: '11px' }}>Compétences</h2>
                   <div className="flex flex-wrap gap-x-6 gap-y-3">
-                    {cvData.skills?.map((cat, idx) => (
+                    {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                       <div key={idx} className="space-y-1">
                         <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{cat.category}</p>
-                        <p className="text-xs text-gray-700">{cat.items?.join(', ') || ''}</p>
+                        <p className="text-xs text-gray-700">{getVisibleSkills(cat).join(', ') || ''}</p>
                       </div>
                     ))}
                   </div>
@@ -522,7 +478,7 @@ export default function EditorPage() {
             </section>
 
             {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-              <section>
+              <section data-cv-section="languages">
                 <h2 className={cn("text-gray-300 mb-6 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>Langues</h2>
                 <div className="flex justify-center gap-12">
                   {cvData.languages?.map((lang, idx) => (
@@ -564,7 +520,7 @@ export default function EditorPage() {
           <div className="p-16 pt-12 grid grid-cols-[2fr_1fr] gap-16">
             <div className="space-y-12">
               {includedSections.includes('summary') && cvData.personal_info?.summary && (
-                <section>
+                <section data-cv-section="summary">
                   <div className="flex items-center gap-4 mb-6">
                     <h2 className={cn("italic", sectionTitleClasses)} style={{ color: primaryColor, fontSize: '1.5rem' }}>Profil</h2>
                     <div className="flex-1 h-px bg-gray-200" />
@@ -574,27 +530,31 @@ export default function EditorPage() {
               )}
 
               {includedSections.includes('experience') && (
-                <section>
+                <section data-cv-section="experience">
                   <div className="flex items-center gap-4 mb-8">
                     <h2 className={cn("italic", sectionTitleClasses)} style={{ color: primaryColor, fontSize: '1.5rem' }}>Expérience</h2>
                     <div className="flex-1 h-px bg-gray-200" />
                   </div>
                   <div className="space-y-12">
-                    {cvData.experience?.map((exp, idx) => (
+                    {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                       <div key={idx} data-cv-block="experience" className="space-y-3">
                         <div className="flex justify-between items-baseline">
                           <h3 className="text-lg font-black uppercase tracking-tight">{exp.position}</h3>
-                          <span className="text-[10px] font-bold stitch-mono bg-black text-white px-2 py-0.5">{exp.start_date} — {exp.current ? 'NOW' : exp.end_date}</span>
+                          <span className="text-[10px] font-bold stitch-mono bg-black text-white px-2 py-0.5 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'NOW' : formatDateShort(exp.end_date)}</span>
                         </div>
                         <p className="text-sm font-bold italic" style={{ color: secondaryColor }}>{exp.company}</p>
                         <ul className="space-y-2">
-                          {exp.description?.map((bullet, bIdx) => (
+                          {getVisibleBullets(exp).map((bullet, bIdx) => (
                             <li key={bIdx} className="text-sm text-gray-700 leading-relaxed flex gap-3">
                               <span className="font-bold" style={{ color: primaryColor }}>/</span>
                               {bullet}
                             </li>
                           ))}
                         </ul>
+
+                              {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
+                                <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
+                              )}
                       </div>
                     ))}
                   </div>
@@ -604,14 +564,14 @@ export default function EditorPage() {
 
             <div className="space-y-12">
               {includedSections.includes('skills') && (
-                <section>
+                <section data-cv-section="skills">
                   <h2 className={cn("italic mb-6 underline decoration-4 underline-offset-4", sectionTitleClasses)} style={{ textDecorationColor: secondaryColor, fontSize: '1.125rem' }}>Compétences</h2>
                   <div className="space-y-6">
-                    {cvData.skills?.map((cat, idx) => (
+                    {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                       <div key={idx} className="space-y-2">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{cat.category}</h3>
                         <div className="flex flex-wrap gap-2">
-                          {cat.items?.map(skill => (
+                          {getVisibleSkills(cat).map(skill => (
                             <span key={skill} className="px-2 py-1 border-2 border-black text-[10px] font-black uppercase hover:bg-black hover:text-white transition-colors">
                               {skill}
                             </span>
@@ -624,7 +584,7 @@ export default function EditorPage() {
               )}
 
               {includedSections.includes('education') && (
-                <section>
+                <section data-cv-section="education">
                   <h2 className={cn("italic mb-6 underline decoration-4 underline-offset-4", sectionTitleClasses)} style={{ textDecorationColor: secondaryColor, fontSize: '1.125rem' }}>Formation</h2>
                   <div className="space-y-6">
                     {cvData.education?.map((edu, idx) => (
@@ -639,7 +599,7 @@ export default function EditorPage() {
               )}
 
               {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-                <section>
+                <section data-cv-section="languages">
                   <h2 className={cn("italic mb-6 underline decoration-4 underline-offset-4", sectionTitleClasses)} style={{ textDecorationColor: secondaryColor, fontSize: '1.125rem' }}>Langues</h2>
                   <div className="space-y-4">
                     {cvData.languages?.map((lang, idx) => (
@@ -679,7 +639,7 @@ export default function EditorPage() {
 
           <div className="space-y-12">
             {includedSections.includes('summary') && cvData.personal_info?.summary && (
-              <section>
+              <section data-cv-section="summary">
                 <div className="flex items-center gap-4 mb-6">
                   <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Profil</h2>
                   <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
@@ -689,28 +649,32 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('experience') && (
-              <section>
+              <section data-cv-section="experience">
                 <div className="flex items-center gap-4 mb-6">
                   <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Expérience</h2>
                   <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
                 </div>
                 <div className="space-y-8">
-                  {cvData.experience?.map((exp, idx) => (
+                  {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                     <div key={idx} data-cv-block="experience" className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
                       <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
-                      <div className="flex justify-between items-baseline mb-2">
+                      <div className="flex justify-between items-baseline gap-4 mb-2">
                         <h3 className="font-bold text-gray-900">{exp.position}</h3>
-                        <span className="text-[10px] font-bold opacity-50">{exp.start_date} — {exp.current ? 'PRESENT' : exp.end_date}</span>
+                        <span className="text-[10px] font-bold opacity-50 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</span>
                       </div>
                       <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>{exp.company}</p>
                       <ul className="space-y-2">
-                        {exp.description?.map((bullet, bIdx) => (
+                        {getVisibleBullets(exp).map((bullet, bIdx) => (
                           <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
                             <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
                             {bullet}
                           </li>
                         ))}
                       </ul>
+
+                              {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
+                                <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
+                              )}
                     </div>
                   ))}
                 </div>
@@ -719,16 +683,16 @@ export default function EditorPage() {
 
             <div className="grid grid-cols-2 gap-12">
               {includedSections.includes('skills') && (
-                <section>
+                <section data-cv-section="skills">
                   <div className="flex items-center gap-4 mb-6">
                     <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Compétences</h2>
                     <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
                   </div>
                   <div className="space-y-4">
-                    {cvData.skills?.map((cat, idx) => (
+                    {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                       <div key={idx}>
                         <p className="text-[10px] font-bold uppercase mb-1 opacity-40">{cat.category}</p>
-                        <p className="text-sm text-gray-700">{cat.items?.join(' • ') || ''}</p>
+                        <p className="text-sm text-gray-700">{getVisibleSkills(cat).join(' • ') || ''}</p>
                       </div>
                     ))}
                   </div>
@@ -736,7 +700,7 @@ export default function EditorPage() {
               )}
 
               {includedSections.includes('education') && (
-                <section>
+                <section data-cv-section="education">
                   <div className="flex items-center gap-4 mb-6">
                     <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Formation</h2>
                     <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
@@ -754,7 +718,7 @@ export default function EditorPage() {
             </div>
 
             {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-              <section>
+              <section data-cv-section="languages">
                 <div className="flex items-center gap-4 mb-6">
                   <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Langues</h2>
                   <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
@@ -795,7 +759,7 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('personal') && (
-              <section className="space-y-4">
+              <section data-cv-section="contact" className="space-y-4">
                 <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Contact</h2>
                 <div className="space-y-3 text-[11px] text-gray-600">
                   <p className="flex items-center gap-2"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</p>
@@ -806,14 +770,14 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('skills') && (
-              <section className="space-y-4">
+              <section data-cv-section="skills" className="space-y-4">
                 <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Compétences</h2>
                 <div className="space-y-4">
-                  {cvData.skills?.map((cat, idx) => (
+                  {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                     <div key={idx} className="space-y-1">
                       <p className="text-[9px] font-bold text-gray-400 uppercase">{cat.category}</p>
                       <div className="flex flex-wrap gap-1">
-                        {cat.items?.map(skill => (
+                        {getVisibleSkills(cat).map(skill => (
                           <span key={skill} className="px-2 py-0.5 bg-white border border-gray-200 rounded-full text-[9px] text-gray-600">{skill}</span>
                         ))}
                       </div>
@@ -824,7 +788,7 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('education') && (
-              <section className="space-y-4">
+              <section data-cv-section="education" className="space-y-4">
                 <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Formation</h2>
                 <div className="space-y-4">
                   {cvData.education?.map((edu, idx) => (
@@ -839,7 +803,7 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
-              <section className="space-y-4">
+              <section data-cv-section="languages" className="space-y-4">
                 <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Langues</h2>
                 <div className="space-y-3">
                   {cvData.languages?.map((lang, idx) => (
@@ -855,7 +819,7 @@ export default function EditorPage() {
 
           <main className="p-12 space-y-12">
             {includedSections.includes('summary') && cvData.personal_info?.summary && (
-              <section className="space-y-4">
+              <section data-cv-section="summary" className="space-y-4">
                 <div className="flex items-center gap-4">
                   <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>Profil</h2>
                   <div className="flex-1 h-px bg-gray-100" />
@@ -865,27 +829,31 @@ export default function EditorPage() {
             )}
 
             {includedSections.includes('experience') && (
-              <section className="space-y-8">
+              <section data-cv-section="experience" className="space-y-8">
                 <div className="flex items-center gap-4">
                   <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>Expérience</h2>
                   <div className="flex-1 h-px bg-gray-100" />
                 </div>
                 <div className="space-y-10">
-                  {cvData.experience?.map((exp, idx) => (
+                  {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                     <div key={idx} data-cv-block="experience" className="space-y-3">
-                      <div className="flex justify-between items-baseline">
-                        <h3 className="text-lg font-bold text-gray-900">{exp.position}</h3>
-                        <span className="text-[10px] font-bold text-gray-400">{exp.start_date} — {exp.current ? 'PRESENT' : exp.end_date}</span>
+                      <div className="flex justify-between items-baseline gap-4">
+                        <h3 className="text-lg font-bold text-gray-900 min-w-0">{exp.position}</h3>
+                        <span className="text-[10px] font-bold text-gray-400 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</span>
                       </div>
                       <p className="text-sm font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
                       <ul className="space-y-2">
-                        {exp.description?.map((bullet, bIdx) => (
+                        {getVisibleBullets(exp).map((bullet, bIdx) => (
                           <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
                             <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
                             {bullet}
                           </li>
                         ))}
                       </ul>
+
+                              {(exp.displayMode || 'normal') === 'extended' && exp.kpi && (
+                                <p className="text-xs font-bold mt-2" style={{ color: primaryColor }}>📈 {exp.kpi}</p>
+                              )}
                     </div>
                   ))}
                 </div>
@@ -984,38 +952,10 @@ export default function EditorPage() {
     await new Promise(resolve => setTimeout(resolve, 150));
     
     try {
-      const canvas = await html2canvas(cvRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: cvRef.current.scrollWidth,
-        windowHeight: cvRef.current.scrollHeight,
+      const { pdf } = await renderPDF({
+        cvElement: cvRef.current,
+        designSettings,
       });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: designSettings.orientation || 'portrait',
-        unit: 'mm',
-        format: designSettings.paperSize || 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const totalHeightInMm = (imgProps.height * pdfWidth) / imgProps.width;
-      
-      // Calculate pages based on content height, but respect the user's page limit if possible
-      const calculatedPages = Math.ceil(totalHeightInMm / pdfHeight);
-      const totalPages = designSettings.pageLimit ? Math.min(calculatedPages, designSettings.pageLimit) : calculatedPages;
-      
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage();
-        // Use a small offset to avoid cutting text perfectly at the bottom
-        pdf.addImage(imgData, 'PNG', 0, -(i * pdfHeight), pdfWidth, totalHeightInMm);
-      }
-      
       pdf.save(`CV_Optimise_${cvData?.personal_info?.name?.replace(/\s+/g, '_') || 'Builder'}.pdf`);
       setNotification({ message: 'Téléchargement lancé !', type: 'success' });
     } catch (error) {
@@ -1037,38 +977,10 @@ export default function EditorPage() {
     await new Promise(resolve => setTimeout(resolve, 150));
     
     try {
-      const canvas = await html2canvas(cvRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: cvRef.current.scrollWidth,
-        windowHeight: cvRef.current.scrollHeight,
+      const { url } = await renderPDF({
+        cvElement: cvRef.current,
+        designSettings,
       });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: designSettings.orientation || 'portrait',
-        unit: 'mm',
-        format: designSettings.paperSize || 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const totalHeightInMm = (imgProps.height * pdfWidth) / imgProps.width;
-      
-      const calculatedPages = Math.ceil(totalHeightInMm / pdfHeight);
-      const totalPages = designSettings.pageLimit ? Math.min(calculatedPages, designSettings.pageLimit) : calculatedPages;
-      
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, -(i * pdfHeight), pdfWidth, totalHeightInMm);
-      }
-      
-      const blob = pdf.output('blob');
-      const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (error) {
       console.error('Error generating PDF preview:', error);
@@ -1230,40 +1142,91 @@ export default function EditorPage() {
             {activeTab === 'content' ? (
               <div className="space-y-3">
                 {/* Optimization Section */}
-                <section className="stitch-panel p-4 space-y-4 bg-blue-50/30 border-blue-100">
+                <section className="stitch-panel p-4 space-y-3 bg-blue-50/30 border-blue-100">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-blue-600">
                       <Sparkles className="w-4 h-4" />
-                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">IA_OPTIMISATION</span>
+                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">MISE_EN_PAGE</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="text-[9px] stitch-mono text-gray-400 uppercase">Pages:</label>
                       <select 
                         value={designSettings.pageLimit}
-                        onChange={(e) => setDesignSettings(prev => ({ ...prev, pageLimit: parseInt(e.target.value) as 1 | 2 }))}
+                        onChange={(e) => {
+                          setDesignSettings(prev => ({ ...prev, pageLimit: parseInt(e.target.value) as 1 | 2 | 3 | 4 }));
+                          setUserModified(false);
+                          fitIterations.current = 0;
+                        }}
                         className="bg-white border border-blue-200 rounded text-[10px] px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       >
                         <option value={1}>1</option>
                         <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
                       </select>
                     </div>
                   </div>
-                  
+
+                  {/* Job description for scoring */}
+                  <textarea
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
+                    rows={2}
+                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-[9px] stitch-mono focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
+                  />
+
+                  {/* Auto-assign button */}
+                  <button
+                    onClick={() => {
+                      if (!cvData) return;
+                      const keywords = extractKeywords(jobDescription);
+                      const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
+                      setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
+                      setUserModified(false);
+                      fitIterations.current = 0;
+                    }}
+                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    disabled={!cvData}
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span className="text-[9px] stitch-mono font-bold uppercase tracking-widest">
+                      AUTO-ASSIGNATION
+                    </span>
+                  </button>
+
+                  {/* AI content optimization button */}
                   <button
                     onClick={handleOptimize}
                     disabled={isOptimizing}
-                    className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 px-4 bg-gray-100 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isOptimizing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Zap className="w-4 h-4" />
+                      <Sparkles className="w-3.5 h-3.5" />
                     )}
-                    <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                      {isOptimizing ? 'OPTIMISATION...' : 'LANCER_L_OPTIMISATION'}
+                    <span className="text-[9px] stitch-mono font-bold uppercase tracking-widest">
+                      {isOptimizing ? 'OPTIMISATION...' : 'RÉÉCRIRE CONTENU (IA)'}
                     </span>
                   </button>
-                  <p className="text-[8px] text-gray-400 stitch-mono leading-tight uppercase">L'IA ajustera votre contenu pour qu'il tienne parfaitement sur {designSettings.pageLimit} page(s).</p>
+                  
+                  {/* Overflow warning — always shown when content overflows */}
+                  {overflowPx > 0 && (
+                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[9px] stitch-mono text-red-600 space-y-1">
+                      <p className="font-bold uppercase tracking-wider">⚠ DÉPASSE DE ~{Math.round(overflowPx / 11.23 * 10) / 10}mm</p>
+                      <p className="text-red-500">
+                        {userModified 
+                          ? "Passez des blocs en compact ou augmentez les pages."
+                          : "Lancez l'auto-assignation ou augmentez le nombre de pages."}
+                      </p>
+                    </div>
+                  )}
+                  {overflowPx === 0 && cvData && (
+                    <div className="px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-[9px] stitch-mono text-green-600 font-bold uppercase tracking-wider">
+                      ✓ Contenu tient sur {designSettings.pageLimit} page(s)
+                    </div>
+                  )}
                 </section>
 
                 {/* Personal Info Section */}
@@ -1427,12 +1390,100 @@ export default function EditorPage() {
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                       {cvData?.experience?.map((exp, idx) => (
                         <div key={idx} data-cv-block="experience" className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
-                          <button 
-                            onClick={() => setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null)}
-                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {/* ─── Top bar: drag + mode selector + delete ─── */}
+                          <div className="flex items-center justify-between mb-2 gap-2">
+                            <div className="flex items-center gap-1">
+                              {/* Move up/down */}
+                              <button
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  const newExp = [...(cvData?.experience || [])];
+                                  [newExp[idx - 1], newExp[idx]] = [newExp[idx], newExp[idx - 1]];
+                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                  setUserModified(true);
+                                }}
+                                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition-colors"
+                                title="Monter"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                disabled={idx === (cvData?.experience?.length || 0) - 1}
+                                onClick={() => {
+                                  const newExp = [...(cvData?.experience || [])];
+                                  [newExp[idx], newExp[idx + 1]] = [newExp[idx + 1], newExp[idx]];
+                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                }}
+                                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition-colors"
+                                title="Descendre"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                              <span className="text-[8px] stitch-mono text-gray-400 uppercase ml-1">#{idx + 1}</span>
+                              {jobDescription && (
+                                <span className="text-[7px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
+                                  backgroundColor: (() => {
+                                    const s = scoreExperience(exp, extractKeywords(jobDescription));
+                                    return s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2';
+                                  })(),
+                                  color: (() => {
+                                    const s = scoreExperience(exp, extractKeywords(jobDescription));
+                                    return s >= 70 ? '#166534' : s >= 40 ? '#854d0e' : '#991b1b';
+                                  })(),
+                                }}>
+                                  {scoreExperience(exp, extractKeywords(jobDescription))}%
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Display mode selector */}
+                            <div className="flex bg-white border border-gray-200 rounded overflow-hidden">
+                              {DISPLAY_MODES.map((mode) => (
+                                <button
+                                  key={mode.value}
+                                  onClick={() => {
+                                    const newExp = [...(cvData?.experience || [])];
+                                    newExp[idx] = { ...newExp[idx], displayMode: mode.value };
+                                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                    setUserModified(true);
+                                  }}
+                                  title={mode.label}
+                                  className={cn(
+                                    "px-1.5 py-0.5 text-[7px] stitch-mono transition-colors",
+                                    (exp.displayMode || 'normal') === mode.value
+                                      ? "text-white"
+                                      : "text-gray-400 hover:bg-gray-100"
+                                  )}
+                                  style={(exp.displayMode || 'normal') === mode.value ? { backgroundColor: mode.color } : undefined}
+                                >
+                                  {mode.icon}
+                                </button>
+                              ))}
+                            </div>
+
+                            <button 
+                              onClick={() => setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null)}
+                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          {/* ─── Mode label ─── */}
+                          {(() => {
+                            const currentMode = DISPLAY_MODES.find(m => m.value === (exp.displayMode || 'normal'))!;
+                            return (
+                              <div className="text-[7px] stitch-mono uppercase tracking-widest mb-1.5" style={{ color: currentMode.color }}>
+                                {currentMode.label}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Hidden mode: show only title, collapse everything else */}
+                          {(exp.displayMode || 'normal') === 'hidden' ? (
+                            <p className="text-[10px] text-gray-400 italic line-through">{exp.position} — {exp.company}</p>
+                          ) : (
+                          <>
                           <input 
                             className="w-full bg-transparent font-bold text-[11px] mb-1 focus:outline-none"
                             value={exp.position}
@@ -1488,10 +1539,30 @@ export default function EditorPage() {
                               Actuel
                             </label>
                           </div>
-                          <div className="space-y-1 mt-2">
-                            {exp.description?.map((bullet, bIdx) => {
-                              const bulletKey = `${idx}-${bIdx}`;
-                              return (
+
+                          {/* ─── KPI field (extended mode only) ─── */}
+                          {(exp.displayMode || 'normal') === 'extended' && (
+                            <div className="mt-2">
+                              <label className="text-[7px] stitch-mono text-emerald-600 uppercase block mb-0.5">KPI / Résultat clé</label>
+                              <input
+                                className="w-full bg-white border border-emerald-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-emerald-500"
+                                value={exp.kpi || ''}
+                                placeholder="Ex: +35% de CA, 12 personnes managées..."
+                                onChange={(e) => {
+                                  const newExp = [...(cvData?.experience || [])];
+                                  newExp[idx] = { ...newExp[idx], kpi: e.target.value };
+                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* ─── Bullet points (hidden in compact mode) ─── */}
+                          {(exp.displayMode || 'normal') !== 'compact' && (
+                            <div className="space-y-1 mt-2">
+                              {exp.description?.map((bullet, bIdx) => {
+                                const bulletKey = `${idx}-${bIdx}`;
+                                return (
                                 <div key={bIdx} className="space-y-1">
                                   <div className="flex items-center gap-1 group/bullet">
                                     <input 
@@ -1575,6 +1646,29 @@ export default function EditorPage() {
                               <Plus className="w-2 h-2" /> AJOUTER_POINT
                             </button>
                           </div>
+                          )}
+
+                          {/* Compact mode: show summary line */}
+                          {(exp.displayMode || 'normal') === 'compact' && (
+                            <div className="mt-2">
+                              <input
+                                className="w-full bg-white border border-amber-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                                value={exp.description?.[0] || ''}
+                                placeholder="Description synthétique du poste..."
+                                onChange={(e) => {
+                                  const newExp = [...(cvData?.experience || [])];
+                                  if (!newExp[idx].description?.length) {
+                                    newExp[idx].description = [e.target.value];
+                                  } else {
+                                    newExp[idx].description[0] = e.target.value;
+                                  }
+                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                                }}
+                              />
+                            </div>
+                          )}
+                          </>
+                          )}
                         </div>
                       ))}
                       <button 
@@ -1603,12 +1697,41 @@ export default function EditorPage() {
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                       {cvData?.skills?.map((cat, catIdx) => (
                         <div key={catIdx} className="space-y-2 p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
-                          <button 
-                            onClick={() => setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null)}
-                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {/* Skill category mode selector */}
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex bg-white border border-gray-200 rounded overflow-hidden">
+                              {SKILL_DISPLAY_MODES.map((mode) => (
+                                <button
+                                  key={mode.value}
+                                  onClick={() => {
+                                    const newSkills = [...(cvData?.skills || [])];
+                                    newSkills[catIdx] = { ...newSkills[catIdx], displayMode: mode.value };
+                                    setCvData(prev => prev ? {...prev, skills: newSkills} : null);
+                                  }}
+                                  title={mode.label}
+                                  className={cn(
+                                    "px-1.5 py-0.5 text-[7px] stitch-mono transition-colors",
+                                    (cat.displayMode || 'normal') === mode.value
+                                      ? "text-white" : "text-gray-400 hover:bg-gray-100"
+                                  )}
+                                  style={(cat.displayMode || 'normal') === mode.value ? { backgroundColor: mode.color } : undefined}
+                                >
+                                  {mode.icon}
+                                </button>
+                              ))}
+                            </div>
+                            <button 
+                              onClick={() => setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null)}
+                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {(cat.displayMode || 'normal') === 'hidden' ? (
+                            <p className="text-[9px] text-gray-400 italic line-through">{cat.category}</p>
+                          ) : (
+                          <>
                           <input 
                             className="w-full bg-transparent font-bold text-[10px] stitch-mono uppercase focus:outline-none"
                             value={cat.category}
@@ -1649,6 +1772,8 @@ export default function EditorPage() {
                               }
                             }}
                           />
+                          </>
+                          )}
                         </div>
                       ))}
                       <button 
@@ -2010,11 +2135,11 @@ export default function EditorPage() {
                     </div>
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Page Limit & Options</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[1, 2].map((limit) => (
+                      <div className="grid grid-cols-4 gap-2">
+                        {[1, 2, 3, 4].map((limit) => (
                           <button
                             key={limit}
-                            onClick={() => setDesignSettings(prev => ({ ...prev, pageLimit: limit as 1 | 2 }))}
+                            onClick={() => setDesignSettings(prev => ({ ...prev, pageLimit: limit as 1 | 2 | 3 | 4 }))}
                             className={cn(
                               "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
                               designSettings.pageLimit === limit 
@@ -2052,7 +2177,7 @@ export default function EditorPage() {
                   </div>
                 </section>
 
-                <section className="stitch-panel">
+                <section data-cv-section="skills" className="stitch-panel">
                   <div className="stitch-panel-header">07. SECTIONS_VISIBLES</div>
                   <div className="p-4 space-y-2">
                     {[
@@ -2340,12 +2465,12 @@ export default function EditorPage() {
           ref={previewContainerRef}
           className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
-          {/* Scaled Wrapper to ensure correct scroll area */}
+          {/* Scaled Wrapper — height = pageLimit × A4 height */}
           <div 
             style={{ 
               width: `${210 * (zoom / 100)}mm`,
-              height: `${(designSettings.pageLimit === 1 ? 297 : 594) * (zoom / 100)}mm`,
-              minHeight: `${(designSettings.pageLimit === 1 ? 297 : 594) * (zoom / 100)}mm`,
+              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
+              minHeight: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
               marginBottom: '100px'
             }}
             className="relative shrink-0"
@@ -2356,7 +2481,7 @@ export default function EditorPage() {
                 transform: `scale(${zoom / 100})`,
                 transformOrigin: 'top left',
                 width: '210mm',
-                height: designSettings.pageLimit === 1 ? '297mm' : '594mm',
+                height: `${297 * (designSettings.pageLimit || 1)}mm`,
                 position: 'absolute',
                 top: 0,
                 left: 0
@@ -2365,11 +2490,18 @@ export default function EditorPage() {
                 "bg-white shadow-2xl border border-[#DADCE0] pdf-safe overflow-hidden",
               )}
             >
-              {designSettings.pageLimit === 2 && (
-                <div className="absolute top-[297mm] left-0 w-full border-t-2 border-dashed border-blue-200 z-50 pointer-events-none">
-                  <div className="absolute top-0 right-0 bg-blue-50 text-blue-400 text-[8px] px-2 py-0.5 rounded-bl font-mono uppercase">Page 2</div>
+              {/* Page break indicators for pages 2+ */}
+              {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => (
+                <div 
+                  key={i}
+                  className="absolute left-0 w-full border-t-2 border-dashed border-blue-300 z-50 pointer-events-none"
+                  style={{ top: `${297 * (i + 1)}mm` }}
+                >
+                  <div className="absolute top-0 right-0 bg-blue-50 text-blue-500 text-[8px] px-2 py-0.5 rounded-bl font-mono uppercase tracking-wider">
+                    Page {i + 2}
+                  </div>
                 </div>
-              )}
+              ))}
               {cvData ? renderCV() : (
                 <div className="h-full flex items-center justify-center p-8">
                   <div className="text-center max-w-sm">

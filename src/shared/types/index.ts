@@ -13,6 +13,8 @@ export interface PersonalInfo {
   photo_url?: string;
 }
 
+export type ExperienceDisplayMode = 'hidden' | 'compact' | 'normal' | 'extended';
+
 export interface Experience {
   company: string;
   position: string;
@@ -21,6 +23,8 @@ export interface Experience {
   end_date?: string;
   current: boolean;
   description: string[];
+  kpi?: string;
+  displayMode?: ExperienceDisplayMode;
 }
 
 export interface Education {
@@ -31,9 +35,12 @@ export interface Education {
   end_date?: string;
 }
 
+export type SkillDisplayMode = 'hidden' | 'compact' | 'normal';
+
 export interface SkillCategory {
   category: string;
   items: string[];
+  displayMode?: SkillDisplayMode;
 }
 
 export interface Language {
@@ -49,7 +56,7 @@ export interface DesignSettings {
   sectionTitleWeight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'black';
   sectionTitleTransform?: 'none' | 'uppercase' | 'capitalize';
   sectionTitleSpacing?: 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
-  pageLimit?: 1 | 2;
+  pageLimit?: 1 | 2 | 3 | 4;
   showPhoto?: boolean;
   paperSize?: 'a4' | 'letter' | 'legal';
   orientation?: 'portrait' | 'landscape';
