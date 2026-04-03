@@ -7,7 +7,7 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { printCV } from '../features/editor/lib/pdfExport';
+import { renderPDF } from '../features/editor/lib/pdfExport';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { getVisibleSkills } from '../features/editor/lib/displayModes';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
@@ -109,9 +109,12 @@ export default function EditorPage() {
     }
   }, [notification]);
 
-  // Load data from Convex or LocalStorage
+  // Load data from Convex or LocalStorage — ONCE at initialization
+  const dataLoaded = useRef(false);
   useEffect(() => {
+    if (dataLoaded.current) return; // Don't reload after save
     if (user && userData) {
+      dataLoaded.current = true;
       if (userData.lastGeneratedCV) {
         setCvData(userData.lastGeneratedCV);
         if (userData.lastGeneratedCV.design) {
@@ -121,6 +124,7 @@ export default function EditorPage() {
       }
       setIsLoading(false);
     } else if (isGuest) {
+      dataLoaded.current = true;
       const stored = localStorage.getItem('guest_last_optimized');
       if (stored) {
         const data = JSON.parse(stored);
@@ -336,15 +340,33 @@ export default function EditorPage() {
   };
 
   // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!cvRef.current) return;
-    printCV(cvRef.current, designSettings);
-    setNotification({ message: 'Impression lancée — choisissez "Enregistrer en PDF"', type: 'success' });
+    setIsExporting(true);
+    try {
+      const { pdf } = await renderPDF(cvRef.current, designSettings);
+      pdf.save(`CV_Optimise_${cvData?.personal_info?.name?.replace(/\s+/g, '_') || 'CV'}.pdf`);
+      setNotification({ message: 'PDF téléchargé !', type: 'success' });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      setNotification({ message: 'Erreur export PDF.', type: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const handlePreviewPDF = () => {
+  const handlePreviewPDF = async () => {
     if (!cvRef.current) return;
-    printCV(cvRef.current, designSettings);
+    setIsExporting(true);
+    try {
+      const { url } = await renderPDF(cvRef.current, designSettings);
+      setPreviewUrl(url);
+    } catch (error) {
+      console.error('PDF preview error:', error);
+      setNotification({ message: 'Erreur aperçu PDF.', type: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
