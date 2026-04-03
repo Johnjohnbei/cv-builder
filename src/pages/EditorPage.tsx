@@ -344,8 +344,7 @@ export default function EditorPage() {
     if (!cvRef.current) return;
     setIsExporting(true);
     try {
-      const { pdf } = await renderPDF(cvRef.current, designSettings);
-      pdf.save(`CV_Optimise_${cvData?.personal_info?.name?.replace(/\s+/g, '_') || 'CV'}.pdf`);
+      await renderPDF(cvRef.current, designSettings);
       setNotification({ message: 'PDF téléchargé !', type: 'success' });
     } catch (error) {
       console.error('PDF export error:', error);
@@ -356,17 +355,8 @@ export default function EditorPage() {
   };
 
   const handlePreviewPDF = async () => {
-    if (!cvRef.current) return;
-    setIsExporting(true);
-    try {
-      const { url } = await renderPDF(cvRef.current, designSettings);
-      setPreviewUrl(url);
-    } catch (error) {
-      console.error('PDF preview error:', error);
-      setNotification({ message: 'Erreur aperçu PDF.', type: 'error' });
-    } finally {
-      setIsExporting(false);
-    }
+    // Same as download — html2pdf.js handles it
+    await handleDownloadPDF();
   };
 
   if (isLoading) {
