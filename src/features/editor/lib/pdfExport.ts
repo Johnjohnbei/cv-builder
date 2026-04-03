@@ -98,18 +98,8 @@ export function renderPDF(
       iframe.contentWindow?.print();
       // Remove iframe after print dialog closes
       setTimeout(() => {
-        document.body.removeChild(iframe);
+        try { document.body.removeChild(iframe); } catch {}
       }, 1000);
     }, 500);
   };
-
-  // Fallback
-  setTimeout(() => {
-    try {
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch {}
-      }, 1000);
-    } catch {}
-  }, 3000);
 }
