@@ -7,7 +7,7 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { renderPDF } from '../features/editor/lib/pdfExport';
+import { printCV } from '../features/editor/lib/pdfExport';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { getVisibleSkills } from '../features/editor/lib/displayModes';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
@@ -85,7 +85,7 @@ export default function EditorPage() {
         setOverflowPx(Math.max(0, overflow));
         
         // Auto-fit: condense one step if overflowing and not user-modified
-        if (overflow > 2 && !userModified && cvData && fitIterations.current < MAX_FIT_ITERATIONS) {
+        if (overflow > 2 && !userModified && !isExporting && cvData && fitIterations.current < MAX_FIT_ITERATIONS) {
           const keywords = extractKeywords(jobDescription);
           const priorities = cvData.experience.map(exp => scoreExperience(exp, keywords));
           const result = condenseOneStep(cvData.experience, cvData.skills, priorities);
@@ -99,7 +99,7 @@ export default function EditorPage() {
     });
     
     return () => cancelAnimationFrame(raf);
-  }, [cvData, designSettings, userModified, jobDescription]);
+  }, [cvData, designSettings, userModified, isExporting, jobDescription]);
 
   // Auto-hide notification
   useEffect(() => {
@@ -336,55 +336,15 @@ export default function EditorPage() {
   };
 
   // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = () => {
     if (!cvRef.current) return;
-    setIsExporting(true);
-    
-    // Scroll preview container to top to ensure full capture
-    if (previewContainerRef.current) {
-      previewContainerRef.current.scrollTo(0, 0);
-    }
-    
-    // Small delay to ensure any layout shifts are settled
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    try {
-      const { pdf } = await renderPDF({
-        cvElement: cvRef.current,
-        designSettings,
-      });
-      pdf.save(`CV_Optimise_${cvData?.personal_info?.name?.replace(/\s+/g, '_') || 'Builder'}.pdf`);
-      setNotification({ message: 'Téléchargement lancé !', type: 'success' });
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      setNotification({ message: 'Erreur lors de l\'export PDF.', type: 'error' });
-    } finally {
-      setIsExporting(false);
-    }
+    printCV(cvRef.current, designSettings);
+    setNotification({ message: 'Impression lancée — choisissez "Enregistrer en PDF"', type: 'success' });
   };
 
-  const handlePreviewPDF = async () => {
+  const handlePreviewPDF = () => {
     if (!cvRef.current) return;
-    setIsPreviewing(true);
-    
-    if (previewContainerRef.current) {
-      previewContainerRef.current.scrollTo(0, 0);
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    try {
-      const { url } = await renderPDF({
-        cvElement: cvRef.current,
-        designSettings,
-      });
-      setPreviewUrl(url);
-    } catch (error) {
-      console.error('Error generating PDF preview:', error);
-      setNotification({ message: 'Erreur lors de l\'aperçu.', type: 'error' });
-    } finally {
-      setIsPreviewing(false);
-    }
+    printCV(cvRef.current, designSettings);
   };
 
   if (isLoading) {

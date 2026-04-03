@@ -1,86 +1,103 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
 import type { DesignSettings } from '@/src/shared/types';
 
-interface ExportOptions {
-  cvElement: HTMLElement;
-  designSettings: DesignSettings;
-}
-
-interface ExportResult {
-  pdf: jsPDF;
-  blob: Blob;
-  url: string;
-}
-
 /**
- * WYSIWYG PDF export.
+ * WYSIWYG PDF export using the browser's native print dialog.
  * 
- * The cvElement has transform:scale(zoom) for the preview. We must temporarily
- * reset it to scale(1) so html2canvas captures at the real CSS dimensions
- * (210mm × N×297mm). After capture, we restore the original transform.
+ * This is the most reliable method — the browser handles all CSS rendering
+ * perfectly, including transforms, fonts, colors, and page breaks.
  * 
- * This is the ONLY DOM change we make, and it's restored in a finally block.
+ * Opens a popup window with only the CV content, then calls window.print().
+ * The user selects "Save as PDF" in the print dialog.
  */
-export async function renderPDF(options: ExportOptions): Promise<ExportResult> {
-  const { cvElement, designSettings } = options;
+export function printCV(cvElement: HTMLElement, designSettings: DesignSettings): void {
   const pageLimit = designSettings.pageLimit || 1;
-
-  // Save and reset transform + hide preview decorations for clean capture
-  const savedTransform = cvElement.style.transform;
-  const savedBorder = cvElement.style.border;
-  const savedBoxShadow = cvElement.style.boxShadow;
-  cvElement.style.transform = 'scale(1)';
-  cvElement.style.border = 'none';
-  cvElement.style.boxShadow = 'none';
-
-  // Wait for browser to reflow at scale(1)
-  await new Promise(r => setTimeout(r, 150));
-
-  try {
-    const canvas = await html2canvas(cvElement, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-    });
-
-    const pdf = new jsPDF({
-      orientation: designSettings.orientation || 'portrait',
-      unit: 'mm',
-      format: designSettings.paperSize || 'a4',
-    });
-
-    const pdfW = pdf.internal.pageSize.getWidth();
-    const pdfH = pdf.internal.pageSize.getHeight();
-
-    if (pageLimit === 1) {
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, pdfH);
-    } else {
-      const sliceH = Math.round(canvas.height / pageLimit);
-      for (let i = 0; i < pageLimit; i++) {
-        if (i > 0) pdf.addPage();
-        const srcY = i * sliceH;
-        const srcH = Math.min(sliceH, canvas.height - srcY);
-        if (srcH <= 0) break;
-
-        const page = document.createElement('canvas');
-        page.width = canvas.width;
-        page.height = sliceH;
-        const ctx = page.getContext('2d')!;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, page.width, page.height);
-        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-        pdf.addImage(page.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, pdfH);
+  
+  // Clone the CV content
+  const clone = cvElement.cloneNode(true) as HTMLElement;
+  
+  // Reset any preview-specific styles on the clone
+  clone.style.transform = 'none';
+  clone.style.position = 'relative';
+  clone.style.width = '210mm';
+  clone.style.height = `${297 * pageLimit}mm`;
+  clone.style.overflow = 'hidden';
+  clone.style.border = 'none';
+  clone.style.boxShadow = 'none';
+  clone.style.margin = '0';
+  
+  // Get all stylesheets from the current page
+  const styles = Array.from(document.styleSheets)
+    .map(sheet => {
+      try {
+        return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
+      } catch {
+        // Cross-origin stylesheets can't be read
+        return '';
       }
-    }
+    })
+    .join('\n');
 
-    const blob = pdf.output('blob');
-    const url = URL.createObjectURL(blob);
-    return { pdf, blob, url };
-  } finally {
-    cvElement.style.transform = savedTransform;
-    cvElement.style.border = savedBorder;
-    cvElement.style.boxShadow = savedBoxShadow;
+  // Open print window
+  const printWindow = window.open('', '_blank', 'width=794,height=1123');
+  if (!printWindow) {
+    alert("Impossible d'ouvrir la fenêtre d'impression. Autorisez les popups.");
+    return;
   }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>CV Export</title>
+      <style>
+        ${styles}
+        
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        
+        @media print {
+          body {
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
+          [data-cv-block] {
+            break-inside: avoid !important;
+          }
+        }
+        
+        body {
+          margin: 0;
+          padding: 0;
+          background: white;
+        }
+      </style>
+      ${Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .map(link => link.outerHTML)
+        .join('\n')}
+    </head>
+    <body>
+      ${clone.outerHTML}
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  
+  // Wait for styles and fonts to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
+  
+  // Fallback if onload doesn't fire
+  setTimeout(() => {
+    try { printWindow.print(); } catch {}
+  }, 2000);
 }
