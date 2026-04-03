@@ -1,122 +1,110 @@
-# Calibre — Optimisez votre CV avec l'IA
+# Calibre — CV Builder avec IA
 
-Application web de création et d'optimisation de CV propulsée par Gemini AI. Importez votre CV, collez une offre d'emploi, et l'IA adapte votre parcours pour maximiser votre score ATS.
+Application web de création et d'optimisation de CV, propulsée par l'IA (Google Gemini).
 
-**[→ Essayer en ligne](https://cv-builder-indol-three.vercel.app)**
+## 🚀 Stack technique
 
-## Stack technique
+- **Frontend** : React 18 + Vite + Tailwind CSS v4
+- **Backend** : Convex (serverless, temps réel)
+- **Auth** : Clerk (Google OAuth + mode invité)
+- **IA** : Google Gemini (Pro + Flash)
+- **PDF** : Export natif navigateur (window.print)
+- **Deploy** : Vercel + Convex Cloud
 
-| Couche | Technologie |
-|---|---|
-| **Frontend** | React 19 · TypeScript · Vite · TailwindCSS v4 |
-| **Backend** | Convex (BaaS temps réel) |
-| **Auth** | Clerk (Google OAuth + mode invité) |
-| **IA** | Google Gemini (serveur Convex — clé jamais exposée côté client) |
-| **UI** | Design System custom (15 composants) · Lucide Icons · Motion |
-| **Deploy** | Vercel (frontend) · Convex Cloud (backend) |
+## ✨ Fonctionnalités
 
-## Fonctionnalités
+### Éditeur de CV
+- 6 templates professionnels (Classic, Modern, Minimal, Creative, Elegant, Sidebar)
+- Blocs modulables : chaque expérience a un mode (masqué/compact/normal/étendu)
+- Auto-fit intelligent : ajuste automatiquement les blocs pour tenir sur 1-4 pages
+- Scoring de pertinence par rapport à une offre d'emploi
+- Dates automatiquement raccourcies (Septembre → Sept.)
+- KPI chiffrés en mode étendu
+- Réordonnement par glisser-déplacer
 
-- 📄 **Import CV** — PDF upload avec extraction IA automatique
-- ✏️ **Création from scratch** — Formulaire complet sans PDF requis
-- 🎯 **Optimisation ATS** — Adapte le CV aux mots-clés de l'offre d'emploi
-- 📊 **Analyse ATS** — Score de compatibilité, mots-clés manquants, conseils
-- ✨ **Suggestions IA inline** — Amélioration par bullet point avec 3 alternatives
-- 📝 **Lettre de motivation IA** — Générée à partir du CV + offre, 4 tons disponibles
-- 🎨 **6 templates pro** — Classic, Modern, Minimal, Creative, Elegant, Sidebar
-- 🎛️ **Personnalisation** — Couleurs, typographie, sections, photo, presets thèmes
-- 📥 **Export PDF & DOCX** — Téléchargement dans les deux formats
-- 💾 **Sauvegarde cloud** — CVs et lettres stockés dans Convex
-- 📱 **Responsive** — Mobile, tablet, desktop
-- 🔒 **Sécurisé** — Clés API serveur-only, auth Clerk, safeParseJSON
+### Import & IA
+- Import CV depuis PDF (extraction IA structurée)
+- Import offre d'emploi depuis URL ou PDF
+- Optimisation du contenu par IA (reformulation, priorisation)
+- Analyse ATS (score de compatibilité)
+- Amélioration de bullet points par IA
+- Lettre de motivation générée par IA
 
-## Architecture
+### Export
+- Export PDF via impression navigateur (rendu CSS fidèle)
+- Support 1 à 4 pages A4
+- Page breaks automatiques (évite de couper les blocs)
+
+### Administration
+- Système de codes d'accès avec expiration
+- Panneau admin pour générer des codes et voir les demandes
+- Protection des appels API Gemini
+
+## 🏗️ Architecture
 
 ```
 src/
-├── shared/                    # Couche partagée
-│   ├── types/                 # CVData, DesignSettings, ATSResult, EMPTY_CV
-│   ├── hooks/                 # useDebounce, useMediaQuery, useAutoNotification
-│   ├── ui/                    # Design System (15 composants)
-│   │   ├── Button.tsx         # 4 variants, 3 sizes, loading, mono
-│   │   ├── Input.tsx          # Labeled, mono typography
-│   │   ├── Textarea.tsx       # Labeled textarea
-│   │   ├── Select.tsx         # Labeled select with options
-│   │   ├── Panel.tsx          # Panel + PanelHeader + PanelBody
-│   │   ├── Accordion.tsx      # Collapsible sections
-│   │   ├── Toggle.tsx         # On/off switch
-│   │   ├── Chip.tsx           # Selectable option chips
-│   │   ├── StatCard.tsx       # Metric display
-│   │   ├── Dropzone.tsx       # File upload
-│   │   ├── Notification.tsx   # Toast feedback
-│   │   ├── ConfirmModal.tsx   # Confirmation dialog
-│   │   ├── ErrorBoundary.tsx  # React error catch
-│   │   └── Spinner.tsx        # Loading states
-│   └── lib/
-│       ├── cn.ts              # Tailwind merge
-│       └── export-docx.ts     # DOCX generation
-├── features/                  # Feature modules (Arkanes pattern)
-│   ├── auth/                  # AuthPage, ProtectedRoute, SyncUser
-│   ├── landing/               # HomePage, Layout
-│   ├── dashboard/             # Dashboard barrel
-│   ├── editor/                # Editor barrel + CV templates
-│   │   └── templates/         # CVRenderer, shared helpers
-│   └── cover-letter/          # CoverLetterPage
-├── pages/                     # Page components (migration incrémentale)
-├── App.tsx                    # Routes (lazy-loaded)
-├── main.tsx                   # Providers + ErrorBoundary
-└── index.css                  # Design tokens + global styles
-
+  features/editor/
+    lib/                    ← Logique pure (pas de React)
+      displayModes.ts         Modes d'affichage, bullets, skills
+      scoring.ts              Pertinence, dates, proficiency
+      autoFit.ts              Boucle de condensation
+      pdfExport.ts            Export PDF natif
+    templates/              ← Composants de rendu
+      shared.tsx              Helpers partagés
+      CVRenderer.tsx          Routeur de templates
+      TemplateA-F.tsx         6 templates individuels
+  pages/
+    EditorPage.tsx          ← Orchestration UI
+    DashboardPage.tsx       ← Import, optimisation, admin
+  shared/types/             ← Types TypeScript
 convex/
-├── schema.ts                  # 3 tables: users, cvs, coverLetters
-├── ai.ts                      # 8 actions IA serveur (use node)
-├── users.ts                   # Queries/mutations users
-├── cvs.ts                     # Queries/mutations CVs + getById
-├── coverLetters.ts            # CRUD lettres de motivation
-└── auth.config.js             # Clerk auth config
+  ai.ts                   ← Fonctions IA (Gemini)
+  accessCodes.ts          ← Gestion des codes d'accès
+  schema.ts               ← Schéma de la base de données
 ```
 
-## Installation
+## 🛠️ Développement
 
 ```bash
-git clone https://github.com/Johnjohnbei/cv-builder.git
-cd cv-builder
+# Installation
 npm install
-cp .env.example .env.local
-# Remplir .env.local avec vos clés (voir ci-dessous)
-npx convex dev          # Terminal 1 — backend
-npm run dev             # Terminal 2 — frontend (http://localhost:3000)
+
+# Développement (frontend + backend)
+npx convex dev & npm run dev
+
+# Build production
+npx vite build
+
+# Déploiement
+git push origin master  # Vercel redéploie automatiquement
+npx convex deploy       # Déployer les fonctions Convex en prod
 ```
 
-## Variables d'environnement
+### Variables d'environnement
 
-| Variable | Où | Description |
-|---|---|---|
-| `VITE_CONVEX_URL` | `.env.local` | URL du déploiement Convex |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `.env.local` | Clé publique Clerk |
-| `CLERK_SECRET_KEY` | `.env.local` | Clé secrète Clerk |
-| `GEMINI_API_KEY` | **Convex env vars** | Clé API Google Gemini (côté serveur uniquement) |
-
-> ⚠️ `GEMINI_API_KEY` n'est **pas** dans `.env.local` — elle est configurée dans les variables d'environnement Convex via `npx convex env set GEMINI_API_KEY <key>`.
-
-## Performance
-
-| Métrique | Valeur |
-|---|---|
-| Chunk initial | **188 KB** (was 1,319 KB — -86%) |
-| Pages lazy-loaded | 6 routes |
-| Vendor splitting | react, clerk, convex, pdf, ui, docx |
-| Build time | ~3s |
-
-## Scripts
-
-```bash
-npm run dev        # Dev server (port 3000)
-npm run build      # Production build
-npm run preview    # Preview production build
-npm run lint       # TypeScript type check
+**Local (.env.local)** :
+```
+CONVEX_DEPLOYMENT=dev:necessary-bobcat-348
+VITE_CONVEX_URL=https://necessary-bobcat-348.eu-west-1.convex.cloud
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
-## Licence
+**Convex (via dashboard)** :
+```
+GEMINI_API_KEY=...
+CLERK_JWT_ISSUER_DOMAIN=...
+```
 
-MIT
+**Vercel** :
+```
+CONVEX_DEPLOY_KEY=...
+VITE_CONVEX_URL=https://cautious-mule-560.eu-west-1.convex.cloud
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+```
+
+## 📐 Règle d'or
+
+**Le rendu/layout/pagination = logique pure, zéro IA.**
+L'IA ne touche que le contenu textuel (extraction, reformulation, optimisation).
+Tout le reste (modes d'affichage, auto-fit, scoring, dates, export) est déterministe.
