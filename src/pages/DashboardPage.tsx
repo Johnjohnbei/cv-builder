@@ -49,6 +49,8 @@ export default function DashboardPage() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const requireAccessCode = (action: () => void) => {
+    // Admin bypasses access code
+    if (isAdmin) { action(); return; }
     const code = localStorage.getItem('calibre_access_code') || '';
     if (code) {
       action();
