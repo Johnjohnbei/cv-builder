@@ -88,7 +88,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
                     <p className="text-[10px] font-bold uppercase mb-1 opacity-40">{cat.category}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
                       {getVisibleSkills(cat).map(skill => (
-                        <span key={skill} className="text-sm text-gray-700">{skill}</span>
+                        <span key={skill} className="text-xs text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">{skill}</span>
                       ))}
                     </div>
                   </div>

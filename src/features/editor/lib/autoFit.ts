@@ -34,11 +34,15 @@ export function condenseOneStep(
     .sort((a, b) => a.priority - b.priority);
 
   // Find skills that can be condensed
+  const visibleSkillCount = skills.filter(s => (s.displayMode || 'normal') !== 'hidden').length;
   const skillCandidates = skills
     .map((cat, idx) => {
       const mode = (cat.displayMode || 'normal') as SkillDisplayMode;
       const modeIdx = SKILL_MODES.indexOf(mode);
-      return { idx, mode, modeIdx, canCondense: modeIdx >= 0 && modeIdx < SKILL_MODES.length - 1 };
+      const wouldHide = SKILL_MODES[modeIdx + 1] === 'hidden';
+      // Don't hide the last visible skill category
+      const blocked = wouldHide && visibleSkillCount <= 1;
+      return { idx, mode, modeIdx, canCondense: modeIdx >= 0 && modeIdx < SKILL_MODES.length - 1 && !blocked };
     })
     .filter(s => s.canCondense);
 
