@@ -1,14 +1,15 @@
 # Calibre — CV Builder avec IA
 
-Application web de création et d'optimisation de CV, propulsée par l'IA (Google Gemini).
+Application web de création et d'optimisation de CV, propulsée par l'IA (NVIDIA NIM / Gemini).
 
 ## 🚀 Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS v4
 - **Backend** : Convex (serverless, temps réel)
 - **Auth** : Clerk (Google OAuth + mode invité)
-- **IA** : Google Gemini (Pro + Flash)
-- **PDF** : Export natif navigateur (window.print)
+- **IA** : NVIDIA NIM llama-3.1-70b (primary) / Google Gemini (fallback)
+- **PDF parsing** : pdfjs-dist (client-side, zero API)
+- **PDF export** : Natif navigateur (window.print)
 - **Deploy** : Vercel + Convex Cloud
 
 ## ✨ Fonctionnalités
@@ -23,10 +24,14 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Googl
 - Réordonnement par glisser-déplacer
 
 ### Import & IA
-- Import CV depuis PDF (extraction IA structurée)
-- Import offre d'emploi depuis URL ou PDF
-- Optimisation du contenu par IA (reformulation, priorisation)
-- Analyse ATS (score de compatibilité)
+- **Import LinkedIn PDF** : parsing déterministe instantané (<100ms, 0 appel API)
+  - Détection automatique du format LinkedIn via font sizes fixes
+  - Extraction : nom, titre, email, téléphone, localisation, LinkedIn URL, résumé, expériences, éducation, langues, compétences
+  - Gère les URLs multi-lignes, langues sans proficiency, titres longs avec virgules
+  - Testé sur 4 profils différents (2-18 pages)
+- **Import CV non-LinkedIn** : extraction IA structurée (fallback)
+- Import offre d'emploi depuis URL (Jina Reader) ou PDF
+- Optimisation du contenu par IA (reformulation, mots-clés ATS, priorisation)
 - Amélioration de bullet points par IA
 - Lettre de motivation générée par IA
 
@@ -38,12 +43,15 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Googl
 ### Administration
 - Système de codes d'accès avec expiration
 - Panneau admin pour générer des codes et voir les demandes
-- Protection des appels API Gemini
+- Protection des appels API
 
 ## 🏗️ Architecture
 
 ```
 src/
+  lib/
+    linkedinParser.ts       ← Parser LinkedIn déterministe (zero API)
+    pdfTextExtract.ts       ← Extraction texte brut PDF (pdfjs-dist)
   features/editor/
     lib/                    ← Logique pure (pas de React)
       displayModes.ts         Modes d'affichage, bullets, skills
@@ -59,10 +67,32 @@ src/
     DashboardPage.tsx       ← Import, optimisation, admin
   shared/types/             ← Types TypeScript
 convex/
-  ai.ts                   ← Fonctions IA (Gemini)
+  ai.ts                   ← Fonctions IA (NVIDIA NIM / Gemini)
   accessCodes.ts          ← Gestion des codes d'accès
   schema.ts               ← Schéma de la base de données
 ```
+
+### LinkedIn Parser — Pipeline
+
+```
+PDF → pdfjs-dist tokens → tokensToLines (merge par Y-position)
+  → splitColumns (X < 210 = left/sidebar, X >= 210 = right/main)
+  → assignFontRoles (font-size → semantic role)
+  → extractPersonalInfo / extractExperiences / extractEducation / extractLanguages / extractSkills
+  → CVData (même structure que l'extraction IA)
+```
+
+Font sizes LinkedIn 2025 (stables sur tous les profils testés) :
+| Font size | Rôle sémantique |
+|-----------|----------------|
+| ~26 | Nom complet |
+| ~15.75 | Headers de section (Expérience, Formation…) |
+| ~13 | Headers sidebar (Coordonnées, Langues…) |
+| ~12 | Nom d'entreprise / titre court |
+| ~11.5 | Intitulé de poste |
+| ~11 | Liens (LinkedIn URL) |
+| ~10.5 | Corps de texte |
+| ~9 | Numéros de page |
 
 ## 🛠️ Développement
 
@@ -92,7 +122,8 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 
 **Convex (via dashboard)** :
 ```
-GEMINI_API_KEY=...
+NVIDIA_API_KEY=...          # Primary AI provider
+GEMINI_API_KEY=...          # Fallback AI provider
 CLERK_JWT_ISSUER_DOMAIN=...
 ```
 
@@ -106,5 +137,5 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ## 📐 Règle d'or
 
 **Le rendu/layout/pagination = logique pure, zéro IA.**
-L'IA ne touche que le contenu textuel (extraction, reformulation, optimisation).
-Tout le reste (modes d'affichage, auto-fit, scoring, dates, export) est déterministe.
+L'IA ne touche que le contenu textuel (extraction non-LinkedIn, reformulation, optimisation).
+Tout le reste (modes d'affichage, auto-fit, scoring, dates, export, parsing LinkedIn) est déterministe.
