@@ -1,21 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Plus, Search, ArrowRight, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
+import { Upload, FileText, Plus, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CVData } from '../shared/types';
+import { extractTextFromPDF } from '../lib/pdfTextExtract';
+import { parseLinkedInPDF } from '../lib/linkedinParser';
 
-interface ATSResult {
-  score: number;
-  missingKeywords: string[];
-  strengths: string[];
-  improvements: string[];
-  ats_compatibility: 'LOW' | 'MEDIUM' | 'HIGH';
-}
+
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -29,8 +25,8 @@ export default function DashboardPage() {
   const [isCrawling, setIsCrawling] = useState(false);
   const [isExtractingJob, setIsExtractingJob] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeView, setActiveView] = useState<'console' | 'cvs' | 'ats'>('console');
+  const [generatingSeconds, setGeneratingSeconds] = useState(0);
+  const [activeView, setActiveView] = useState<'console' | 'cvs'>('console');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [newCodeDays, setNewCodeDays] = useState(30);
   const [newCodeUses, setNewCodeUses] = useState(50);
@@ -38,7 +34,7 @@ export default function DashboardPage() {
   const [generatedCode, setGeneratedCode] = useState('');
   const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
   const [savedCVs, setSavedCVs] = useState<any[]>([]);
-  const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
+
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('calibre_access_code') || '');
@@ -96,7 +92,6 @@ export default function DashboardPage() {
 
   const extractCVDataFromPDF = useAction(api.ai.extractCVDataFromPDF);
   const tailorCV = useAction(api.ai.tailorCV);
-  const getATSAnalysis = useAction(api.ai.getATSAnalysis);
   const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
   const verifyCode = useQuery(api.accessCodes.verify, accessCode ? { code: accessCode } : "skip");
@@ -130,32 +125,48 @@ export default function DashboardPage() {
     }
   }, [notification]);
 
+  // Live counter while generating
+  useEffect(() => {
+    if (!isGenerating) { setGeneratingSeconds(0); return; }
+    const interval = setInterval(() => setGeneratingSeconds(s => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     const doExtract = async () => {
       setIsUploading(true);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64 = (reader.result as string).split(',')[1];
+      try {
+        // 1. Try deterministic LinkedIn parser first (instant, zero API, zero cost)
+        const linkedInData = await parseLinkedInPDF(file);
+
+        let data;
+        if (linkedInData) {
+          // LinkedIn format detected — parsed in <1s, no API call
+          data = linkedInData;
+        } else {
+          // Non-LinkedIn PDF — fall back to AI extraction
+          const pdfText = await extractTextFromPDF(file);
           const code = localStorage.getItem('calibre_access_code') || '';
-          const data = await extractCVDataFromPDF({ base64PDF: base64, accessCode: code });
+          data = await extractCVDataFromPDF({ pdfText: pdfText.substring(0, 12000), accessCode: code });
+        }
         setBaseCV(data);
-        
+
         if (user) {
           await storeUser();
           await updateLastCV({ cvData: data });
         } else if (isGuest) {
           localStorage.setItem('guest_base_cv', JSON.stringify(data));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Extraction error:', error);
-        setNotification({ message: 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.', type: 'error' });
+        const msg = error?.message === 'PDF_NO_TEXT'
+          ? 'Ce PDF semble être une image scannée. Veuillez utiliser un PDF généré depuis Word, Google Docs ou LinkedIn.'
+          : 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.';
+        setNotification({ message: msg, type: 'error' });
       } finally {
         setIsUploading(false);
       }
-    };
-    reader.readAsDataURL(file);
     };
     requireAccessCode(doExtract);
   }, [user, storeUser, accessCode]);
@@ -169,21 +180,19 @@ export default function DashboardPage() {
   const onJobDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsExtractingJob(true);
     const file = acceptedFiles[0];
-    
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64 = (reader.result as string).split(',')[1];
-        const text = await extractJobDescriptionFromPDF({ base64PDF: base64, accessCode: localStorage.getItem("calibre_access_code") || "" });
-        setJobDescription(text);
-      } catch (error) {
-        console.error('Job extraction error:', error);
-        setNotification({ message: 'Erreur lors de l\'extraction de la fiche de poste.', type: 'error' });
-      } finally {
-        setIsExtractingJob(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const pdfText = await extractTextFromPDF(file);
+      const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: localStorage.getItem("calibre_access_code") || "" });
+      setJobDescription(text);
+    } catch (error: any) {
+      console.error('Job extraction error:', error);
+      const msg = error?.message === 'PDF_NO_TEXT'
+        ? 'Ce PDF semble être une image scannée. Veuillez copier-coller le texte manuellement.'
+        : 'Erreur lors de l\'extraction de la fiche de poste.';
+      setNotification({ message: msg, type: 'error' });
+    } finally {
+      setIsExtractingJob(false);
+    }
   }, []);
 
   const { getRootProps: getJobRootProps, getInputProps: getJobInputProps, isDragActive: isJobDragActive } = useDropzone({ 
@@ -233,20 +242,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleATSAnalysis = async () => {
-    if (!baseCV || !jobDescription) return;
-    setIsAnalyzing(true);
-    try {
-      const result = await getATSAnalysis({ cvData: baseCV, jobDescription, accessCode: localStorage.getItem("calibre_access_code") || "" });
-      setAtsResult(result);
-      setActiveView('ats');
-    } catch (error) {
-      console.error('ATS Analysis error:', error);
-      setNotification({ message: 'Erreur lors de l\'analyse ATS.', type: 'error' });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   return (
     <div className="stitch-container">
@@ -425,16 +420,7 @@ export default function DashboardPage() {
             <FileText className="w-4 h-4" />
             <span>Mes CV</span>
           </button>
-          <button 
-            onClick={() => setActiveView('ats')}
-            className={cn(
-              "w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              activeView === 'ats' ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100"
-            )}
-          >
-            <Search className="w-4 h-4" />
-            <span>Analyse ATS</span>
-          </button>
+
           <a
             href="/cover-letter"
             className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100"
@@ -619,141 +605,29 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-3">
                       <button
-                        onClick={handleATSAnalysis}
-                        disabled={!baseCV || jobDescription.length < 50 || isAnalyzing}
-                        className="stitch-button-secondary flex items-center space-x-2 disabled:opacity-50"
-                      >
-                        {isAnalyzing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Search className="w-4 h-4" />
-                        )}
-                        <span>ANALYSE_ATS</span>
-                      </button>
-                      <button
                         onClick={handleOptimize}
                         disabled={!baseCV || jobDescription.length < 50 || isGenerating}
                         className="stitch-button-primary flex items-center space-x-2 disabled:opacity-50"
                       >
                         {isGenerating ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Optimisation en cours… {generatingSeconds}s</span>
+                          </>
                         ) : (
-                          <ArrowRight className="w-4 h-4" />
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            <span>OPTIMISER MON CV</span>
+                          </>
                         )}
-                        <span>RUN_OPTIMIZATION</span>
                       </button>
                     </div>
                   </div>
                 </section>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { label: 'MATCH_SCORE', value: atsResult ? `${atsResult.score}%` : (baseCV && jobDescription.length > 100 ? '...' : '0%'), color: atsResult ? 'text-green-600' : 'text-gray-400' },
-                    { label: 'KEYWORDS_FOUND', value: atsResult ? atsResult.missingKeywords.length : '0', color: 'text-blue-600' },
-                    { label: 'ATS_COMPLIANCE', value: atsResult ? atsResult.ats_compatibility : 'PENDING', color: atsResult?.ats_compatibility === 'HIGH' ? 'text-green-600' : 'text-orange-500' },
-                  ].map((stat, i) => (
-                    <div key={i} className="stitch-panel p-3">
-                      <p className="text-[9px] stitch-mono text-gray-500 mb-1">{stat.label}</p>
-                      <p className={cn("text-lg font-bold stitch-mono", stat.color)}>{stat.value}</p>
-                    </div>
-                  ))}
-                </div>
+
               </div>
 
-            </div>
-          ) : activeView === 'ats' ? (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Rapport d'Analyse ATS</h2>
-                  <p className="text-sm text-gray-500">Optimisez votre CV pour passer les filtres des recruteurs.</p>
-                </div>
-                <button 
-                  onClick={() => setActiveView('console')}
-                  className="stitch-button-secondary"
-                >
-                  RETOUR_CONSOLE
-                </button>
-              </div>
-
-              {!atsResult ? (
-                <div className="stitch-panel p-12 text-center">
-                  <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">Aucune analyse en cours.</p>
-                  <p className="text-xs text-gray-400 mt-1">Lancez une analyse depuis la console avec un CV et une offre.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-12 gap-4 lg:gap-6">
-                  <div className="col-span-12 lg:col-span-4 space-y-6">
-                    <div className="stitch-panel p-6 text-center">
-                      <div className="inline-flex items-center justify-center w-24 h-24 rounded-full border-4 border-blue-100 mb-4">
-                        <span className="text-3xl font-bold text-blue-600">{atsResult.score}%</span>
-                      </div>
-                      <h3 className="font-bold text-lg">Score de Match</h3>
-                      <p className="text-xs text-gray-500 mt-2">Compatibilité globale avec le poste</p>
-                      <div className={cn(
-                        "mt-4 px-3 py-1 rounded-full text-[10px] font-bold stitch-mono inline-block",
-                        atsResult.ats_compatibility === 'HIGH' ? "bg-green-100 text-green-700" : 
-                        atsResult.ats_compatibility === 'MEDIUM' ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
-                      )}>
-                        ATS_LEVEL: {atsResult.ats_compatibility}
-                      </div>
-                    </div>
-
-                    <div className="stitch-panel">
-                      <div className="stitch-panel-header">MOTS_CLÉS_MANQUANTS</div>
-                      <div className="p-4 flex flex-wrap gap-2">
-                        {atsResult.missingKeywords.map((word, i) => (
-                          <span key={i} className="px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded text-[10px] stitch-mono">
-                            {word}
-                          </span>
-                        ))}
-                        {atsResult.missingKeywords.length === 0 && (
-                          <p className="text-xs text-gray-500 italic">Aucun mot-clé critique manquant !</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="col-span-12 lg:col-span-8 space-y-6">
-                    <div className="stitch-panel">
-                      <div className="stitch-panel-header">POINTS_FORTS</div>
-                      <div className="p-4 space-y-3">
-                        {atsResult.strengths.map((strength, i) => (
-                          <div key={i} className="flex items-start space-x-3">
-                            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
-                            <p className="text-sm text-gray-700">{strength}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="stitch-panel">
-                      <div className="stitch-panel-header">CONSEILS_D_AMÉLIORATION</div>
-                      <div className="p-4 space-y-3">
-                        {atsResult.improvements.map((improvement, i) => (
-                          <div key={i} className="flex items-start space-x-3">
-                            <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold mt-0.5">
-                              {i + 1}
-                            </div>
-                            <p className="text-sm text-gray-700">{improvement}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button 
-                        onClick={handleOptimize}
-                        className="stitch-button-primary flex items-center space-x-2"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                        <span>OPTIMISER_MON_CV_MAINTENANT</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in duration-500">
@@ -866,16 +740,7 @@ export default function DashboardPage() {
           <FileText className="w-5 h-5" />
           <span>CV</span>
         </button>
-        <button 
-          onClick={() => setActiveView('ats')}
-          className={cn(
-            "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0",
-            activeView === 'ats' ? "text-blue-600" : "text-gray-500"
-          )}
-        >
-          <Search className="w-5 h-5" />
-          <span>ATS</span>
-        </button>
+
         <a
           href="/cover-letter"
           className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0 text-gray-500"
