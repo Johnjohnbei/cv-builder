@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { TemplateProps } from './shared';
 import { TemplateA } from './TemplateA';
 import { TemplateB } from './TemplateB';
@@ -19,8 +20,12 @@ interface Props extends TemplateProps {
   selectedTemplate: string;
 }
 
-export function CVRenderer({ selectedTemplate, ...templateProps }: Props) {
+/**
+ * CVRenderer — memoized to skip re-renders when only sidebar UI state changes.
+ * Only re-renders when cvData, designSettings, or selectedTemplate change.
+ */
+export const CVRenderer = memo(function CVRenderer({ selectedTemplate, ...templateProps }: Props) {
   const Template = TEMPLATE_MAP[selectedTemplate];
   if (Template) return <Template {...templateProps} />;
   return null;
-}
+});

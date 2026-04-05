@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
+import { useDocumentTitle } from '@/src/shared/hooks';
 
 export default function NotFoundPage() {
+  useDocumentTitle('Page introuvable');
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6">
       <div className="max-w-md text-center">

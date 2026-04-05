@@ -58,10 +58,18 @@ function getModel(speed: "default" | "fast" = "default"): string {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function verifyAccessCode(code?: string) {
-  if (process.env.REQUIRE_ACCESS_CODE === "true" && !code) {
-    throw new Error("Code d'accès requis.");
+async function verifyAccessCode(ctx: any, code?: string) {
+  // Admin bypass via env var
+  if (process.env.REQUIRE_ACCESS_CODE !== "true") return;
+  if (!code) throw new Error("Code d'accès requis.");
+
+  const { internal } = await import("./_generated/api");
+  const result = await ctx.runQuery(internal.accessCodes.verifyInternal, { code });
+  if (!result.valid) {
+    throw new Error(result.reason || "Code d'accès invalide.");
   }
+  // Increment usage
+  await ctx.runMutation(internal.accessCodes.incrementUsageInternal, { code });
 }
 
 function safeParseJSON(text: string | undefined | null, fallback: any = {}): any {
@@ -124,8 +132,8 @@ export const extractCVDataFromPDF = action({
     pdfText: v.string(),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     const prompt = `
 Tu es un expert en recrutement et en structuration de données CV.
@@ -260,8 +268,8 @@ export const tailorCV = action({
     jobDescription: v.string(),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     const prompt = `
 Tu es un expert en optimisation ATS (Applicant Tracking Systems) pour les années 2025-2026.
@@ -296,8 +304,8 @@ export const getATSAnalysis = action({
     jobDescription: v.string(),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     const prompt = `
 Tu es un expert en recrutement et en systèmes ATS.
@@ -325,8 +333,8 @@ export const extractJobDescriptionFromURL = action({
     url: v.string(),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     // Step 1: Try Jina Reader first — renders JS (handles SPAs like WTTJ, LinkedIn),
     // expands accordions, returns clean markdown. Free, no API key needed.
@@ -408,8 +416,8 @@ export const extractJobDescriptionFromPDF = action({
     pdfText: v.string(),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     const prompt = `
 Analyse ce texte extrait d'un document PDF qui est une fiche de poste.
@@ -431,8 +439,8 @@ export const optimizeCVForPage = action({
     jobDescription: v.optional(v.string()),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
 
     const jobContext = args.jobDescription
       ? `
@@ -534,8 +542,8 @@ export const generateCoverLetter = action({
     tone: v.optional(v.string()),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
     const tone = args.tone || "professionnel et engagé";
     const company = args.companyName ? `pour l'entreprise ${args.companyName}` : "";
 
@@ -578,8 +586,8 @@ export const improveBulletPoint = action({
     jobDescription: v.optional(v.string()),
     accessCode: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
-    verifyAccessCode(args.accessCode);
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
     const jobContext = args.jobDescription
       ? `\n\nOffre ciblée :\n${args.jobDescription}`
       : "";

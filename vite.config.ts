@@ -7,6 +7,11 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
+    test: {
+      globals: true,
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+    },
     define: {
       'import.meta.env.VITE_CONVEX_URL': JSON.stringify(env.VITE_CONVEX_URL),
     },
@@ -22,7 +27,7 @@ export default defineConfig(({mode}) => {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-clerk': ['@clerk/clerk-react'],
             'vendor-convex': ['convex', 'convex/react', 'convex/react-clerk'],
-            'vendor-pdf': ['jspdf', 'html2canvas-pro'],
+            'vendor-pdf': ['pdfjs-dist'],
             'vendor-ui': ['lucide-react', 'motion', 'clsx', 'tailwind-merge'],
           },
         },

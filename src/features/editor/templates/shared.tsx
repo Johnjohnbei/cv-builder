@@ -1,6 +1,17 @@
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { cn } from '@/src/shared/lib/cn';
 
+/** LinkedIn brand icon — lucide-react 1.x removed brand icons */
+export function LinkedinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect width="4" height="12" x="2" y="9" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  );
+}
+
 export interface TemplateProps {
   cvData: CVData;
   designSettings: DesignSettings;
@@ -47,6 +58,7 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
         alt={cvData.personal_info.name}
         className="w-full h-full object-cover"
         referrerPolicy="no-referrer"
+        loading="lazy"
       />
     </div>
   );

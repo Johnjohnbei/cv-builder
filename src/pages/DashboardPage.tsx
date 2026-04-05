@@ -10,10 +10,12 @@ import { api } from "@/convex/_generated/api";
 import { CVData } from '../shared/types';
 import { extractTextFromPDF } from '../lib/pdfTextExtract';
 import { parseLinkedInPDF } from '../lib/linkedinParser';
+import { useAccessCode, useDocumentTitle } from '../shared/hooks';
 
 
 
 export default function DashboardPage() {
+  useDocumentTitle('Dashboard');
   const navigate = useNavigate();
   const { user, isLoaded: isClerkLoaded } = useUser();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
@@ -37,7 +39,7 @@ export default function DashboardPage() {
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
-  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('calibre_access_code') || '');
+  const { accessCode, saveCode: setAccessCode, getCode } = useAccessCode();
   const [accessEmail, setAccessEmail] = useState('');
   const [showAccessCodePrompt, setShowAccessCodePrompt] = useState(false);
   const [accessError, setAccessError] = useState('');
@@ -47,7 +49,7 @@ export default function DashboardPage() {
   const requireAccessCode = (action: () => void) => {
     // Admin bypasses access code
     if (isAdmin) { action(); return; }
-    const code = localStorage.getItem('calibre_access_code') || '';
+    const code = getCode();
     if (code) {
       action();
     } else {
@@ -63,7 +65,7 @@ export default function DashboardPage() {
     // The verifyCode query runs reactively — check its result
     // For immediate check, we trust the input and save; if the code is invalid, 
     // the next page load will show the error via the reactive query
-    localStorage.setItem('calibre_access_code', accessCode);
+    setAccessCode(accessCode);
     setShowAccessCodePrompt(false);
     setAccessError('');
     if (pendingAction) {
@@ -147,7 +149,7 @@ export default function DashboardPage() {
         } else {
           // Non-LinkedIn PDF — fall back to AI extraction
           const pdfText = await extractTextFromPDF(file);
-          const code = localStorage.getItem('calibre_access_code') || '';
+          const code = getCode();
           data = await extractCVDataFromPDF({ pdfText: pdfText.substring(0, 12000), accessCode: code });
         }
         setBaseCV(data);
@@ -182,7 +184,7 @@ export default function DashboardPage() {
     const file = acceptedFiles[0];
     try {
       const pdfText = await extractTextFromPDF(file);
-      const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: localStorage.getItem("calibre_access_code") || "" });
+      const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: getCode() });
       setJobDescription(text);
     } catch (error: any) {
       console.error('Job extraction error:', error);
@@ -205,7 +207,7 @@ export default function DashboardPage() {
     if (!jobUrl) return;
     setIsCrawling(true);
     try {
-      const text = await extractJobDescriptionFromURL({ url: jobUrl, accessCode: localStorage.getItem("calibre_access_code") || "" });
+      const text = await extractJobDescriptionFromURL({ url: jobUrl, accessCode: getCode() });
       if (!text || text.length < 50) {
         setNotification({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Notez que les sites comme LinkedIn bloquent souvent l'accès direct. Veuillez copier-coller le texte de l'offre manuellement dans la zone 'Option C'.", type: 'error' });
       } else {
@@ -224,7 +226,7 @@ export default function DashboardPage() {
     setIsGenerating(true);
     
     try {
-      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription, accessCode: localStorage.getItem("calibre_access_code") || "" });
+      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() });
       
       if (user) {
         await storeUser();

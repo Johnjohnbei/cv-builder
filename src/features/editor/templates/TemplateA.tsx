@@ -1,7 +1,7 @@
-import { Mail, Phone, MapPin, Linkedin } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon } from './shared';
 import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 import type { Experience } from '@/src/shared/types';
@@ -129,7 +129,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
               <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</span>
               {cvData.personal_info?.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</span>}
               {cvData.personal_info?.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {cvData.personal_info?.location}</span>}
-              {cvData.personal_info?.linkedin && <span className="flex items-center gap-1"><Linkedin className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
+              {cvData.personal_info?.linkedin && <span className="flex items-center gap-1"><LinkedinIcon className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
             </div>
           </div>
           {renderPhoto(cvData, showPhoto, "w-28 h-28 rounded-lg border-2 border-gray-100")}

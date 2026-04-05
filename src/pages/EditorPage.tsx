@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { CVData, DesignSettings } from '../shared/types';
-import { Download, Layout as LayoutIcon, Eye, Save, Loader2, FileText, User, Settings, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
@@ -9,10 +8,12 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { renderPDF } from '../features/editor/lib/pdfExport';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
-import { getVisibleSkills } from '../features/editor/lib/displayModes';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
-import { autoAssignModes, extractKeywords, scoreExperience, formatDateShort } from '../features/editor/lib/scoring';
-import { condenseOneStep } from '../features/editor/lib/autoFit';
+import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
+import { useCVLoader, useAutoZoom, useOverflowDetection } from '../features/editor/hooks';
+import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader } from '../features/editor/components';
+import type { DesignSettings } from '../shared/types';
 
 const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
@@ -24,44 +25,9 @@ const TEMPLATE_NAMES: Record<string, string> = {
 };
 
 export default function EditorPage() {
-  const [cvData, setCvData] = useState<CVData | null>(null);
-  const [activeTab, setActiveTab] = useState<'content' | 'design'>('content');
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('TEMPLATE_A');
-  const [designSettings, setDesignSettings] = useState<DesignSettings>({
-    template: 'TEMPLATE_A',
-    primaryColor: '#1A73E8',
-    secondaryColor: '#5F6368',
-    fontFamily: 'sans',
-    sectionTitleWeight: 'bold',
-    sectionTitleTransform: 'uppercase',
-    sectionTitleSpacing: 'widest',
-    pageLimit: 1,
-    showPhoto: true,
-    paperSize: 'a4',
-    orientation: 'portrait',
-    includedSections: ['personal', 'summary', 'experience', 'education', 'skills', 'languages']
-  });
-  const [expandedSection, setExpandedSection] = useState<string | null>('personal');
-  const [isExporting, setIsExporting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [zoom, setZoom] = useState(85);
-  const [isAutoZoom, setIsAutoZoom] = useState(true);
-  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
-  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
-  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [improvingBullet, setImprovingBullet] = useState<string | null>(null); // "expIdx-bulletIdx"
-  const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
-  const [jobDescription, setJobDescription] = useState('');
-  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('calibre_access_code') || '');
-  const [userModified, setUserModified] = useState(false);
-  const cvRef = useRef<HTMLDivElement>(null);
-  const previewContainerRef = useRef<HTMLDivElement>(null);
+  useDocumentTitle('Éditeur');
 
+  // ─── Auth & API ───
   const { user } = useUser();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
@@ -70,115 +36,46 @@ export default function EditorPage() {
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
 
-  // ─── Overflow detection + auto-fit loop ───
-  const [overflowPx, setOverflowPx] = useState(0);
-  const fitIterations = useRef(0);
-  const MAX_FIT_ITERATIONS = 50; // safety limit
-  
-  useEffect(() => {
-    const el = cvRef.current;
-    if (!el) { setOverflowPx(0); return; }
-    
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const overflow = el.scrollHeight - el.clientHeight;
-        setOverflowPx(Math.max(0, overflow));
-        
-        // Auto-fit: condense one step if overflowing and not user-modified
-        if (overflow > 2 && !userModified && !isExporting && cvData && fitIterations.current < MAX_FIT_ITERATIONS) {
-          const keywords = extractKeywords(jobDescription);
-          const priorities = cvData.experience.map(exp => scoreExperience(exp, keywords));
-          const result = condenseOneStep(cvData.experience, cvData.skills, priorities);
-          if (result) {
-            fitIterations.current++;
-            setCvData(prev => prev ? { ...prev, experience: result.experiences, skills: result.skills } : null);
-          }
-          // If condenseOneStep returned null, we can't condense further — stop
-        }
-      });
-    });
-    
-    return () => cancelAnimationFrame(raf);
-  }, [cvData, designSettings, userModified, isExporting, jobDescription]);
+  // ─── UI state ───
+  const [activeTab, setActiveTab] = useState<'content' | 'design'>('content');
+  const [expandedSection, setExpandedSection] = useState<string | null>('personal');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
+  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [improvingBullet, setImprovingBullet] = useState<string | null>(null);
+  const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
+  const [jobDescription, setJobDescription] = useState('');
 
-  // Auto-hide notification
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+  // ─── Refs ───
+  const cvRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Load data from Convex or LocalStorage — ONCE at initialization
-  const dataLoaded = useRef(false);
-  useEffect(() => {
-    if (dataLoaded.current) return; // Don't reload after save
-    if (user && userData) {
-      dataLoaded.current = true;
-      if (userData.lastGeneratedCV) {
-        setCvData(userData.lastGeneratedCV);
-        if (userData.lastGeneratedCV.design) {
-          setDesignSettings(userData.lastGeneratedCV.design);
-          setSelectedTemplate(userData.lastGeneratedCV.design.template);
-        }
-      }
-      setIsLoading(false);
-    } else if (isGuest) {
-      dataLoaded.current = true;
-      const stored = localStorage.getItem('guest_last_optimized');
-      if (stored) {
-        const data = JSON.parse(stored);
-        setCvData(data);
-        if (data.design) {
-          setDesignSettings(data.design);
-          setSelectedTemplate(data.design.template);
-        }
-      }
-      setIsLoading(false);
-    } else if (userData === null) {
-      setIsLoading(false);
-    }
-  }, [userData, user, isGuest]);
+  // ─── Custom hooks ───
+  const { notification, notify, clearNotification } = useAutoNotification();
+  const { getCode } = useAccessCode();
+  const {
+    cvData, setCvData,
+    designSettings, setDesignSettings,
+    selectedTemplate, setSelectedTemplate,
+    isLoading, userModified, setUserModified,
+    resetAutoAssign,
+  } = useCVLoader(user, userData, isGuest, jobDescription);
 
-  // Auto-assign display modes when CV is loaded without them
-  const hasAutoAssigned = useRef(false);
-  useEffect(() => {
-    if (!cvData || !cvData.experience?.length || hasAutoAssigned.current) return;
-    const hasAnyMode = cvData.experience.some(exp => exp.displayMode);
-    if (hasAnyMode) { hasAutoAssigned.current = true; return; }
-    
-    hasAutoAssigned.current = true;
-    fitIterations.current = 0; // allow auto-fit after initial assignment
-    const keywords = extractKeywords(jobDescription);
-    const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
-    setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
-  }, [cvData?.experience?.length]);
+  const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
+  const { overflowPx, resetFitIterations } = useOverflowDetection(
+    cvRef, cvData, designSettings, jobDescription, userModified, isExporting, setCvData,
+  );
 
-  // Auto-zoom to fit width
-  useEffect(() => {
-    if (isAutoZoom && cvRef.current && previewContainerRef.current) {
-      const containerWidth = previewContainerRef.current.clientWidth;
-      const cvWidth = 794; // 210mm in pixels approx
-      const padding = 64;
-      const newZoom = Math.floor(((containerWidth - padding) / cvWidth) * 100);
-      setZoom(Math.min(100, Math.max(30, newZoom)));
-    }
-  }, [isAutoZoom, cvData, activeTab]);
+  // Recompute zoom when tab or data changes
+  useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
 
-  // Handle window resize for auto-zoom
-  useEffect(() => {
-    const handleResize = () => {
-      if (isAutoZoom) {
-        const containerWidth = previewContainerRef.current?.clientWidth || 0;
-        const cvWidth = 794;
-        const padding = 64;
-        const newZoom = Math.floor(((containerWidth - padding) / cvWidth) * 100);
-        setZoom(Math.min(100, Math.max(30, newZoom)));
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isAutoZoom]);
+  // ─── Memoized computations ───
+  const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
 
   const applyTemplateDefaults = (templateId: string) => {
     const defaults: Record<string, Partial<DesignSettings>> = {
@@ -210,60 +107,6 @@ export default function EditorPage() {
 
   const renderCV = () => {
     if (!cvData) return null;
-
-    const { 
-      primaryColor, 
-      secondaryColor, 
-      fontFamily, 
-      sectionTitleWeight, 
-      sectionTitleTransform, 
-      sectionTitleSpacing, 
-      showPhoto,
-      includedSections = ['personal', 'summary', 'experience', 'education', 'skills', 'languages']
-    } = designSettings;
-    const fontClass = 
-      fontFamily === 'serif' ? 'font-serif' : 
-      fontFamily === 'mono' ? 'font-mono' : 
-      fontFamily === 'playfair' ? 'font-playfair' :
-      fontFamily === 'outfit' ? 'font-outfit' :
-      'font-sans';
-
-    const sectionTitleClasses = cn(
-      sectionTitleWeight === 'normal' && "font-normal",
-      sectionTitleWeight === 'medium' && "font-medium",
-      sectionTitleWeight === 'semibold' && "font-semibold",
-      sectionTitleWeight === 'bold' && "font-bold",
-      sectionTitleWeight === 'black' && "font-black",
-      sectionTitleTransform === 'none' && "normal-case",
-      sectionTitleTransform === 'uppercase' && "uppercase",
-      sectionTitleTransform === 'capitalize' && "capitalize",
-      sectionTitleSpacing === 'tight' && "tracking-tight",
-      sectionTitleSpacing === 'normal' && "tracking-normal",
-      sectionTitleSpacing === 'wide' && "tracking-wide",
-      sectionTitleSpacing === 'wider' && "tracking-wider",
-      sectionTitleSpacing === 'widest' && "tracking-widest"
-    );
-
-    const commonStyles = {
-      '--primary': primaryColor,
-      '--secondary': secondaryColor,
-    } as React.CSSProperties;
-
-    const renderPhoto = (className: string = "w-24 h-24 rounded-full object-cover") => {
-      if (!showPhoto || !cvData.personal_info?.photo_url) return null;
-      return (
-        <div className={cn("overflow-hidden shrink-0", className)}>
-          <img 
-            src={cvData.personal_info.photo_url} 
-            alt={cvData.personal_info.name} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      );
-    };
-
-    // All templates — routed via CVRenderer
     return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} />;
   };
 
@@ -275,12 +118,12 @@ export default function EditorPage() {
       const optimizedData = await optimizeCVAction({
         cvData,
         pageLimit: designSettings.pageLimit || 1,
-        accessCode: localStorage.getItem("calibre_access_code") || "",
+        accessCode: getCode(),
       });
       
       // Update state with optimized data
       setCvData(optimizedData);
-      setNotification({ message: 'CV optimisé avec succès !', type: 'success' });
+      notify({ message: 'CV optimisé avec succès !', type: 'success' });
       
       // Save automatically
       if (user) {
@@ -291,7 +134,7 @@ export default function EditorPage() {
       
     } catch (error) {
       console.error('Error optimizing CV:', error);
-      setNotification({ message: 'Erreur lors de l\'optimisation du CV.', type: 'error' });
+      notify({ message: 'Erreur lors de l\'optimisation du CV.', type: 'error' });
     } finally {
       setIsOptimizing(false);
     }
@@ -330,10 +173,10 @@ export default function EditorPage() {
         localStorage.setItem('guest_cvs', JSON.stringify([newGuestCV, ...guestCVs]));
       }
       
-      setNotification({ message: 'Brouillon sauvegardé !', type: 'success' });
+      notify({ message: 'Brouillon sauvegardé !', type: 'success' });
     } catch (error) {
       console.error('Error saving draft:', error);
-      setNotification({ message: 'Erreur lors de la sauvegarde.', type: 'error' });
+      notify({ message: 'Erreur lors de la sauvegarde.', type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -364,15 +207,7 @@ export default function EditorPage() {
   return (
     <div className="stitch-container relative">
       {/* Notifications */}
-      {notification && (
-        <div className={cn(
-          "fixed top-6 right-6 z-[300] px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300",
-          notification.type === 'success' ? "bg-green-600 text-white" : "bg-red-600 text-white"
-        )}>
-          {notification.type === 'success' ? <Zap className="w-4 h-4" /> : <X className="w-4 h-4" />}
-          <span className="text-xs font-bold stitch-mono uppercase tracking-widest">{notification.message}</span>
-        </div>
-      )}
+      {notification && <EditorNotification message={notification.message} type={notification.type} />}
 
       {/* PDF Preview Modal */}
       {previewUrl && (
@@ -420,35 +255,11 @@ export default function EditorPage() {
 
       {/* Confirmation Modal */}
       {showTemplateConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-4 text-blue-600">
-              <LayoutIcon className="w-6 h-6" />
-              <h3 className="text-lg font-bold">Changer de modèle ?</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Vous êtes sur le point de passer au modèle <span className="font-bold text-gray-900">{pendingTemplate ? TEMPLATE_NAMES[pendingTemplate] || pendingTemplate : ''}</span>. 
-              Votre contenu sera conservé, mais certains réglages de design (polices, espacements) seront automatiquement ajustés pour correspondre au style du nouveau modèle.
-            </p>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => {
-                  setShowTemplateConfirm(false);
-                  setPendingTemplate(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={confirmTemplateChange}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                Confirmer
-              </button>
-            </div>
-          </div>
-        </div>
+        <TemplateConfirmModal
+          pendingTemplate={pendingTemplate}
+          onConfirm={confirmTemplateChange}
+          onCancel={() => { setShowTemplateConfirm(false); setPendingTemplate(null); }}
+        />
       )}
 
       {/* Sidebar Navigation (Stitch Style) */}
@@ -471,6 +282,7 @@ export default function EditorPage() {
           <button 
             onClick={() => setIsSidebarOpen(false)}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
+            aria-label="Fermer la sidebar"
           >
             <X className="w-4 h-4 text-gray-500" />
           </button>
@@ -517,13 +329,13 @@ export default function EditorPage() {
                           setDesignSettings(prev => ({ ...prev, pageLimit: newLimit }));
                           // Re-assign modes for the new page budget
                           if (cvData) {
-                            const keywords = extractKeywords(jobDescription);
+                            const keywords = jobKeywords;
                             const reassigned = autoAssignModes(cvData.experience, keywords, newLimit);
                             setCvData(prev => prev ? { ...prev, experience: reassigned } : null);
                           }
                           setUserModified(false);
-                          fitIterations.current = 0;
-                          hasAutoAssigned.current = false; // allow re-fit
+                          resetFitIterations();
+                          resetAutoAssign(); // allow re-fit
                         }}
                         className="bg-white border border-blue-200 rounded text-[10px] px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                       >
@@ -548,11 +360,11 @@ export default function EditorPage() {
                   <button
                     onClick={() => {
                       if (!cvData) return;
-                      const keywords = extractKeywords(jobDescription);
+                      const keywords = jobKeywords;
                       const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
                       setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
                       setUserModified(false);
-                      fitIterations.current = 0;
+                      resetFitIterations();
                     }}
                     className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     disabled={!cvData}
@@ -579,22 +391,13 @@ export default function EditorPage() {
                     </span>
                   </button>
                   
-                  {/* Overflow warning — always shown when content overflows */}
-                  {overflowPx > 0 && (
-                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[9px] stitch-mono text-red-600 space-y-1">
-                      <p className="font-bold uppercase tracking-wider">⚠ DÉPASSE DE ~{Math.round(overflowPx / 11.23 * 10) / 10}mm</p>
-                      <p className="text-red-500">
-                        {userModified 
-                          ? "Passez des blocs en compact ou augmentez les pages."
-                          : "Lancez l'auto-assignation ou augmentez le nombre de pages."}
-                      </p>
-                    </div>
-                  )}
-                  {overflowPx === 0 && cvData && (
-                    <div className="px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-[9px] stitch-mono text-green-600 font-bold uppercase tracking-wider">
-                      ✓ Contenu tient sur {designSettings.pageLimit} page(s)
-                    </div>
-                  )}
+                  {/* Overflow warning */}
+                  <OverflowIndicator
+                    overflowPx={overflowPx}
+                    pageLimit={designSettings.pageLimit || 1}
+                    userModified={userModified}
+                    hasCvData={!!cvData}
+                  />
                 </section>
 
                 {/* Personal Info Section */}
@@ -688,14 +491,21 @@ export default function EditorPage() {
                               accept="image/*"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    const base64String = reader.result as string;
-                                    setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: base64String}} : null);
-                                  };
-                                  reader.readAsDataURL(file);
+                                if (!file) return;
+                                if (file.size > 2 * 1024 * 1024) {
+                                  notify({ message: 'Photo trop volumineuse (max 2 MB).', type: 'error' });
+                                  return;
                                 }
+                                if (!file.type.startsWith('image/')) {
+                                  notify({ message: 'Fichier non reconnu comme image.', type: 'error' });
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  const base64String = reader.result as string;
+                                  setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: base64String}} : null);
+                                };
+                                reader.readAsDataURL(file);
                               }}
                             />
                           </label>
@@ -788,20 +598,17 @@ export default function EditorPage() {
                                 <ChevronDown className="w-3 h-3" />
                               </button>
                               <span className="text-[8px] stitch-mono text-gray-400 uppercase ml-1">#{idx + 1}</span>
-                              {jobDescription && (
-                                <span className="text-[7px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
-                                  backgroundColor: (() => {
-                                    const s = scoreExperience(exp, extractKeywords(jobDescription));
-                                    return s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2';
-                                  })(),
-                                  color: (() => {
-                                    const s = scoreExperience(exp, extractKeywords(jobDescription));
-                                    return s >= 70 ? '#166534' : s >= 40 ? '#854d0e' : '#991b1b';
-                                  })(),
-                                }}>
-                                  {scoreExperience(exp, extractKeywords(jobDescription))}%
-                                </span>
-                              )}
+                              {jobDescription && (() => {
+                                const s = scoreExperience(exp, jobKeywords);
+                                return (
+                                  <span className="text-[7px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
+                                    backgroundColor: s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2',
+                                    color: s >= 70 ? '#166534' : s >= 40 ? '#854d0e' : '#991b1b',
+                                  }}>
+                                    {s}%
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             {/* Display mode selector */}
@@ -951,7 +758,7 @@ export default function EditorPage() {
                                         try {
                                           const result = await improveBulletAction({
                                             bullet,
-                                            accessCode: localStorage.getItem("calibre_access_code") || "",
+                                            accessCode: getCode(),
                                             position: exp.position,
                                             company: exp.company,
                                           });
@@ -1703,7 +1510,7 @@ export default function EditorPage() {
                         if (!cvData) return;
                         const { exportToDocx } = await import('../shared/lib/export-docx');
                         await exportToDocx(cvData);
-                        setNotification({ message: 'DOCX téléchargé !', type: 'success' });
+                        notify({ message: 'DOCX téléchargé !', type: 'success' });
                       }}
                       className="w-full py-3 px-4 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2 group"
                     >
@@ -1749,86 +1556,20 @@ export default function EditorPage() {
 
       {/* Main Preview Area (Stitch Style) */}
       <main className="flex-1 flex flex-col overflow-hidden bg-[#F1F3F4] min-h-0 relative">
-        <header className="stitch-header justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={cn(
-                "p-2 hover:bg-gray-100 rounded-lg transition-colors",
-                isSidebarOpen ? "md:hidden" : ""
-              )}
-            >
-              <LayoutIcon className="w-5 h-5 text-gray-500" />
-            </button>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
-              <Link to="/dashboard" className="hover:text-gray-900 transition-colors">Console</Link>
-              <span className="text-gray-300">/</span>
-              <span className="text-gray-900 font-medium">EDITOR_V2</span>
-            </div>
-          </div>
-          
-          <div className="hidden sm:flex items-center bg-white border border-[#DADCE0] rounded-full px-3 py-1 gap-4 shadow-sm">
-            <div className="flex items-center gap-2 border-r border-gray-100 pr-3">
-              <button 
-                onClick={() => {
-                  setZoom(prev => Math.max(30, prev - 10));
-                  setIsAutoZoom(false);
-                }}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Zoom arrière"
-              >
-                <ChevronDown className="w-3 h-3 rotate-90" />
-              </button>
-              <span className="text-[10px] stitch-mono font-bold w-8 text-center">{zoom}%</span>
-              <button 
-                onClick={() => {
-                  setZoom(prev => Math.min(150, prev + 10));
-                  setIsAutoZoom(false);
-                }}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Zoom avant"
-              >
-                <ChevronUp className="w-3 h-3 rotate-90" />
-              </button>
-              <button 
-                onClick={() => setIsAutoZoom(prev => !prev)}
-                className={cn(
-                  "ml-1 p-1 rounded transition-colors",
-                  isAutoZoom ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100 text-gray-500"
-                )}
-                title={isAutoZoom ? "Désactiver le zoom auto" : "Activer le zoom auto"}
-              >
-                <LayoutIcon className="w-3 h-3" />
-              </button>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] stitch-mono text-gray-400 uppercase">Format:</span>
-              <span className="text-[10px] stitch-mono font-bold text-blue-600">A4_ISO</span>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={handleSaveDraft}
-              disabled={isSaving || !cvData}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-              title="Sauvegarder le brouillon"
-            >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span className="text-[10px] stitch-mono font-bold hidden sm:inline">SAVE</span>
-            </button>
-            <button 
-              onClick={handleDownloadPDF}
-              disabled={isExporting || !cvData}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm"
-              title="Exporter en PDF"
-            >
-              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              <span className="text-[10px] stitch-mono font-bold hidden sm:inline">EXPORT</span>
-            </button>
-          </div>
-        </header>
+        <EditorHeader
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          zoom={zoom}
+          isAutoZoom={isAutoZoom}
+          onZoomIn={() => { setZoom(prev => Math.min(150, prev + 10)); setIsAutoZoom(false); }}
+          onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
+          onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
+          onSave={handleSaveDraft}
+          onExport={handleDownloadPDF}
+          isSaving={isSaving}
+          isExporting={isExporting}
+          hasCvData={!!cvData}
+        />
 
         <div 
           ref={previewContainerRef}

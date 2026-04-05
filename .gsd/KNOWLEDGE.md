@@ -5,7 +5,7 @@
 - **Frontend** : React + Vite + Tailwind v4 (utilise oklch par défaut)
 - **Auth** : Clerk (instance dev `improved-mayfly-32`, JWT template "convex" configuré)
 - **Backend** : Convex (dev: `necessary-bobcat-348`, prod: `cautious-mule-560`)
-- **IA** : Google Gemini via `@google/genai` (Pro pour extraction/optimisation, Flash pour analyse ATS)
+- **IA** : NVIDIA NIM (Llama 3.1 70B) via OpenAI-compatible SDK, fallback Gemini
 - **PDF** : Export via iframe + `window.print()` (navigateur natif, WYSIWYG garanti)
 - **Deploy** : Vercel (https://cv-builder-indol-three.vercel.app) + Convex auto-deploy via `CONVEX_DEPLOY_KEY`
 
@@ -37,9 +37,21 @@ Chaque template = un fichier autonome. Consomme la couche 1 via imports.
 | `TemplateE.tsx` | Elegant | Outfit font, timeline dots, lignes décoratives |
 | `TemplateF.tsx` | Sidebar | Sidebar fixe 260px gauche, contenu droit |
 
+### Couche 2.5 — Hooks & Composants éditeur (`src/features/editor/hooks/`, `src/features/editor/components/`)
+
+| Fichier | Responsabilité |
+|---------|---------------|
+| `hooks/useCVLoader.ts` | Chargement initial depuis Convex/localStorage, auto-assign des displayModes |
+| `hooks/useAutoZoom.ts` | Zoom automatique du preview pour remplir le container |
+| `hooks/useOverflowDetection.ts` | Détection overflow + boucle auto-fit |
+| `components/EditorHeader.tsx` | Header avec breadcrumb, zoom controls, save/export |
+| `components/EditorNotification.tsx` | Toast notifications éditeur |
+| `components/OverflowIndicator.tsx` | Indicateur vert/rouge de taille page |
+| `components/TemplateConfirmModal.tsx` | Modale de confirmation changement template |
+
 ### Couche 3 — Orchestration (`src/pages/EditorPage.tsx`)
 
-Contrôles sidebar, auto-fit loop, overflow detection, état React.
+Contrôles sidebar, état React, utilise les hooks de la couche 2.5.
 
 ## Système de blocs modulables
 
@@ -127,10 +139,10 @@ Avantage : rendu CSS parfait (même moteur que la preview), pas de html2canvas.
 - Reformule les bullets par mode
 
 ### `extractJobDescriptionFromURL`
-- Fetch HTTP direct de la page avec User-Agent navigateur
+- Jina Reader (`r.jina.ai`) en premier (rend le JS, gère les SPAs)
+- Fallback : fetch HTTP direct avec User-Agent navigateur
 - Strip HTML tags/scripts/styles, garde le texte
-- Envoie à Gemini pour extraction structurée
-- Fallback : Gemini `urlContext` + `googleSearch` si fetch échoue
+- Envoie à l'IA pour extraction structurée
 
 ## Système de codes d'accès
 
@@ -151,8 +163,9 @@ Avantage : rendu CSS parfait (même moteur que la preview), pas de html2canvas.
 
 ## Règles apprises
 
-- `html2canvas` / `html2canvas-pro` ne gèrent PAS correctement les CSS transforms (`scale`). Utiliser `window.print()` pour l'export PDF.
-- Tailwind v4 utilise oklch par défaut — les classes comme `text-white`, `bg-white/10` ne marchent pas dans html2canvas. Utiliser des styles inline (`color: '#fff'`) pour les éléments critiques.
+- `html2canvas` / `html2canvas-pro` ont été retirés du projet — ne gèrent pas les CSS transforms. Utiliser `window.print()` pour l'export PDF.
+- `jspdf` et `html2pdf.js` également retirés — dead code après migration vers window.print().
+- `lucide-react` 1.x a supprimé les icônes de marques (Chrome, Linkedin). Utiliser `Globe` ou des SVG inline custom (`LinkedinIcon` dans `shared.tsx`).
 - Convex `npx convex logs` hang indéfiniment sur Windows — ne jamais l'utiliser.
 - Les env vars Convex doivent être configurées séparément pour dev ET prod.
 - Les prompts IA doivent explicitement interdire la suppression de données ("NE SUPPRIME JAMAIS").
@@ -172,10 +185,15 @@ Avantage : rendu CSS parfait (même moteur que la preview), pas de html2canvas.
 | Vercel | localhost:3000 | `cv-builder-indol-three.vercel.app` |
 | Clerk | `improved-mayfly-32` (dev keys) | À migrer |
 
+## Sécurité backend
+
+- Les queries/mutations admin (`accessCodes.list`, `accessCodes.listRequests`, `accessCodes.generate`) vérifient l'email admin côté serveur via `ctx.auth.getUserIdentity()`.
+- `verifyAccessCode` dans `ai.ts` vérifie le code en DB via `internalQuery` et incrémente l'usage via `internalMutation`.
+- Les `internalQuery`/`internalMutation` ne sont pas exposées au client — seules les actions serveur peuvent les appeler.
+
 ## Prochaines étapes
 
 - Migrer Clerk en production (clés `pk_live_*`, domaine custom requis)
-- Extraire les compétences en composant shared (comme `renderExperienceContent`)
-- Tester l'export PDF sur tous les templates avec données réelles
+- Extraire la sidebar de l'éditeur en composants séparés (content tab / design tab) — nécessite un EditorContext React
 - Ajouter la détection de langue (FR/EN) pour adapter le contenu IA
-- Code splitting pour réduire la taille des chunks
+- Migrer vers TypeScript 6 + Vite 8 quand les breaking changes seront stabilisés

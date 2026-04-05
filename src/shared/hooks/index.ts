@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 
+export { useAccessCode } from './useAccessCode';
+export { useDocumentTitle } from './useDocumentTitle';
+
 export function useDebounce<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {

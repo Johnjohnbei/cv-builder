@@ -11,6 +11,7 @@ import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
 import { Notification } from '@/src/shared/ui/Notification';
 import { useAutoNotification } from '@/src/shared/hooks';
 import type { CVData } from '@/src/shared/types';
+import { useDocumentTitle } from '@/src/shared/hooks';
 
 interface CoverLetterData {
   subject: string;
@@ -20,6 +21,7 @@ interface CoverLetterData {
 }
 
 export default function CoverLetterPage() {
+  useDocumentTitle('Lettre de motivation');
   const { user } = useUser();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");

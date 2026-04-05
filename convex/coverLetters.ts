@@ -11,7 +11,7 @@ export const list = query({
       .query("coverLetters")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .order("desc")
-      .collect();
+      .take(50);
   },
 });
 

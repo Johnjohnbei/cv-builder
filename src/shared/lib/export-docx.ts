@@ -43,10 +43,12 @@ export async function exportToDocx(cvData: CVData) {
     }));
   }
 
-  // ── Experience ──
-  if (experience.length) {
+  // ── Experience (respects displayMode) ──
+  const visibleExps = experience.filter(exp => (exp.displayMode || 'normal') !== 'hidden');
+  if (visibleExps.length) {
     children.push(sectionHeading('Expérience Professionnelle'));
-    for (const exp of experience) {
+    for (const exp of visibleExps) {
+      const mode = exp.displayMode || 'normal';
       children.push(new Paragraph({
         children: [
           new TextRun({ text: exp.position, bold: true, size: 22, font: 'Calibri' }),
@@ -61,10 +63,31 @@ export async function exportToDocx(cvData: CVData) {
         })],
         spacing: { after: 60 },
       }));
-      for (const bullet of exp.description || []) {
+      // Intro line (always shown for non-hidden)
+      const intro = (exp as any).intro || exp.description?.[0];
+      if (intro && mode === 'compact') {
         children.push(new Paragraph({
-          children: [new TextRun({ text: `• ${bullet}`, size: 20, font: 'Calibri' })],
+          children: [new TextRun({ text: intro, size: 20, font: 'Calibri' })],
           spacing: { after: 40 },
+          indent: { left: 360 },
+        }));
+      } else {
+        // Bullets: normal = 2, extended = 4
+        const maxBullets = mode === 'extended' ? 4 : 2;
+        const bullets = (exp.description || []).slice(0, maxBullets);
+        for (const bullet of bullets) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: `• ${bullet}`, size: 20, font: 'Calibri' })],
+            spacing: { after: 40 },
+            indent: { left: 360 },
+          }));
+        }
+      }
+      // KPI for extended mode
+      if (mode === 'extended' && (exp as any).kpi) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: `📈 ${(exp as any).kpi}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
+          spacing: { after: 60 },
           indent: { left: 360 },
         }));
       }
@@ -86,14 +109,17 @@ export async function exportToDocx(cvData: CVData) {
     }
   }
 
-  // ── Skills ──
-  if (skills.length) {
+  // ── Skills (respects displayMode) ──
+  const visibleSkills = skills.filter(cat => ((cat as any).displayMode || 'normal') !== 'hidden');
+  if (visibleSkills.length) {
     children.push(sectionHeading('Compétences'));
-    for (const cat of skills) {
+    for (const cat of visibleSkills) {
+      const skillMode = (cat as any).displayMode || 'normal';
+      const items = skillMode === 'compact' ? cat.items.slice(0, 3) : cat.items;
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${cat.category}: `, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: cat.items.join(', '), size: 20, font: 'Calibri' }),
+          new TextRun({ text: items.join(', '), size: 20, font: 'Calibri' }),
         ],
         spacing: { after: 40 },
       }));

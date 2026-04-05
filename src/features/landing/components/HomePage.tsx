@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, FileText, Sparkles, Zap, ShieldCheck, PenTool, Download } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useDocumentTitle } from '@/src/shared/hooks';
 
 export default function HomePage() {
+  useDocumentTitle('Optimisez votre CV avec l\'IA');
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#202124]">
       {/* Hero */}

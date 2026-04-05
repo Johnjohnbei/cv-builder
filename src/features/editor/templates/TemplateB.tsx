@@ -1,4 +1,5 @@
-import { Mail, Phone, MapPin, Linkedin, User } from 'lucide-react';
+import { Mail, Phone, MapPin, User } from 'lucide-react';
+import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
@@ -50,6 +51,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
                   <div className="flex items-center gap-3"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</div>
                   {cvData.personal_info?.phone && <div className="flex items-center gap-3"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</div>}
                   {cvData.personal_info?.location && <div className="flex items-center gap-3"><MapPin className="w-3 h-3" /> {cvData.personal_info?.location}</div>}
+                  {cvData.personal_info?.linkedin && <div className="flex items-center gap-3"><LinkedinIcon className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</div>}
                 </div>
               </section>
             )}

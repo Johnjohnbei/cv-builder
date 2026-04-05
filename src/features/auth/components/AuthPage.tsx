@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
-import { Lock, User, Chrome } from 'lucide-react';
+import { Lock, User, Globe } from 'lucide-react';
 import { Logo } from '@/src/shared/ui/Logo';
+import { useDocumentTitle } from '@/src/shared/hooks';
 
 export default function AuthPage() {
+  useDocumentTitle('Connexion');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -63,7 +65,7 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full bg-[#1A73E8] text-white px-4 py-3 rounded font-mono text-xs font-bold uppercase tracking-wider hover:bg-[#174EA6] transition-colors flex items-center justify-center space-x-3 disabled:opacity-50"
             >
-              <Chrome className="w-4 h-4" />
+              <Globe className="w-4 h-4" />
               <span>{loading ? 'Connexion...' : 'Continuer avec Google'}</span>
             </button>
 
