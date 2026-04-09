@@ -1,0 +1,44 @@
+import { describe, it, expect } from 'vitest';
+import {
+  TEMPLATE_ATS_COMPAT,
+  SECTION_NAMES,
+  ATS_SAFE_FONTS,
+  ATS_COLOR_CONSTRAINTS,
+  WEAK_VERBS,
+} from './atsRules';
+
+describe('atsRules', () => {
+  it('exports template compatibility for all 6 templates', () => {
+    const keys = Object.keys(TEMPLATE_ATS_COMPAT);
+    expect(keys).toHaveLength(6);
+    expect(keys).toContain('TEMPLATE_A');
+    expect(keys).toContain('TEMPLATE_F');
+    for (const val of Object.values(TEMPLATE_ATS_COMPAT)) {
+      expect(['full', 'limited']).toContain(val);
+    }
+  });
+
+  it('exports section names for fr and en', () => {
+    expect(SECTION_NAMES.fr.experience).toBe('Experience professionnelle');
+    expect(SECTION_NAMES.en.experience).toBe('Work Experience');
+    expect(Object.keys(SECTION_NAMES.fr)).toHaveLength(6);
+    expect(Object.keys(SECTION_NAMES.en)).toHaveLength(6);
+  });
+
+  it('exports ATS-safe fonts', () => {
+    expect(ATS_SAFE_FONTS.length).toBeGreaterThanOrEqual(3);
+    expect(ATS_SAFE_FONTS).toContain('Arial');
+  });
+
+  it('exports color constraints with minimum contrast', () => {
+    expect(ATS_COLOR_CONSTRAINTS.minContrast).toBe(4.5);
+    expect(ATS_COLOR_CONSTRAINTS.forcedTextColor).toBe('#000');
+  });
+
+  it('exports weak verbs for fr and en with alternatives', () => {
+    expect(WEAK_VERBS.fr.weak.length).toBeGreaterThan(0);
+    expect(WEAK_VERBS.fr.strong.length).toBeGreaterThan(0);
+    expect(WEAK_VERBS.en.weak.length).toBeGreaterThan(0);
+    expect(WEAK_VERBS.en.strong.length).toBeGreaterThan(0);
+  });
+});
