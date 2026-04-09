@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Section Standards** - Force ATS-recognized section names based on detected language
 - [ ] **Phase 4: ATS Scoring Engine** - Compute Format, Content, and Relevance sub-scores with global ATS score
 - [ ] **Phase 5: Keywords & Matching** - Extract, match, and display job description keywords with accuracy
-- [x] **Phase 6: Template ATS Mode** - Toggle ATS mode on templates with DOM restructuring and visual simplification (completed 2026-04-09)
+- [x] **Phase 6: Template ATS Mode** - Toggle ATS mode on templates with DOM restructuring and visual simplification (completed 2026-04-09)
 - [ ] **Phase 7: Skills Categorization** - Auto-categorize skills at import and display in grouped ATS format
 - [ ] **Phase 8: ATS Panel UI** - Sidebar panel showing scores, keywords, suggestions with action buttons
 - [ ] **Phase 9: AI Content Optimization** - AI-powered bullet rewriting, weak bullet detection, keyword integration
@@ -121,11 +121,11 @@ Plans:
   1. When a CV is imported, skills are auto-categorized into Technical, Soft Skills, Tools, and Methodologies
   2. Skills display in grouped format in the CV (not a flat comma-separated list)
   3. Skills section uses ATS-compatible formatting that parsers can extract
-**Plans**: TBD
+**Plans**: 1 plan
 **UI hint**: yes
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Skill dictionary, categorization logic, bilingual names, LinkedIn integration, ATS rendering, template updates
 
 ### Phase 8: ATS Panel UI
 **Goal**: Users have a dedicated ATS analysis sidebar with scores, keywords, and actionable suggestions
