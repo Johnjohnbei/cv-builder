@@ -51,9 +51,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Skills Categorization
 
-- [ ] **SKIL-01**: Skills are auto-categorized at import (Technical, Soft Skills, Tools, Methodologies)
-- [ ] **SKIL-02**: Categorized skills display in grouped format in the CV (not flat list)
-- [ ] **SKIL-03**: Skills categories are ATS-compatible section format
+- [x] **SKIL-01**: Skills are auto-categorized at import (Technical, Soft Skills, Tools, Methodologies)
+- [x] **SKIL-02**: Categorized skills display in grouped format in the CV (not flat list)
+- [x] **SKIL-03**: Skills categories are ATS-compatible section format
 
 ### Language Detection
 
@@ -145,9 +145,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | AICV-04 | Phase 9 | Pending |
 | AICV-05 | Phase 9 | Pending |
 | AICV-06 | Phase 9 | Pending |
-| SKIL-01 | Phase 7 | Pending |
-| SKIL-02 | Phase 7 | Pending |
-| SKIL-03 | Phase 7 | Pending |
+| SKIL-01 | Phase 7 | Complete |
+| SKIL-02 | Phase 7 | Complete |
+| SKIL-03 | Phase 7 | Complete |
 | LANG-01 | Phase 2 | Complete |
 | LANG-02 | Phase 2 | Complete |
 | LANG-03 | Phase 2 | Complete |
