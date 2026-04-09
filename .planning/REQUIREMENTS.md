@@ -63,8 +63,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### ATS Panel UI
 
-- [ ] **PANL-01**: ATS analysis panel displayed as a sidebar tab in the editor
-- [ ] **PANL-02**: Panel auto-opens when a job description is imported, closed by default otherwise
+- [x] **PANL-01**: ATS analysis panel displayed as a sidebar tab in the editor
+- [x] **PANL-02**: Panel auto-opens when a job description is imported, closed by default otherwise
 - [x] **PANL-03**: Panel shows score gauge, sub-scores, keywords list, and actionable suggestions
 - [x] **PANL-04**: Suggestions include action buttons (e.g., "Improve this bullet", "Add missing skill")
 - [x] **PANL-05**: Full AI analysis (deep bullet analysis, keyword optimization) triggered on-demand via button
@@ -151,8 +151,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | LANG-01 | Phase 2 | Complete |
 | LANG-02 | Phase 2 | Complete |
 | LANG-03 | Phase 2 | Complete |
-| PANL-01 | Phase 8 | Pending |
-| PANL-02 | Phase 8 | Pending |
+| PANL-01 | Phase 8 | Complete |
+| PANL-02 | Phase 8 | Complete |
 | PANL-03 | Phase 8 | Complete |
 | PANL-04 | Phase 8 | Complete |
 | PANL-05 | Phase 8 | Complete |
