@@ -271,30 +271,37 @@ export const tailorCV = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
 
-    const prompt = `
-Tu es un expert en optimisation ATS (Applicant Tracking Systems) pour les années 2025-2026.
-Adapte le CV suivant pour qu'il corresponde au mieux à l'offre d'emploi fournie.
+    // Strip non-content fields to reduce prompt size ~50%
+    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.baseData;
 
-RÈGLES FONDAMENTALES :
-1. NE SUPPRIME JAMAIS aucune expérience, formation, compétence ou section. Toutes les données d'entrée DOIVENT être présentes dans la sortie.
-2. Utilise les mots-clés exacts de l'offre dans les reformulations.
-3. Réécris les bullet points d'expérience pour mettre en avant les réalisations quantifiables et pertinentes pour le poste.
-4. Pour les expériences les plus pertinentes par rapport à l'offre : enrichis les descriptions, ajoute des mots-clés du poste, développe les résultats.
-5. Pour les expériences moins pertinentes : raccourcis les descriptions (1-2 bullets) tout en les gardant.
-6. Réécris le résumé professionnel (summary) pour qu'il cible directement le poste, en 3-4 phrases percutantes.
-7. Réordonne les compétences pour mettre en premier celles qui correspondent à l'offre.
-8. La structure JSON de sortie doit être IDENTIQUE à celle d'entrée — même nombre d'expériences, formations, etc.
+    const prompt = `Tu es un rédacteur de CV senior spécialisé en optimisation ATS pour le marché français (2025-2026).
 
-CV de base :
-${JSON.stringify(args.baseData)}
+MISSION : Adapte ce CV pour maximiser l'alignement avec l'offre d'emploi.
 
-Offre d'emploi :
+RÈGLES :
+1. CONSERVE toutes les expériences, formations, compétences, langues — ne supprime RIEN
+2. Structure JSON de sortie IDENTIQUE à l'entrée (même nombre d'éléments partout)
+3. Réécris les bullets avec des verbes d'action forts (Pilote, Conçoit, Orchestre — JAMAIS "Responsable de", "Aide à")
+4. Expériences pertinentes : enrichis les descriptions, intègre les mots-clés de l'offre, développe les résultats
+5. Expériences moins pertinentes : condense à 1-2 bullets tout en les gardant
+6. Résumé (summary) : 2-3 phrases ciblant directement le poste
+7. Compétences : réordonne — les plus pertinentes pour l'offre en premier
+8. ${FABRICATION_GUARD}
+
+CV :
+${JSON.stringify(contentOnly)}
+
+OFFRE :
 ${args.jobDescription}
 
-Retourne UNIQUEMENT l'objet JSON complet du CV optimisé.
-`;
+Retourne UNIQUEMENT le JSON du CV optimisé.`;
 
-    return await chatJSON(prompt);
+    const result = await chatJSON(prompt);
+    // Re-attach stripped fields
+    if (design) result.design = design;
+    if (detectedLanguage) result.detectedLanguage = detectedLanguage;
+    if (languageOverride) result.languageOverride = languageOverride;
+    return result;
   },
 });
 
@@ -442,6 +449,9 @@ export const optimizeCVForPage = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
 
+    // Strip non-content fields to reduce prompt size
+    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
+
     const jobContext = args.jobDescription
       ? `
 OFFRE D'EMPLOI CIBLÉE :
@@ -456,7 +466,7 @@ Pas d'offre d'emploi fournie. Priorise par RÉCENCE : les expériences les plus 
 Ta mission : réorganiser et ajuster le contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4 tout en maximisant l'impact professionnel.
 
 DONNÉES DU CV :
-${JSON.stringify(args.cvData)}
+${JSON.stringify(contentOnly)}
 ${jobContext}
 
 ═══ RÈGLE ABSOLUE — NE SUPPRIME RIEN ═══
@@ -536,6 +546,11 @@ Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOI
         displayMode: exp.displayMode || "normal",
       }));
     }
+
+    // Re-attach stripped fields
+    if (design) optimizedData.design = design;
+    if (detectedLanguage) optimizedData.detectedLanguage = detectedLanguage;
+    if (languageOverride) optimizedData.languageOverride = languageOverride;
 
     return optimizedData;
   },
