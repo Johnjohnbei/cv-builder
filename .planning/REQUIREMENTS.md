@@ -24,14 +24,14 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Template ATS Mode
 
-- [ ] **TMPL-01**: Each template is classified as ATS-adaptable or design-only with visible indicator
-- [ ] **TMPL-02**: User can toggle "ATS mode" on adaptable templates (reversible)
+- [x] **TMPL-01**: Each template is classified as ATS-adaptable or design-only with visible indicator
+- [x] **TMPL-02**: User can toggle "ATS mode" on adaptable templates (reversible)
 - [ ] **TMPL-03**: ATS mode converts multi-column layouts to single-column via DOM restructuring (not CSS hiding)
 - [ ] **TMPL-04**: ATS mode replaces all SVG icons (Mail, Phone, MapPin, LinkedIn) with text labels
 - [ ] **TMPL-05**: ATS mode forces standard web-safe fonts (Arial, Calibri)
 - [ ] **TMPL-06**: ATS mode simplifies decorative borders and colors
-- [ ] **TMPL-07**: Activating ATS mode on a non-adaptable template auto-switches to the nearest compatible template
-- [ ] **TMPL-08**: Deactivating ATS mode restores original template with a warning that CV won't be ATS-compatible
+- [x] **TMPL-07**: Activating ATS mode on a non-adaptable template auto-switches to the nearest compatible template
+- [x] **TMPL-08**: Deactivating ATS mode restores original template with a warning that CV won't be ATS-compatible
 
 ### Section Standards
 
@@ -127,14 +127,14 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | KEYW-01 | Phase 5 | Complete |
 | KEYW-02 | Phase 5 | Complete |
 | KEYW-03 | Phase 5 | Complete |
-| TMPL-01 | Phase 6 | Pending |
-| TMPL-02 | Phase 6 | Pending |
+| TMPL-01 | Phase 6 | Complete |
+| TMPL-02 | Phase 6 | Complete |
 | TMPL-03 | Phase 6 | Pending |
 | TMPL-04 | Phase 6 | Pending |
 | TMPL-05 | Phase 6 | Pending |
 | TMPL-06 | Phase 6 | Pending |
-| TMPL-07 | Phase 6 | Pending |
-| TMPL-08 | Phase 6 | Pending |
+| TMPL-07 | Phase 6 | Complete |
+| TMPL-08 | Phase 6 | Complete |
 | SECT-01 | Phase 3 | Complete |
 | SECT-02 | Phase 3 | Complete |
 | SECT-03 | Phase 3 | Complete |

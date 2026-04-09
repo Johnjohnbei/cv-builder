@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-04-09T11:35:46.533Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-09T11:53:30.469Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 10
   completed_phases: 5
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
   percent: 0
 ---
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04 P01 | 197 | 2 tasks | 3 files |
 | Phase 04 P02 | 260 | 2 tasks | 4 files |
 | Phase 05 P01 | 128 | 1 tasks | 3 files |
+| Phase 06 P01 | 137 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 04]: French text uses sliding-window bigrams (compromise is English-optimized)
 - [Phase 04]: TF-IDF uses smoothed 2-document corpus for term weighting
 - [Phase 05]: Per-section text maps for keyword location tracking (summary/experience/skills/education)
+- [Phase 06]: TEMPLATE_A classified as full (simple layout, easy ATS conversion)
+- [Phase 06]: preAtsTemplate state tracks original template for restoration on ATS deactivation
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T11:35:46.531Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-04-09T11:53:30.466Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None

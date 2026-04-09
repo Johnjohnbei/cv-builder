@@ -109,7 +109,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 06-01-PLAN.md — Add atsMode to DesignSettings, update classifications, add toggle to editor, implement auto-switch logic
+- [x] 06-01-PLAN.md — Add atsMode to DesignSettings, update classifications, add toggle to editor, implement auto-switch logic
 - [ ] 06-02-PLAN.md — Implement ATS rendering in TemplateA/B/C/E: icon replacement, font override, style simplification
 - [ ] 06-03-PLAN.md — Add ATS compatibility badges to template picker, end-to-end verification checkpoint
 
