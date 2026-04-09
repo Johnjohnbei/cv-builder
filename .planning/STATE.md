@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-04-09T11:02:34.526Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-09T11:19:50.247Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P02 | 142 | 2 tasks | 4 files |
 | Phase 02 P01 | 220 | 2 tasks | 10 files |
 | Phase 03 P01 | 331 | 2 tasks | 10 files |
+| Phase 04 P01 | 197 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01]: TEMPLATE_ATS_COMPAT uses placeholder values to be refined in Phase 6
 - [Phase 02]: franc-min for client-side FR/EN detection with 'fr' default
 - [Phase 03]: getSectionTitle as simple lookup into SECTION_NAMES, language prop threaded via TemplateProps
+- [Phase 04]: SubScoreResult as internal type for scoreFormat/scoreContent return shape
+- [Phase 04]: FONT_FAMILY_MAP bridges design fontFamily to actual font names for ATS check
+- [Phase 04]: ATSScoreResult kept separate from deprecated ATSResult for backward compat
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T11:02:34.524Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-04-09T11:19:50.244Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

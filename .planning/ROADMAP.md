@@ -79,7 +79,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- ATSScoreResult type, scoreFormat, scoreContent, no-JD orchestrator
+- [x] 04-01-PLAN.md -- ATSScoreResult type, scoreFormat, scoreContent, no-JD orchestrator
 - [ ] 04-02-PLAN.md -- Install compromise NLP, extractNLPKeywords, TF-IDF, scoreRelevance, full orchestrator
 
 ### Phase 5: Keywords & Matching
@@ -185,7 +185,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 1. Refactoring Foundation | 0/2 | Not started | - |
 | 2. Language Detection | 1/1 | Complete   | 2026-04-09 |
 | 3. Section Standards | 0/1 | Not started | - |
-| 4. ATS Scoring Engine | 0/2 | Not started | - |
+| 4. ATS Scoring Engine | 1/2 | In Progress|  |
 | 5. Keywords & Matching | 0/1 | Not started | - |
 | 6. Template ATS Mode | 0/3 | Not started | - |
 | 7. Skills Categorization | 0/1 | Not started | - |
