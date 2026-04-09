@@ -1146,7 +1146,14 @@ export default function EditorPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className={cn("text-[9px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
-                          {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                          <div className="flex items-center gap-1">
+                            {TEMPLATE_ATS_COMPAT[tpl.id] === 'full' ? (
+                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">ATS</span>
+                            ) : (
+                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-600">DESIGN</span>
+                            )}
+                            {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                          </div>
                         </div>
                         <div className="h-12 bg-white border border-gray-100 rounded flex items-center justify-center overflow-hidden">
                            <div className={cn(
