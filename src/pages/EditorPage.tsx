@@ -10,9 +10,9 @@ import { renderPDF } from '../features/editor/lib/pdfExport';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useOverflowDetection } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useOverflowDetection, useATSAnalysis } from '../features/editor/hooks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel } from '../features/editor/components';
 import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
 
@@ -38,7 +38,7 @@ export default function EditorPage() {
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
 
   // ─── UI state ───
-  const [activeTab, setActiveTab] = useState<'content' | 'design'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -73,6 +73,19 @@ export default function EditorPage() {
   const { overflowPx, resetFitIterations } = useOverflowDetection(
     cvRef, cvData, designSettings, jobDescription, userModified, isExporting, setCvData,
   );
+
+  const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription);
+
+  // Auto-open ATS tab when JD transitions from empty to non-empty
+  const prevJDRef = useRef(jobDescription);
+  useEffect(() => {
+    const wasEmpty = !prevJDRef.current.trim();
+    const isNowFilled = jobDescription.trim().length > 0;
+    if (wasEmpty && isNowFilled) {
+      setActiveTab('ats');
+    }
+    prevJDRef.current = jobDescription;
+  }, [jobDescription]);
 
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
@@ -239,6 +252,21 @@ export default function EditorPage() {
     );
   }
 
+  const handleAddSkill = (skill: string) => {
+    if (!cvData) return;
+    const skills = [...cvData.skills];
+    if (skills.length > 0) {
+      const firstCategory = skills[0];
+      if (!firstCategory.items.includes(skill)) {
+        skills[0] = { ...firstCategory, items: [...firstCategory.items, skill] };
+      }
+    } else {
+      skills.push({ category: 'Autres', items: [skill] });
+    }
+    setCvData(prev => prev ? { ...prev, skills } : null);
+    notify({ message: `Competence "${skill}" ajoutee`, type: 'success' });
+  };
+
   return (
     <div className="stitch-container relative">
       {/* Notifications */}
@@ -334,7 +362,7 @@ export default function EditorPage() {
             >
               Contenu
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('design')}
               className={cn(
                 "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
@@ -342,6 +370,15 @@ export default function EditorPage() {
               )}
             >
               Design
+            </button>
+            <button
+              onClick={() => setActiveTab('ats')}
+              className={cn(
+                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
+                activeTab === 'ats' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
+              )}
+            >
+              ATS
             </button>
           </div>
 
@@ -1119,7 +1156,7 @@ export default function EditorPage() {
                   )}
                 </section>
               </div>
-            ) : (
+            ) : activeTab === 'design' ? (
               <div className="space-y-6">
                 <section className="stitch-panel">
                   <div className="stitch-panel-header">01. TEMPLATE_SELECTION</div>
@@ -1564,7 +1601,17 @@ export default function EditorPage() {
                   </div>
                 </section>
               </div>
-            )}
+            ) : activeTab === 'ats' ? (
+              <ATSPanel
+                score={atsScore}
+                keywords={atsKeywords}
+                hasJobDescription={hasJobDescription}
+                onAddSkill={handleAddSkill}
+                onToggleAtsMode={() => handleAtsModeChange(!designSettings.atsMode)}
+                onRequestAIAnalysis={() => notify({ message: 'Analyse IA disponible dans une prochaine mise a jour', type: 'success' })}
+                isAtsMode={designSettings.atsMode}
+              />
+            ) : null}
           </div>
         </div>
 
