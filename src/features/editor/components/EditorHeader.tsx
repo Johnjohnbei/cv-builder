@@ -15,12 +15,15 @@ interface Props {
   isSaving: boolean;
   isExporting: boolean;
   hasCvData: boolean;
+  atsMode: boolean;
+  onAtsModeChange: (enabled: boolean) => void;
 }
 
 export function EditorHeader({
   isSidebarOpen, onToggleSidebar,
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
+  atsMode, onAtsModeChange,
 }: Props) {
   return (
     <header className="stitch-header justify-between shrink-0">
@@ -65,6 +68,18 @@ export function EditorHeader({
         <div className="flex items-center gap-2">
           <span className="text-[9px] stitch-mono text-gray-400 uppercase">Format:</span>
           <span className="text-[10px] stitch-mono font-bold text-blue-600">A4_ISO</span>
+        </div>
+        <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
+          <span className="text-[9px] stitch-mono text-gray-400 uppercase">ATS:</span>
+          <button
+            onClick={() => onAtsModeChange(!atsMode)}
+            className={cn(
+              "px-2 py-0.5 rounded text-[9px] stitch-mono font-bold transition-colors",
+              atsMode ? "bg-green-100 text-green-700" : "hover:bg-gray-100 text-gray-400"
+            )}
+          >
+            {atsMode ? 'ON' : 'OFF'}
+          </button>
         </div>
       </div>
 

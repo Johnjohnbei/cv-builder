@@ -13,6 +13,7 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useOverflowDetection } from '../features/editor/hooks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader } from '../features/editor/components';
+import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
 
 const TEMPLATE_NAMES: Record<string, string> = {
@@ -50,6 +51,7 @@ export default function EditorPage() {
   const [improvingBullet, setImprovingBullet] = useState<string | null>(null);
   const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
   const [jobDescription, setJobDescription] = useState('');
+  const [preAtsTemplate, setPreAtsTemplate] = useState<string | null>(null);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -73,6 +75,38 @@ export default function EditorPage() {
 
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
+
+  // ─── ATS mode ───
+  const handleAtsModeChange = (enabled: boolean) => {
+    if (enabled) {
+      const compat = TEMPLATE_ATS_COMPAT[selectedTemplate];
+      if (compat === 'limited') {
+        setPreAtsTemplate(selectedTemplate);
+        setSelectedTemplate(ATS_FALLBACK_TEMPLATE);
+        setDesignSettings(prev => ({
+          ...prev,
+          atsMode: true,
+          template: ATS_FALLBACK_TEMPLATE,
+        }));
+        notify({ message: 'Template incompatible ATS \u2014 bascul\u00e9 vers Classic', type: 'success' });
+      } else {
+        setDesignSettings(prev => ({ ...prev, atsMode: true }));
+      }
+    } else {
+      if (preAtsTemplate) {
+        setSelectedTemplate(preAtsTemplate);
+        setDesignSettings(prev => ({
+          ...prev,
+          atsMode: false,
+          template: preAtsTemplate,
+        }));
+        setPreAtsTemplate(null);
+      } else {
+        setDesignSettings(prev => ({ ...prev, atsMode: false }));
+      }
+      notify({ message: 'Mode ATS d\u00e9sactiv\u00e9 \u2014 le CV ne sera plus optimis\u00e9 ATS', type: 'error' });
+    }
+  };
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
@@ -1569,6 +1603,8 @@ export default function EditorPage() {
           isSaving={isSaving}
           isExporting={isExporting}
           hasCvData={!!cvData}
+          atsMode={designSettings.atsMode ?? false}
+          onAtsModeChange={handleAtsModeChange}
         />
 
         <div 
