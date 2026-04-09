@@ -35,10 +35,10 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Section Standards
 
-- [ ] **SECT-01**: Section names are forced to ATS-recognized standards (not user-editable)
-- [ ] **SECT-02**: French section names: "Experience professionnelle", "Formation", "Competences", "Langues", "Coordonnees", "Profil professionnel"
-- [ ] **SECT-03**: English section names: "Work Experience", "Education", "Skills", "Languages", "Contact Information", "Professional Summary"
-- [ ] **SECT-04**: Language of section names is auto-detected from CV content
+- [x] **SECT-01**: Section names are forced to ATS-recognized standards (not user-editable)
+- [x] **SECT-02**: French section names: "Experience professionnelle", "Formation", "Competences", "Langues", "Coordonnees", "Profil professionnel"
+- [x] **SECT-03**: English section names: "Work Experience", "Education", "Skills", "Languages", "Contact Information", "Professional Summary"
+- [x] **SECT-04**: Language of section names is auto-detected from CV content
 
 ### AI Content Optimization
 
@@ -135,10 +135,10 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | TMPL-06 | Phase 6 | Pending |
 | TMPL-07 | Phase 6 | Pending |
 | TMPL-08 | Phase 6 | Pending |
-| SECT-01 | Phase 3 | Pending |
-| SECT-02 | Phase 3 | Pending |
-| SECT-03 | Phase 3 | Pending |
-| SECT-04 | Phase 3 | Pending |
+| SECT-01 | Phase 3 | Complete |
+| SECT-02 | Phase 3 | Complete |
+| SECT-03 | Phase 3 | Complete |
+| SECT-04 | Phase 3 | Complete |
 | AICV-01 | Phase 9 | Pending |
 | AICV-02 | Phase 9 | Pending |
 | AICV-03 | Phase 9 | Pending |
