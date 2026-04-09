@@ -42,12 +42,12 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### AI Content Optimization
 
-- [ ] **AICV-01**: User can trigger global AI rewrite of all bullet points optimized for the target job
-- [ ] **AICV-02**: User can trigger per-bullet AI rewrite individually
+- [x] **AICV-01**: User can trigger global AI rewrite of all bullet points optimized for the target job
+- [x] **AICV-02**: User can trigger per-bullet AI rewrite individually
 - [ ] **AICV-03**: AI detects weak bullet points (passive voice, no metrics, vague verbs like "responsible for")
-- [ ] **AICV-04**: AI rewrite integrates missing keywords from job description naturally into content
-- [ ] **AICV-05**: AI rewrite has fabrication guards — cannot invent metrics, shows diff view before/after
-- [ ] **AICV-06**: AI rewrite uses NVIDIA NIM (existing provider)
+- [x] **AICV-04**: AI rewrite integrates missing keywords from job description naturally into content
+- [x] **AICV-05**: AI rewrite has fabrication guards — cannot invent metrics, shows diff view before/after
+- [x] **AICV-06**: AI rewrite uses NVIDIA NIM (existing provider)
 
 ### Skills Categorization
 
@@ -139,12 +139,12 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | SECT-02 | Phase 3 | Complete |
 | SECT-03 | Phase 3 | Complete |
 | SECT-04 | Phase 3 | Complete |
-| AICV-01 | Phase 9 | Pending |
-| AICV-02 | Phase 9 | Pending |
+| AICV-01 | Phase 9 | Complete |
+| AICV-02 | Phase 9 | Complete |
 | AICV-03 | Phase 9 | Pending |
-| AICV-04 | Phase 9 | Pending |
-| AICV-05 | Phase 9 | Pending |
-| AICV-06 | Phase 9 | Pending |
+| AICV-04 | Phase 9 | Complete |
+| AICV-05 | Phase 9 | Complete |
+| AICV-06 | Phase 9 | Complete |
 | SKIL-01 | Phase 7 | Complete |
 | SKIL-02 | Phase 7 | Complete |
 | SKIL-03 | Phase 7 | Complete |

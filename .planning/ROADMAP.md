@@ -160,7 +160,7 @@ Plans:
 
 Plans:
 - [ ] 09-01-PLAN.md -- Weak bullet detection utility (client-side regex, TDD)
-- [ ] 09-02-PLAN.md -- Convex rewriteBulletsForJob action + enhance improveBulletPoint with JD context
+- [x] 09-02-PLAN.md -- Convex rewriteBulletsForJob action + enhance improveBulletPoint with JD context
 - [ ] 09-03-PLAN.md -- EditorPage integration: diff view, accept/reject, ATSPanel wiring, weak bullet badges
 
 ### Phase 10: PDF Validation
