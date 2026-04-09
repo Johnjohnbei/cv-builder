@@ -1,6 +1,7 @@
 import type { Experience, ExperienceDisplayMode, CVData, DesignSettings, ATSScoreResult } from '@/src/shared/types';
 import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
 import { getCVLanguage } from '@/src/lib/languageDetection';
+import { extractNLPKeywords as _extractNLPKeywords, scoreRelevance as _scoreRelevance } from './atsHelpers';
 
 // --- Keyword Extraction ---
 
@@ -314,6 +315,11 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   return { score: Math.max(0, Math.min(100, score)), suggestions };
 }
 
+// --- NLP re-exports ---
+
+export { _extractNLPKeywords as extractNLPKeywords };
+export { _scoreRelevance as scoreRelevance };
+
 // --- ATS Score Orchestrator ---
 
 /**
@@ -326,7 +332,6 @@ export function computeATSScore(cvData: CVData, design: DesignSettings, jobDescr
   const fmt = scoreFormat(cvData, design, language);
   const cnt = scoreContent(cvData, language);
 
-  // TODO: Plan 04-02 adds scoreRelevance here
   if (!jobDescription?.trim()) {
     return {
       overall: Math.round((fmt.score + cnt.score) / 2),
@@ -337,12 +342,13 @@ export function computeATSScore(cvData: CVData, design: DesignSettings, jobDescr
     };
   }
 
-  // With JD: for now, still return no-JD result (Plan 04-02 completes this)
+  // With JD: weighted score per D-09 formula
+  const rel = _scoreRelevance(cvData, jobDescription, language);
   return {
-    overall: Math.round((fmt.score + cnt.score) / 2),
+    overall: Math.round(fmt.score * 0.3 + cnt.score * 0.3 + rel.score * 0.4),
     format: fmt.score,
     content: cnt.score,
-    relevance: null,
-    suggestions: [...fmt.suggestions, ...cnt.suggestions],
+    relevance: rel.score,
+    suggestions: [...fmt.suggestions, ...cnt.suggestions, ...rel.suggestions],
   };
 }
