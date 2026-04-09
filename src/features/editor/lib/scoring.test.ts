@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore } from './scoring';
+import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore, extractNLPKeywords, scoreRelevance } from './scoring';
 import type { Experience, CVData, DesignSettings } from '@/src/shared/types';
 import { EMPTY_CV, DEFAULT_DESIGN } from '@/src/shared/types';
 
@@ -403,5 +403,178 @@ describe('computeATSScore', () => {
     expect(result.format).toBeGreaterThanOrEqual(0);
     expect(result.content).toBe(0);
     expect(result.relevance).toBeNull();
+  });
+});
+
+// ─── extractNLPKeywords ───
+
+describe('extractNLPKeywords', () => {
+  it('extracts bigrams from English text', () => {
+    const kw = extractNLPKeywords('project management experience with data analysis', 'en');
+    // Should contain multi-word terms
+    const hasMultiWord = kw.some(k => k.includes(' '));
+    expect(hasMultiWord).toBe(true);
+  });
+
+  it('extracts unigrams from English text', () => {
+    const kw = extractNLPKeywords('React TypeScript developer experience', 'en');
+    expect(kw.some(k => k.includes('react') || k.includes('typescript'))).toBe(true);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(extractNLPKeywords('', 'en')).toEqual([]);
+  });
+
+  it('filters terms shorter than 3 chars', () => {
+    const kw = extractNLPKeywords('AI is a good tool', 'en');
+    kw.forEach(k => {
+      expect(k.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  it('deduplicates keywords', () => {
+    const kw = extractNLPKeywords('project management and project management skills', 'en');
+    const unique = new Set(kw);
+    expect(kw.length).toBe(unique.size);
+  });
+
+  it('uses French fallback for fr language (sliding window bigrams)', () => {
+    const kw = extractNLPKeywords('gestion de projet et analyse de donnees', 'fr');
+    expect(kw.length).toBeGreaterThan(0);
+    // Should still produce some multi-word terms via sliding window
+    const hasMultiWord = kw.some(k => k.includes(' '));
+    expect(hasMultiWord).toBe(true);
+  });
+});
+
+// ─── scoreRelevance ───
+
+describe('scoreRelevance', () => {
+  it('returns 0-100 score', () => {
+    const result = scoreRelevance(
+      makeCVData(),
+      'software engineer typescript react development',
+      'en',
+    );
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+  });
+
+  it('returns high score when CV matches JD well', () => {
+    const cv = makeCVData({
+      personal_info: { name: 'J', email: 'j@e.com', title: 'Software Engineer' },
+      experience: [makeExp({ position: 'Software Engineer', description: ['Built React and TypeScript applications'] })],
+      skills: [{ category: 'Tech', items: ['React', 'TypeScript', 'Node.js'] }],
+    });
+    const result = scoreRelevance(cv, 'software engineer react typescript node.js development', 'en');
+    expect(result.score).toBeGreaterThan(40);
+  });
+
+  it('returns low score when CV does not match JD', () => {
+    const cv = makeCVData({
+      personal_info: { name: 'J', email: 'j@e.com', title: 'Chef' },
+      experience: [makeExp({ position: 'Chef', description: ['Cooked food in a restaurant'] })],
+      skills: [{ category: 'Cooking', items: ['French cuisine', 'Pastry'] }],
+    });
+    const result = scoreRelevance(cv, 'software engineer react typescript machine learning python', 'en');
+    expect(result.score).toBeLessThan(30);
+  });
+
+  it('returns score 0 with suggestion when JD has no extractable keywords', () => {
+    const result = scoreRelevance(makeCVData(), 'a b c', 'en');
+    expect(result.score).toBe(0);
+    expect(result.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('generates suggestions for missing keywords', () => {
+    const cv = makeCVData({
+      experience: [makeExp({ position: 'Developer', description: ['Built web apps'] })],
+      skills: [{ category: 'Tech', items: ['HTML'] }],
+    });
+    const result = scoreRelevance(cv, 'machine learning python tensorflow kubernetes docker', 'en');
+    expect(result.suggestions.some(s => s.includes('keyword'))).toBe(true);
+  });
+
+  it('does not return NaN', () => {
+    const result = scoreRelevance(makeCVData(), 'random job description text', 'en');
+    expect(Number.isNaN(result.score)).toBe(false);
+  });
+});
+
+// ─── computeATSScore with JD ───
+
+describe('computeATSScore with job description', () => {
+  it('returns weighted score with JD: format*0.3 + content*0.3 + relevance*0.4', () => {
+    const cv = makeCVData();
+    const design = makeDesign();
+    const jd = 'software engineer typescript react development team leadership';
+    const result = computeATSScore(cv, design, jd);
+    const fmt = scoreFormat(cv, design, 'en');
+    const cnt = scoreContent(cv, 'en');
+    // Overall should be weighted, not simple average
+    expect(result.overall).toBe(Math.round(fmt.score * 0.3 + cnt.score * 0.3 + result.relevance! * 0.4));
+  });
+
+  it('relevance is a number (not null) when JD is provided', () => {
+    const result = computeATSScore(makeCVData(), makeDesign(), 'software engineer react');
+    expect(result.relevance).not.toBeNull();
+    expect(typeof result.relevance).toBe('number');
+  });
+
+  it('overall is between 0-100 with JD', () => {
+    const result = computeATSScore(makeCVData(), makeDesign(), 'software engineer react typescript');
+    expect(result.overall).toBeGreaterThanOrEqual(0);
+    expect(result.overall).toBeLessThanOrEqual(100);
+  });
+
+  it('empty JD still returns relevance null', () => {
+    const result = computeATSScore(makeCVData(), makeDesign(), '');
+    expect(result.relevance).toBeNull();
+  });
+
+  it('full integration: realistic CV + JD returns all fields populated', () => {
+    const cv = makeCVData({
+      personal_info: {
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        phone: '+1 555 123 4567',
+        title: 'Senior Software Engineer',
+        summary: 'Full-stack engineer with 8 years experience in React, TypeScript, and cloud infrastructure',
+      },
+      experience: [
+        makeExp({
+          position: 'Senior Software Engineer',
+          description: [
+            'Led migration of monolith to microservices architecture serving 50000 daily users',
+            'Implemented CI/CD pipeline reducing deployment time by 75%',
+            'Mentored team of 4 junior developers in React and TypeScript best practices',
+          ],
+        }),
+      ],
+      skills: [
+        { category: 'Languages', items: ['TypeScript', 'Python', 'Go'] },
+        { category: 'Frameworks', items: ['React', 'Next.js', 'Node.js'] },
+      ],
+    });
+    const design = makeDesign({
+      template: 'TEMPLATE_B',
+      fontFamily: 'sans',
+      includedSections: ['experience', 'education', 'skills', 'contact', 'summary'],
+    });
+    const jd = 'Senior Software Engineer with experience in React, TypeScript, microservices, and cloud infrastructure. Must have leadership experience.';
+
+    const result = computeATSScore(cv, design, jd);
+
+    expect(result.overall).toBeGreaterThanOrEqual(0);
+    expect(result.overall).toBeLessThanOrEqual(100);
+    expect(result.format).toBeGreaterThanOrEqual(0);
+    expect(result.content).toBeGreaterThanOrEqual(0);
+    expect(result.relevance).not.toBeNull();
+    expect(typeof result.relevance).toBe('number');
+    expect(result.relevance!).toBeGreaterThanOrEqual(0);
+    expect(result.relevance!).toBeLessThanOrEqual(100);
+    expect(Array.isArray(result.suggestions)).toBe(true);
+    // Verify weighted formula
+    expect(result.overall).toBe(Math.round(result.format * 0.3 + result.content * 0.3 + result.relevance! * 0.4));
   });
 });
