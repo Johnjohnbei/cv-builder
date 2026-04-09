@@ -18,6 +18,18 @@ interface AIProvider {
 function getProviders(): AIProvider[] {
   const providers: AIProvider[] = [];
 
+  // Priority 1: Claude (best quality)
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) {
+    providers.push({
+      baseURL: "https://api.anthropic.com/v1/",
+      apiKey: anthropicKey,
+      defaultModel: "claude-sonnet-4-20250514",
+      fastModel: "claude-haiku-4-5-20251001",
+    });
+  }
+
+  // Priority 2: Gemini Flash (free tier)
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     providers.push({
@@ -28,6 +40,7 @@ function getProviders(): AIProvider[] {
     });
   }
 
+  // Priority 3: NVIDIA NIM (free tier)
   const nvidiaKey = process.env.NVIDIA_API_KEY;
   if (nvidiaKey) {
     providers.push({
@@ -39,7 +52,7 @@ function getProviders(): AIProvider[] {
   }
 
   if (providers.length === 0) {
-    throw new Error("No AI provider configured. Set GEMINI_API_KEY or NVIDIA_API_KEY in Convex env vars.");
+    throw new Error("No AI provider configured. Set ANTHROPIC_API_KEY, GEMINI_API_KEY, or NVIDIA_API_KEY in Convex env vars.");
   }
   return providers;
 }
@@ -48,7 +61,12 @@ function getProvider(): AIProvider { return getProviders()[0]; }
 
 function getClient(provider?: AIProvider): OpenAI {
   const p = provider || getProvider();
-  return new OpenAI({ baseURL: p.baseURL, apiKey: p.apiKey });
+  const opts: any = { baseURL: p.baseURL, apiKey: p.apiKey };
+  // Anthropic requires extra headers for OpenAI compatibility
+  if (p.baseURL.includes('anthropic.com')) {
+    opts.defaultHeaders = { 'anthropic-version': '2023-06-01' };
+  }
+  return new OpenAI(opts);
 }
 
 function getModel(speed: "default" | "fast" = "default", provider?: AIProvider): string {
