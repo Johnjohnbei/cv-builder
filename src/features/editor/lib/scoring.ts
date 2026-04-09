@@ -1,4 +1,5 @@
-import type { Experience, ExperienceDisplayMode } from '@/src/shared/types';
+import type { Experience, ExperienceDisplayMode, CVData, DesignSettings } from '@/src/shared/types';
+import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
 
 // --- Keyword Extraction ---
 
@@ -139,5 +140,175 @@ export function autoAssignModes(
   return result;
 }
 
-// --- ATS Scoring ---
-// Extension point for Phase 4 ATS scoring functions
+// --- ATS Format Scoring ---
+
+/** Internal sub-score result type. */
+export interface SubScoreResult {
+  score: number;
+  suggestions: string[];
+}
+
+/** Map design fontFamily values to actual font names. */
+const FONT_FAMILY_MAP: Record<string, string> = {
+  sans: 'Arial',
+  serif: 'Georgia',
+  mono: 'Courier New',
+  playfair: 'Playfair Display',
+  outfit: 'Outfit',
+};
+
+/** Regex for metrics in bullet points: numbers, %, $, euro. */
+const METRICS_REGEX = /\d+%|\$[\d,.]+|€[\d,.]+|\d{2,}/;
+
+/** Check if email is present and valid. */
+function hasEmail(email?: string): boolean {
+  return !!email && email.includes('@');
+}
+
+/** Check if phone has 7+ digits. */
+function hasPhone(phone?: string): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 7;
+}
+
+/** Check if font is ATS-safe. */
+function isFontATSSafe(fontFamily: string): boolean {
+  const fontName = FONT_FAMILY_MAP[fontFamily] ?? fontFamily;
+  return (ATS_SAFE_FONTS as readonly string[]).includes(fontName);
+}
+
+/** Check if a bullet contains quantifiable metrics. */
+function bulletHasMetrics(bullet: string): boolean {
+  return METRICS_REGEX.test(bullet);
+}
+
+/** Check if a bullet starts with a weak verb. */
+function bulletStartsWithWeakVerb(bullet: string, language: 'fr' | 'en'): boolean {
+  const lower = bullet.toLowerCase().trim();
+  return WEAK_VERBS[language].weak.some(v => lower.startsWith(v));
+}
+
+/** Check if bullet word count is in the 5-30 range. */
+function isBulletLengthOK(bullet: string): boolean {
+  const words = bullet.trim().split(/\s+/).length;
+  return words >= 5 && words <= 30;
+}
+
+/**
+ * Score the format/structure of a CV for ATS compatibility (0-100).
+ * Checks: template compat, section names, font safety, contact info.
+ * Pure function, no side effects.
+ */
+export function scoreFormat(cvData: CVData, design: DesignSettings, language: 'fr' | 'en'): SubScoreResult {
+  const suggestions: string[] = [];
+  let score = 0;
+
+  // Template ATS compat (25 pts)
+  const compat = TEMPLATE_ATS_COMPAT[design.template];
+  if (compat === 'full') {
+    score += 25;
+  } else if (compat === 'limited') {
+    score += 10;
+    suggestions.push('Consider using a single-column ATS-friendly template');
+  } else {
+    suggestions.push('Unknown template — ATS compatibility uncertain');
+  }
+
+  // Section names (25 pts)
+  const essentialSections = ['experience', 'education', 'skills', 'contact', 'summary'];
+  const included = design.includedSections ?? [];
+  const sectionCount = essentialSections.filter(s => included.includes(s)).length;
+  const sectionScore = Math.round((sectionCount / essentialSections.length) * 25);
+  score += sectionScore;
+  if (sectionCount < essentialSections.length) {
+    const missing = essentialSections.filter(s => !included.includes(s));
+    suggestions.push(`Missing sections: ${missing.join(', ')}`);
+  }
+
+  // Font safety (25 pts)
+  if (isFontATSSafe(design.fontFamily)) {
+    score += 25;
+  } else {
+    suggestions.push('Use an ATS-safe font (Arial, Calibri, Helvetica, Times New Roman, Georgia)');
+  }
+
+  // Contact info (25 pts)
+  if (hasEmail(cvData.personal_info.email)) {
+    score += 12.5;
+  } else {
+    suggestions.push('Add a valid email address');
+  }
+  if (hasPhone(cvData.personal_info.phone)) {
+    score += 12.5;
+  } else {
+    suggestions.push('Add a phone number');
+  }
+
+  // SVG icon check placeholder per D-05: assume no icons = full points (0 pts allocated)
+
+  return { score: Math.round(Math.max(0, Math.min(100, score))), suggestions };
+}
+
+// --- ATS Content Scoring ---
+
+/**
+ * Score the content quality of a CV for ATS (0-100).
+ * Checks: metrics in bullets, strong verbs, bullet length, essential sections, skills.
+ * Pure function, no side effects.
+ */
+export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreResult {
+  const suggestions: string[] = [];
+
+  // Collect all bullet points
+  const bullets = cvData.experience.flatMap(exp => exp.description ?? []);
+  if (bullets.length === 0) {
+    return { score: 0, suggestions: ['Add experience bullet points'] };
+  }
+
+  let score = 0;
+
+  // Metrics check (25 pts): % of bullets with metrics, target >= 50%
+  const metricsCount = bullets.filter(bulletHasMetrics).length;
+  const metricsRatio = metricsCount / bullets.length;
+  const metricsScore = Math.round(Math.min(metricsRatio / 0.5, 1) * 25);
+  score += metricsScore;
+  if (metricsRatio < 0.5) {
+    suggestions.push('Add quantifiable metrics (numbers, %, $) to more bullet points');
+  }
+
+  // Weak verb check (25 pts): % of bullets NOT starting with weak verb
+  const weakCount = bullets.filter(b => bulletStartsWithWeakVerb(b, language)).length;
+  const strongRatio = (bullets.length - weakCount) / bullets.length;
+  score += Math.round(strongRatio * 25);
+  if (weakCount > 0) {
+    suggestions.push('Replace weak verbs (helped, worked on, assisted) with strong action verbs');
+  }
+
+  // Bullet length check (20 pts): % of bullets with 5-30 words
+  const goodLengthCount = bullets.filter(isBulletLengthOK).length;
+  score += Math.round((goodLengthCount / bullets.length) * 20);
+  if (goodLengthCount < bullets.length) {
+    suggestions.push('Keep bullet points between 5-30 words');
+  }
+
+  // Essential sections check (15 pts): infer from data
+  let sectionPoints = 0;
+  if (cvData.experience.length > 0) sectionPoints += 3.75;
+  if (cvData.education.length > 0) sectionPoints += 3.75;
+  if (cvData.skills.length > 0) sectionPoints += 3.75;
+  if (cvData.personal_info.summary) sectionPoints += 3.75;
+  score += Math.round(sectionPoints);
+  if (sectionPoints < 15) {
+    suggestions.push('Include all essential sections: experience, education, skills, summary');
+  }
+
+  // Skills not empty (15 pts)
+  if (cvData.skills.length > 0 && cvData.skills.some(s => s.items.length > 0)) {
+    score += 15;
+  } else {
+    suggestions.push('Add skills to improve ATS keyword matching');
+  }
+
+  return { score: Math.max(0, Math.min(100, score)), suggestions };
+}

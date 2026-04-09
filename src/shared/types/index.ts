@@ -75,12 +75,22 @@ export interface CVData {
   languageOverride?: 'fr' | 'en';
 }
 
+/** @deprecated Use ATSScoreResult instead. Will be removed in a future version. */
 export interface ATSResult {
   score: number;
   missingKeywords: string[];
   strengths: string[];
   improvements: string[];
   ats_compatibility: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+/** ATS score breakdown per D-11 spec. */
+export interface ATSScoreResult {
+  overall: number;
+  format: number;
+  content: number;
+  relevance: number | null;
+  suggestions: string[];
 }
 
 export const DEFAULT_DESIGN: DesignSettings = {

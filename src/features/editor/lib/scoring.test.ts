@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration } from './scoring';
-import type { Experience } from '@/src/shared/types';
+import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent } from './scoring';
+import type { Experience, CVData, DesignSettings } from '@/src/shared/types';
+import { EMPTY_CV, DEFAULT_DESIGN } from '@/src/shared/types';
 
 // ─── Helpers ───
 
@@ -183,5 +184,173 @@ describe('autoAssignModes', () => {
     const result = autoAssignModes(exps, [], 1);
     expect(result[0].position).toBe('A');
     expect(result[1].position).toBe('B');
+  });
+});
+
+// ─── Helpers for ATS scoring ───
+
+function makeCVData(overrides: Partial<CVData> = {}): CVData {
+  return {
+    personal_info: {
+      name: 'John Doe',
+      email: 'john@example.com',
+      phone: '+33 6 12 34 56 78',
+      title: 'Software Engineer',
+      summary: 'Experienced developer',
+    },
+    experience: [
+      makeExp({
+        description: [
+          'Led a team of 5 engineers to deliver project 30% ahead of schedule',
+          'Increased revenue by $2M through optimization',
+          'Deployed microservices architecture serving 10000 requests/sec',
+        ],
+      }),
+    ],
+    education: [{ school: 'MIT', degree: 'BS', field: 'CS', start_date: '2016', end_date: '2020' }],
+    skills: [{ category: 'Languages', items: ['TypeScript', 'Python'] }],
+    languages: [{ name: 'English', proficiency: 'Native' }],
+    ...overrides,
+  };
+}
+
+function makeDesign(overrides: Partial<DesignSettings> = {}): DesignSettings {
+  return {
+    ...DEFAULT_DESIGN,
+    ...overrides,
+  };
+}
+
+// ─── scoreFormat ───
+
+describe('scoreFormat', () => {
+  it('returns 0-100 score with suggestions array', () => {
+    const result = scoreFormat(makeCVData(), makeDesign(), 'en');
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(Array.isArray(result.suggestions)).toBe(true);
+  });
+
+  it('gives full template points for ATS-compatible template', () => {
+    const full = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_B' }), 'en');
+    const limited = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_A' }), 'en');
+    expect(full.score).toBeGreaterThan(limited.score);
+  });
+
+  it('gives font points for ATS-safe fonts (sans -> Arial)', () => {
+    const safe = scoreFormat(makeCVData(), makeDesign({ fontFamily: 'sans' }), 'en');
+    const unsafe = scoreFormat(makeCVData(), makeDesign({ fontFamily: 'outfit' }), 'en');
+    expect(safe.score).toBeGreaterThan(unsafe.score);
+  });
+
+  it('gives contact points for email and phone', () => {
+    const withContact = scoreFormat(
+      makeCVData({ personal_info: { name: 'J', email: 'j@e.com', phone: '+33612345678' } }),
+      makeDesign(),
+      'en',
+    );
+    const noContact = scoreFormat(
+      makeCVData({ personal_info: { name: 'J', email: '' } }),
+      makeDesign(),
+      'en',
+    );
+    expect(withContact.score).toBeGreaterThan(noContact.score);
+  });
+
+  it('returns 0 for empty CV without crashing', () => {
+    const result = scoreFormat(EMPTY_CV, makeDesign(), 'en');
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(Number.isNaN(result.score)).toBe(false);
+  });
+
+  it('gives section name points for included sections', () => {
+    const withSections = scoreFormat(
+      makeCVData(),
+      makeDesign({ includedSections: ['experience', 'education', 'skills', 'contact', 'summary'] }),
+      'en',
+    );
+    const noSections = scoreFormat(
+      makeCVData(),
+      makeDesign({ includedSections: [] }),
+      'en',
+    );
+    expect(withSections.score).toBeGreaterThan(noSections.score);
+  });
+});
+
+// ─── scoreContent ───
+
+describe('scoreContent', () => {
+  it('returns 0-100 score with suggestions array', () => {
+    const result = scoreContent(makeCVData(), 'en');
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(Array.isArray(result.suggestions)).toBe(true);
+  });
+
+  it('returns 0 for CV with no experience bullets', () => {
+    const result = scoreContent(makeCVData({ experience: [] }), 'en');
+    expect(result.score).toBe(0);
+    expect(result.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('rewards bullets with metrics (numbers, %, $)', () => {
+    const withMetrics = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Increased sales by 50%', 'Saved $100K annually', 'Led 12 engineers'] })],
+      }),
+      'en',
+    );
+    const noMetrics = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Did stuff', 'Worked on things', 'Helped team'] })],
+      }),
+      'en',
+    );
+    expect(withMetrics.score).toBeGreaterThan(noMetrics.score);
+  });
+
+  it('penalizes bullets starting with weak verbs', () => {
+    const strongVerbs = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Led the migration project', 'Optimized database queries', 'Deployed new infrastructure'] })],
+      }),
+      'en',
+    );
+    const weakVerbs = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Helped with migration', 'Worked on database', 'Assisted in deployment'] })],
+      }),
+      'en',
+    );
+    expect(strongVerbs.score).toBeGreaterThan(weakVerbs.score);
+  });
+
+  it('checks bullet length (5-30 words)', () => {
+    const goodLength = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Led a team of five engineers to deliver the project ahead of schedule'] })],
+      }),
+      'en',
+    );
+    const tooShort = scoreContent(
+      makeCVData({
+        experience: [makeExp({ description: ['Did work', 'Coded', 'Helped'] })],
+      }),
+      'en',
+    );
+    expect(goodLength.score).toBeGreaterThan(tooShort.score);
+  });
+
+  it('returns 0 for EMPTY_CV without crashing', () => {
+    const result = scoreContent(EMPTY_CV, 'en');
+    expect(result.score).toBe(0);
+    expect(Number.isNaN(result.score)).toBe(false);
+  });
+
+  it('gives points for skills not empty', () => {
+    const withSkills = scoreContent(makeCVData(), 'en');
+    const noSkills = scoreContent(makeCVData({ skills: [] }), 'en');
+    expect(withSkills.score).toBeGreaterThan(noSkills.score);
   });
 });
