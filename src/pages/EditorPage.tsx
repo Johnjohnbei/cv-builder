@@ -114,7 +114,7 @@ export default function EditorPage() {
 
   const renderCV = () => {
     if (!cvData) return null;
-    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} />;
+    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} language={currentLanguage} />;
   };
 
   const handleOptimize = async () => {

@@ -1,4 +1,5 @@
 import type { CVData, DesignSettings } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
 
 /** LinkedIn brand icon — lucide-react 1.x removed brand icons */
@@ -15,6 +16,7 @@ export function LinkedinIcon({ className }: { className?: string }) {
 export interface TemplateProps {
   cvData: CVData;
   designSettings: DesignSettings;
+  language: SupportedLanguage;
 }
 
 export function useSectionTitleClasses(settings: DesignSettings) {

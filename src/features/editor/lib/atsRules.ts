@@ -31,6 +31,13 @@ export const SECTION_NAMES = {
   },
 } as const;
 
+export type SectionKey = keyof typeof SECTION_NAMES.fr;
+
+/** Returns the ATS-standard section title for a given key and language. */
+export function getSectionTitle(key: SectionKey, language: 'fr' | 'en'): string {
+  return SECTION_NAMES[language][key];
+}
+
 // --- ATS-Safe Fonts & Styles ---
 
 export const ATS_SAFE_FONTS = ['Arial', 'Calibri', 'Helvetica', 'Times New Roman', 'Georgia'] as const;

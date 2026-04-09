@@ -5,7 +5,9 @@ import {
   ATS_SAFE_FONTS,
   ATS_COLOR_CONSTRAINTS,
   WEAK_VERBS,
+  getSectionTitle,
 } from './atsRules';
+import type { SectionKey } from './atsRules';
 
 describe('atsRules', () => {
   it('exports template compatibility for all 6 templates', () => {
@@ -40,5 +42,31 @@ describe('atsRules', () => {
     expect(WEAK_VERBS.fr.strong.length).toBeGreaterThan(0);
     expect(WEAK_VERBS.en.weak.length).toBeGreaterThan(0);
     expect(WEAK_VERBS.en.strong.length).toBeGreaterThan(0);
+  });
+});
+
+describe('getSectionTitle', () => {
+  it('returns correct French section names for all 6 keys', () => {
+    expect(getSectionTitle('experience', 'fr')).toBe('Experience professionnelle');
+    expect(getSectionTitle('education', 'fr')).toBe('Formation');
+    expect(getSectionTitle('skills', 'fr')).toBe('Competences');
+    expect(getSectionTitle('languages', 'fr')).toBe('Langues');
+    expect(getSectionTitle('contact', 'fr')).toBe('Coordonnees');
+    expect(getSectionTitle('summary', 'fr')).toBe('Profil professionnel');
+  });
+
+  it('returns correct English section names for all 6 keys', () => {
+    expect(getSectionTitle('experience', 'en')).toBe('Work Experience');
+    expect(getSectionTitle('education', 'en')).toBe('Education');
+    expect(getSectionTitle('skills', 'en')).toBe('Skills');
+    expect(getSectionTitle('languages', 'en')).toBe('Languages');
+    expect(getSectionTitle('contact', 'en')).toBe('Contact Information');
+    expect(getSectionTitle('summary', 'en')).toBe('Professional Summary');
+  });
+
+  it('has correct function signature with SectionKey type', () => {
+    const key: SectionKey = 'experience';
+    const result: string = getSectionTitle(key, 'fr');
+    expect(typeof result).toBe('string');
   });
 });
