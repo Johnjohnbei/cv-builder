@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Extract formatting utilities, merge duplicate cn(), clean barrel exports
-- [ ] 01-02-PLAN.md — Create atsRules.ts config, fix word-boundary matching, add section separators to scoring.ts
+- [x] 01-02-PLAN.md — Create atsRules.ts config, fix word-boundary matching, add section separators to scoring.ts
 
 ### Phase 2: Language Detection
 **Goal**: System knows whether the CV is in French or English and adapts behavior accordingly

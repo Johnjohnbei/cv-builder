@@ -76,8 +76,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Refactoring
 
-- [ ] **REFAC-01**: scoring.ts extended with ATS scoring (not a separate module), kept within file size limits
-- [ ] **REFAC-02**: New atsRules.ts config module (~60 lines) for template compatibility map and section standards
+- [x] **REFAC-01**: scoring.ts extended with ATS scoring (not a separate module), kept within file size limits
+- [x] **REFAC-02**: New atsRules.ts config module (~60 lines) for template compatibility map and section standards
 - [ ] **REFAC-03**: ATSPanel extracted as a separate component (~200 lines)
 - [ ] **REFAC-04**: ATS state extracted into useATSAnalysis hook to prevent EditorPage growth
 - [x] **REFAC-05**: formatDateShort and normalizeProficiency moved out of scoring.ts into shared utilities
@@ -158,8 +158,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | PANL-05 | Phase 8 | Pending |
 | PDFV-01 | Phase 10 | Pending |
 | PDFV-02 | Phase 10 | Pending |
-| REFAC-01 | Phase 1 | Pending |
-| REFAC-02 | Phase 1 | Pending |
+| REFAC-01 | Phase 1 | Complete |
+| REFAC-02 | Phase 1 | Complete |
 | REFAC-03 | Phase 8 | Pending |
 | REFAC-04 | Phase 8 | Pending |
 | REFAC-05 | Phase 1 | Complete |
