@@ -12,14 +12,14 @@ This milestone transforms Calibre from a visually-focused CV builder into an ATS
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Refactoring Foundation** - Extract utilities, create atsRules config, prepare scoring.ts for extension
+- [x] **Phase 1: Refactoring Foundation** - Extract utilities, create atsRules config, prepare scoring.ts for extension (completed 2026-04-09)
 - [x] **Phase 2: Language Detection** - Auto-detect CV language and adapt all ATS rules accordingly (completed 2026-04-09)
-- [ ] **Phase 3: Section Standards** - Force ATS-recognized section names based on detected language
-- [ ] **Phase 4: ATS Scoring Engine** - Compute Format, Content, and Relevance sub-scores with global ATS score
-- [ ] **Phase 5: Keywords & Matching** - Extract, match, and display job description keywords with accuracy
+- [x] **Phase 3: Section Standards** - Force ATS-recognized section names based on detected language (completed 2026-04-09)
+- [x] **Phase 4: ATS Scoring Engine** - Compute Format, Content, and Relevance sub-scores with global ATS score (completed 2026-04-09)
+- [x] **Phase 5: Keywords & Matching** - Extract, match, and display job description keywords with accuracy (completed 2026-04-09)
 - [x] **Phase 6: Template ATS Mode** - Toggle ATS mode on templates with DOM restructuring and visual simplification (completed 2026-04-09)
 - [x] **Phase 7: Skills Categorization** - Auto-categorize skills at import and display in grouped ATS format (completed 2026-04-09)
-- [ ] **Phase 8: ATS Panel UI** - Sidebar panel showing scores, keywords, suggestions with action buttons
+- [x] **Phase 8: ATS Panel UI** - Sidebar panel showing scores, keywords, suggestions with action buttons (completed 2026-04-09)
 - [x] **Phase 9: AI Content Optimization** - AI-powered bullet rewriting, weak bullet detection, keyword integration (completed 2026-04-09)
 - [x] **Phase 10: PDF Validation** - Validate exported PDF text extractability and warn on degradation (completed 2026-04-09)
 
@@ -182,13 +182,13 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Refactoring Foundation | 0/2 | Not started | - |
-| 2. Language Detection | 1/1 | Complete   | 2026-04-09 |
-| 3. Section Standards | 0/1 | Not started | - |
-| 4. ATS Scoring Engine | 1/2 | In Progress|  |
-| 5. Keywords & Matching | 0/1 | Not started | - |
-| 6. Template ATS Mode | 3/3 | Complete   | 2026-04-09 |
-| 7. Skills Categorization | 1/1 | Complete   | 2026-04-09 |
-| 8. ATS Panel UI | 0/3 | Not started | - |
-| 9. AI Content Optimization | 3/3 | Complete   | 2026-04-09 |
-| 10. PDF Validation | 1/1 | Complete   | 2026-04-09 |
+| 1. Refactoring Foundation | 2/2 | Complete | 2026-04-09 |
+| 2. Language Detection | 1/1 | Complete | 2026-04-09 |
+| 3. Section Standards | 1/1 | Complete | 2026-04-09 |
+| 4. ATS Scoring Engine | 2/2 | Complete | 2026-04-09 |
+| 5. Keywords & Matching | 1/1 | Complete | 2026-04-09 |
+| 6. Template ATS Mode | 3/3 | Complete | 2026-04-09 |
+| 7. Skills Categorization | 1/1 | Complete | 2026-04-09 |
+| 8. ATS Panel UI | 3/3 | Complete | 2026-04-09 |
+| 9. AI Content Optimization | 3/3 | Complete | 2026-04-09 |
+| 10. PDF Validation | 1/1 | Complete | 2026-04-09 |
