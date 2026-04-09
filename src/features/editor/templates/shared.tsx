@@ -1,7 +1,10 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
-import type { CVData, DesignSettings } from '@/src/shared/types';
+import type { CVData, DesignSettings, SkillCategory } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
+import { getSkillCategoryTitle } from '../lib/atsRules';
+import type { SkillCategoryKey } from '../lib/skillDictionary';
+import { isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 
 /** LinkedIn brand icon — lucide-react 1.x removed brand icons */
 export function LinkedinIcon({ className }: { className?: string }) {
@@ -151,6 +154,25 @@ export function renderContactInfo(
           {' '}{item.value}
         </span>
       ))}
+    </div>
+  );
+}
+
+/** Renders skills as plain text for ATS parsers: "Category: skill1, skill2, skill3" per line. */
+export function renderSkillsATS(skills: SkillCategory[], language: SupportedLanguage) {
+  return (
+    <div className="space-y-1">
+      {skills.filter(cat => !isSkillHidden(cat)).map((cat, idx) => {
+        const visibleItems = getVisibleSkills(cat);
+        if (visibleItems.length === 0) return null;
+        const title = getSkillCategoryTitle(cat.category as SkillCategoryKey, language);
+        return (
+          <p key={idx} className="text-sm">
+            <span className="font-semibold">{title}:</span>{' '}
+            {visibleItems.join(', ')}
+          </p>
+        );
+      })}
     </div>
   );
 }

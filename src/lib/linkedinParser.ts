@@ -22,6 +22,7 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { CVData, Experience, Education } from '../shared/types';
+import { categorizeSkills } from '@/src/features/editor/lib/skillDictionary';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -467,7 +468,7 @@ function parseSkills(left: Line[]): CVData['skills'] {
       items.push(left[i].text.trim());
     }
   }
-  return items.length > 0 ? [{ category: 'Compétences clés', items }] : [];
+  return items.length > 0 ? categorizeSkills(items) : [];
 }
 
 // ─── Parse languages (left sidebar) ─────────────────────────────────

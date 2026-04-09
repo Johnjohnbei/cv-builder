@@ -41,6 +41,32 @@ export function getSectionTitle(key: SectionKey, language: 'fr' | 'en'): string 
   return SECTION_NAMES[language][key];
 }
 
+// --- Skill Category Names (bilingual) ---
+
+import type { SkillCategoryKey } from './skillDictionary';
+
+export const SKILL_CATEGORY_NAMES = {
+  fr: {
+    technical: 'Competences techniques',
+    tools: 'Outils',
+    methodologies: 'Methodologies',
+    soft_skills: 'Soft Skills',
+    other: 'Autres',
+  },
+  en: {
+    technical: 'Technical Skills',
+    tools: 'Tools',
+    methodologies: 'Methodologies',
+    soft_skills: 'Soft Skills',
+    other: 'Other',
+  },
+} as const;
+
+/** Returns the display name for a skill category key in the given language. */
+export function getSkillCategoryTitle(key: SkillCategoryKey, language: 'fr' | 'en'): string {
+  return SKILL_CATEGORY_NAMES[language][key] ?? key;
+}
+
 // --- ATS-Safe Fonts & Styles ---
 
 export const ATS_SAFE_FONTS = ['Arial', 'Calibri', 'Helvetica', 'Times New Roman', 'Georgia'] as const;

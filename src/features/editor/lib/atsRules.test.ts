@@ -6,8 +6,11 @@ import {
   ATS_COLOR_CONSTRAINTS,
   WEAK_VERBS,
   getSectionTitle,
+  SKILL_CATEGORY_NAMES,
+  getSkillCategoryTitle,
 } from './atsRules';
 import type { SectionKey } from './atsRules';
+import type { SkillCategoryKey } from './skillDictionary';
 
 describe('atsRules', () => {
   it('exports template compatibility for all 6 templates', () => {
@@ -68,5 +71,36 @@ describe('getSectionTitle', () => {
     const key: SectionKey = 'experience';
     const result: string = getSectionTitle(key, 'fr');
     expect(typeof result).toBe('string');
+  });
+});
+
+describe('getSkillCategoryTitle', () => {
+  it('returns correct French names for all 5 category keys', () => {
+    expect(getSkillCategoryTitle('technical', 'fr')).toBe('Competences techniques');
+    expect(getSkillCategoryTitle('tools', 'fr')).toBe('Outils');
+    expect(getSkillCategoryTitle('methodologies', 'fr')).toBe('Methodologies');
+    expect(getSkillCategoryTitle('soft_skills', 'fr')).toBe('Soft Skills');
+    expect(getSkillCategoryTitle('other', 'fr')).toBe('Autres');
+  });
+
+  it('returns correct English names for all 5 category keys', () => {
+    expect(getSkillCategoryTitle('technical', 'en')).toBe('Technical Skills');
+    expect(getSkillCategoryTitle('tools', 'en')).toBe('Tools');
+    expect(getSkillCategoryTitle('methodologies', 'en')).toBe('Methodologies');
+    expect(getSkillCategoryTitle('soft_skills', 'en')).toBe('Soft Skills');
+    expect(getSkillCategoryTitle('other', 'en')).toBe('Other');
+  });
+
+  it('all 5 keys return non-empty strings for both languages', () => {
+    const keys: SkillCategoryKey[] = ['technical', 'tools', 'methodologies', 'soft_skills', 'other'];
+    for (const key of keys) {
+      expect(getSkillCategoryTitle(key, 'fr').length).toBeGreaterThan(0);
+      expect(getSkillCategoryTitle(key, 'en').length).toBeGreaterThan(0);
+    }
+  });
+
+  it('SKILL_CATEGORY_NAMES has entries for both languages', () => {
+    expect(Object.keys(SKILL_CATEGORY_NAMES.fr)).toHaveLength(5);
+    expect(Object.keys(SKILL_CATEGORY_NAMES.en)).toHaveLength(5);
   });
 });
