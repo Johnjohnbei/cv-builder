@@ -13,7 +13,6 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useOverflowDetection } from '../features/editor/hooks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader } from '../features/editor/components';
-import { getCVLanguage, detectCVLanguage } from '../lib/languageDetection';
 import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
 
@@ -76,12 +75,6 @@ export default function EditorPage() {
 
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
-
-  // ─── Language ───
-  const currentLanguage = cvData ? getCVLanguage(cvData) : 'fr';
-  const handleLanguageOverride = (lang: 'fr' | 'en') => {
-    setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
-  };
 
   // ─── ATS mode ───
   const handleAtsModeChange = (enabled: boolean) => {
@@ -148,7 +141,7 @@ export default function EditorPage() {
 
   const renderCV = () => {
     if (!cvData) return null;
-    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} language={currentLanguage} />;
+    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} />;
   };
 
   const handleOptimize = async () => {
@@ -1153,7 +1146,14 @@ export default function EditorPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className={cn("text-[9px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
-                          {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                          <div className="flex items-center gap-1">
+                            {TEMPLATE_ATS_COMPAT[tpl.id] === 'full' ? (
+                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">ATS</span>
+                            ) : (
+                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-600">DESIGN</span>
+                            )}
+                            {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                          </div>
                         </div>
                         <div className="h-12 bg-white border border-gray-100 rounded flex items-center justify-center overflow-hidden">
                            <div className={cn(
@@ -1610,8 +1610,6 @@ export default function EditorPage() {
           isSaving={isSaving}
           isExporting={isExporting}
           hasCvData={!!cvData}
-          currentLanguage={currentLanguage}
-          onLanguageChange={handleLanguageOverride}
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={handleAtsModeChange}
         />
