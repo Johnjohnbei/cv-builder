@@ -76,11 +76,11 @@ Plans:
   3. Without a job description, user sees Format + Content scores with a clear prompt to import an offer
   4. With a job description, Relevance sub-score uses word-boundary keyword matching with no substring false positives
   5. Keyword extraction handles bigrams/trigrams and applies TF-IDF weighting via compromise NLP
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- ATSScoreResult type, scoreFormat, scoreContent, no-JD orchestrator
+- [ ] 04-02-PLAN.md -- Install compromise NLP, extractNLPKeywords, TF-IDF, scoreRelevance, full orchestrator
 
 ### Phase 5: Keywords & Matching
 **Goal**: Users can see which job description keywords are present or missing in their CV
