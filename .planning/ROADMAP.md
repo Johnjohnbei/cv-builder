@@ -93,7 +93,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md — KeywordMatch type, computeKeywordAnalysis with acronym detection and word-boundary matching, tests
+- [x] 05-01-PLAN.md — KeywordMatch type, computeKeywordAnalysis with acronym detection and word-boundary matching, tests
 
 ### Phase 6: Template ATS Mode
 **Goal**: Users can toggle ATS mode on templates to make them ATS-parser-friendly

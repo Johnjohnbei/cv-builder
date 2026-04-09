@@ -18,9 +18,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Keywords & Matching
 
-- [ ] **KEYW-01**: User can see a color-coded list of keywords from the job description (green=present, red=missing)
-- [ ] **KEYW-02**: Keywords include both acronyms and full terms (e.g., "PMP" + "Project Management Professional")
-- [ ] **KEYW-03**: Keyword matching uses word boundaries to prevent false positives ("Java" must not match "JavaScript")
+- [x] **KEYW-01**: User can see a color-coded list of keywords from the job description (green=present, red=missing)
+- [x] **KEYW-02**: Keywords include both acronyms and full terms (e.g., "PMP" + "Project Management Professional")
+- [x] **KEYW-03**: Keyword matching uses word boundaries to prevent false positives ("Java" must not match "JavaScript")
 
 ### Template ATS Mode
 
@@ -124,9 +124,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | SCORE-04 | Phase 4 | Complete |
 | SCORE-05 | Phase 4 | Complete |
 | SCORE-06 | Phase 4 | Complete |
-| KEYW-01 | Phase 5 | Pending |
-| KEYW-02 | Phase 5 | Pending |
-| KEYW-03 | Phase 5 | Pending |
+| KEYW-01 | Phase 5 | Complete |
+| KEYW-02 | Phase 5 | Complete |
+| KEYW-03 | Phase 5 | Complete |
 | TMPL-01 | Phase 6 | Pending |
 | TMPL-02 | Phase 6 | Pending |
 | TMPL-03 | Phase 6 | Pending |
