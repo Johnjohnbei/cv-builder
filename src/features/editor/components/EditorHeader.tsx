@@ -18,6 +18,8 @@ interface Props {
   hasCvData: boolean;
   currentLanguage: 'fr' | 'en';
   onLanguageChange: (lang: 'fr' | 'en') => void;
+  atsMode: boolean;
+  onAtsModeChange: (enabled: boolean) => void;
 }
 
 export function EditorHeader({
@@ -25,6 +27,7 @@ export function EditorHeader({
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
   currentLanguage, onLanguageChange,
+  atsMode, onAtsModeChange,
 }: Props) {
   return (
     <header className="stitch-header justify-between shrink-0">
@@ -72,6 +75,18 @@ export function EditorHeader({
         </div>
         <div className="border-l border-gray-100 pl-3">
           <LanguageSelector value={currentLanguage} onChange={onLanguageChange} />
+        </div>
+        <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
+          <span className="text-[9px] stitch-mono text-gray-400 uppercase">ATS:</span>
+          <button
+            onClick={() => onAtsModeChange(!atsMode)}
+            className={cn(
+              "px-2 py-0.5 rounded text-[9px] stitch-mono font-bold transition-colors",
+              atsMode ? "bg-green-100 text-green-700" : "hover:bg-gray-100 text-gray-400"
+            )}
+          >
+            {atsMode ? 'ON' : 'OFF'}
+          </button>
         </div>
       </div>
 
