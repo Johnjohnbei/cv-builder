@@ -47,10 +47,10 @@ Plans:
   1. When a user imports or edits a CV, the system correctly identifies whether content is French or English
   2. Language detection runs client-side using franc-min with no perceptible delay
   3. Detected language is available to downstream systems (scoring, sections, suggestions)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — Install franc-min, detect CV language, add FR/EN selector, wire into import pipeline
 
 ### Phase 3: Section Standards
 **Goal**: CV section names conform to ATS-recognized standards automatically
