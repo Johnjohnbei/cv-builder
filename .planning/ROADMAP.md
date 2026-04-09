@@ -90,10 +90,10 @@ Plans:
   1. User sees a color-coded keyword list (green = present in CV, red = missing) from the job description
   2. Keywords include both acronym and expanded forms (e.g., "PMP" and "Project Management Professional")
   3. Matching is word-boundary accurate -- "Java" does not falsely match "JavaScript"
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md — KeywordMatch type, computeKeywordAnalysis with acronym detection and word-boundary matching, tests
 
 ### Phase 6: Template ATS Mode
 **Goal**: Users can toggle ATS mode on templates to make them ATS-parser-friendly
