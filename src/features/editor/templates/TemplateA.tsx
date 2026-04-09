@@ -1,13 +1,14 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon, getAtsFontStyle, renderContactInfo, atsSimplifyClasses } from './shared';
 import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 import type { Experience } from '@/src/shared/types';
 
 export function TemplateA({ cvData, designSettings }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
+  const atsMode = designSettings.atsMode;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
   const includedSections = getIncludedSections(designSettings);
@@ -54,7 +55,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
   // ─── Section fragments ───
   const experienceSection = includedSections.includes('experience') && (
     <section data-cv-section="experience">
-      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Expérience Professionnelle</h2>
+      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Expérience Professionnelle</h2>
       <div className="space-y-6">
         {cvData.experience?.filter(exp => !isHidden(exp)).map((exp, idx) => renderExperience(exp, idx))}
       </div>
@@ -63,7 +64,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   const summarySection = includedSections.includes('summary') && cvData.personal_info?.summary && (
     <section data-cv-section="summary">
-      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Profil</h2>
+      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Profil</h2>
       <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info.summary}</p>
     </section>
   );
@@ -72,7 +73,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
     <div className="space-y-8">
       {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
         <section data-cv-section="skills">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Compétences</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Compétences</h2>
           <div className="space-y-4">
             {cvData.skills?.filter(cat => !isSkillHidden(cat)).map((cat, idx) => (
               <div key={idx} className="space-y-2">
@@ -89,7 +90,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
       )}
       {includedSections.includes('education') && (
         <section data-cv-section="education">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Formation</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Formation</h2>
           <div className="space-y-4">
             {cvData.education?.map((edu, idx) => (
               <div key={idx} className="space-y-1" data-cv-block="education">
@@ -102,7 +103,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
       )}
       {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
         <section data-cv-section="languages">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Langues</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Langues</h2>
           <div className="space-y-2">
             {cvData.languages?.map((lang, idx) => (
               <div key={idx} className="flex justify-between items-center">
@@ -118,27 +119,22 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   // ─── Layout: conditional on pageLimit ───
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
       {/* Header */}
       {includedSections.includes('personal') && (
-        <div data-cv-section="header" className="border-b-2 pb-8 mb-8 flex justify-between items-start" style={{ borderColor: primaryColor }}>
+        <div data-cv-section="header" className={cn("border-b-2 pb-8 mb-8 flex justify-between items-start", atsMode && "border-gray-200")} style={atsMode ? undefined : { borderColor: primaryColor }}>
           <div className="flex-1">
-            <h1 className="text-4xl font-bold tracking-tighter uppercase" style={{ color: primaryColor }}>{cvData.personal_info?.name}</h1>
+            <h1 className="text-4xl font-bold tracking-tighter uppercase" style={{ color: atsMode ? '#000' : primaryColor }}>{cvData.personal_info?.name}</h1>
             <p className="text-xl font-medium mt-1 text-gray-600">{cvData.personal_info?.title}</p>
-            <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-500 font-mono">
-              <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</span>
-              {cvData.personal_info?.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</span>}
-              {cvData.personal_info?.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {cvData.personal_info?.location}</span>}
-              {cvData.personal_info?.linkedin && <span className="flex items-center gap-1"><LinkedinIcon className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
-            </div>
+            {renderContactInfo(cvData, atsMode, "mt-4 text-gray-500 text-xs font-mono")}
           </div>
           {renderPhoto(cvData, showPhoto, "w-28 h-28 rounded-lg border-2 border-gray-100")}
         </div>
       )}
 
       {/* Grid layout: profil + experiences left, sidebar right */}
-      <div className="grid grid-cols-3 gap-12">
-        <div className="col-span-2 space-y-8">
+      <div className={cn("grid grid-cols-3 gap-12", atsMode && "grid-cols-1")}>
+        <div className={cn("col-span-2 space-y-8", atsMode && "col-span-1")}>
           {summarySection}
           {experienceSection}
         </div>

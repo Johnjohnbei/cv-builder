@@ -2,12 +2,13 @@ import { Mail, Phone, MapPin, User } from 'lucide-react';
 import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/scoring';
 
 export function TemplateB({ cvData, designSettings }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
+  const atsMode = designSettings.atsMode;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
   const includedSections = getIncludedSections(designSettings);
@@ -19,8 +20,8 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white grid grid-cols-[1fr_2fr] pdf-safe", fontClass)}>
-      <div className="p-12 flex flex-col justify-between" style={{ backgroundColor: primaryColor, color: '#ffffff' }}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white pdf-safe", !atsMode && "grid grid-cols-[1fr_2fr]", fontClass)}>
+      <div className={cn("p-12 flex flex-col justify-between", atsMode && "bg-white text-gray-900")} style={atsMode ? undefined : { backgroundColor: primaryColor, color: '#ffffff' }}>
         <div>
           {includedSections.includes('personal') && (
             <>
@@ -47,12 +48,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
             {includedSections.includes('personal') && (
               <section data-cv-section="contact">
                 <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Contact</h2>
-                <div className="space-y-3 text-[11px] opacity-90">
-                  <div className="flex items-center gap-3"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</div>
-                  {cvData.personal_info?.phone && <div className="flex items-center gap-3"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</div>}
-                  {cvData.personal_info?.location && <div className="flex items-center gap-3"><MapPin className="w-3 h-3" /> {cvData.personal_info?.location}</div>}
-                  {cvData.personal_info?.linkedin && <div className="flex items-center gap-3"><LinkedinIcon className="w-3 h-3" /> {cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</div>}
-                </div>
+                {renderContactInfo(cvData, atsMode, "flex-col space-y-3 text-[11px] opacity-90")}
               </section>
             )}
 
@@ -97,13 +93,13 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('experience') && (
           <section data-cv-section="experience">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
-              <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
+              {!atsMode && <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />}
               Expérience
             </h2>
             <div className="space-y-8">
               {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
-                <div key={idx} data-cv-block="experience" className="relative pl-8 border-l border-gray-100">
-                  <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
+                <div key={idx} data-cv-block="experience" className={cn("relative pl-8 border-l border-gray-100", atsMode && "pl-0 border-l-0")}>
+                  {!atsMode && <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />}
                   <div className="flex justify-between items-baseline gap-4 mb-1">
                     <h3 className="font-bold text-gray-900">{exp.position}</h3>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>{formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}</span>
@@ -125,7 +121,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('education') && (
           <section data-cv-section="education">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
-              <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
+              {!atsMode && <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />}
               Formation
             </h2>
             <div className="space-y-6">
