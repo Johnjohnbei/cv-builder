@@ -1,7 +1,7 @@
 # Requirements: Calibre — ATS Conformity Milestone
 
 **Defined:** 2026-04-09
-**Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels
+**Core Value:** Les CV generees par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels
 
 ## v1 Requirements
 
@@ -36,7 +36,7 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 ### Section Standards
 
 - [ ] **SECT-01**: Section names are forced to ATS-recognized standards (not user-editable)
-- [ ] **SECT-02**: French section names: "Expérience professionnelle", "Formation", "Compétences", "Langues", "Coordonnées", "Profil professionnel"
+- [ ] **SECT-02**: French section names: "Experience professionnelle", "Formation", "Competences", "Langues", "Coordonnees", "Profil professionnel"
 - [ ] **SECT-03**: English section names: "Work Experience", "Education", "Skills", "Languages", "Contact Information", "Professional Summary"
 - [ ] **SECT-04**: Language of section names is auto-detected from CV content
 
@@ -99,32 +99,76 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 - **ENAI-01**: AI-powered skills gap analysis with training suggestions
 - **ENAI-02**: Cover letter keywords aligned with CV optimization
-- **ENAI-03**: Rewrite intensity slider (conservative → aggressive)
+- **ENAI-03**: Rewrite intensity slider (conservative -> aggressive)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Export DOCX | Repoussé à v2, focus PDF pour ce milestone |
-| Détection plateforme ATS cible | Trop complexe, nécessite scraping de job postings |
-| Taxonomies ESCO/O*NET | Intégration lourde, évaluer dans un futur milestone |
-| Matching sémantique embeddings | R&D, pas assez mature pour la production |
-| Nouveau template ATS dédié (7ème) | On adapte les existants plutôt qu'en ajouter |
-| Keyword stuffing / invisible text | Anti-feature — les ATS modernes détectent et pénalisent |
+| Export DOCX | Repousse a v2, focus PDF pour ce milestone |
+| Detection plateforme ATS cible | Trop complexe, necessite scraping de job postings |
+| Taxonomies ESCO/O*NET | Integration lourde, evaluer dans un futur milestone |
+| Matching semantique embeddings | R&D, pas assez mature pour la production |
+| Nouveau template ATS dedie (7eme) | On adapte les existants plutot qu'en ajouter |
+| Keyword stuffing / invisible text | Anti-feature — les ATS modernes detectent et penalisent |
 | ATS score comparison entre versions | Nice-to-have, pas prioritaire pour v1 |
-| Server-side PDF generation | Complexité d'infrastructure trop élevée pour ce milestone |
+| Server-side PDF generation | Complexite d'infrastructure trop elevee pour ce milestone |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled during roadmap creation) | | |
+| SCORE-01 | Phase 4 | Pending |
+| SCORE-02 | Phase 4 | Pending |
+| SCORE-03 | Phase 4 | Pending |
+| SCORE-04 | Phase 4 | Pending |
+| SCORE-05 | Phase 4 | Pending |
+| SCORE-06 | Phase 4 | Pending |
+| KEYW-01 | Phase 5 | Pending |
+| KEYW-02 | Phase 5 | Pending |
+| KEYW-03 | Phase 5 | Pending |
+| TMPL-01 | Phase 6 | Pending |
+| TMPL-02 | Phase 6 | Pending |
+| TMPL-03 | Phase 6 | Pending |
+| TMPL-04 | Phase 6 | Pending |
+| TMPL-05 | Phase 6 | Pending |
+| TMPL-06 | Phase 6 | Pending |
+| TMPL-07 | Phase 6 | Pending |
+| TMPL-08 | Phase 6 | Pending |
+| SECT-01 | Phase 3 | Pending |
+| SECT-02 | Phase 3 | Pending |
+| SECT-03 | Phase 3 | Pending |
+| SECT-04 | Phase 3 | Pending |
+| AICV-01 | Phase 9 | Pending |
+| AICV-02 | Phase 9 | Pending |
+| AICV-03 | Phase 9 | Pending |
+| AICV-04 | Phase 9 | Pending |
+| AICV-05 | Phase 9 | Pending |
+| AICV-06 | Phase 9 | Pending |
+| SKIL-01 | Phase 7 | Pending |
+| SKIL-02 | Phase 7 | Pending |
+| SKIL-03 | Phase 7 | Pending |
+| LANG-01 | Phase 2 | Pending |
+| LANG-02 | Phase 2 | Pending |
+| LANG-03 | Phase 2 | Pending |
+| PANL-01 | Phase 8 | Pending |
+| PANL-02 | Phase 8 | Pending |
+| PANL-03 | Phase 8 | Pending |
+| PANL-04 | Phase 8 | Pending |
+| PANL-05 | Phase 8 | Pending |
+| PDFV-01 | Phase 10 | Pending |
+| PDFV-02 | Phase 10 | Pending |
+| REFAC-01 | Phase 1 | Pending |
+| REFAC-02 | Phase 1 | Pending |
+| REFAC-03 | Phase 8 | Pending |
+| REFAC-04 | Phase 8 | Pending |
+| REFAC-05 | Phase 1 | Pending |
 
 **Coverage:**
-- v1 requirements: 37 total
-- Mapped to phases: 0
-- Unmapped: 37 ⚠️
+- v1 requirements: 45 total (corrected from initial count of 37)
+- Mapped to phases: 45
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after roadmap creation*
