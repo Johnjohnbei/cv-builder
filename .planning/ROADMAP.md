@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Section Standards** - Force ATS-recognized section names based on detected language
 - [ ] **Phase 4: ATS Scoring Engine** - Compute Format, Content, and Relevance sub-scores with global ATS score
 - [ ] **Phase 5: Keywords & Matching** - Extract, match, and display job description keywords with accuracy
-- [ ] **Phase 6: Template ATS Mode** - Toggle ATS mode on templates with DOM restructuring and visual simplification
+- [x] **Phase 6: Template ATS Mode** - Toggle ATS mode on templates with DOM restructuring and visual simplification (completed 2026-04-09)
 - [ ] **Phase 7: Skills Categorization** - Auto-categorize skills at import and display in grouped ATS format
 - [ ] **Phase 8: ATS Panel UI** - Sidebar panel showing scores, keywords, suggestions with action buttons
 - [ ] **Phase 9: AI Content Optimization** - AI-powered bullet rewriting, weak bullet detection, keyword integration
@@ -110,7 +110,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — Add atsMode to DesignSettings, update classifications, add toggle to editor, implement auto-switch logic
-- [ ] 06-02-PLAN.md — Implement ATS rendering in TemplateA/B/C/E: icon replacement, font override, style simplification
+- [x] 06-02-PLAN.md — Implement ATS rendering in TemplateA/B/C/E: icon replacement, font override, style simplification
 - [x] 06-03-PLAN.md — Add ATS compatibility badges to template picker, end-to-end verification checkpoint
 
 ### Phase 7: Skills Categorization
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 3. Section Standards | 0/1 | Not started | - |
 | 4. ATS Scoring Engine | 1/2 | In Progress|  |
 | 5. Keywords & Matching | 0/1 | Not started | - |
-| 6. Template ATS Mode | 0/3 | Not started | - |
+| 6. Template ATS Mode | 3/3 | Complete   | 2026-04-09 |
 | 7. Skills Categorization | 0/1 | Not started | - |
 | 8. ATS Panel UI | 0/3 | Not started | - |
 | 9. AI Content Optimization | 0/3 | Not started | - |
