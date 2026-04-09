@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Extract formatting utilities, merge duplicate cn(), clean barrel exports
+- [x] 01-01-PLAN.md — Extract formatting utilities, merge duplicate cn(), clean barrel exports
 - [ ] 01-02-PLAN.md — Create atsRules.ts config, fix word-boundary matching, add section separators to scoring.ts
 
 ### Phase 2: Language Detection
