@@ -89,40 +89,60 @@ function safeParseJSON(text: string | undefined | null, fallback: any = {}): any
   }
 }
 
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      const status = e?.status || (e?.message?.match(/(\d{3}) status/)?.[1]);
+      if ((status == 503 || status == 429) && attempt < maxRetries) {
+        const delay = (attempt + 1) * 2000;
+        console.log(`AI request failed (${status}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 async function chatJSON(prompt: string, model?: string): Promise<any> {
-  const client = getClient();
-  try {
-    // Try with JSON mode first (supported by most models)
-    const response = await client.chat.completions.create({
-      model: model || getModel(),
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-    });
-    return safeParseJSON(response.choices[0]?.message?.content);
-  } catch (e: any) {
-    // Fallback: some NIM models don't support response_format — retry without it
-    if (e?.status === 400 || e?.message?.includes("400")) {
-      console.log("JSON mode not supported, retrying without response_format...");
+  return withRetry(async () => {
+    const client = getClient();
+    try {
       const response = await client.chat.completions.create({
         model: model || getModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
+        response_format: { type: "json_object" },
       });
       return safeParseJSON(response.choices[0]?.message?.content);
+    } catch (e: any) {
+      if (e?.status === 400 || e?.message?.includes("400")) {
+        console.log("JSON mode not supported, retrying without response_format...");
+        const response = await client.chat.completions.create({
+          model: model || getModel(),
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+        });
+        return safeParseJSON(response.choices[0]?.message?.content);
+      }
+      throw e;
     }
-    throw e;
-  }
+  });
 }
 
 async function chatText(prompt: string, model?: string): Promise<string> {
-  const client = getClient();
-  const response = await client.chat.completions.create({
-    model: model || getModel(),
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.3,
+  return withRetry(async () => {
+    const client = getClient();
+    const response = await client.chat.completions.create({
+      model: model || getModel(),
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    });
+    return response.choices[0]?.message?.content || "";
   });
-  return response.choices[0]?.message?.content || "";
 }
 
 // ─── Actions ────────────────────────────────────────────────────────
