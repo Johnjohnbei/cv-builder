@@ -71,6 +71,8 @@ export default defineSchema({
     languages: v.array(languageValidator),
     design: v.optional(designValidator),
     jobDescription: v.optional(v.string()),
+    detectedLanguage: v.optional(v.string()),
+    languageOverride: v.optional(v.string()),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 
