@@ -1,5 +1,6 @@
-import type { Experience, ExperienceDisplayMode, CVData, DesignSettings } from '@/src/shared/types';
+import type { Experience, ExperienceDisplayMode, CVData, DesignSettings, ATSScoreResult } from '@/src/shared/types';
 import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
+import { getCVLanguage } from '@/src/lib/languageDetection';
 
 // --- Keyword Extraction ---
 
@@ -311,4 +312,37 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   }
 
   return { score: Math.max(0, Math.min(100, score)), suggestions };
+}
+
+// --- ATS Score Orchestrator ---
+
+/**
+ * Compute the overall ATS score for a CV.
+ * Without job description: overall = average(format, content), relevance = null.
+ * Pure function, returns new object (per D-03, D-08).
+ */
+export function computeATSScore(cvData: CVData, design: DesignSettings, jobDescription?: string): ATSScoreResult {
+  const language = getCVLanguage(cvData);
+  const fmt = scoreFormat(cvData, design, language);
+  const cnt = scoreContent(cvData, language);
+
+  // TODO: Plan 04-02 adds scoreRelevance here
+  if (!jobDescription?.trim()) {
+    return {
+      overall: Math.round((fmt.score + cnt.score) / 2),
+      format: fmt.score,
+      content: cnt.score,
+      relevance: null,
+      suggestions: [...fmt.suggestions, ...cnt.suggestions],
+    };
+  }
+
+  // With JD: for now, still return no-JD result (Plan 04-02 completes this)
+  return {
+    overall: Math.round((fmt.score + cnt.score) / 2),
+    format: fmt.score,
+    content: cnt.score,
+    relevance: null,
+    suggestions: [...fmt.suggestions, ...cnt.suggestions],
+  };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent } from './scoring';
+import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore } from './scoring';
 import type { Experience, CVData, DesignSettings } from '@/src/shared/types';
 import { EMPTY_CV, DEFAULT_DESIGN } from '@/src/shared/types';
 
@@ -352,5 +352,56 @@ describe('scoreContent', () => {
     const withSkills = scoreContent(makeCVData(), 'en');
     const noSkills = scoreContent(makeCVData({ skills: [] }), 'en');
     expect(withSkills.score).toBeGreaterThan(noSkills.score);
+  });
+});
+
+// ─── computeATSScore ───
+
+describe('computeATSScore', () => {
+  it('returns overall as average of format and content when no JD', () => {
+    const cv = makeCVData();
+    const design = makeDesign();
+    const result = computeATSScore(cv, design);
+    const fmt = scoreFormat(cv, design, 'en');
+    const cnt = scoreContent(cv, 'en');
+    expect(result.overall).toBe(Math.round((fmt.score + cnt.score) / 2));
+  });
+
+  it('relevance is null when no JD', () => {
+    const result = computeATSScore(makeCVData(), makeDesign());
+    expect(result.relevance).toBeNull();
+  });
+
+  it('empty string JD treated as no JD', () => {
+    const result = computeATSScore(makeCVData(), makeDesign(), '');
+    expect(result.relevance).toBeNull();
+  });
+
+  it('whitespace-only JD treated as no JD', () => {
+    const result = computeATSScore(makeCVData(), makeDesign(), '   ');
+    expect(result.relevance).toBeNull();
+  });
+
+  it('overall is between 0-100', () => {
+    const result = computeATSScore(makeCVData(), makeDesign());
+    expect(result.overall).toBeGreaterThanOrEqual(0);
+    expect(result.overall).toBeLessThanOrEqual(100);
+  });
+
+  it('suggestions is non-empty array for a CV with issues', () => {
+    const result = computeATSScore(
+      makeCVData({ personal_info: { name: 'J', email: '' }, skills: [] }),
+      makeDesign(),
+    );
+    expect(result.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('does not crash on EMPTY_CV', () => {
+    const result = computeATSScore(EMPTY_CV, makeDesign());
+    expect(result.overall).toBeGreaterThanOrEqual(0);
+    expect(Number.isNaN(result.overall)).toBe(false);
+    expect(result.format).toBeGreaterThanOrEqual(0);
+    expect(result.content).toBe(0);
+    expect(result.relevance).toBeNull();
   });
 });
