@@ -1,3 +1,4 @@
+import { Mail, Phone, MapPin } from 'lucide-react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { cn } from '@/src/shared/lib/cn';
 
@@ -106,3 +107,54 @@ export function renderExperienceContent(
 
 // Keep old name as alias for backward compat during migration
 export const renderExperienceBullets = renderExperienceContent;
+
+// ─── ATS Mode Helpers ───
+
+/** Returns inline style to force ATS-safe font when atsMode is active */
+export function getAtsFontStyle(atsMode?: boolean): React.CSSProperties | undefined {
+  if (!atsMode) return undefined;
+  return { fontFamily: 'Arial, Helvetica, sans-serif' };
+}
+
+/**
+ * Shared contact renderer — replaces SVG icons with text labels when atsMode is true.
+ * Labels are bilingual-safe (Email/Tel/LinkedIn are universal).
+ */
+export function renderContactInfo(
+  cvData: CVData,
+  atsMode?: boolean,
+  className?: string,
+) {
+  const labels = { email: 'Email:', phone: 'Tel:', location: 'Location:', linkedin: 'LinkedIn:' };
+
+  const items: { label: string; icon: React.ReactNode; value: string }[] = [];
+  if (cvData.personal_info?.email) {
+    items.push({ label: labels.email, icon: <Mail className="w-3 h-3" />, value: cvData.personal_info.email });
+  }
+  if (cvData.personal_info?.phone) {
+    items.push({ label: labels.phone, icon: <Phone className="w-3 h-3" />, value: cvData.personal_info.phone });
+  }
+  if (cvData.personal_info?.location) {
+    items.push({ label: labels.location, icon: <MapPin className="w-3 h-3" />, value: cvData.personal_info.location });
+  }
+  if (cvData.personal_info?.linkedin) {
+    items.push({ label: labels.linkedin, icon: <LinkedinIcon className="w-3 h-3" />, value: cvData.personal_info.linkedin.replace(/^https?:\/\/(www\.)?/, '') });
+  }
+
+  return (
+    <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-sm", className)}>
+      {items.map((item, i) => (
+        <span key={i} className="flex items-center gap-1">
+          {atsMode ? <span className="font-semibold">{item.label}</span> : item.icon}
+          {' '}{item.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Returns simplified Tailwind classes when atsMode is active */
+export function atsSimplifyClasses(atsMode?: boolean): string {
+  if (!atsMode) return '';
+  return 'border-gray-300 bg-white';
+}
