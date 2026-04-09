@@ -10,6 +10,8 @@ interface ATSPanelProps {
   onAddSkill?: (skill: string) => void;
   onToggleAtsMode?: () => void;
   onRequestAIAnalysis?: () => void;
+  onOptimizeBullets?: () => void;
+  isOptimizing?: boolean;
   isAtsMode?: boolean;
 }
 
@@ -54,6 +56,8 @@ export function ATSPanel({
   onAddSkill,
   onToggleAtsMode,
   onRequestAIAnalysis,
+  onOptimizeBullets,
+  isOptimizing,
   isAtsMode,
 }: ATSPanelProps) {
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -151,16 +155,16 @@ export function ATSPanel({
         </div>
       )}
 
-      {/* ─── AI Analysis ─── */}
+      {/* ─── Optimize Bullets ─── */}
       <Button
-        variant="secondary"
+        variant="primary"
         size="sm"
-        disabled
-        onClick={() => onRequestAIAnalysis?.()}
-        title="Bientot disponible"
+        disabled={!hasJobDescription || isOptimizing}
+        onClick={() => onOptimizeBullets?.()}
+        title={!hasJobDescription ? "Importez une offre d'emploi" : undefined}
         className="w-full"
       >
-        Analyse IA complete
+        {isOptimizing ? 'Optimisation en cours...' : 'Optimiser pour cette offre'}
       </Button>
     </div>
   );
