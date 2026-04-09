@@ -3,7 +3,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon } from './shared';
 import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../lib/scoring';
+import { formatDateShort, normalizeProficiency } from '../lib/formatting';
 import type { Experience } from '@/src/shared/types';
 
 export function TemplateA({ cvData, designSettings }: TemplateProps) {

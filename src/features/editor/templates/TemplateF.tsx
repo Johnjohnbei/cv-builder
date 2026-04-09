@@ -4,7 +4,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../lib/scoring';
+import { formatDateShort, normalizeProficiency } from '../lib/formatting';
 
 export function TemplateF({ cvData, designSettings }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
