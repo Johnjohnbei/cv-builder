@@ -33,11 +33,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. scoring.ts has a clear extension point for ATS scoring functions without exceeding file size limits
   2. atsRules.ts exists with template compatibility map and section standard definitions
   3. formatDateShort and normalizeProficiency live in shared utilities and all imports updated
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Extract formatting utilities, merge duplicate cn(), clean barrel exports
+- [ ] 01-02-PLAN.md — Create atsRules.ts config, fix word-boundary matching, add section separators to scoring.ts
 
 ### Phase 2: Language Detection
 **Goal**: System knows whether the CV is in French or English and adapts behavior accordingly
