@@ -61,10 +61,10 @@ Plans:
   2. French CVs use the exact standard names (Experience professionnelle, Formation, Competences, Langues, Coordonnees, Profil professionnel)
   3. English CVs use the exact standard names (Work Experience, Education, Skills, Languages, Contact Information, Professional Summary)
   4. Section language matches the auto-detected CV language from Phase 2
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Add getSectionTitle() utility, thread language prop, replace 32 hardcoded section names in 6 templates
 
 ### Phase 4: ATS Scoring Engine
 **Goal**: Users get a real-time ATS score (0-100) with meaningful sub-score breakdown
