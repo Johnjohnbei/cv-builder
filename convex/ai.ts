@@ -584,6 +584,7 @@ export const improveBulletPoint = action({
     position: v.string(),
     company: v.string(),
     jobDescription: v.optional(v.string()),
+    missingKeywords: v.optional(v.array(v.string())),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -592,12 +593,16 @@ export const improveBulletPoint = action({
       ? `\n\nOffre ciblée :\n${args.jobDescription}`
       : "";
 
+    const keywordContext = args.missingKeywords?.length
+      ? `\nMots-clés manquants à intégrer si pertinent : ${args.missingKeywords.join(", ")}`
+      : "";
+
     const prompt = `
 Tu es un expert en rédaction de CV optimisés ATS.
 Améliore ce point d'expérience pour le rendre plus impactant.
 
 Poste : ${args.position} chez ${args.company}
-Point actuel : "${args.bullet}"${jobContext}
+Point actuel : "${args.bullet}"${jobContext}${keywordContext}
 
 Règles :
 1. Commence par un verbe d'action fort
@@ -605,6 +610,7 @@ Règles :
 3. Utilise des mots-clés pertinents pour le secteur
 4. Maximum 2 lignes
 5. Retourne exactement 3 suggestions alternatives
+6. Ne JAMAIS inventer de chiffres ou métriques. Si le bullet original n'a pas de données chiffrées, ne pas en ajouter.
 
 Retourne un JSON : { "suggestions": ["suggestion1", "suggestion2", "suggestion3"] }
 
