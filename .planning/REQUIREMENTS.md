@@ -57,9 +57,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### Language Detection
 
-- [ ] **LANG-01**: System auto-detects CV language (French vs English) from content
-- [ ] **LANG-02**: ATS rules, section names, suggestions, and scoring adapt based on detected language
-- [ ] **LANG-03**: Language detection uses franc-min library (lightweight, client-side)
+- [x] **LANG-01**: System auto-detects CV language (French vs English) from content
+- [x] **LANG-02**: ATS rules, section names, suggestions, and scoring adapt based on detected language
+- [x] **LANG-03**: Language detection uses franc-min library (lightweight, client-side)
 
 ### ATS Panel UI
 
@@ -148,9 +148,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | SKIL-01 | Phase 7 | Pending |
 | SKIL-02 | Phase 7 | Pending |
 | SKIL-03 | Phase 7 | Pending |
-| LANG-01 | Phase 2 | Pending |
-| LANG-02 | Phase 2 | Pending |
-| LANG-03 | Phase 2 | Pending |
+| LANG-01 | Phase 2 | Complete |
+| LANG-02 | Phase 2 | Complete |
+| LANG-03 | Phase 2 | Complete |
 | PANL-01 | Phase 8 | Pending |
 | PANL-02 | Phase 8 | Pending |
 | PANL-03 | Phase 8 | Pending |

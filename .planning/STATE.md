@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-04-09T10:11:45.143Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-04-09T10:39:59.491Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 10
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
   percent: 0
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** Les CV generes par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels
-**Current focus:** Phase 01 — refactoring-foundation
+**Current focus:** Phase 02 — language-detection
 
 ## Current Position
 
-Phase: 01 (refactoring-foundation) — EXECUTING
-Plan: 2 of 2
+Phase: 02 (language-detection) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-04-09
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01 P01 | 164 | 2 tasks | 11 files |
 | Phase 01 P02 | 142 | 2 tasks | 4 files |
+| Phase 02 P01 | 220 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,7 @@ Recent decisions affecting current work:
 - [Phase 01]: Formatting functions extracted as leaf module with zero dependencies on scoring
 - [Phase 01]: Word-boundary regex for keyword matching prevents false positives (java vs javascript)
 - [Phase 01]: TEMPLATE_ATS_COMPAT uses placeholder values to be refined in Phase 6
+- [Phase 02]: franc-min for client-side FR/EN detection with 'fr' default
 
 ### Pending Todos
 
@@ -80,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T10:11:45.141Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-04-09T10:39:59.488Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

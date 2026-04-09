@@ -13,7 +13,7 @@ This milestone transforms Calibre from a visually-focused CV builder into an ATS
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Refactoring Foundation** - Extract utilities, create atsRules config, prepare scoring.ts for extension
-- [ ] **Phase 2: Language Detection** - Auto-detect CV language and adapt all ATS rules accordingly
+- [x] **Phase 2: Language Detection** - Auto-detect CV language and adapt all ATS rules accordingly (completed 2026-04-09)
 - [ ] **Phase 3: Section Standards** - Force ATS-recognized section names based on detected language
 - [ ] **Phase 4: ATS Scoring Engine** - Compute Format, Content, and Relevance sub-scores with global ATS score
 - [ ] **Phase 5: Keywords & Matching** - Extract, match, and display job description keywords with accuracy
@@ -50,7 +50,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Install franc-min, detect CV language, add FR/EN selector, wire into import pipeline
+- [x] 02-01-PLAN.md — Install franc-min, detect CV language, add FR/EN selector, wire into import pipeline
 
 ### Phase 3: Section Standards
 **Goal**: CV section names conform to ATS-recognized standards automatically
@@ -183,7 +183,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Refactoring Foundation | 0/2 | Not started | - |
-| 2. Language Detection | 0/1 | Not started | - |
+| 2. Language Detection | 1/1 | Complete   | 2026-04-09 |
 | 3. Section Standards | 0/1 | Not started | - |
 | 4. ATS Scoring Engine | 0/2 | Not started | - |
 | 5. Keywords & Matching | 0/1 | Not started | - |
