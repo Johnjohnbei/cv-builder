@@ -15,45 +15,45 @@ interface AIProvider {
   fastModel: string;
 }
 
-function getProvider(): AIProvider {
-  // Primary: Gemini Flash (free tier, 15 req/min, best quality/cost ratio)
+function getProviders(): AIProvider[] {
+  const providers: AIProvider[] = [];
+
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
-    return {
+    providers.push({
       baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
       apiKey: geminiKey,
       defaultModel: "gemini-2.5-flash",
       fastModel: "gemini-2.5-flash",
-    };
+    });
   }
 
-  // Fallback: NVIDIA NIM (free tier, 40 req/min)
   const nvidiaKey = process.env.NVIDIA_API_KEY;
   if (nvidiaKey) {
-    return {
+    providers.push({
       baseURL: "https://integrate.api.nvidia.com/v1",
       apiKey: nvidiaKey,
       defaultModel: "meta/llama-3.1-70b-instruct",
       fastModel: "meta/llama-3.1-70b-instruct",
-    };
+    });
   }
 
-  throw new Error(
-    "No AI provider configured. Set GEMINI_API_KEY (recommended) or NVIDIA_API_KEY in Convex env vars."
-  );
+  if (providers.length === 0) {
+    throw new Error("No AI provider configured. Set GEMINI_API_KEY or NVIDIA_API_KEY in Convex env vars.");
+  }
+  return providers;
 }
 
-function getClient(): OpenAI {
-  const provider = getProvider();
-  return new OpenAI({
-    baseURL: provider.baseURL,
-    apiKey: provider.apiKey,
-  });
+function getProvider(): AIProvider { return getProviders()[0]; }
+
+function getClient(provider?: AIProvider): OpenAI {
+  const p = provider || getProvider();
+  return new OpenAI({ baseURL: p.baseURL, apiKey: p.apiKey });
 }
 
-function getModel(speed: "default" | "fast" = "default"): string {
-  const provider = getProvider();
-  return speed === "fast" ? provider.fastModel : provider.defaultModel;
+function getModel(speed: "default" | "fast" = "default", provider?: AIProvider): string {
+  const p = provider || getProvider();
+  return speed === "fast" ? p.fastModel : p.defaultModel;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -89,30 +89,37 @@ function safeParseJSON(text: string | undefined | null, fallback: any = {}): any
   }
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (e: any) {
-      const status = e?.status || (e?.message?.match(/(\d{3}) status/)?.[1]);
-      if ((status == 503 || status == 429) && attempt < maxRetries) {
-        const delay = (attempt + 1) * 2000;
-        console.log(`AI request failed (${status}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
-        await new Promise(r => setTimeout(r, delay));
-        continue;
+async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Promise<T> {
+  const providers = getProviders();
+  let lastError: any;
+
+  for (const provider of providers) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await fn(provider);
+      } catch (e: any) {
+        lastError = e;
+        const status = e?.status || (e?.message?.match(/(\d{3}) status/)?.[1]);
+        if ((status == 503 || status == 429) && attempt === 0) {
+          console.log(`AI provider ${provider.baseURL} returned ${status}, retrying...`);
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+        console.log(`AI provider ${provider.baseURL} failed (${status}), trying next provider...`);
+        break; // try next provider
       }
-      throw e;
     }
   }
-  throw new Error("Max retries exceeded");
+  throw lastError;
 }
 
 async function chatJSON(prompt: string, model?: string): Promise<any> {
-  return withRetry(async () => {
-    const client = getClient();
+  return withRetry(async (provider) => {
+    const client = getClient(provider);
+    const m = model || getModel("default", provider);
     try {
       const response = await client.chat.completions.create({
-        model: model || getModel(),
+        model: m,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         response_format: { type: "json_object" },
@@ -120,9 +127,8 @@ async function chatJSON(prompt: string, model?: string): Promise<any> {
       return safeParseJSON(response.choices[0]?.message?.content);
     } catch (e: any) {
       if (e?.status === 400 || e?.message?.includes("400")) {
-        console.log("JSON mode not supported, retrying without response_format...");
         const response = await client.chat.completions.create({
-          model: model || getModel(),
+          model: m,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.3,
         });
@@ -134,10 +140,10 @@ async function chatJSON(prompt: string, model?: string): Promise<any> {
 }
 
 async function chatText(prompt: string, model?: string): Promise<string> {
-  return withRetry(async () => {
-    const client = getClient();
+  return withRetry(async (provider) => {
+    const client = getClient(provider);
     const response = await client.chat.completions.create({
-      model: model || getModel(),
+      model: model || getModel("default", provider),
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
     });
