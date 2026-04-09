@@ -2,13 +2,14 @@ import { Mail, Phone, MapPin, User } from 'lucide-react';
 import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
 import { getSectionTitle } from '../lib/atsRules';
 
 export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
+  const atsMode = designSettings.atsMode;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
   const includedSections = getIncludedSections(designSettings);
@@ -20,18 +21,13 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-8 pdf-safe", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-8 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <header className="text-center space-y-4 flex flex-col items-center">
           {renderPhoto(cvData, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}
           <h1 className="text-5xl font-light tracking-tight" style={{ color: primaryColor }}>{cvData.personal_info?.name}</h1>
           <p className="text-sm uppercase tracking-[0.3em] text-gray-500">{cvData.personal_info?.title}</p>
-          <div className="flex justify-center gap-6 text-[10px] font-mono text-gray-400 uppercase tracking-widest">
-            <span>{cvData.personal_info?.email}</span>
-            {cvData.personal_info?.phone && <span>{cvData.personal_info?.phone}</span>}
-            {cvData.personal_info?.location && <span>{cvData.personal_info?.location}</span>}
-            {cvData.personal_info?.linkedin && <span>{cvData.personal_info?.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
-          </div>
+          {renderContactInfo(cvData, atsMode, "justify-center text-[10px] font-mono text-gray-400 uppercase tracking-widest")}
         </header>
       )}
 
@@ -71,7 +67,7 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
           </section>
         )}
 
-        <section data-cv-section="skills" className="grid grid-cols-2 gap-8">
+        <section data-cv-section="skills" className={cn("grid grid-cols-2 gap-8", atsMode && "grid-cols-1")}>
           {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <div>
               <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('skills', language)}</h2>
