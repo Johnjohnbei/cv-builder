@@ -52,6 +52,7 @@ export default function EditorPage() {
   const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [preAtsTemplate, setPreAtsTemplate] = useState<string | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -141,7 +142,7 @@ export default function EditorPage() {
 
   const renderCV = () => {
     if (!cvData) return null;
-    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} />;
+    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} language={currentLanguage} />;
   };
 
   const handleOptimize = async () => {
@@ -1612,6 +1613,8 @@ export default function EditorPage() {
           hasCvData={!!cvData}
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={handleAtsModeChange}
+          currentLanguage={currentLanguage}
+          onLanguageChange={setCurrentLanguage}
         />
 
         <div 

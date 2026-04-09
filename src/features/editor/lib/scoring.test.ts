@@ -232,8 +232,8 @@ describe('scoreFormat', () => {
   });
 
   it('gives full template points for ATS-compatible template', () => {
-    const full = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_B' }), 'en');
-    const limited = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_A' }), 'en');
+    const full = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_A' }), 'en');
+    const limited = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_D' }), 'en');
     expect(full.score).toBeGreaterThan(limited.score);
   });
 
