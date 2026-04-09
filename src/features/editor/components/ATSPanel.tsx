@@ -70,7 +70,7 @@ export function ATSPanel({
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
       {/* ─── Score Gauge ─── */}
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center" role="status" aria-live="polite">
         <ScoreGauge score={score.overall} size={120} label="Score ATS" />
       </div>
       {/* ─── Sub-scores ─── */}
@@ -119,6 +119,7 @@ export function ATSPanel({
                   <button
                     onClick={() => onAddSkill(kw.keyword)}
                     className="ml-0.5 text-[8px] font-bold underline hover:text-red-900"
+                    aria-label={`Ajouter la compétence ${kw.keyword}`}
                   >
                     Ajouter
                   </button>
@@ -148,6 +149,7 @@ export function ATSPanel({
             <button
               onClick={() => setShowAllSuggestions(v => !v)}
               className="text-[10px] font-mono text-blue-600 hover:underline self-start"
+              aria-label={showAllSuggestions ? 'Réduire les suggestions' : `Voir toutes les suggestions (${score.suggestions.length})`}
             >
               {showAllSuggestions ? 'Reduire' : `Voir tout (${score.suggestions.length})`}
             </button>
@@ -183,7 +185,7 @@ function renderSuggestionAction(
     const skill = match?.[1] ?? '';
     if (skill) {
       return (
-        <button onClick={() => onAddSkill(skill)} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0">
+        <button onClick={() => onAddSkill(skill)} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0" aria-label={`Ajouter la compétence ${skill}`}>
           Ajouter
         </button>
       );
@@ -191,7 +193,7 @@ function renderSuggestionAction(
   }
   if (lower.includes('ats') && !isAtsMode && onToggleAtsMode) {
     return (
-      <button onClick={onToggleAtsMode} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0">
+      <button onClick={onToggleAtsMode} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0" aria-label="Activer le mode ATS">
         Activer
       </button>
     );

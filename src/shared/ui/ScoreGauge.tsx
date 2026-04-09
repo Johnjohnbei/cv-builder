@@ -40,7 +40,7 @@ export function ScoreGauge({
       viewBox={`0 0 ${size} ${size}`}
       className={className}
       role="img"
-      aria-label={`Score: ${clamped}${label ? ` - ${label}` : ''}`}
+      aria-label={`Score ATS: ${clamped} sur 100`}
     >
       {/* Background ring */}
       <circle

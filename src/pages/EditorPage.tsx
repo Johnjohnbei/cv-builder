@@ -428,9 +428,12 @@ export default function EditorPage() {
         </div>
         
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="flex border-b border-[#DADCE0] shrink-0">
-            <button 
+          <div className="flex border-b border-[#DADCE0] shrink-0" role="tablist">
+            <button
               onClick={() => setActiveTab('content')}
+              role="tab"
+              aria-current={activeTab === 'content' ? 'true' : undefined}
+              aria-selected={activeTab === 'content'}
               className={cn(
                 "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
                 activeTab === 'content' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
@@ -440,6 +443,9 @@ export default function EditorPage() {
             </button>
             <button
               onClick={() => setActiveTab('design')}
+              role="tab"
+              aria-current={activeTab === 'design' ? 'true' : undefined}
+              aria-selected={activeTab === 'design'}
               className={cn(
                 "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
                 activeTab === 'design' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
@@ -449,6 +455,9 @@ export default function EditorPage() {
             </button>
             <button
               onClick={() => setActiveTab('ats')}
+              role="tab"
+              aria-current={activeTab === 'ats' ? 'true' : undefined}
+              aria-selected={activeTab === 'ats'}
               className={cn(
                 "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
                 activeTab === 'ats' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
@@ -458,7 +467,7 @@ export default function EditorPage() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin" role="tabpanel">
             {activeTab === 'content' ? (
               <div className="space-y-3">
                 {/* Optimization Section */}

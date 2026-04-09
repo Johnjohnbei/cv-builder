@@ -11,6 +11,9 @@ export function Toggle({ label, checked, onChange, className }: Props) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
         'w-full px-3 py-2 rounded border text-[9px] font-mono transition-colors flex items-center justify-between',

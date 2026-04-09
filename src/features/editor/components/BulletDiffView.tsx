@@ -17,12 +17,14 @@ export function BulletDiffView({ original, rewritten, onAccept, onReject }: Bull
         <button
           onClick={onAccept}
           className="text-[9px] font-mono px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+          aria-label="Accepter la modification"
         >
           Accepter
         </button>
         <button
           onClick={onReject}
           className="text-[9px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+          aria-label="Rejeter la modification"
         >
           Rejeter
         </button>

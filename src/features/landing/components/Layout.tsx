@@ -20,6 +20,9 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-blue-600">
+        Aller au contenu principal
+      </a>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/">
@@ -50,7 +53,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         {children}
       </main>
 
