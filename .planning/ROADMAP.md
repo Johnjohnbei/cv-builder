@@ -111,7 +111,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Add atsMode to DesignSettings, update classifications, add toggle to editor, implement auto-switch logic
 - [ ] 06-02-PLAN.md — Implement ATS rendering in TemplateA/B/C/E: icon replacement, font override, style simplification
-- [ ] 06-03-PLAN.md — Add ATS compatibility badges to template picker, end-to-end verification checkpoint
+- [x] 06-03-PLAN.md — Add ATS compatibility badges to template picker, end-to-end verification checkpoint
 
 ### Phase 7: Skills Categorization
 **Goal**: Skills are automatically organized into ATS-friendly categories
