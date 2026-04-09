@@ -10,3 +10,4 @@ export { Toggle } from './Toggle';
 export { Dropzone } from './Dropzone';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Logo, CalibreSymbol } from './Logo';
+export { ScoreGauge } from './ScoreGauge';
