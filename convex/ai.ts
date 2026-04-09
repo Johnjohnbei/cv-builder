@@ -614,3 +614,66 @@ Retourne UNIQUEMENT le JSON.
     return await chatJSON(prompt, getModel("fast"));
   },
 });
+
+// ─── Bullet rewriting actions ──────────────────────────────────────
+
+const FABRICATION_GUARD = `RÈGLE ABSOLUE : Ne JAMAIS inventer de chiffres, métriques ou résultats. Si le bullet original ne contient pas de données chiffrées, la version réécrite ne doit pas en ajouter. Tu peux reformuler pour être plus percutant sans fabriquer de données.`;
+
+export const rewriteBulletsForJob = action({
+  args: {
+    bullets: v.array(
+      v.object({
+        index: v.number(),
+        text: v.string(),
+        position: v.string(),
+        company: v.string(),
+      })
+    ),
+    jobDescription: v.string(),
+    missingKeywords: v.array(v.string()),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+
+    const bulletsList = args.bullets
+      .map((b) => `[${b.index}] (${b.position} @ ${b.company}) "${b.text}"`)
+      .join("\n");
+
+    const keywordsLine = args.missingKeywords.length
+      ? `Intègre naturellement ces mots-clés si pertinent : ${args.missingKeywords.join(", ")}`
+      : "";
+
+    const prompt = `Tu es un expert en rédaction de CV optimisés ATS.
+
+Réécris chaque bullet point ci-dessous pour le rendre plus impactant et aligné avec l'offre d'emploi.
+
+OFFRE D'EMPLOI :
+${args.jobDescription}
+
+${keywordsLine}
+
+${FABRICATION_GUARD}
+
+BULLETS À RÉÉCRIRE :
+${bulletsList}
+
+Règles :
+1. Commence chaque bullet par un verbe d'action fort
+2. Maximum 2 lignes par bullet
+3. Utilise les mots-clés de l'offre naturellement
+4. Conserve le sens original — améliore la formulation
+
+Retourne un JSON : { "rewrites": [{ "index": <numero>, "original": "<texte original>", "rewritten": "<version améliorée>" }] }
+
+Retourne UNIQUEMENT le JSON.`;
+
+    const data = await chatJSON(prompt);
+
+    if (!data.rewrites || !Array.isArray(data.rewrites)) {
+      throw new Error("L'IA a retourné un format invalide.");
+    }
+
+    return data;
+  },
+});
