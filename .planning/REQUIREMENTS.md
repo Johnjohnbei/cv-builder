@@ -71,8 +71,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 ### PDF Validation
 
-- [ ] **PDFV-01**: After PDF export, system validates that text is extractable using pdfjs-dist
-- [ ] **PDFV-02**: If text extraction fails or is degraded, user receives a warning with explanation
+- [x] **PDFV-01**: After PDF export, system validates that text is extractable using pdfjs-dist
+- [x] **PDFV-02**: If text extraction fails or is degraded, user receives a warning with explanation
 
 ### Refactoring
 
@@ -156,8 +156,8 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | PANL-03 | Phase 8 | Complete |
 | PANL-04 | Phase 8 | Complete |
 | PANL-05 | Phase 8 | Complete |
-| PDFV-01 | Phase 10 | Pending |
-| PDFV-02 | Phase 10 | Pending |
+| PDFV-01 | Phase 10 | Complete |
+| PDFV-02 | Phase 10 | Complete |
 | REFAC-01 | Phase 1 | Complete |
 | REFAC-02 | Phase 1 | Complete |
 | REFAC-03 | Phase 8 | Complete |

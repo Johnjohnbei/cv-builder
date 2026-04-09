@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Skills Categorization** - Auto-categorize skills at import and display in grouped ATS format (completed 2026-04-09)
 - [ ] **Phase 8: ATS Panel UI** - Sidebar panel showing scores, keywords, suggestions with action buttons
 - [x] **Phase 9: AI Content Optimization** - AI-powered bullet rewriting, weak bullet detection, keyword integration (completed 2026-04-09)
-- [ ] **Phase 10: PDF Validation** - Validate exported PDF text extractability and warn on degradation
+- [x] **Phase 10: PDF Validation** - Validate exported PDF text extractability and warn on degradation (completed 2026-04-09)
 
 ## Phase Details
 
@@ -173,7 +173,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md — PDF text extractability validation with DOM pre-check and user warning
+- [x] 10-01-PLAN.md — PDF text extractability validation with DOM pre-check and user warning
 
 ## Progress
 
@@ -191,4 +191,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. Skills Categorization | 1/1 | Complete   | 2026-04-09 |
 | 8. ATS Panel UI | 0/3 | Not started | - |
 | 9. AI Content Optimization | 3/3 | Complete   | 2026-04-09 |
-| 10. PDF Validation | 0/1 | Not started | - |
+| 10. PDF Validation | 1/1 | Complete   | 2026-04-09 |
