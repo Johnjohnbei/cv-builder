@@ -71,6 +71,8 @@ export interface CVData {
   skills: SkillCategory[];
   languages: Language[];
   design?: DesignSettings;
+  detectedLanguage?: 'fr' | 'en';
+  languageOverride?: 'fr' | 'en';
 }
 
 export interface ATSResult {

@@ -13,6 +13,7 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useOverflowDetection } from '../features/editor/hooks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader } from '../features/editor/components';
+import { getCVLanguage, detectCVLanguage } from '../lib/languageDetection';
 import type { DesignSettings } from '../shared/types';
 
 const TEMPLATE_NAMES: Record<string, string> = {
@@ -73,6 +74,12 @@ export default function EditorPage() {
 
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
+
+  // ─── Language ───
+  const currentLanguage = cvData ? getCVLanguage(cvData) : 'fr';
+  const handleLanguageOverride = (lang: 'fr' | 'en') => {
+    setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
+  };
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
@@ -1569,6 +1576,8 @@ export default function EditorPage() {
           isSaving={isSaving}
           isExporting={isExporting}
           hasCvData={!!cvData}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageOverride}
         />
 
         <div 
