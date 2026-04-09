@@ -12,7 +12,8 @@ import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displ
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
 import { useCVLoader, useAutoZoom, useOverflowDetection, useATSAnalysis } from '../features/editor/hooks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
+import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
 
@@ -36,6 +37,7 @@ export default function EditorPage() {
   const createCV = useMutation(api.cvs.createMyCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
+  const rewriteBulletsAction = useAction(api.ai.rewriteBulletsForJob);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
@@ -53,6 +55,8 @@ export default function EditorPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [preAtsTemplate, setPreAtsTemplate] = useState<string | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
+  const [pendingRewrites, setPendingRewrites] = useState<Map<string, { original: string; rewritten: string }>>(new Map());
+  const [isOptimizingBullets, setIsOptimizingBullets] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -124,6 +128,14 @@ export default function EditorPage() {
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
+
+  const weakBullets = useMemo(
+    () => cvData ? analyzeWeakBullets(cvData.experience) : [],
+    [cvData?.experience],
+  );
+
+  const getWeakIssues = (expIdx: number, bulIdx: number) =>
+    weakBullets.find(w => w.expIndex === expIdx && w.bulletIndex === bulIdx);
 
   const applyTemplateDefaults = (templateId: string) => {
     const defaults: Record<string, Partial<DesignSettings>> = {
@@ -251,6 +263,53 @@ export default function EditorPage() {
       </div>
     );
   }
+
+  const handleOptimizeBullets = async () => {
+    if (!cvData || !jobDescription) return;
+    setIsOptimizingBullets(true);
+    try {
+      const indexMap: Array<{ expIndex: number; bulletIndex: number }> = [];
+      const bullets: Array<{ index: number; text: string; position: string; company: string }> = [];
+      let flatIdx = 0;
+      for (let ei = 0; ei < cvData.experience.length; ei++) {
+        const exp = cvData.experience[ei];
+        if (exp.displayMode === 'hidden') continue;
+        for (let bi = 0; bi < exp.description.length; bi++) {
+          bullets.push({ index: flatIdx, text: exp.description[bi], position: exp.position, company: exp.company });
+          indexMap.push({ expIndex: ei, bulletIndex: bi });
+          flatIdx++;
+        }
+      }
+      const missingKw = atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword);
+      const data = await rewriteBulletsAction({ bullets, jobDescription, missingKeywords: missingKw, accessCode: getCode() });
+      const next = new Map<string, { original: string; rewritten: string }>();
+      for (const rw of data.rewrites) {
+        const mapping = indexMap[rw.index];
+        if (mapping) next.set(`${mapping.expIndex}-${mapping.bulletIndex}`, { original: rw.original, rewritten: rw.rewritten });
+      }
+      setPendingRewrites(next);
+      notify({ message: `${next.size} bullet(s) optimise(s)`, type: 'success' });
+    } catch {
+      notify({ message: "Erreur lors de l'optimisation", type: 'error' });
+    } finally {
+      setIsOptimizingBullets(false);
+    }
+  };
+
+  const handleAcceptRewrite = (key: string) => {
+    const rewrite = pendingRewrites.get(key);
+    if (!rewrite || !cvData) return;
+    const [expIdx, bulIdx] = key.split('-').map(Number);
+    const newExp = [...cvData.experience];
+    newExp[expIdx] = { ...newExp[expIdx], description: [...newExp[expIdx].description] };
+    newExp[expIdx].description[bulIdx] = rewrite.rewritten;
+    setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+    setPendingRewrites(prev => { const next = new Map(prev); next.delete(key); return next; });
+  };
+
+  const handleRejectRewrite = (key: string) => {
+    setPendingRewrites(prev => { const next = new Map(prev); next.delete(key); return next; });
+  };
 
   const handleAddSkill = (skill: string) => {
     if (!cvData) return;
@@ -821,6 +880,16 @@ export default function EditorPage() {
                                         setCvData(prev => prev ? {...prev, experience: newExp} : null);
                                       }}
                                     />
+                                    {(() => {
+                                      const weak = getWeakIssues(idx, bIdx);
+                                      if (!weak) return null;
+                                      return (
+                                        <span
+                                          className="shrink-0 w-2 h-2 rounded-full bg-orange-400"
+                                          title={weak.issues.map(i => i.label).join(', ')}
+                                        />
+                                      );
+                                    })()}
                                     <button
                                       title="Améliorer avec l'IA"
                                       disabled={improvingBullet === bulletKey}
@@ -833,6 +902,8 @@ export default function EditorPage() {
                                             accessCode: getCode(),
                                             position: exp.position,
                                             company: exp.company,
+                                            jobDescription: jobDescription || undefined,
+                                            missingKeywords: atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
                                           });
                                           setBulletSuggestions({ key: bulletKey, suggestions: result.suggestions || [] });
                                         } catch { /* ignore */ }
@@ -879,6 +950,14 @@ export default function EditorPage() {
                                         Fermer
                                       </button>
                                     </div>
+                                  )}
+                                  {pendingRewrites.has(bulletKey) && (
+                                    <BulletDiffView
+                                      original={pendingRewrites.get(bulletKey)!.original}
+                                      rewritten={pendingRewrites.get(bulletKey)!.rewritten}
+                                      onAccept={() => handleAcceptRewrite(bulletKey)}
+                                      onReject={() => handleRejectRewrite(bulletKey)}
+                                    />
                                   )}
                                 </div>
                               );
@@ -1608,7 +1687,8 @@ export default function EditorPage() {
                 hasJobDescription={hasJobDescription}
                 onAddSkill={handleAddSkill}
                 onToggleAtsMode={() => handleAtsModeChange(!designSettings.atsMode)}
-                onRequestAIAnalysis={() => notify({ message: 'Analyse IA disponible dans une prochaine mise a jour', type: 'success' })}
+                onOptimizeBullets={handleOptimizeBullets}
+                isOptimizing={isOptimizingBullets}
                 isAtsMode={designSettings.atsMode}
               />
             ) : null}
