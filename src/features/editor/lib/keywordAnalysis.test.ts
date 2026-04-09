@@ -86,7 +86,7 @@ describe('computeKeywordAnalysis', () => {
       skills: [{ category: 'Cloud', items: ['Cloud Computing'] }],
     });
     const result = computeKeywordAnalysis(cv, 'AWS certified architect', 'en');
-    const aws = result.keywords.find(k => k.keyword === 'AWS');
+    const aws = result.keywords.find(k => k.keyword.toLowerCase() === 'aws');
     expect(aws).toBeDefined();
     expect(aws!.found).toBe(false);
   });

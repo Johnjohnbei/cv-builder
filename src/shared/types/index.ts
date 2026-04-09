@@ -93,6 +93,20 @@ export interface ATSScoreResult {
   suggestions: string[];
 }
 
+/** Keyword match result for JD-to-CV comparison. */
+export interface KeywordMatch {
+  keyword: string;
+  found: boolean;
+  locations: string[];  // CV sections where keyword was found: 'summary' | 'experience' | 'skills' | 'education'
+}
+
+/** Full keyword analysis result. */
+export interface KeywordAnalysisResult {
+  keywords: KeywordMatch[];
+  matchedCount: number;
+  totalCount: number;
+}
+
 export const DEFAULT_DESIGN: DesignSettings = {
   template: 'TEMPLATE_A',
   primaryColor: '#1A73E8',
