@@ -105,13 +105,13 @@ Plans:
   3. ATS mode replaces SVG icons with text labels, forces web-safe fonts, and simplifies decorative elements
   4. Activating ATS mode on a design-only template auto-switches to the nearest compatible template
   5. Deactivating ATS mode restores the original template and shows a warning about losing ATS compatibility
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
-- [ ] 06-03: TBD
+- [ ] 06-01-PLAN.md — Add atsMode to DesignSettings, update classifications, add toggle to editor, implement auto-switch logic
+- [ ] 06-02-PLAN.md — Implement ATS rendering in TemplateA/B/C/E: icon replacement, font override, style simplification
+- [ ] 06-03-PLAN.md — Add ATS compatibility badges to template picker, end-to-end verification checkpoint
 
 ### Phase 7: Skills Categorization
 **Goal**: Skills are automatically organized into ATS-friendly categories
