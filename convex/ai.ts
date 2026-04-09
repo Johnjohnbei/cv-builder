@@ -274,27 +274,37 @@ export const tailorCV = action({
     // Strip non-content fields to reduce prompt size ~50%
     const { design, detectedLanguage, languageOverride, ...contentOnly } = args.baseData;
 
-    const prompt = `Tu es un rédacteur de CV senior spécialisé en optimisation ATS pour le marché français (2025-2026).
+    // Detect language from JD or CV
+    const lang = languageOverride || detectedLanguage || 'fr';
+    const isEn = lang === 'en' || /\b(experience|skills|education|responsibilities|requirements)\b/i.test(args.jobDescription.slice(0, 500));
+    const actionVerbs = isEn
+      ? 'Led, Designed, Orchestrated, Deployed, Optimized — NEVER "Responsible for", "Helped with", "Participated in"'
+      : 'Pilote, Conçoit, Orchestre, Déploie, Optimise — JAMAIS "Responsable de", "Aide à", "Participe à"';
+    const outputLang = isEn ? 'Write ALL content in English.' : 'Rédige TOUT le contenu en français.';
 
-MISSION : Adapte ce CV pour maximiser l'alignement avec l'offre d'emploi.
+    const prompt = `You are a senior CV writer specialized in ATS optimization (2025-2026).
 
-RÈGLES :
-1. CONSERVE toutes les expériences, formations, compétences, langues — ne supprime RIEN
-2. Structure JSON de sortie IDENTIQUE à l'entrée (même nombre d'éléments partout)
-3. Réécris les bullets avec des verbes d'action forts (Pilote, Conçoit, Orchestre — JAMAIS "Responsable de", "Aide à")
-4. Expériences pertinentes : enrichis les descriptions, intègre les mots-clés de l'offre, développe les résultats
-5. Expériences moins pertinentes : condense à 1-2 bullets tout en les gardant
-6. Résumé (summary) : 2-3 phrases ciblant directement le poste
-7. Compétences : réordonne — les plus pertinentes pour l'offre en premier
+LANGUAGE: ${outputLang}
+
+MISSION: Adapt this CV to maximize alignment with the job description.
+
+RULES:
+1. KEEP all experiences, education, skills, languages — delete NOTHING
+2. Output JSON structure IDENTICAL to input (same number of elements everywhere)
+3. Rewrite bullets with strong action verbs (${actionVerbs})
+4. Relevant experiences: enrich descriptions, integrate job keywords, develop results
+5. Less relevant experiences: condense to 1-2 bullets while keeping them
+6. Summary: 2-3 sentences targeting the position directly
+7. Skills: reorder — most relevant for the job first
 8. ${FABRICATION_GUARD}
 
-CV :
+CV:
 ${JSON.stringify(contentOnly)}
 
-OFFRE :
+JOB DESCRIPTION:
 ${args.jobDescription}
 
-Retourne UNIQUEMENT le JSON du CV optimisé.`;
+Return ONLY the optimized CV JSON.`;
 
     const result = await chatJSON(prompt);
     // Re-attach stripped fields
@@ -452,20 +462,27 @@ export const optimizeCVForPage = action({
     // Strip non-content fields to reduce prompt size
     const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
 
+    // Detect language
+    const lang = languageOverride || detectedLanguage || 'fr';
+    const isEn = lang === 'en' || (args.jobDescription && /\b(experience|skills|education|responsibilities|requirements)\b/i.test(args.jobDescription.slice(0, 500)));
+    const outputLang = isEn ? 'Write ALL content in English.' : 'Rédige TOUT le contenu en français.';
+
     const jobContext = args.jobDescription
       ? `
-OFFRE D'EMPLOI CIBLÉE :
+JOB DESCRIPTION:
 ${args.jobDescription}
 
-Utilise cette offre pour PRIORISER : les expériences et compétences les plus pertinentes pour ce poste doivent être les plus développées.`
+Use this job to PRIORITIZE: most relevant experiences and skills should be most developed.`
       : `
-Pas d'offre d'emploi fournie. Priorise par RÉCENCE : les expériences les plus récentes sont les plus développées.`;
+No job description provided. Prioritize by RECENCY: most recent experiences are most developed.`;
 
-    const prompt = `Tu es un expert en rédaction de CV professionnels et en optimisation de mise en page.
+    const prompt = `You are an expert in professional CV writing and layout optimization.
 
-Ta mission : réorganiser et ajuster le contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4 tout en maximisant l'impact professionnel.
+LANGUAGE: ${outputLang}
 
-DONNÉES DU CV :
+Your mission: reorganize and adjust the content of this CV to fit on ${args.pageLimit} A4 page(s) while maximizing professional impact.
+
+CV DATA:
 ${JSON.stringify(contentOnly)}
 ${jobContext}
 

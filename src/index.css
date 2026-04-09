@@ -185,8 +185,19 @@ body {
   background-color: white;
 }
 
-.pdf-safe section { break-inside: avoid; page-break-inside: avoid; }
-.pdf-safe [data-cv-block] { break-inside: avoid; page-break-inside: avoid; }
+/* Individual blocks (one experience, one education) should not be split */
+.pdf-safe [data-cv-block] {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Section HEADERS should not be orphaned at bottom of page */
+.pdf-safe [data-cv-section] > h2 {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* Do NOT prevent breaks inside sections — they can span multiple pages */
 
 body {
   @apply font-sans antialiased text-gray-900 bg-[#F8F9FA];
@@ -222,12 +233,20 @@ body {
     print-color-adjust: exact !important;
   }
   
+  /* Individual blocks should not be split across pages */
   [data-cv-block] {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
-  
-  [data-cv-section] {
+
+  /* Section headers should stay with their content */
+  [data-cv-section] > h2 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Bullet lists: keep individual items together */
+  [data-cv-block] li {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

@@ -52,8 +52,9 @@ export function renderPDF(
   clone.style.top = '0';
   clone.style.left = '0';
   clone.style.width = '210mm';
-  clone.style.height = `${297 * pageLimit}mm`;
-  clone.style.overflow = 'hidden';
+  clone.style.minHeight = `${297 * pageLimit}mm`;
+  clone.style.height = 'auto';
+  clone.style.overflow = 'visible';
   clone.style.border = 'none';
   clone.style.boxShadow = 'none';
   clone.style.margin = '0';
@@ -77,17 +78,26 @@ export function renderPDF(
       margin: 0 !important;
       padding: 0 !important;
       width: 210mm;
-      height: ${297 * pageLimit}mm;
+      min-height: ${297 * pageLimit}mm;
+      height: auto;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
     
+    /* Individual blocks (one experience entry) should not be split */
     [data-cv-block] {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
-    
-    [data-cv-section] {
+
+    /* Section headers must stay with their content */
+    [data-cv-section] > h2 {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+
+    /* Keep bullet list items together */
+    [data-cv-block] li {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
