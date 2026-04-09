@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, autoAssignModes, extractKeywords } from './scoring';
+import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration } from './scoring';
 import type { Experience } from '@/src/shared/types';
 
 // ─── Helpers ───
@@ -15,6 +15,66 @@ function makeExp(overrides: Partial<Experience> = {}): Experience {
     ...overrides,
   };
 }
+
+// ─── computeKeywordMatch (word-boundary fix per D-07) ───
+
+describe('computeKeywordMatch', () => {
+  it('does NOT match substring keywords (java vs javascript)', () => {
+    const exp = makeExp({ position: 'JavaScript Developer', description: ['Built JavaScript apps'] });
+    // "java" must NOT match "javascript"
+    expect(computeKeywordMatch(exp, ['java'])).toBe(0);
+  });
+
+  it('matches exact word keywords', () => {
+    const exp = makeExp({ position: 'Java Developer', description: ['Built Java apps'] });
+    expect(computeKeywordMatch(exp, ['java'])).toBeGreaterThan(0);
+  });
+
+  it('handles special characters in keywords (c++)', () => {
+    const exp = makeExp({ position: 'C++ Developer', description: ['C++ programming'] });
+    expect(computeKeywordMatch(exp, ['c++'])).toBeGreaterThan(0);
+  });
+
+  it('is case-insensitive', () => {
+    const exp = makeExp({ position: 'React Developer' });
+    expect(computeKeywordMatch(exp, ['react'])).toBeGreaterThan(0);
+  });
+
+  it('returns 0 for no matches', () => {
+    const exp = makeExp({ position: 'Chef', description: ['Cooking'] });
+    expect(computeKeywordMatch(exp, ['react', 'java'])).toBe(0);
+  });
+
+  it('returns 100 when all keywords match', () => {
+    const exp = makeExp({ position: 'React Java Developer', description: ['Built stuff'] });
+    expect(computeKeywordMatch(exp, ['react', 'java'])).toBe(100);
+  });
+});
+
+// ─── computeRecency ───
+
+describe('computeRecency', () => {
+  it('returns 100 for current positions', () => {
+    const exp = makeExp({ current: true });
+    expect(computeRecency(exp)).toBe(100);
+  });
+
+  it('returns lower score for older positions', () => {
+    const recent = makeExp({ end_date: '2025' });
+    const old = makeExp({ end_date: '2010' });
+    expect(computeRecency(recent)).toBeGreaterThan(computeRecency(old));
+  });
+});
+
+// ─── computeDuration ───
+
+describe('computeDuration', () => {
+  it('returns higher score for longer durations', () => {
+    const long = makeExp({ start_date: '2015', end_date: '2024' });
+    const short = makeExp({ start_date: '2023', end_date: '2024' });
+    expect(computeDuration(long)).toBeGreaterThan(computeDuration(short));
+  });
+});
 
 // ─── extractKeywords ───
 
