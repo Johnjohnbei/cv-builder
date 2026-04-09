@@ -14,6 +14,7 @@ interface CVLoaderResult {
   userModified: boolean;
   setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
   resetAutoAssign: () => void;
+  loadedJobDescription: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export function useCVLoader(
   const [selectedTemplate, setSelectedTemplate] = useState<string>('TEMPLATE_A');
   const [isLoading, setIsLoading] = useState(true);
   const [userModified, setUserModified] = useState(false);
+  const [loadedJobDescription, setLoadedJobDescription] = useState('');
 
   // Load data — ONCE at initialization
   const dataLoaded = useRef(false);
@@ -45,6 +47,9 @@ export function useCVLoader(
           setSelectedTemplate(userData.lastGeneratedCV.design.template);
         }
       }
+      if (userData.lastJobDescription) {
+        setLoadedJobDescription(userData.lastJobDescription);
+      }
       setIsLoading(false);
     } else if (isGuest) {
       dataLoaded.current = true;
@@ -56,6 +61,10 @@ export function useCVLoader(
           setDesignSettings(data.design);
           setSelectedTemplate(data.design.template);
         }
+      }
+      const storedJD = localStorage.getItem('guest_last_jd');
+      if (storedJD) {
+        setLoadedJobDescription(storedJD);
       }
       setIsLoading(false);
     } else if (userData === null) {
@@ -87,5 +96,6 @@ export function useCVLoader(
     isLoading,
     userModified, setUserModified,
     resetAutoAssign,
+    loadedJobDescription,
   };
 }

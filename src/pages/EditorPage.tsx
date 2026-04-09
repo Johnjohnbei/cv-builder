@@ -72,7 +72,17 @@ export default function EditorPage() {
     selectedTemplate, setSelectedTemplate,
     isLoading, userModified, setUserModified,
     resetAutoAssign,
+    loadedJobDescription,
   } = useCVLoader(user, userData, isGuest, jobDescription);
+
+  // Initialize jobDescription from loaded data (dashboard → editor flow)
+  const jdInitialized = useRef(false);
+  useEffect(() => {
+    if (!jdInitialized.current && loadedJobDescription && !jobDescription) {
+      jdInitialized.current = true;
+      setJobDescription(loadedJobDescription);
+    }
+  }, [loadedJobDescription]);
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const { overflowPx, resetFitIterations } = useOverflowDetection(
@@ -504,14 +514,21 @@ export default function EditorPage() {
                     </div>
                   </div>
 
-                  {/* Job description for scoring */}
-                  <textarea
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
-                    rows={2}
-                    className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-[9px] stitch-mono focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
-                  />
+                  {/* Job description display */}
+                  {jobDescription ? (
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[9px] stitch-mono text-gray-600 max-h-16 overflow-y-auto">
+                      <span className="font-bold text-gray-500 uppercase text-[8px]">Offre importée</span>
+                      <p className="mt-1 line-clamp-3">{jobDescription.slice(0, 300)}{jobDescription.length > 300 ? '...' : ''}</p>
+                    </div>
+                  ) : (
+                    <textarea
+                      value={jobDescription}
+                      onChange={(e) => setJobDescription(e.target.value)}
+                      placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
+                      rows={2}
+                      className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-[9px] stitch-mono focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
+                    />
+                  )}
 
                   {/* Auto-assign button */}
                   <button

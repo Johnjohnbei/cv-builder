@@ -236,6 +236,7 @@ export default function DashboardPage() {
         navigate('/editor');
       } else if (isGuest) {
         localStorage.setItem('guest_last_optimized', JSON.stringify(optimizedData));
+        localStorage.setItem('guest_last_jd', jobDescription);
         navigate('/editor');
       }
     } catch (error) {
