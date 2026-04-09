@@ -7,6 +7,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { renderPDF } from '../features/editor/lib/pdfExport';
+import { extractExpectedText } from '../features/editor/lib/pdfValidation';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
@@ -245,12 +246,28 @@ export default function EditorPage() {
   // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
   const handleDownloadPDF = () => {
     if (!cvRef.current) return;
-    renderPDF(cvRef.current, designSettings);
+    const expectedText = cvData ? extractExpectedText(cvData) : '';
+    renderPDF(cvRef.current, designSettings, {
+      expectedText,
+      onValidation: (result) => {
+        if (!result.valid && result.warning) {
+          notify({ message: result.warning, type: 'error' });
+        }
+      },
+    });
   };
 
   const handlePreviewPDF = () => {
     if (!cvRef.current) return;
-    renderPDF(cvRef.current, designSettings);
+    const expectedText = cvData ? extractExpectedText(cvData) : '';
+    renderPDF(cvRef.current, designSettings, {
+      expectedText,
+      onValidation: (result) => {
+        if (!result.valid && result.warning) {
+          notify({ message: result.warning, type: 'error' });
+        }
+      },
+    });
   };
 
   if (isLoading) {

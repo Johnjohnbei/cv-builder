@@ -1,16 +1,23 @@
 import type { DesignSettings } from '@/src/shared/types';
+import { validateCVTextExtractability, type ValidationResult } from './pdfValidation';
+
+export interface RenderPDFOptions {
+  expectedText?: string;
+  onValidation?: (result: ValidationResult) => void;
+}
 
 /**
  * PDF export via browser print dialog.
- * 
+ *
  * This is the ONLY reliable way to get WYSIWYG PDF output.
  * The browser's print engine renders CSS perfectly — same engine as the preview.
- * 
+ *
  * Approach: create an iframe with the CV content + all stylesheets, then print it.
  */
 export function renderPDF(
   cvElement: HTMLElement,
   designSettings: DesignSettings,
+  options?: RenderPDFOptions,
 ): void {
   const pageLimit = designSettings.pageLimit || 1;
 
@@ -92,8 +99,15 @@ export function renderPDF(
 </html>`);
   doc.close();
 
-  // Wait for styles + fonts to load, then print
+  // Wait for styles + fonts to load, then validate and print
   iframe.onload = () => {
+    // Run text extractability validation before printing
+    if (options?.expectedText && options?.onValidation) {
+      const renderedText = doc.body?.innerText || doc.body?.textContent || '';
+      const result = validateCVTextExtractability(renderedText, options.expectedText);
+      options.onValidation(result);
+    }
+
     setTimeout(() => {
       iframe.contentWindow?.print();
       // Remove iframe after print dialog closes
