@@ -137,13 +137,13 @@ Plans:
   3. Panel displays score gauge, sub-scores, keyword list, and actionable improvement suggestions
   4. Suggestions have action buttons that trigger improvements (e.g., "Improve this bullet", "Add missing skill")
   5. Full AI analysis is available on-demand via a button (not automatic)
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
-- [ ] 08-03: TBD
+- [ ] 08-01-PLAN.md — ScoreGauge SVG atom + useATSAnalysis hook with tests
+- [ ] 08-02-PLAN.md — ATSPanel component with score display, keywords, suggestions
+- [ ] 08-03-PLAN.md — EditorPage integration: 3rd tab, auto-open, action button wiring
 
 ### Phase 9: AI Content Optimization
 **Goal**: Users can improve their CV content with AI-powered rewrites targeted to specific job descriptions
