@@ -141,7 +141,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 08-01-PLAN.md — ScoreGauge SVG atom + useATSAnalysis hook with tests
+- [x] 08-01-PLAN.md — ScoreGauge SVG atom + useATSAnalysis hook with tests
 - [ ] 08-02-PLAN.md — ATSPanel component with score display, keywords, suggestions
 - [ ] 08-03-PLAN.md — EditorPage integration: 3rd tab, auto-open, action button wiring
 

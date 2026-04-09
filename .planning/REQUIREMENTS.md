@@ -65,7 +65,7 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 
 - [ ] **PANL-01**: ATS analysis panel displayed as a sidebar tab in the editor
 - [ ] **PANL-02**: Panel auto-opens when a job description is imported, closed by default otherwise
-- [ ] **PANL-03**: Panel shows score gauge, sub-scores, keywords list, and actionable suggestions
+- [x] **PANL-03**: Panel shows score gauge, sub-scores, keywords list, and actionable suggestions
 - [ ] **PANL-04**: Suggestions include action buttons (e.g., "Improve this bullet", "Add missing skill")
 - [ ] **PANL-05**: Full AI analysis (deep bullet analysis, keyword optimization) triggered on-demand via button
 
@@ -79,7 +79,7 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 - [x] **REFAC-01**: scoring.ts extended with ATS scoring (not a separate module), kept within file size limits
 - [x] **REFAC-02**: New atsRules.ts config module (~60 lines) for template compatibility map and section standards
 - [ ] **REFAC-03**: ATSPanel extracted as a separate component (~200 lines)
-- [ ] **REFAC-04**: ATS state extracted into useATSAnalysis hook to prevent EditorPage growth
+- [x] **REFAC-04**: ATS state extracted into useATSAnalysis hook to prevent EditorPage growth
 - [x] **REFAC-05**: formatDateShort and normalizeProficiency moved out of scoring.ts into shared utilities
 
 ## v2 Requirements
@@ -153,7 +153,7 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | LANG-03 | Phase 2 | Complete |
 | PANL-01 | Phase 8 | Pending |
 | PANL-02 | Phase 8 | Pending |
-| PANL-03 | Phase 8 | Pending |
+| PANL-03 | Phase 8 | Complete |
 | PANL-04 | Phase 8 | Pending |
 | PANL-05 | Phase 8 | Pending |
 | PDFV-01 | Phase 10 | Pending |
@@ -161,7 +161,7 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | REFAC-01 | Phase 1 | Complete |
 | REFAC-02 | Phase 1 | Complete |
 | REFAC-03 | Phase 8 | Pending |
-| REFAC-04 | Phase 8 | Pending |
+| REFAC-04 | Phase 8 | Complete |
 | REFAC-05 | Phase 1 | Complete |
 
 **Coverage:**
