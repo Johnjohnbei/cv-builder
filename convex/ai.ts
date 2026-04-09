@@ -18,18 +18,7 @@ interface AIProvider {
 function getProviders(): AIProvider[] {
   const providers: AIProvider[] = [];
 
-  // Priority 1: Claude (best quality)
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) {
-    providers.push({
-      baseURL: "https://api.anthropic.com/v1/",
-      apiKey: anthropicKey,
-      defaultModel: "claude-sonnet-4-20250514",
-      fastModel: "claude-haiku-4-5-20251001",
-    });
-  }
-
-  // Priority 2: Gemini Flash (free tier)
+  // Priority 1: Gemini Flash (free tier)
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     providers.push({
@@ -37,6 +26,17 @@ function getProviders(): AIProvider[] {
       apiKey: geminiKey,
       defaultModel: "gemini-2.5-flash",
       fastModel: "gemini-2.5-flash",
+    });
+  }
+
+  // Priority 2: Claude (best quality, fallback)
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) {
+    providers.push({
+      baseURL: "https://api.anthropic.com/v1/",
+      apiKey: anthropicKey,
+      defaultModel: "claude-sonnet-4-20250514",
+      fastModel: "claude-haiku-4-5-20251001",
     });
   }
 
