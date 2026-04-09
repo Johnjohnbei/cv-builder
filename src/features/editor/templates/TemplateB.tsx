@@ -2,11 +2,13 @@ import { Mail, Phone, MapPin, User } from 'lucide-react';
 import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
+import type { SkillCategoryKey } from '../lib/skillDictionary';
 
-export function TemplateB({ cvData, designSettings }: TemplateProps) {
+export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const atsMode = designSettings.atsMode;
   const fontClass = getFontClass(designSettings.fontFamily);
@@ -68,21 +70,25 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
 
             {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
               <section data-cv-section="skills">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Expertise</h2>
-                <div className="space-y-4">
-                  {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <h3 className="text-[9px] font-bold uppercase tracking-widest opacity-80">{cat.category}</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {getVisibleSkills(cat).map(skill => (
-                          <span key={skill} className="px-2 py-1 text-[9px] font-medium rounded" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}>
-                            {skill}
-                          </span>
-                        ))}
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getSectionTitle('skills', language)}</h2>
+                {atsMode ? (
+                  renderSkillsATS(cvData.skills, language)
+                ) : (
+                  <div className="space-y-4">
+                    {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <h3 className="text-[9px] font-bold uppercase tracking-widest opacity-80">{getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {getVisibleSkills(cat).map(skill => (
+                            <span key={skill} className="px-2 py-1 text-[9px] font-medium rounded" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}>
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </div>

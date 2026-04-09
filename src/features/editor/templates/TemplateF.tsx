@@ -5,7 +5,8 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
-import { getSectionTitle } from '../lib/atsRules';
+import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
+import type { SkillCategoryKey } from '../lib/skillDictionary';
 
 export function TemplateF({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
@@ -56,7 +57,7 @@ export function TemplateF({ cvData, designSettings, language }: TemplateProps) {
             <div className="space-y-4">
               {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                 <div key={idx} className="space-y-1">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase">{cat.category}</p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">{getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}</p>
                   <div className="flex flex-wrap gap-1">
                     {getVisibleSkills(cat).map(skill => (
                       <span key={skill} className="px-2 py-0.5 bg-white border border-gray-200 rounded-full text-[9px] text-gray-600">{skill}</span>

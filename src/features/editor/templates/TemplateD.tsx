@@ -5,7 +5,8 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
-import { getSectionTitle } from '../lib/atsRules';
+import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
+import type { SkillCategoryKey } from '../lib/skillDictionary';
 
 export function TemplateD({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
@@ -88,7 +89,7 @@ export function TemplateD({ cvData, designSettings, language }: TemplateProps) {
               <div className="space-y-6">
                 {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                   <div key={idx} className="space-y-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{cat.category}</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}</h3>
                     <div className="flex flex-wrap gap-2">
                       {getVisibleSkills(cat).map(skill => (
                         <span key={skill} className="px-2 py-1 border-2 border-black text-[10px] font-black uppercase hover:bg-black hover:text-white transition-colors">
