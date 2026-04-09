@@ -16,18 +16,7 @@ interface AIProvider {
 }
 
 function getProvider(): AIProvider {
-  // Primary: NVIDIA NIM (free tier, 40 req/min)
-  const nvidiaKey = process.env.NVIDIA_API_KEY;
-  if (nvidiaKey) {
-    return {
-      baseURL: "https://integrate.api.nvidia.com/v1",
-      apiKey: nvidiaKey,
-      defaultModel: "meta/llama-3.1-70b-instruct",
-      fastModel: "meta/llama-3.1-70b-instruct",
-    };
-  }
-
-  // Fallback: Gemini via OpenAI-compatible endpoint (if you ever need it)
+  // Primary: Gemini Flash (free tier, 15 req/min, best quality/cost ratio)
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     return {
@@ -38,8 +27,19 @@ function getProvider(): AIProvider {
     };
   }
 
+  // Fallback: NVIDIA NIM (free tier, 40 req/min)
+  const nvidiaKey = process.env.NVIDIA_API_KEY;
+  if (nvidiaKey) {
+    return {
+      baseURL: "https://integrate.api.nvidia.com/v1",
+      apiKey: nvidiaKey,
+      defaultModel: "meta/llama-3.1-70b-instruct",
+      fastModel: "meta/llama-3.1-70b-instruct",
+    };
+  }
+
   throw new Error(
-    "No AI provider configured. Set NVIDIA_API_KEY (recommended) or GEMINI_API_KEY in Convex env vars."
+    "No AI provider configured. Set GEMINI_API_KEY (recommended) or NVIDIA_API_KEY in Convex env vars."
   );
 }
 
@@ -456,7 +456,7 @@ Pas d'offre d'emploi fournie. Priorise par RÉCENCE : les expériences les plus 
 Ta mission : réorganiser et ajuster le contenu de ce CV pour qu'il tienne sur ${args.pageLimit} page(s) A4 tout en maximisant l'impact professionnel.
 
 DONNÉES DU CV :
-${JSON.stringify(args.cvData, null, 2)}
+${JSON.stringify(args.cvData)}
 ${jobContext}
 
 ═══ RÈGLE ABSOLUE — NE SUPPRIME RIEN ═══
@@ -491,10 +491,17 @@ Chaque expérience a aussi un champ optionnel "kpi" (string) : un résultat chif
 6. FORMATIONS et LANGUES : Garde tel quel.
 
 ═══ QUALITÉ DES REFORMULATIONS ═══
-- Verbe d'action fort en début de bullet
-- Métriques/résultats quand possible
-- Concis : une ligne par bullet
-- Mots-clés du secteur / de l'offre
+- Verbe d'action fort et précis en début de bullet (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure — JAMAIS "Responsable de", "Participe à", "Aide à", "Gère")
+- Structure : ACTION + CONTEXTE + RÉSULTAT en 1-2 lignes max
+- Conserve les chiffres existants, ne PAS en inventer
+- Si pas de chiffres, utilise des indicateurs qualitatifs réalistes (périmètre, équipe, nombre de projets)
+- Mots-clés du secteur / de l'offre intégrés naturellement
+- KPI (champ "kpi" des extended) : résultat concret et crédible. Exemples de bons KPIs :
+  * "+35% de trafic organique en 6 mois" (si données existantes)
+  * "Management d'une équipe de 8 designers" (périmètre)
+  * "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure)
+  * "Réduction de 40% du time-to-market" (si données existantes)
+  Ne PAS inventer de pourcentages ou chiffres. Préférer l'envergure (taille équipe, nombre projets, périmètre) aux métriques inventées.
 
 ═══ CONTRAINTE TAILLE ═══
 Pour ${args.pageLimit} page(s) A4, un bon équilibre est :
@@ -597,25 +604,32 @@ export const improveBulletPoint = action({
       ? `\nMots-clés manquants à intégrer si pertinent : ${args.missingKeywords.join(", ")}`
       : "";
 
-    const prompt = `
-Tu es un expert en rédaction de CV optimisés ATS.
-Améliore ce point d'expérience pour le rendre plus impactant.
+    const prompt = `Tu es un rédacteur de CV senior spécialisé dans l'optimisation ATS et le recrutement tech/business en France.
 
-Poste : ${args.position} chez ${args.company}
-Point actuel : "${args.bullet}"${jobContext}${keywordContext}
+CONTEXTE :
+- Poste : ${args.position} chez ${args.company}
+- Bullet actuel : "${args.bullet}"${jobContext}${keywordContext}
 
-Règles :
-1. Commence par un verbe d'action fort
-2. Ajoute des métriques/résultats quantifiables si possible
-3. Utilise des mots-clés pertinents pour le secteur
-4. Maximum 2 lignes
-5. Retourne exactement 3 suggestions alternatives
-6. Ne JAMAIS inventer de chiffres ou métriques. Si le bullet original n'a pas de données chiffrées, ne pas en ajouter.
+MISSION : Propose exactement 3 reformulations de ce bullet, chacune avec un angle différent :
+1. **Version impact** : met en avant le résultat business ou l'impact concret
+2. **Version leadership** : met en avant le rôle de pilotage, de décision ou de collaboration
+3. **Version technique** : met en avant la méthodologie, les outils ou l'expertise déployée
+
+RÈGLES DE RÉDACTION :
+- Commence TOUJOURS par un verbe d'action fort et précis (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige — PAS "Responsable de", "Participe à", "Aide à", "Gère")
+- Une bullet = UNE action + UN contexte + UN résultat/impact
+- Maximum 2 lignes, privilégie la concision
+- Vocabulaire professionnel et naturel, adapté au secteur de ${args.company}
+- ${FABRICATION_GUARD}
+- Si le bullet original contient des chiffres, conserve-les. Sinon, utilise des indicateurs qualitatifs (équipe de X, X projets, périmètre Y)
+
+EXEMPLES DE BONNE QUALITÉ :
+- "Pilote la refonte du Design System multi-marques pour 5 marques premium, couvrant 30M+ utilisateurs"
+- "Orchestre la transition data-driven du product management avec définition de KPIs et dashboards de suivi"
+- "Conçoit l'architecture front-end modulaire permettant le déploiement simultané sur 3 plateformes"
 
 Retourne un JSON : { "suggestions": ["suggestion1", "suggestion2", "suggestion3"] }
-
-Retourne UNIQUEMENT le JSON.
-`;
+Retourne UNIQUEMENT le JSON.`;
 
     return await chatJSON(prompt, getModel("fast"));
   },
@@ -650,9 +664,9 @@ export const rewriteBulletsForJob = action({
       ? `Intègre naturellement ces mots-clés si pertinent : ${args.missingKeywords.join(", ")}`
       : "";
 
-    const prompt = `Tu es un expert en rédaction de CV optimisés ATS.
+    const prompt = `Tu es un rédacteur de CV senior spécialisé dans l'optimisation ATS pour le marché français.
 
-Réécris chaque bullet point ci-dessous pour le rendre plus impactant et aligné avec l'offre d'emploi.
+MISSION : Réécris chaque bullet point pour maximiser l'alignement avec l'offre d'emploi tout en restant fidèle à l'expérience réelle du candidat.
 
 OFFRE D'EMPLOI :
 ${args.jobDescription}
@@ -664,14 +678,21 @@ ${FABRICATION_GUARD}
 BULLETS À RÉÉCRIRE :
 ${bulletsList}
 
-Règles :
-1. Commence chaque bullet par un verbe d'action fort
-2. Maximum 2 lignes par bullet
-3. Utilise les mots-clés de l'offre naturellement
-4. Conserve le sens original — améliore la formulation
+RÈGLES DE RÉDACTION :
+1. Verbe d'action fort en début (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure — JAMAIS "Responsable de", "Participe à", "Aide à")
+2. Structure : ACTION + CONTEXTE + RÉSULTAT/IMPACT en 1-2 lignes
+3. Intègre les mots-clés de l'offre de façon naturelle, pas forcée
+4. Conserve le sens original — tu améliores la formulation, tu ne changes pas l'expérience
+5. Si le bullet original a des chiffres, conserve-les. Sinon, ne pas en inventer — utilise des indicateurs qualitatifs si possible
+6. Adapte le vocabulaire au secteur de l'entreprise
+
+EXEMPLES AVANT/APRÈS :
+- AVANT : "Responsable de la gestion de projets digitaux"
+  APRÈS : "Pilote un portefeuille de projets digitaux de la conception au déploiement, en coordination avec les équipes tech et marketing"
+- AVANT : "Aide à la création de maquettes"
+  APRÈS : "Conçoit les maquettes UI/UX et prototypes interactifs, validés en user testing auprès de panels utilisateurs"
 
 Retourne un JSON : { "rewrites": [{ "index": <numero>, "original": "<texte original>", "rewritten": "<version améliorée>" }] }
-
 Retourne UNIQUEMENT le JSON.`;
 
     const data = await chatJSON(prompt);
