@@ -80,7 +80,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md -- ATSScoreResult type, scoreFormat, scoreContent, no-JD orchestrator
-- [ ] 04-02-PLAN.md -- Install compromise NLP, extractNLPKeywords, TF-IDF, scoreRelevance, full orchestrator
+- [x] 04-02-PLAN.md -- Install compromise NLP, extractNLPKeywords, TF-IDF, scoreRelevance, full orchestrator
 
 ### Phase 5: Keywords & Matching
 **Goal**: Users can see which job description keywords are present or missing in their CV

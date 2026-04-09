@@ -12,9 +12,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 - [x] **SCORE-01**: User can see a global ATS score (0-100) with circular gauge in the editor sidebar
 - [x] **SCORE-02**: Score is broken down into 3 sub-scores: Format, Content, Relevance
 - [x] **SCORE-03**: Format and Content sub-scores are computed client-side in real-time (no API call)
-- [ ] **SCORE-04**: Relevance sub-score requires a job description and uses keyword matching with word-boundary accuracy (no substring false positives)
+- [x] **SCORE-04**: Relevance sub-score requires a job description and uses keyword matching with word-boundary accuracy (no substring false positives)
 - [x] **SCORE-05**: Without a job description, a partial score (Format + Content) is displayed with a prompt to import an offer for full analysis
-- [ ] **SCORE-06**: Keyword extraction uses NLP (compromise) for bigrams/trigrams and TF-IDF weighting
+- [x] **SCORE-06**: Keyword extraction uses NLP (compromise) for bigrams/trigrams and TF-IDF weighting
 
 ### Keywords & Matching
 
@@ -121,9 +121,9 @@ Requirements for ATS conformity milestone. Each maps to roadmap phases.
 | SCORE-01 | Phase 4 | Complete |
 | SCORE-02 | Phase 4 | Complete |
 | SCORE-03 | Phase 4 | Complete |
-| SCORE-04 | Phase 4 | Pending |
+| SCORE-04 | Phase 4 | Complete |
 | SCORE-05 | Phase 4 | Complete |
-| SCORE-06 | Phase 4 | Pending |
+| SCORE-06 | Phase 4 | Complete |
 | KEYW-01 | Phase 5 | Pending |
 | KEYW-02 | Phase 5 | Pending |
 | KEYW-03 | Phase 5 | Pending |
