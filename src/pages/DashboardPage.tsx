@@ -11,6 +11,7 @@ import { CVData } from '../shared/types';
 import { extractTextFromPDF } from '../lib/pdfTextExtract';
 import { parseLinkedInPDF } from '../lib/linkedinParser';
 import { useAccessCode, useDocumentTitle } from '../shared/hooks';
+import { detectCVLanguage } from '../lib/languageDetection';
 
 
 
@@ -152,11 +153,12 @@ export default function DashboardPage() {
           const code = getCode();
           data = await extractCVDataFromPDF({ pdfText: pdfText.substring(0, 12000), accessCode: code });
         }
-        setBaseCV(data);
+        const detectedLang = detectCVLanguage(data);
+        setBaseCV({ ...data, detectedLanguage: detectedLang });
 
         if (user) {
           await storeUser();
-          await updateLastCV({ cvData: data });
+          await updateLastCV({ cvData: { ...data, detectedLanguage: detectedLang } });
         } else if (isGuest) {
           localStorage.setItem('guest_base_cv', JSON.stringify(data));
         }
@@ -505,6 +507,7 @@ export default function DashboardPage() {
                               education: [],
                               skills: [],
                               languages: [],
+                              detectedLanguage: 'fr',
                             };
                             setBaseCV(emptyCV);
                             if (user) {

@@ -1,6 +1,7 @@
 import { Layout as LayoutIcon, Save, Download, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
+import { LanguageSelector } from './LanguageSelector';
 
 interface Props {
   isSidebarOpen: boolean;
@@ -15,12 +16,15 @@ interface Props {
   isSaving: boolean;
   isExporting: boolean;
   hasCvData: boolean;
+  currentLanguage: 'fr' | 'en';
+  onLanguageChange: (lang: 'fr' | 'en') => void;
 }
 
 export function EditorHeader({
   isSidebarOpen, onToggleSidebar,
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
+  currentLanguage, onLanguageChange,
 }: Props) {
   return (
     <header className="stitch-header justify-between shrink-0">
@@ -65,6 +69,9 @@ export function EditorHeader({
         <div className="flex items-center gap-2">
           <span className="text-[9px] stitch-mono text-gray-400 uppercase">Format:</span>
           <span className="text-[10px] stitch-mono font-bold text-blue-600">A4_ISO</span>
+        </div>
+        <div className="border-l border-gray-100 pl-3">
+          <LanguageSelector value={currentLanguage} onChange={onLanguageChange} />
         </div>
       </div>
 
