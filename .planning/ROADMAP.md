@@ -155,13 +155,13 @@ Plans:
   3. AI flags weak bullet points (passive voice, no metrics, vague verbs) before rewriting
   4. AI naturally integrates missing keywords from the job description into rewritten content
   5. Rewritten content shows a diff view for user approval and never fabricates metrics
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
-- [ ] 09-03: TBD
+- [ ] 09-01-PLAN.md -- Weak bullet detection utility (client-side regex, TDD)
+- [ ] 09-02-PLAN.md -- Convex rewriteBulletsForJob action + enhance improveBulletPoint with JD context
+- [ ] 09-03-PLAN.md -- EditorPage integration: diff view, accept/reject, ATSPanel wiring, weak bullet badges
 
 ### Phase 10: PDF Validation
 **Goal**: Users are confident their exported PDF will be readable by ATS parsers
@@ -170,7 +170,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After exporting a PDF, the system automatically validates that text content is extractable using pdfjs-dist
   2. If text extraction fails or is significantly degraded, user receives a clear warning explaining the issue
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 10-01: TBD
