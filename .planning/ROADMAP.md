@@ -105,7 +105,7 @@ Plans:
   3. ATS mode replaces SVG icons with text labels, forces web-safe fonts, and simplifies decorative elements
   4. Activating ATS mode on a design-only template auto-switches to the nearest compatible template
   5. Deactivating ATS mode restores the original template and shows a warning about losing ATS compatibility
-**Plans**: 3 plans
+**Plans**: 1 plan
 **UI hint**: yes
 
 Plans:
@@ -137,7 +137,7 @@ Plans:
   3. Panel displays score gauge, sub-scores, keyword list, and actionable improvement suggestions
   4. Suggestions have action buttons that trigger improvements (e.g., "Improve this bullet", "Add missing skill")
   5. Full AI analysis is available on-demand via a button (not automatic)
-**Plans**: 3 plans
+**Plans**: 1 plan
 **UI hint**: yes
 
 Plans:
@@ -155,7 +155,7 @@ Plans:
   3. AI flags weak bullet points (passive voice, no metrics, vague verbs) before rewriting
   4. AI naturally integrates missing keywords from the job description into rewritten content
   5. Rewritten content shows a diff view for user approval and never fabricates metrics
-**Plans**: 3 plans
+**Plans**: 1 plan
 **UI hint**: yes
 
 Plans:
@@ -170,10 +170,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After exporting a PDF, the system automatically validates that text content is extractable using pdfjs-dist
   2. If text extraction fails or is significantly degraded, user receives a clear warning explaining the issue
-**Plans**: 3 plans
+**Plans**: 1 plan
 
 Plans:
-- [ ] 10-01: TBD
+- [ ] 10-01-PLAN.md — PDF text extractability validation with DOM pre-check and user warning
 
 ## Progress
 
