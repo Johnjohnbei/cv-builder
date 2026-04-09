@@ -62,6 +62,7 @@ export interface DesignSettings {
   paperSize?: 'a4' | 'letter' | 'legal';
   orientation?: 'portrait' | 'landscape';
   includedSections?: string[];
+  atsMode?: boolean;
 }
 
 export interface CVData {

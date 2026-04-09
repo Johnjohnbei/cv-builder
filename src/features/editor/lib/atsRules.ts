@@ -1,14 +1,17 @@
 // --- Template ATS Compatibility ---
 
-/** Placeholder classifications -- refined in Phase 6 after per-template analysis (per D-04) */
+/** Final classifications per D-06 analysis. */
 export const TEMPLATE_ATS_COMPAT: Record<string, 'full' | 'limited'> = {
-  TEMPLATE_A: 'limited',  // Two-column layout
+  TEMPLATE_A: 'full',     // Simple single-column layout, easy to convert
   TEMPLATE_B: 'full',     // Header-focused, adaptable
   TEMPLATE_C: 'full',     // Minimal single-column
-  TEMPLATE_D: 'limited',  // Creative colored sidebar
+  TEMPLATE_D: 'limited',  // Complex decorative layout
   TEMPLATE_E: 'full',     // Elegant single-column
-  TEMPLATE_F: 'limited',  // Sidebar variant
+  TEMPLATE_F: 'limited',  // 2-column grid layout
 };
+
+/** Default fallback template for ATS mode when current template is 'limited' (per D-07). */
+export const ATS_FALLBACK_TEMPLATE = 'TEMPLATE_A';
 
 // --- ATS Section Names ---
 
