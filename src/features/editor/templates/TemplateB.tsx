@@ -5,8 +5,9 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle } from '../lib/atsRules';
 
-export function TemplateB({ cvData, designSettings }: TemplateProps) {
+export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
@@ -38,7 +39,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
 
           {includedSections.includes('summary') && cvData.personal_info?.summary && (
             <section data-cv-section="summary" className="mb-12">
-              <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Profil</h2>
+              <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getSectionTitle('summary', language)}</h2>
               <p className="text-[11px] leading-relaxed opacity-90">{cvData.personal_info?.summary}</p>
             </section>
           )}
@@ -46,7 +47,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
           <div className="space-y-6">
             {includedSections.includes('personal') && (
               <section data-cv-section="contact">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Contact</h2>
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getSectionTitle('contact', language)}</h2>
                 <div className="space-y-3 text-[11px] opacity-90">
                   <div className="flex items-center gap-3"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</div>
                   {cvData.personal_info?.phone && <div className="flex items-center gap-3"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</div>}
@@ -58,7 +59,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
 
             {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
               <section data-cv-section="languages">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Langues</h2>
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getSectionTitle('languages', language)}</h2>
                 <div className="space-y-2">
                   {cvData.languages?.map((lang, idx) => (
                     <div key={idx} className="flex justify-between items-center text-[11px]">
@@ -72,7 +73,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
 
             {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
               <section data-cv-section="skills">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Expertise</h2>
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getSectionTitle('skills', language)}</h2>
                 <div className="space-y-4">
                   {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                     <div key={idx} className="space-y-2">
@@ -98,7 +99,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
           <section data-cv-section="experience">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
               <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
-              Expérience
+              {getSectionTitle('experience', language)}
             </h2>
             <div className="space-y-8">
               {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
@@ -126,7 +127,7 @@ export function TemplateB({ cvData, designSettings }: TemplateProps) {
           <section data-cv-section="education">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
               <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />
-              Formation
+              {getSectionTitle('education', language)}
             </h2>
             <div className="space-y-6">
               {cvData.education?.map((edu, idx) => (

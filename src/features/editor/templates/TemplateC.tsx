@@ -5,8 +5,9 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle } from '../lib/atsRules';
 
-export function TemplateC({ cvData, designSettings }: TemplateProps) {
+export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
@@ -37,14 +38,14 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
       <div className="space-y-8">
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
-            <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>Profil</h2>
+            <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
             <p className="text-sm text-gray-600 leading-relaxed italic">"{cvData.personal_info?.summary}"</p>
           </section>
         )}
 
         {includedSections.includes('experience') && (
           <section data-cv-section="experience">
-            <h2 className={cn("text-gray-300 mb-8 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>Expérience</h2>
+            <h2 className={cn("text-gray-300 mb-8 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('experience', language)}</h2>
             <div className="space-y-10">
               {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                 <div key={idx} data-cv-block="experience" className="grid grid-cols-[120px_1fr] gap-8">
@@ -73,7 +74,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
         <section data-cv-section="skills" className="grid grid-cols-2 gap-8">
           {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <div>
-              <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>Compétences</h2>
+              <h2 className={cn("text-gray-300 mb-4", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('skills', language)}</h2>
               <div className="space-y-3">
                 {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                   <div key={idx} className="space-y-1">
@@ -90,7 +91,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
           )}
           {includedSections.includes('education') && (
             <div>
-              <h2 className={cn("text-gray-300 mb-6", sectionTitleClasses)} style={{ fontSize: '11px' }}>Formation</h2>
+              <h2 className={cn("text-gray-300 mb-6", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('education', language)}</h2>
               <div className="space-y-4">
                 {cvData.education?.map((edu, idx) => (
                   <div key={idx}>
@@ -105,7 +106,7 @@ export function TemplateC({ cvData, designSettings }: TemplateProps) {
 
         {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
           <section data-cv-section="languages">
-            <h2 className={cn("text-gray-300 mb-6 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>Langues</h2>
+            <h2 className={cn("text-gray-300 mb-6 text-center", sectionTitleClasses)} style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
             <div className="flex justify-center gap-12">
               {cvData.languages?.map((lang, idx) => (
                 <div key={idx} className="text-center">

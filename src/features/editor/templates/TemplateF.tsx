@@ -5,8 +5,9 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle } from '../lib/atsRules';
 
-export function TemplateF({ cvData, designSettings }: TemplateProps) {
+export function TemplateF({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
@@ -39,7 +40,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
 
         {includedSections.includes('personal') && (
           <section data-cv-section="contact" className="space-y-4">
-            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Contact</h2>
+            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>{getSectionTitle('contact', language)}</h2>
             <div className="space-y-3 text-[11px] text-gray-600">
               <p className="flex items-center gap-2"><Mail className="w-3 h-3" /> {cvData.personal_info?.email}</p>
               {cvData.personal_info?.phone && <p className="flex items-center gap-2"><Phone className="w-3 h-3" /> {cvData.personal_info?.phone}</p>}
@@ -51,7 +52,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
 
         {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
           <section data-cv-section="skills" className="space-y-4">
-            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Compétences</h2>
+            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>{getSectionTitle('skills', language)}</h2>
             <div className="space-y-4">
               {cvData.skills?.filter(cat => (cat.displayMode || "normal") !== "hidden").map((cat, idx) => (
                 <div key={idx} className="space-y-1">
@@ -69,7 +70,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
 
         {includedSections.includes('education') && (
           <section data-cv-section="education" className="space-y-4">
-            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Formation</h2>
+            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>{getSectionTitle('education', language)}</h2>
             <div className="space-y-4">
               {cvData.education?.map((edu, idx) => (
                 <div key={idx} className="space-y-0.5">
@@ -84,7 +85,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
 
         {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
           <section data-cv-section="languages" className="space-y-4">
-            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>Langues</h2>
+            <h2 className={cn("border-b pb-2", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20`, fontSize: '10px' }}>{getSectionTitle('languages', language)}</h2>
             <div className="space-y-3">
               {cvData.languages?.map((lang, idx) => (
                 <div key={idx} className="flex justify-between items-center">
@@ -101,7 +102,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary" className="space-y-4">
             <div className="flex items-center gap-4">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>Profil</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>{getSectionTitle('summary', language)}</h2>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info?.summary}</p>
@@ -111,7 +112,7 @@ export function TemplateF({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('experience') && (
           <section data-cv-section="experience" className="space-y-8">
             <div className="flex items-center gap-4">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>Expérience</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.875rem' }}>{getSectionTitle('experience', language)}</h2>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
             <div className="space-y-10">

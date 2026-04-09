@@ -4,9 +4,10 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon } from './shared';
 import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle } from '../lib/atsRules';
 import type { Experience } from '@/src/shared/types';
 
-export function TemplateA({ cvData, designSettings }: TemplateProps) {
+export function TemplateA({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
@@ -54,7 +55,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
   // ─── Section fragments ───
   const experienceSection = includedSections.includes('experience') && (
     <section data-cv-section="experience">
-      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Expérience Professionnelle</h2>
+      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>{getSectionTitle('experience', language)}</h2>
       <div className="space-y-6">
         {cvData.experience?.filter(exp => !isHidden(exp)).map((exp, idx) => renderExperience(exp, idx))}
       </div>
@@ -63,7 +64,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
 
   const summarySection = includedSections.includes('summary') && cvData.personal_info?.summary && (
     <section data-cv-section="summary">
-      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Profil</h2>
+      <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>{getSectionTitle('summary', language)}</h2>
       <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info.summary}</p>
     </section>
   );
@@ -72,7 +73,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
     <div className="space-y-8">
       {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
         <section data-cv-section="skills">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Compétences</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>{getSectionTitle('skills', language)}</h2>
           <div className="space-y-4">
             {cvData.skills?.filter(cat => !isSkillHidden(cat)).map((cat, idx) => (
               <div key={idx} className="space-y-2">
@@ -89,7 +90,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
       )}
       {includedSections.includes('education') && (
         <section data-cv-section="education">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Formation</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>{getSectionTitle('education', language)}</h2>
           <div className="space-y-4">
             {cvData.education?.map((edu, idx) => (
               <div key={idx} className="space-y-1" data-cv-block="education">
@@ -102,7 +103,7 @@ export function TemplateA({ cvData, designSettings }: TemplateProps) {
       )}
       {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
         <section data-cv-section="languages">
-          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>Langues</h2>
+          <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>{getSectionTitle('languages', language)}</h2>
           <div className="space-y-2">
             {cvData.languages?.map((lang, idx) => (
               <div key={idx} className="flex justify-between items-center">

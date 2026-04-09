@@ -5,8 +5,9 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { getSectionTitle } from '../lib/atsRules';
 
-export function TemplateE({ cvData, designSettings }: TemplateProps) {
+export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
   const { primaryColor, secondaryColor } = designSettings;
   const fontClass = getFontClass(designSettings.fontFamily);
   const sectionTitleClasses = useSectionTitleClasses(designSettings);
@@ -42,7 +43,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Profil</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getSectionTitle('summary', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info?.summary}</p>
@@ -52,7 +53,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('experience') && (
           <section data-cv-section="experience">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Expérience</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getSectionTitle('experience', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
             </div>
             <div className="space-y-8">
@@ -81,7 +82,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
           {includedSections.includes('skills') && cvData.skills?.some(cat => (cat.displayMode || 'normal') !== 'hidden') && (
             <section data-cv-section="skills">
               <div className="flex items-center gap-4 mb-6">
-                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Compétences</h2>
+                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getSectionTitle('skills', language)}</h2>
                 <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
               </div>
               <div className="space-y-4">
@@ -102,7 +103,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
           {includedSections.includes('education') && (
             <section data-cv-section="education">
               <div className="flex items-center gap-4 mb-6">
-                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Formation</h2>
+                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getSectionTitle('education', language)}</h2>
                 <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
               </div>
               <div className="space-y-4">
@@ -120,7 +121,7 @@ export function TemplateE({ cvData, designSettings }: TemplateProps) {
         {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
           <section data-cv-section="languages">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Langues</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getSectionTitle('languages', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
             </div>
             <div className="flex flex-wrap gap-x-12 gap-y-4">
