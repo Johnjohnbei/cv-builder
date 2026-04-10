@@ -259,7 +259,13 @@ function allocateOverflowPages(
       const space = pageHeightPx - usedPx;
 
       if (height + MEASUREMENT_SAFETY_PX <= space) {
-        pageBlocks.push({ block });
+        // Mark overflow blocks as continuations so renderers skip the header
+        if (block.id.endsWith('-overflow') && block.subBlocks) {
+          const firstSubIdx = block.subBlocks.findIndex(s => s.type !== 'exp-header' && s.type !== 'skill-title');
+          pageBlocks.push({ block, startSubBlock: Math.max(firstSubIdx, 1), endSubBlock: block.subBlocks.length });
+        } else {
+          pageBlocks.push({ block });
+        }
         usedPx += height + MEASUREMENT_SAFETY_PX;
         continue;
       }
