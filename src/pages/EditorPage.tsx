@@ -13,9 +13,7 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useATSAnalysis } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
-import { MeasurementContainer } from '../features/editor/components/MeasurementContainer';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
-import { getTemplateLayout } from '../features/editor/lib/pagination/templateLayouts';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
@@ -93,7 +91,7 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const { pageAssignments, actualPageCount, heuristicBlocks } = usePaginationFit(
+  const { pageAssignments, actualPageCount } = usePaginationFit(
     cvData, designSettings, selectedTemplate,
   );
   const firstExperiencePage = useMemo(() => {
@@ -1899,20 +1897,6 @@ export default function EditorPage() {
                 />
               </div>
 
-              {/* Hidden measurement container for real DOM height measurement */}
-              <MeasurementContainer
-                blocks={heuristicBlocks}
-                blockRenderers={blockRenderers}
-                designSettings={designSettings}
-                language={currentLanguage}
-                mainWidthMm={getTemplateLayout(selectedTemplate).page1.mainColumnWidthMm}
-                fullWidthMm={getTemplateLayout(selectedTemplate).page2Plus.contentWidthMm}
-                sidebarWidthMm={getTemplateLayout(selectedTemplate).page1.sidebarWidthMm}
-                templateStyle={{
-                  '--primary': designSettings.primaryColor,
-                  '--secondary': designSettings.secondaryColor,
-                } as React.CSSProperties}
-              />
             </div>
           ) : (
             /* Empty state */

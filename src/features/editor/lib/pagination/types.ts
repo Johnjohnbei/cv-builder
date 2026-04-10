@@ -26,8 +26,6 @@ export interface ContentBlock {
   heightPx: number;
   /** Measured height at full-width (pages 2+) */
   fullWidthHeightPx: number;
-  /** Measured height at sidebar width (for blocks placed in sidebar) */
-  sidebarHeightPx?: number;
   /** Can this block be split across pages? */
   splittable: boolean;
   /** Sub-blocks for split calculation (bullets, skill items) */
