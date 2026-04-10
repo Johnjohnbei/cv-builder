@@ -15,6 +15,7 @@ import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { MeasurementContainer } from '../features/editor/components/MeasurementContainer';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
+import { getTemplateLayout } from '../features/editor/lib/pagination/templateLayouts';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
@@ -94,8 +95,7 @@ export default function EditorPage() {
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const { pageAssignments, actualPageCount, heuristicBlocks } = usePaginationFit(
-    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
-    blockRenderers, (designSettings.atsMode ? 'fr' : 'fr') as 'fr' | 'en', measureRef,
+    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData, measureRef,
   );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
@@ -1942,8 +1942,9 @@ export default function EditorPage() {
                 blockRenderers={blockRenderers}
                 designSettings={designSettings}
                 language={currentLanguage}
-                mainWidthMm={140}
-                fullWidthMm={176}
+                mainWidthMm={getTemplateLayout(selectedTemplate).page1.mainColumnWidthMm}
+                fullWidthMm={getTemplateLayout(selectedTemplate).page2Plus.contentWidthMm}
+                sidebarWidthMm={getTemplateLayout(selectedTemplate).page1.sidebarWidthMm}
                 templateStyle={{
                   '--primary': designSettings.primaryColor,
                   '--secondary': designSettings.secondaryColor,

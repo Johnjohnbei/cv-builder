@@ -1,11 +1,14 @@
 // ─── Off-screen Measurement Container ───
-// Renders blocks invisibly at two widths to measure their real DOM heights.
+// Renders blocks invisibly at three widths to measure their real DOM heights.
 
 import { forwardRef } from 'react';
 import type { ContentBlock, BlockRendererMap, PlacedBlock } from '../lib/pagination/types';
 import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { getFontClass } from '../templates/shared';
+
+/** Block types that go into the sidebar column */
+const SIDEBAR_BLOCK_TYPES = new Set(['skill-category', 'education', 'languages']);
 
 interface Props {
   blocks: ContentBlock[];
@@ -14,12 +17,15 @@ interface Props {
   language: SupportedLanguage;
   mainWidthMm: number;
   fullWidthMm: number;
+  sidebarWidthMm: number;
   templateStyle?: React.CSSProperties;
 }
 
 /**
- * Hidden container that renders each block at two widths (main column + full width).
- * Used by useMeasureBlocks to read real offsetHeight values.
+ * Hidden container that renders each block at three widths:
+ * - main column (page 1 experiences)
+ * - full width (pages 2+)
+ * - sidebar width (page 1 sidebar blocks: skills, education, languages)
  */
 export const MeasurementContainer = forwardRef<HTMLDivElement, Props>(
   function MeasurementContainer({
@@ -29,6 +35,7 @@ export const MeasurementContainer = forwardRef<HTMLDivElement, Props>(
     language,
     mainWidthMm,
     fullWidthMm,
+    sidebarWidthMm,
     templateStyle,
   }, ref) {
     const fontClass = getFontClass(designSettings.fontFamily);
@@ -39,6 +46,8 @@ export const MeasurementContainer = forwardRef<HTMLDivElement, Props>(
       const placed: PlacedBlock = { block };
       return renderer({ block: placed, designSettings, language, isPage2Plus: false });
     };
+
+    const sidebarBlocks = blocks.filter(b => SIDEBAR_BLOCK_TYPES.has(b.type));
 
     return (
       <div
@@ -70,6 +79,17 @@ export const MeasurementContainer = forwardRef<HTMLDivElement, Props>(
             </div>
           ))}
         </div>
+
+        {/* Sidebar width (only sidebar-type blocks) */}
+        {sidebarWidthMm > 0 && (
+          <div style={{ width: `${sidebarWidthMm}mm` }} className={fontClass}>
+            {sidebarBlocks.map(block => (
+              <div key={`sidebar-${block.id}`} data-measure-block={block.id} data-measure-width="sidebar">
+                {renderBlock(block)}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   },

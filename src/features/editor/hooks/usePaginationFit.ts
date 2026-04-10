@@ -1,7 +1,6 @@
 import { useEffect, useRef, useMemo } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import type { ContentBlock, PageAssignment, BlockRendererMap } from '../lib/pagination/types';
-import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import type { ContentBlock, PageAssignment } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
 import { allocatePages } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
@@ -26,13 +25,10 @@ export function usePaginationFit(
   userModified: boolean,
   isExporting: boolean,
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>,
-  blockRenderers: BlockRendererMap,
-  language: SupportedLanguage,
   measureRef: React.RefObject<HTMLDivElement | null>,
 ): {
   pageAssignments: PageAssignment[];
   actualPageCount: number;
-  /** Blocks with heuristic heights (for rendering in MeasurementContainer) */
   heuristicBlocks: ContentBlock[];
 } {
   const fitIterations = useRef(0);
@@ -45,19 +41,8 @@ export function usePaginationFit(
     return buildBlocks(cvData);
   }, [cvData]);
 
-  // Step 2: Measure real DOM heights
-  const mainWidthMm = layout.page1.mainColumnWidthMm || layout.page1.contentWidthMm;
-  const fullWidthMm = layout.page2Plus.contentWidthMm;
-
-  const { measuredBlocks, measuring } = useMeasureBlocks(
-    measureRef,
-    heuristicBlocks,
-    blockRenderers,
-    designSettings,
-    language,
-    mainWidthMm,
-    fullWidthMm,
-  );
+  // Step 2: Measure real DOM heights from MeasurementContainer
+  const { measuredBlocks, measuring } = useMeasureBlocks(measureRef, heuristicBlocks);
 
   // Step 3: Allocate pages using measured heights (or heuristics while measuring)
   const activeBlocks = measuring ? heuristicBlocks : measuredBlocks;

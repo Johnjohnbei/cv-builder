@@ -105,11 +105,16 @@ function allocateTwoColumn(
   // Sidebar: fill with skills/education/languages
   // Blocks that don't fit flow to page 2+ as full-width content
   const sidebarOverflow: ContentBlock[] = [];
-  let sidebarUsed = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
+  // Sidebar measurement correction: blocks measured off-screen are ~18% shorter
+  // than when rendered inside a CSS grid context (font inheritance, grid stretching).
+  const SIDEBAR_CORRECTION = 1.2;
+  const headerSidebarH = layout.headerFullWidth ? 0 : ((header?.sidebarHeightPx ?? header?.heightPx ?? 0) * SIDEBAR_CORRECTION);
+  let sidebarUsed = headerSidebarH;
   for (const sb of sidebarBlocks) {
-    if (sidebarUsed + sb.heightPx + MEASUREMENT_SAFETY_PX <= page1Height) {
+    const sbHeight = (sb.sidebarHeightPx ?? sb.heightPx) * SIDEBAR_CORRECTION;
+    if (sidebarUsed + sbHeight + MEASUREMENT_SAFETY_PX <= page1Height) {
       page1Sidebar.push({ block: sb });
-      sidebarUsed += sb.heightPx + MEASUREMENT_SAFETY_PX;
+      sidebarUsed += sbHeight + MEASUREMENT_SAFETY_PX;
     } else {
       sidebarOverflow.push(sb);
     }

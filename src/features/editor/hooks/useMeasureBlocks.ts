@@ -1,61 +1,55 @@
-import { useLayoutEffect, useState, useRef } from 'react';
-import type { ContentBlock, SubBlock, SubBlockType, BlockRendererMap, PlacedBlock } from '../lib/pagination/types';
-import type { DesignSettings } from '@/src/shared/types';
-import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import { useEffect, useState, useRef } from 'react';
+import type { ContentBlock, SubBlock, SubBlockType } from '../lib/pagination/types';
 
 /**
- * Measures real DOM heights for content blocks rendered in a hidden container.
+ * Measures real DOM heights for content blocks rendered in a MeasurementContainer.
  *
- * Renders each block at two widths (main column + full width) using actual
- * block renderers, then reads offsetHeight from the DOM.
+ * Reads offsetHeight from elements with data-measure-block/data-measure-width
+ * attributes at three widths: main, full, and sidebar.
  *
- * Returns measured ContentBlock[] with real pixel heights, replacing heuristic estimates.
+ * Uses useEffect (not useLayoutEffect) to ensure the MeasurementContainer
+ * has fully rendered before reading measurements.
  */
 export function useMeasureBlocks(
   containerRef: React.RefObject<HTMLDivElement | null>,
   blocks: ContentBlock[],
-  blockRenderers: BlockRendererMap,
-  designSettings: DesignSettings,
-  language: SupportedLanguage,
-  mainWidthMm: number,
-  fullWidthMm: number,
 ): { measuredBlocks: ContentBlock[]; measuring: boolean } {
   const [measuredBlocks, setMeasuredBlocks] = useState<ContentBlock[]>(blocks);
   const [measuring, setMeasuring] = useState(true);
-  const prevKey = useRef('');
+  const measureCount = useRef(0);
 
-  // Stable key to detect when blocks change
-  const key = blocks.map(b => b.id).join('|') + `|${mainWidthMm}|${fullWidthMm}`;
+  // Re-measure whenever blocks change (by id list)
+  const blockIds = blocks.map(b => b.id).join('|');
 
-  useLayoutEffect(() => {
-    if (key === prevKey.current || blocks.length === 0) {
-      if (blocks.length === 0) {
-        setMeasuredBlocks([]);
-        setMeasuring(false);
-      }
-      return;
-    }
-    prevKey.current = key;
-
-    const container = containerRef.current;
-    if (!container) {
-      setMeasuredBlocks(blocks);
+  useEffect(() => {
+    if (blocks.length === 0) {
+      setMeasuredBlocks([]);
       setMeasuring(false);
       return;
     }
 
-    // Wait for paint
+    setMeasuring(true);
+
+    // Wait for paint + MeasurementContainer render
     const raf = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (!container) {
+        setMeasuredBlocks(blocks);
+        setMeasuring(false);
+        return;
+      }
+
       const measured: ContentBlock[] = [];
 
       for (const block of blocks) {
-        // Read main-column height
         const mainEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="main"]`) as HTMLElement | null;
         const mainH = mainEl ? mainEl.offsetHeight : block.heightPx;
 
-        // Read full-width height
         const fullEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="full"]`) as HTMLElement | null;
         const fullH = fullEl ? fullEl.offsetHeight : block.fullWidthHeightPx;
+
+        const sidebarEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="sidebar"]`) as HTMLElement | null;
+        const sidebarH = sidebarEl ? sidebarEl.offsetHeight : undefined;
 
         // Read sub-block heights for splittable blocks
         let subBlocks: SubBlock[] | undefined = block.subBlocks;
@@ -74,16 +68,18 @@ export function useMeasureBlocks(
           ...block,
           heightPx: mainH,
           fullWidthHeightPx: fullH,
+          sidebarHeightPx: sidebarH,
           subBlocks,
         });
       }
 
+      measureCount.current++;
       setMeasuredBlocks(measured);
       setMeasuring(false);
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [key, containerRef, blocks]);
+  }, [blockIds, containerRef, blocks]);
 
   return { measuredBlocks, measuring };
 }
