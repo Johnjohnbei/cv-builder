@@ -177,7 +177,7 @@ export function scoreRelevance(cvData: CVData, jobDescription: string, language:
   const suggestions = missing
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 5)
-    .map(m => `Consider adding keyword: ${m.term}`);
+    .map(m => `Pensez à ajouter le mot-clé : ${m.term}`);
 
   return { score, suggestions };
 }

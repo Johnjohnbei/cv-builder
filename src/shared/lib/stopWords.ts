@@ -11,6 +11,8 @@ export const STOP_WORDS = new Set([
   'quels', 'quelles', 'quelque', 'quelques', 'autre', 'autres',
   'fait', 'faire', 'été', 'peut', 'fera', 'font', 'faut', 'doit',
   'sera', 'seront', 'était', 'étaient', 'ont', 'avait',
+  'êtes', 'sommes', 'suis', 'avez', 'avons', 'serez', 'serons',
+  'étais', 'étiez', 'étions', 'aurais', 'aurait', 'auraient',
   'tous', 'toute', 'toutes', 'aucun', 'aucune', 'tant', 'peu', 'trop',
   'encore', 'déjà', 'alors', 'ainsi', 'jamais', 'toujours',
   'souvent', 'parfois', 'seulement', 'vraiment', 'environ',

@@ -900,6 +900,19 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, experience: newExp} : null);
                             }}
                           />
+                          {/* ─── Intro (short role description) ─── */}
+                          <textarea
+                            className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[9px] mt-1 focus:outline-none focus:border-blue-600 resize-none"
+                            rows={2}
+                            value={exp.intro || ''}
+                            placeholder="Description courte du rôle (1-2 lignes, optionnel)"
+                            onChange={(e) => {
+                              const newExp = [...(cvData?.experience || [])];
+                              newExp[idx] = { ...newExp[idx], intro: e.target.value };
+                              setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                            }}
+                          />
+
                           <div className="grid grid-cols-3 gap-2 mt-1">
                             <input
                               className="bg-white border border-gray-200 rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-blue-600"

@@ -224,9 +224,9 @@ export function scoreFormat(cvData: CVData, design: DesignSettings, language: 'f
     score += 25;
   } else if (compat === 'limited') {
     score += 10;
-    suggestions.push('Consider using a single-column ATS-friendly template');
+    suggestions.push('Utilisez un template mono-colonne compatible ATS');
   } else {
-    suggestions.push('Unknown template — ATS compatibility uncertain');
+    suggestions.push('Template inconnu — compatibilité ATS incertaine');
   }
 
   // Section names (25 pts)
@@ -237,26 +237,26 @@ export function scoreFormat(cvData: CVData, design: DesignSettings, language: 'f
   score += sectionScore;
   if (sectionCount < essentialSections.length) {
     const missing = essentialSections.filter(s => !included.includes(s));
-    suggestions.push(`Missing sections: ${missing.join(', ')}`);
+    suggestions.push(`Sections manquantes : ${missing.join(', ')}`);
   }
 
   // Font safety (25 pts)
   if (isFontATSSafe(design.fontFamily)) {
     score += 25;
   } else {
-    suggestions.push('Use an ATS-safe font (Arial, Calibri, Helvetica, Times New Roman, Georgia)');
+    suggestions.push('Utilisez une police compatible ATS (Arial, Calibri, Helvetica, Times New Roman, Georgia)');
   }
 
   // Contact info (25 pts)
   if (hasEmail(cvData.personal_info.email)) {
     score += 12.5;
   } else {
-    suggestions.push('Add a valid email address');
+    suggestions.push('Ajoutez une adresse email valide');
   }
   if (hasPhone(cvData.personal_info.phone)) {
     score += 12.5;
   } else {
-    suggestions.push('Add a phone number');
+    suggestions.push('Ajoutez un numéro de téléphone');
   }
 
   // SVG icon check placeholder per D-05: assume no icons = full points (0 pts allocated)
@@ -277,7 +277,7 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   // Collect all bullet points
   const bullets = cvData.experience.flatMap(exp => exp.description ?? []);
   if (bullets.length === 0) {
-    return { score: 0, suggestions: ['Add experience bullet points'] };
+    return { score: 0, suggestions: ['Ajoutez des bullet points d\'expérience'] };
   }
 
   let score = 0;
@@ -288,7 +288,7 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   const metricsScore = Math.round(Math.min(metricsRatio / 0.5, 1) * 25);
   score += metricsScore;
   if (metricsRatio < 0.5) {
-    suggestions.push('Add quantifiable metrics (numbers, %, $) to more bullet points');
+    suggestions.push('Ajoutez des métriques chiffrées (nombres, %, €) à davantage de bullet points');
   }
 
   // Weak verb check (25 pts): % of bullets NOT starting with weak verb
@@ -296,14 +296,14 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   const strongRatio = (bullets.length - weakCount) / bullets.length;
   score += Math.round(strongRatio * 25);
   if (weakCount > 0) {
-    suggestions.push('Replace weak verbs (helped, worked on, assisted) with strong action verbs');
+    suggestions.push('Remplacez les verbes faibles (aidé, travaillé, assisté) par des verbes d\'action forts');
   }
 
   // Bullet length check (20 pts): % of bullets with 5-30 words
   const goodLengthCount = bullets.filter(isBulletLengthOK).length;
   score += Math.round((goodLengthCount / bullets.length) * 20);
   if (goodLengthCount < bullets.length) {
-    suggestions.push('Keep bullet points between 5-30 words');
+    suggestions.push('Gardez les bullet points entre 5 et 30 mots');
   }
 
   // Essential sections check (15 pts): infer from data
@@ -314,14 +314,14 @@ export function scoreContent(cvData: CVData, language: 'fr' | 'en'): SubScoreRes
   if (cvData.personal_info.summary) sectionPoints += 3.75;
   score += Math.round(sectionPoints);
   if (sectionPoints < 15) {
-    suggestions.push('Include all essential sections: experience, education, skills, summary');
+    suggestions.push('Incluez toutes les sections essentielles : expérience, formation, compétences, résumé');
   }
 
   // Skills not empty (15 pts)
   if (cvData.skills.length > 0 && cvData.skills.some(s => s.items.length > 0)) {
     score += 15;
   } else {
-    suggestions.push('Add skills to improve ATS keyword matching');
+    suggestions.push('Ajoutez des compétences pour améliorer la correspondance ATS');
   }
 
   return { score: Math.max(0, Math.min(100, score)), suggestions };

@@ -209,7 +209,7 @@ function renderSuggestionAction(
   isAtsMode?: boolean,
 ) {
   const lower = suggestion.toLowerCase();
-  if ((lower.includes('competence') || lower.includes('skill')) && onAddSkill) {
+  if ((lower.includes('competence') || lower.includes('compétence') || lower.includes('skill')) && onAddSkill) {
     const match = suggestion.match(/["\u00AB]([^"\u00BB]+)["\u00BB]/);
     const skill = match?.[1] ?? '';
     if (skill) {
