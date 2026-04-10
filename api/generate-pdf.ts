@@ -130,12 +130,12 @@ export async function POST(request: Request): Promise<Response> {
   const validation = validatePayload(body);
   if (!validation.valid) {
     return new Response(
-      JSON.stringify({ error: validation.error }),
+      JSON.stringify({ error: (validation as { valid: false; error: string }).error }),
       { status: 400, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
-  const { html, styles, pageLimit } = validation.data;
+  const { html, styles, pageLimit } = (validation as { valid: true; data: GeneratePDFRequest }).data;
 
   // Generate PDF
   let browser;
