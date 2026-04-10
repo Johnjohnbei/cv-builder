@@ -19,8 +19,18 @@ function estimateTextHeight(text: string, charsPerLine: number): number {
 }
 
 /**
+ * Global safety multiplier applied to ALL height estimates.
+ * Better to overestimate (extra page) than underestimate (clipped content).
+ */
+const SAFETY_MULTIPLIER = 1.3;
+
+function safe(px: number): number {
+  return Math.ceil(px * SAFETY_MULTIPLIER);
+}
+
+/**
  * Build ContentBlock descriptors from CVData with estimated heights.
- * Each block maps to a single measurable/renderable unit in the pagination engine.
+ * All heights include a 30% safety margin to prevent clipping.
  */
 export function buildBlocks(cvData: CVData): ContentBlock[] {
   const blocks: ContentBlock[] = [];
@@ -31,8 +41,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'header',
       type: 'header',
-      heightPx: 100 + titleLines * 24 + 30,
-      fullWidthHeightPx: 100 + titleLines * 24 + 20,
+      heightPx: safe(100 + titleLines * 24 + 30),
+      fullWidthHeightPx: safe(100 + titleLines * 24 + 20),
       splittable: false,
       data: cvData.personal_info,
     });
@@ -45,8 +55,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'summary',
       type: 'summary',
-      heightPx: h,
-      fullWidthHeightPx: SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_WIDE) + 16,
+      heightPx: safe(h),
+      fullWidthHeightPx: safe(SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_WIDE) + 16),
       splittable: false,
       data: cvData.personal_info.summary,
     });
@@ -90,8 +100,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: `exp-${idx}`,
       type: 'experience',
-      heightPx: totalH,
-      fullWidthHeightPx: totalHFull,
+      heightPx: safe(totalH),
+      fullWidthHeightPx: safe(totalHFull),
       splittable: bullets.length >= 2,
       subBlocks,
       data: exp,
@@ -119,8 +129,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: `skill-${idx}`,
       type: 'skill-category',
-      heightPx: titleH + rowsNarrow * rowH + 8,
-      fullWidthHeightPx: titleH + rowsWide * rowH + 8,
+      heightPx: safe(titleH + rowsNarrow * rowH + 8),
+      fullWidthHeightPx: safe(titleH + rowsWide * rowH + 8),
       splittable: items.length >= 6,
       subBlocks,
       data: cat,
@@ -132,8 +142,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: SECTION_TITLE_H + cvData.education.length * 55,
-      fullWidthHeightPx: SECTION_TITLE_H + cvData.education.length * 40,
+      heightPx: safe(SECTION_TITLE_H + cvData.education.length * 55),
+      fullWidthHeightPx: safe(SECTION_TITLE_H + cvData.education.length * 40),
       splittable: false,
       data: cvData.education,
     });
@@ -144,8 +154,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'languages',
       type: 'languages',
-      heightPx: SECTION_TITLE_H + cvData.languages.length * 26,
-      fullWidthHeightPx: SECTION_TITLE_H + cvData.languages.length * 26,
+      heightPx: safe(SECTION_TITLE_H + cvData.languages.length * 26),
+      fullWidthHeightPx: safe(SECTION_TITLE_H + cvData.languages.length * 26),
       splittable: false,
       data: cvData.languages,
     });

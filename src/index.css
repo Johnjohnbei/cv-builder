@@ -238,19 +238,6 @@ body {
     padding: 0 !important;
   }
 
-  /* Hide everything except the print-ready export container */
-  body * {
-    visibility: hidden;
-  }
-  [data-print-export], [data-print-export] * {
-    visibility: visible !important;
-  }
-  [data-print-export] {
-    position: static !important;
-    left: auto !important;
-    top: auto !important;
-  }
-
   /* Pre-paginated pages: each .cv-page is exactly one A4 sheet */
   .cv-page {
     width: 210mm;
