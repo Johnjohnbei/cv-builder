@@ -56,7 +56,7 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
 
   return (
     <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
-      <h2 className="text-gray-400 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
+      <h2 className="text-gray-400 mb-2 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
       <p className="text-sm text-gray-600 leading-relaxed italic">"{summary}"</p>
     </section>
   );
@@ -171,7 +171,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="text-gray-400 mb-6 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('education', language)}</h2>
+      <h2 className="text-gray-400 mb-3 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('education', language)}</h2>
       <div className="space-y-4">
         {educations.map((edu, idx) => (
           <div key={idx} data-cv-block="education">
@@ -189,7 +189,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="text-gray-400 mb-6 text-center font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
+      <h2 className="text-gray-400 mb-3 text-center font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
       <div className="flex justify-center gap-12">
         {languages.map((lang, idx) => (
           <div key={idx} className="text-center">

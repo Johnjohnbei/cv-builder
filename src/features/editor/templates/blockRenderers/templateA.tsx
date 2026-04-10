@@ -56,7 +56,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <div data-cv-section="header" className={cn("border-b-2 pb-8 mb-8 flex justify-between items-start", atsMode && "border-gray-200")} style={atsMode ? undefined : { borderColor: designSettings.primaryColor }}>
+    <div data-cv-section="header" className={cn("border-b-2 pb-4 mb-2 flex justify-between items-start", atsMode && "border-gray-200")} style={atsMode ? undefined : { borderColor: designSettings.primaryColor }}>
       <div className="flex-1">
         <h1 className="text-4xl font-bold tracking-tighter uppercase" style={{ color: atsMode ? '#000' : designSettings.primaryColor }}>{data?.name}</h1>
         <p className="text-xl font-medium mt-1 text-gray-600">{data?.title}</p>
@@ -73,7 +73,7 @@ function SummaryBlock({ block, designSettings }: BlockRendererProps) {
 
   return (
     <section data-cv-section="summary">
-      <h2 className="text-sm border-b pb-2 mb-4 font-bold uppercase tracking-wider" style={sectionStyle}>Profil</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Profil</h2>
       <p className="text-sm text-gray-600 leading-relaxed">{summary}</p>
     </section>
   );
@@ -171,7 +171,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="text-sm border-b pb-2 mb-4 font-bold uppercase tracking-wider" style={sectionStyle}>Formation</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Formation</h2>
       <div className="space-y-4">
         {educations.map((edu, idx) => (
           <div key={idx} className="space-y-1" data-cv-block="education">
@@ -190,7 +190,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="text-sm border-b pb-2 mb-4 font-bold uppercase tracking-wider" style={sectionStyle}>Langues</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Langues</h2>
       <div className="space-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center">

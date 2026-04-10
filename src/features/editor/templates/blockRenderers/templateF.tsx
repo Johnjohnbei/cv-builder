@@ -52,7 +52,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <div data-cv-section="header" className="space-y-4">
+    <div data-cv-section="header" className="space-y-3">
       {showPhoto && data?.photo_url ? (
         renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-full border-2 border-white")
       ) : (
@@ -66,9 +66,9 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       </div>
 
       {/* Contact info in sidebar with icons */}
-      <div className="space-y-3 text-[11px] text-gray-600 pt-4">
+      <div className="space-y-2 text-[11px] text-gray-600 pt-2">
         {getSidebarSectionHeader('Contact', primaryColor)}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-2 pt-1">
           {data?.email && <p className="flex items-center gap-2"><Mail className="w-3 h-3" /> {data.email}</p>}
           {data?.phone && <p className="flex items-center gap-2"><Phone className="w-3 h-3" /> {data.phone}</p>}
           {data?.location && <p className="flex items-center gap-2"><MapPin className="w-3 h-3" /> {data.location}</p>}
@@ -84,7 +84,7 @@ function SummaryBlock({ block, designSettings }: BlockRendererProps) {
   const { primaryColor } = designSettings;
 
   return (
-    <section data-cv-section="summary" className="space-y-4">
+    <section data-cv-section="summary" className="space-y-2">
       <div className="flex items-center gap-4">
         <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{getSectionTitle('summary', 'fr')}</h2>
         <div className="flex-1 h-px bg-gray-100" />

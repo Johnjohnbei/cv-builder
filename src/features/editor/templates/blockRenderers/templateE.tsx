@@ -35,7 +35,7 @@ function getSlicedBullets(exp: Experience, placed: PlacedBlock): { intro: string
 
 function getSectionHeader(title: string, primaryColor: string, atsMode?: boolean) {
   return (
-    <div className="flex items-center gap-4 mb-6">
+    <div className="flex items-center gap-4 mb-3">
       <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{title}</h2>
       <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
     </div>
@@ -52,7 +52,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <div data-cv-section="header" className="flex justify-between items-start mb-12">
+    <div data-cv-section="header" className="flex justify-between items-start mb-4">
       <div className="flex gap-8 items-start">
         {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-xl border-2 border-gray-100")}
         <div className="space-y-1">

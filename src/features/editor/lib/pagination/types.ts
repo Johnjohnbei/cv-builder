@@ -91,8 +91,8 @@ export const A4_HEIGHT_MM = 297;
 export const A4_WIDTH_MM = 210;
 /** Minimum sub-blocks to keep on current page before splitting */
 export const MIN_KEEP_SUB_BLOCKS = 2;
-/** Inter-block gap in px — matches CSS space-y-6 (24px) / space-y-8 (32px) average */
-export const MEASUREMENT_SAFETY_PX = 28;
+/** Inter-block gap in px — matches CSS space-y-4 (16px) used in CVPage columns */
+export const MEASUREMENT_SAFETY_PX = 16;
 
 // ─── Block Renderer Interface ───
 

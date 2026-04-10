@@ -43,8 +43,8 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const nameParts = data?.name?.split(' ') ?? [];
 
   return (
-    <div data-cv-section="header" className="pb-8 mb-8" style={{ backgroundColor: `${primaryColor}10` }}>
-      <div className="p-16 pb-8">
+    <div data-cv-section="header" className="pb-4 mb-2" style={{ backgroundColor: `${primaryColor}10` }}>
+      <div className="p-12 pb-4">
         <div className="flex justify-between items-start">
           <div className="flex gap-8 items-start">
             {renderPhoto(cvDataShim, showPhoto, "w-32 h-32 rounded-none border-4 border-black")}
@@ -168,7 +168,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="italic mb-6 underline decoration-4 underline-offset-4 text-lg font-bold uppercase tracking-wider" style={{ textDecorationColor: secondaryColor, color: designSettings.primaryColor }}>Formation</h2>
+      <h2 className="italic mb-3 underline decoration-4 underline-offset-4 text-lg font-bold uppercase tracking-wider" style={{ textDecorationColor: secondaryColor, color: designSettings.primaryColor }}>Formation</h2>
       <div className="space-y-6">
         {educations.map((edu, idx) => (
           <div key={idx} className="space-y-1" data-cv-block="education">
@@ -188,7 +188,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="italic mb-6 underline decoration-4 underline-offset-4 text-lg font-bold uppercase tracking-wider" style={{ textDecorationColor: secondaryColor, color: designSettings.primaryColor }}>Langues</h2>
+      <h2 className="italic mb-3 underline decoration-4 underline-offset-4 text-lg font-bold uppercase tracking-wider" style={{ textDecorationColor: secondaryColor, color: designSettings.primaryColor }}>Langues</h2>
       <div className="space-y-4">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center">

@@ -76,18 +76,18 @@ export function CVPage({
           <div className={cn('grid h-full', gridClass)}>
             {sidebarPosition === 'left' ? (
               <>
-                <div className={cn('space-y-8', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
-                <div className={cn('space-y-6', mainClassName)}>{children}</div>
+                <div className={cn('space-y-4', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
+                <div className={cn('space-y-4', mainClassName)}>{children}</div>
               </>
             ) : (
               <>
-                <div className={cn('space-y-6', mainClassName)}>{children}</div>
-                <div className={cn('space-y-8', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
+                <div className={cn('space-y-4', mainClassName)}>{children}</div>
+                <div className={cn('space-y-4', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
               </>
             )}
           </div>
         ) : (
-          <div className="space-y-6">{children}</div>
+          <div className="space-y-4">{children}</div>
         )}
       </div>
     </div>
