@@ -25,3 +25,4 @@ export {
 export { TEMPLATE_LAYOUTS, getTemplateLayout } from './templateLayouts';
 export { splitBlock, getPlacedBlockHeight } from './splitBlock';
 export { allocatePages } from './allocatePages';
+export { buildBlocks } from './buildBlocks';
