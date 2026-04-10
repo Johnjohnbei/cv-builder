@@ -43,19 +43,19 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const nameParts = data?.name?.split(' ') ?? [];
 
   return (
-    <div data-cv-section="header" className="pb-4 mb-2" style={{ backgroundColor: `${primaryColor}10` }}>
-      <div className="p-12 pb-4">
+    <div data-cv-section="header" className="pb-3 mb-2" style={{ backgroundColor: `${primaryColor}10` }}>
+      <div className="px-10 py-6">
         <div className="flex justify-between items-start">
-          <div className="flex gap-8 items-start">
-            {renderPhoto(cvDataShim, showPhoto, "w-32 h-32 rounded-none border-4 border-black")}
-            <div className="space-y-2">
-              <h1 className="text-6xl font-black italic tracking-tighter" style={{ color: primaryColor }}>
-                {nameParts[0]}<br/>{nameParts.slice(1).join(' ')}
+          <div className="flex gap-5 items-start">
+            {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-none border-4 border-black")}
+            <div className="space-y-1">
+              <h1 className="text-3xl font-black italic tracking-tighter" style={{ color: primaryColor }}>
+                {data?.name}
               </h1>
-              <p className="text-xl font-bold uppercase tracking-widest" style={{ color: secondaryColor }}>{data?.title}</p>
+              <p className="text-sm font-bold uppercase tracking-widest" style={{ color: secondaryColor }}>{data?.title}</p>
             </div>
           </div>
-          <div className="text-right space-y-1 text-xs font-bold font-mono">
+          <div className="text-right space-y-0.5 text-[10px] font-bold font-mono shrink-0">
             <p>{data?.email}</p>
             {data?.phone && <p>{data.phone}</p>}
             {data?.location && <p>{data.location}</p>}

@@ -64,7 +64,10 @@ export const SKILL_CATEGORY_NAMES = {
 
 /** Returns the display name for a skill category key in the given language. */
 export function getSkillCategoryTitle(key: SkillCategoryKey, language: 'fr' | 'en'): string {
-  return SKILL_CATEGORY_NAMES[language][key] ?? key;
+  const known = SKILL_CATEGORY_NAMES[language][key];
+  if (known) return known;
+  // Format unknown keys: "design_systems" → "Design Systems"
+  return key.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 // --- ATS-Safe Fonts & Styles ---

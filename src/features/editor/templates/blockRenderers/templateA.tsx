@@ -58,11 +58,11 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   return (
     <div data-cv-section="header" className={cn("border-b-2 pb-4 mb-2 flex justify-between items-start", atsMode && "border-gray-200")} style={atsMode ? undefined : { borderColor: designSettings.primaryColor }}>
       <div className="flex-1">
-        <h1 className="text-4xl font-bold tracking-tighter uppercase" style={{ color: atsMode ? '#000' : designSettings.primaryColor }}>{data?.name}</h1>
-        <p className="text-xl font-medium mt-1 text-gray-600">{data?.title}</p>
-        {renderContactInfo(cvDataShim, atsMode, "mt-4 text-gray-500 text-xs font-mono")}
+        <h1 className="text-2xl font-bold tracking-tighter uppercase" style={{ color: atsMode ? '#000' : designSettings.primaryColor }}>{data?.name}</h1>
+        <p className="text-sm font-medium mt-1 text-gray-600">{data?.title}</p>
+        {renderContactInfo(cvDataShim, atsMode, "mt-2 text-gray-500 text-[10px] font-mono")}
       </div>
-      {renderPhoto(cvDataShim, showPhoto, "w-28 h-28 rounded-lg border-2 border-gray-100")}
+      {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-lg border-2 border-gray-100")}
     </div>
   );
 }

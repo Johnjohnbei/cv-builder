@@ -42,11 +42,11 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <header data-cv-section="header" className="text-center space-y-4 flex flex-col items-center">
-      {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}
-      <h1 className="text-5xl font-light tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
-      <p className="text-sm uppercase tracking-[0.3em] text-gray-500">{data?.title}</p>
-      {renderContactInfo(cvDataShim, designSettings.atsMode, "justify-center text-[10px] font-mono text-gray-500 uppercase tracking-widest")}
+    <header data-cv-section="header" className="text-center space-y-2 flex flex-col items-center">
+      {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-full mb-1 border-2 border-gray-100")}
+      <h1 className="text-3xl font-light tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
+      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{data?.title}</p>
+      {renderContactInfo(cvDataShim, designSettings.atsMode, "justify-center text-[9px] font-mono text-gray-500 uppercase tracking-widest")}
     </header>
   );
 }

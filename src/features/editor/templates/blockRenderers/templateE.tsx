@@ -52,15 +52,15 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <div data-cv-section="header" className="flex justify-between items-start mb-4">
-      <div className="flex gap-8 items-start">
-        {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-xl border-2 border-gray-100")}
-        <div className="space-y-1">
-          <h1 className="text-5xl font-extrabold tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
-          <p className="text-lg font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
+    <div data-cv-section="header" className="flex justify-between items-start mb-3">
+      <div className="flex gap-4 items-center">
+        {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-xl border-2 border-gray-100")}
+        <div className="space-y-0.5">
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
+          <p className="text-sm font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
         </div>
       </div>
-      {renderContactInfo(cvDataShim, atsMode, cn("text-xs opacity-75", atsMode ? "flex-wrap" : "flex-col text-right space-y-1"))}
+      {renderContactInfo(cvDataShim, atsMode, cn("text-[10px] opacity-75", atsMode ? "flex-wrap" : "flex-col text-right space-y-0.5"))}
     </div>
   );
 }
