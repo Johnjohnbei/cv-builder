@@ -22,7 +22,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full min-h-full bg-white px-16 pt-16 pb-10 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <div className="flex justify-between items-start mb-12">
           <div className="flex gap-8 items-start">

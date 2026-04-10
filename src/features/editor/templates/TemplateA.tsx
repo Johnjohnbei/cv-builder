@@ -125,7 +125,7 @@ export function TemplateA({ cvData, designSettings, language }: TemplateProps) {
 
   // ─── Layout: conditional on pageLimit ───
   return (
-    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 pdf-safe", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full min-h-full bg-white px-16 pt-16 pb-10 pdf-safe", fontClass)}>
       {/* Header */}
       {includedSections.includes('personal') && (
         <div data-cv-section="header" className={cn("border-b-2 pb-8 mb-8 flex justify-between items-start", atsMode && "border-gray-200")} style={atsMode ? undefined : { borderColor: primaryColor }}>

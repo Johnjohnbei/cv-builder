@@ -7,16 +7,11 @@ interface GeneratePDFRequest {
   pageLimit: number;
 }
 
-// ─── HTML wrapper ───
+// ─── PDF CSS (mirror of src/features/editor/lib/pdfStyles.ts) ───
+// Keep in sync with the canonical source. Cannot import from src/ in serverless context.
 
-function wrapHtml(html: string, styles: string, pageLimit: number): string {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>CV Export</title>
-  ${styles}
-  <style>
+function getPdfCss(): string {
+  return `
     @page {
       size: A4 portrait;
       margin: 0 !important;
@@ -25,10 +20,15 @@ function wrapHtml(html: string, styles: string, pageLimit: number): string {
       margin: 0 !important;
       padding: 0 !important;
       width: 210mm;
-      min-height: ${297 * pageLimit}mm;
       height: auto;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+    }
+    .pdf-safe {
+      padding-bottom: 10mm !important;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
     }
     [data-cv-block] {
       break-inside: avoid !important;
@@ -42,7 +42,19 @@ function wrapHtml(html: string, styles: string, pageLimit: number): string {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
-  </style>
+  `;
+}
+
+// ─── HTML wrapper ───
+
+function wrapHtml(html: string, styles: string, pageLimit: number): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CV Export</title>
+  ${styles}
+  <style>${getPdfCss()}</style>
 </head>
 <body>
   ${html}

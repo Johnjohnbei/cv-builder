@@ -227,15 +227,22 @@ body {
 /* ─── Print styles ─── */
 @media print {
   @page {
-    margin: 5mm;
     size: A4 portrait;
+    margin: 0;
   }
-  
+
   body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  
+
+  /* Template root must flow naturally, not fill fixed height */
+  .pdf-safe {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
   /* Individual blocks should not be split across pages */
   [data-cv-block] {
     break-inside: avoid !important;

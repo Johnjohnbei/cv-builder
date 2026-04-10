@@ -1856,55 +1856,41 @@ export default function EditorPage() {
           onLanguageChange={setCurrentLanguage}
         />
 
-        <div 
+        <div
           ref={previewContainerRef}
           className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
-          {/* Scaled Wrapper — height = pageLimit × A4 height */}
-          <div 
-            style={{ 
+          {/* Scaled wrapper — reserves exact space for the scaled CV */}
+          <div
+            style={{
               width: `${210 * (zoom / 100)}mm`,
-              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
-              minHeight: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
-              marginBottom: '100px'
+              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100) + ((designSettings.pageLimit || 1) - 1) * 24}px`,
+              marginBottom: '100px',
             }}
             className="relative shrink-0"
           >
-            <div 
+            {/* Single CV render — constrained height for overflow detection + export */}
+            <div
               ref={cvRef}
-              style={{ 
+              style={{
                 transform: `scale(${zoom / 100})`,
                 transformOrigin: 'top left',
                 width: '210mm',
                 height: `${297 * (designSettings.pageLimit || 1)}mm`,
                 position: 'absolute',
                 top: 0,
-                left: 0
+                left: 0,
               }}
-              className={cn(
-                "bg-white shadow-2xl border border-[#DADCE0] pdf-safe overflow-hidden",
-              )}
+              className="bg-white shadow-2xl border border-[#DADCE0] pdf-safe overflow-hidden"
             >
-              {/* Page break indicators for pages 2+ */}
-              {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => (
-                <div 
-                  key={i}
-                  className="absolute left-0 w-full border-t-2 border-dashed border-blue-300 z-50 pointer-events-none"
-                  style={{ top: `${297 * (i + 1)}mm` }}
-                >
-                  <div className="absolute top-0 right-0 bg-blue-50 text-blue-500 text-[8px] px-2 py-0.5 rounded-bl font-mono uppercase tracking-wider">
-                    Page {i + 2}
-                  </div>
-                </div>
-              ))}
               {cvData ? renderCV() : (
                 <div className="h-full flex items-center justify-center p-8">
                   <div className="text-center max-w-sm">
                     <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-sm font-bold text-gray-700 mb-2">Aucun CV chargé</h3>
                     <p className="text-xs text-gray-500 mb-6">Importez un CV depuis le dashboard ou créez-en un nouveau pour commencer l'édition.</p>
-                    <Link 
-                      to="/dashboard" 
+                    <Link
+                      to="/dashboard"
                       className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <ArrowLeft className="w-4 h-4" />
@@ -1914,6 +1900,28 @@ export default function EditorPage() {
                 </div>
               )}
             </div>
+
+            {/* Page gap overlays — visual separation between pages (not exported) */}
+            {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => {
+              const gapTop = 297 * (i + 1) * (zoom / 100);
+              return (
+                <div
+                  key={i}
+                  className="absolute left-0 w-full pointer-events-none"
+                  style={{ top: `${gapTop}mm`, zIndex: 60 }}
+                >
+                  {/* Gray strip to visually separate pages */}
+                  <div
+                    className="w-full bg-[#F1F3F4] flex items-center justify-center"
+                    style={{ height: '24px' }}
+                  >
+                    <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">
+                      Page {i + 2}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </main>

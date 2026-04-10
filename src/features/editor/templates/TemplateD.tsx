@@ -21,7 +21,7 @@ export function TemplateD({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-[#FDFCFB] p-0 pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full min-h-full bg-[#FDFCFB] p-0 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <div className="p-16 pb-8" style={{ backgroundColor: `${primaryColor}10` }}>
           <div className="flex justify-between items-start">

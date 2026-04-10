@@ -22,7 +22,7 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white pdf-safe", !atsMode && "grid grid-cols-[1fr_2fr]", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full min-h-full bg-white pdf-safe", !atsMode && "grid grid-cols-[1fr_2fr]", fontClass)}>
       <div className={cn("p-12 flex flex-col justify-between", atsMode && "bg-white text-gray-900")} style={atsMode ? undefined : { backgroundColor: primaryColor, color: '#ffffff' }}>
         <div>
           {includedSections.includes('personal') && (

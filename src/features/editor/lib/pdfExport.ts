@@ -1,5 +1,6 @@
 import type { DesignSettings } from '@/src/shared/types';
 import { validateCVTextExtractability, type ValidationResult } from './pdfValidation';
+import { getPdfCss } from './pdfStyles';
 
 // ─── Types ───
 
@@ -157,7 +158,6 @@ export function renderPDF(
   clone.style.top = '0';
   clone.style.left = '0';
   clone.style.width = '210mm';
-  clone.style.minHeight = `${297 * pageLimit}mm`;
   clone.style.height = 'auto';
   clone.style.overflow = 'visible';
   clone.style.border = 'none';
@@ -173,39 +173,7 @@ export function renderPDF(
   ${styleLinks}
   <style>
     ${inlineStyles}
-
-    @page {
-      size: A4 portrait;
-      margin: 0;
-    }
-
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      width: 210mm;
-      min-height: ${297 * pageLimit}mm;
-      height: auto;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* Individual blocks (one experience entry) should not be split */
-    [data-cv-block] {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
-    }
-
-    /* Section headers must stay with their content */
-    [data-cv-section] > h2 {
-      break-after: avoid !important;
-      page-break-after: avoid !important;
-    }
-
-    /* Keep bullet list items together */
-    [data-cv-block] li {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
-    }
+    ${getPdfCss(pageLimit)}
   </style>
 </head>
 <body>

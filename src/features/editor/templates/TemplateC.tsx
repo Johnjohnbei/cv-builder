@@ -22,7 +22,7 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full h-full bg-white px-16 pt-16 pb-20 space-y-8 pdf-safe", fontClass)}>
+    <div style={{ ...commonStyles, ...getAtsFontStyle(atsMode) }} className={cn("w-full min-h-full bg-white px-16 pt-16 pb-10 space-y-8 pdf-safe", fontClass)}>
       {includedSections.includes('personal') && (
         <header className="text-center space-y-4 flex flex-col items-center">
           {renderPhoto(cvData, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}

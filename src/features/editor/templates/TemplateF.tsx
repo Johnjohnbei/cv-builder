@@ -21,7 +21,7 @@ export function TemplateF({ cvData, designSettings, language }: TemplateProps) {
   } as React.CSSProperties;
 
   return (
-    <div style={commonStyles} className={cn("w-full h-full bg-white grid grid-cols-[260px_1fr] pdf-safe", fontClass)}>
+    <div style={commonStyles} className={cn("w-full min-h-full bg-white grid grid-cols-[260px_1fr] pdf-safe", fontClass)}>
       <aside className="p-12 border-r border-gray-100 space-y-8" style={{ backgroundColor: `${primaryColor}05` }}>
         {includedSections.includes('personal') && (
           <div className="space-y-4">
