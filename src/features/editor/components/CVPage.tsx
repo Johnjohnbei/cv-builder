@@ -71,7 +71,7 @@ export function CVPage({
         />
       )}
 
-      <div className={cn(paddingClass, isPage2Plus && accentColor && 'pl-20')}>
+      <div className={cn('h-full', paddingClass, isPage2Plus && accentColor && 'pl-20')}>
         {showSidebar ? (
           <div className={cn('grid h-full', gridClass)}>
             {sidebarPosition === 'left' ? (
