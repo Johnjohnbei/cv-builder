@@ -105,16 +105,12 @@ function allocateTwoColumn(
   // Sidebar: fill with skills/education/languages
   // Blocks that don't fit flow to page 2+ as full-width content
   const sidebarOverflow: ContentBlock[] = [];
-  // Sidebar measurement correction: blocks measured off-screen are ~18% shorter
-  // than when rendered inside a CSS grid context (font inheritance, grid stretching).
-  const SIDEBAR_CORRECTION = 1.25;
-  const headerSidebarH = layout.headerFullWidth ? 0 : ((header?.sidebarHeightPx ?? header?.heightPx ?? 0) * SIDEBAR_CORRECTION);
+  const headerSidebarH = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
   let sidebarUsed = headerSidebarH;
   for (const sb of sidebarBlocks) {
-    const sbHeight = (sb.sidebarHeightPx ?? sb.heightPx) * SIDEBAR_CORRECTION;
-    if (sidebarUsed + sbHeight + MEASUREMENT_SAFETY_PX <= page1Height) {
+    if (sidebarUsed + sb.heightPx + MEASUREMENT_SAFETY_PX <= page1Height) {
       page1Sidebar.push({ block: sb });
-      sidebarUsed += sbHeight + MEASUREMENT_SAFETY_PX;
+      sidebarUsed += sb.heightPx + MEASUREMENT_SAFETY_PX;
     } else {
       sidebarOverflow.push(sb);
     }
@@ -197,8 +193,7 @@ function fillColumn(
   availablePx: number,
   placed: PlacedBlock[],
 ): ContentBlock[] {
-  const FILL_CORRECTION = 1.2;
-  let usedPx = placed.reduce((sum, pb) => sum + Math.ceil(getPlacedBlockHeight(pb) * FILL_CORRECTION) + MEASUREMENT_SAFETY_PX, 0);
+  let usedPx = placed.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
   const overflow: ContentBlock[] = [];
   let overflowStarted = false;
 
@@ -209,12 +204,11 @@ function fillColumn(
     }
 
     const remaining = availablePx - usedPx;
-    const correctedHeight = Math.ceil(block.heightPx * FILL_CORRECTION);
 
     // Block fits entirely
-    if (correctedHeight + MEASUREMENT_SAFETY_PX <= remaining) {
+    if (block.heightPx + MEASUREMENT_SAFETY_PX <= remaining) {
       placed.push({ block });
-      usedPx += correctedHeight + MEASUREMENT_SAFETY_PX;
+      usedPx += block.heightPx + MEASUREMENT_SAFETY_PX;
       continue;
     }
 
@@ -261,10 +255,7 @@ function allocateOverflowPages(
         continue;
       }
 
-      const rawHeight = useFullWidthHeight ? block.fullWidthHeightPx : block.heightPx;
-      // Apply correction factor: off-screen measurements underestimate real heights
-      const OVERFLOW_CORRECTION = 1.2;
-      const height = Math.ceil(rawHeight * OVERFLOW_CORRECTION);
+      const height = useFullWidthHeight ? block.fullWidthHeightPx : block.heightPx;
       const space = pageHeightPx - usedPx;
 
       if (height + MEASUREMENT_SAFETY_PX <= space) {
