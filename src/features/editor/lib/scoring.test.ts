@@ -492,7 +492,7 @@ describe('scoreRelevance', () => {
       skills: [{ category: 'Tech', items: ['HTML'] }],
     });
     const result = scoreRelevance(cv, 'machine learning python tensorflow kubernetes docker', 'en');
-    expect(result.suggestions.some(s => s.includes('keyword'))).toBe(true);
+    expect(result.suggestions.some(s => s.includes('mot-clé'))).toBe(true);
   });
 
   it('does not return NaN', () => {
