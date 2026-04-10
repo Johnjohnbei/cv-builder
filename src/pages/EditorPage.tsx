@@ -1860,15 +1860,30 @@ export default function EditorPage() {
           ref={previewContainerRef}
           className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
-          {/* Scaled wrapper — reserves exact space for the scaled CV */}
+          {/* Scaled wrapper — reserves exact scaled space */}
           <div
             style={{
               width: `${210 * (zoom / 100)}mm`,
-              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100) + ((designSettings.pageLimit || 1) - 1) * 24}px`,
+              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
+              minHeight: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
               marginBottom: '100px',
             }}
             className="relative shrink-0"
           >
+            {/* Page break indicators — outside cvRef so they are NOT exported */}
+            {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => (
+              <div
+                key={i}
+                className="absolute left-0 w-full pointer-events-none"
+                style={{ top: `${297 * (i + 1) * (zoom / 100)}mm`, zIndex: 60 }}
+              >
+                <div className="border-t-2 border-dashed border-blue-300 w-full" />
+                <div className="absolute top-0 right-2 bg-blue-50 text-blue-500 text-[8px] px-2 py-0.5 rounded-b font-mono uppercase tracking-wider">
+                  Page {i + 2}
+                </div>
+              </div>
+            ))}
+
             {/* Single CV render — constrained height for overflow detection + export */}
             <div
               ref={cvRef}
@@ -1900,28 +1915,6 @@ export default function EditorPage() {
                 </div>
               )}
             </div>
-
-            {/* Page gap overlays — visual separation between pages (not exported) */}
-            {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => {
-              const gapTop = 297 * (i + 1) * (zoom / 100);
-              return (
-                <div
-                  key={i}
-                  className="absolute left-0 w-full pointer-events-none"
-                  style={{ top: `${gapTop}mm`, zIndex: 60 }}
-                >
-                  {/* Gray strip to visually separate pages */}
-                  <div
-                    className="w-full bg-[#F1F3F4] flex items-center justify-center"
-                    style={{ height: '24px' }}
-                  >
-                    <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">
-                      Page {i + 2}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </main>
