@@ -1,19 +1,22 @@
 import type { BlockRendererMap } from '../../lib/pagination/types';
 import { templateARenderers } from './templateA';
+import { templateBRenderers } from './templateB';
+import { templateCRenderers } from './templateC';
+import { templateDRenderers } from './templateD';
+import { templateERenderers } from './templateE';
+import { templateFRenderers } from './templateF';
 
 /**
  * Registry of block renderers per template.
  * Each template provides renderers for all block types.
- * Templates not yet migrated fall back to TemplateA renderers.
  */
 const BLOCK_RENDERERS: Record<string, BlockRendererMap> = {
   TEMPLATE_A: templateARenderers,
-  // TODO: Phase 7 — add B, C, D, E, F renderers
-  TEMPLATE_B: templateARenderers,
-  TEMPLATE_C: templateARenderers,
-  TEMPLATE_D: templateARenderers,
-  TEMPLATE_E: templateARenderers,
-  TEMPLATE_F: templateARenderers,
+  TEMPLATE_B: templateBRenderers,
+  TEMPLATE_C: templateCRenderers,
+  TEMPLATE_D: templateDRenderers,
+  TEMPLATE_E: templateERenderers,
+  TEMPLATE_F: templateFRenderers,
 };
 
 export function getBlockRenderers(templateId: string): BlockRendererMap {
