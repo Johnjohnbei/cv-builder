@@ -16,10 +16,16 @@ export function useMeasureBlocks(
 ): { measuredBlocks: ContentBlock[]; measuring: boolean } {
   const [measuredBlocks, setMeasuredBlocks] = useState<ContentBlock[]>(blocks);
   const [measuring, setMeasuring] = useState(true);
-  const measureCount = useRef(0);
+  const [renderCycle, setRenderCycle] = useState(0);
 
   // Re-measure whenever blocks change (by id list)
   const blockIds = blocks.map(b => b.id).join('|');
+
+  // Trigger a second measurement after initial render to catch MeasurementContainer updates
+  useEffect(() => {
+    const timer = setTimeout(() => setRenderCycle(c => c + 1), 100);
+    return () => clearTimeout(timer);
+  }, [blockIds]);
 
   useEffect(() => {
     if (blocks.length === 0) {
@@ -73,13 +79,12 @@ export function useMeasureBlocks(
         });
       }
 
-      measureCount.current++;
       setMeasuredBlocks(measured);
       setMeasuring(false);
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [blockIds, containerRef, blocks]);
+  }, [blockIds, containerRef, blocks, renderCycle]);
 
   return { measuredBlocks, measuring };
 }

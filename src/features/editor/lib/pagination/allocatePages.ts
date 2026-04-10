@@ -107,7 +107,7 @@ function allocateTwoColumn(
   const sidebarOverflow: ContentBlock[] = [];
   // Sidebar measurement correction: blocks measured off-screen are ~18% shorter
   // than when rendered inside a CSS grid context (font inheritance, grid stretching).
-  const SIDEBAR_CORRECTION = 1.2;
+  const SIDEBAR_CORRECTION = 1.25;
   const headerSidebarH = layout.headerFullWidth ? 0 : ((header?.sidebarHeightPx ?? header?.heightPx ?? 0) * SIDEBAR_CORRECTION);
   let sidebarUsed = headerSidebarH;
   for (const sb of sidebarBlocks) {
