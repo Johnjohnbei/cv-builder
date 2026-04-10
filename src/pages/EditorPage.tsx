@@ -1884,7 +1884,6 @@ export default function EditorPage() {
                     className="relative shrink-0 overflow-hidden"
                   >
                     <div
-                      ref={idx === 0 ? cvRef : undefined}
                       style={{
                         transform: `scale(${zoom / 100})`,
                         transformOrigin: 'top left',

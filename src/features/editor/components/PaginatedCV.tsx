@@ -82,11 +82,25 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
               paddingClass={paddingClass}
               sidebar={
                 page.sidebarBlocks && page.sidebarBlocks.length > 0
-                  ? page.sidebarBlocks.map((sb, i) => (
-                      <div key={sb.block.id || i}>
-                        {renderBlock(sb, page.pageIndex)}
-                      </div>
-                    ))
+                  ? (() => {
+                      let skillsTitleShown = false;
+                      return page.sidebarBlocks.map((sb, i) => {
+                        const needsSkillsTitle = sb.block.type === 'skill-category' && !skillsTitleShown;
+                        if (needsSkillsTitle) skillsTitleShown = true;
+                        return (
+                          <div key={sb.block.id || i}>
+                            {needsSkillsTitle && (
+                              <SectionTitle
+                                title={getSectionTitle('skills', language)}
+                                color={designSettings.atsMode ? '#000' : primaryColor}
+                                isContinuation={false}
+                              />
+                            )}
+                            {renderBlock(sb, page.pageIndex)}
+                          </div>
+                        );
+                      });
+                    })()
                   : undefined
               }
             >
