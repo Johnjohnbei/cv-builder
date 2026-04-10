@@ -81,7 +81,7 @@ export function useCVLoader(
 
     hasAutoAssigned.current = true;
     const keywords = extractKeywords(jobDescription);
-    const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
+    const autoExperiences = autoAssignModes(cvData.experience, keywords);
     setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
   }, [cvData?.experience?.length]);
 

@@ -94,7 +94,7 @@ export default function EditorPage() {
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
   const { pageAssignments, actualPageCount, heuristicBlocks } = usePaginationFit(
-    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
+    cvData, designSettings, selectedTemplate,
   );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
@@ -549,28 +549,7 @@ export default function EditorPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <label className="text-[9px] stitch-mono text-gray-400 uppercase">Pages:</label>
-                      <select 
-                        value={designSettings.pageLimit}
-                        onChange={(e) => {
-                          const newLimit = parseInt(e.target.value) as 1 | 2 | 3 | 4;
-                          setDesignSettings(prev => ({ ...prev, pageLimit: newLimit }));
-                          // Re-assign modes for the new page budget
-                          if (cvData) {
-                            const keywords = jobKeywords;
-                            const reassigned = autoAssignModes(cvData.experience, keywords, newLimit, false);
-                            setCvData(prev => prev ? { ...prev, experience: reassigned } : null);
-                          }
-                          setUserModified(false);
-                          // pagination fit auto-resets on cvData change
-                          resetAutoAssign(); // allow re-fit
-                        }}
-                        className="bg-white border border-blue-200 rounded text-[10px] px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      >
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                        <option value={3}>3</option>
-                        <option value={4}>4</option>
-                      </select>
+                      <span className="text-[10px] stitch-mono font-bold text-blue-600">{actualPageCount}</span>
                     </div>
                   </div>
 
@@ -595,7 +574,7 @@ export default function EditorPage() {
                     onClick={() => {
                       if (!cvData) return;
                       const keywords = jobKeywords;
-                      const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1, false);
+                      const autoExperiences = autoAssignModes(cvData.experience, keywords, false);
                       setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
                       setUserModified(false);
                       // pagination fit auto-resets on cvData change
@@ -625,11 +604,9 @@ export default function EditorPage() {
                     </span>
                   </button>
                   
-                  {/* Overflow warning */}
+                  {/* Page count indicator */}
                   <OverflowIndicator
-                    overflowPx={actualPageCount > (designSettings.pageLimit || 1) ? (actualPageCount - (designSettings.pageLimit || 1)) * 100 : 0}
-                    pageLimit={designSettings.pageLimit || 1}
-                    userModified={userModified}
+                    actualPageCount={actualPageCount}
                     hasCvData={!!cvData}
                   />
                 </section>
@@ -1584,22 +1561,9 @@ export default function EditorPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Page Limit & Options</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {[1, 2, 3, 4].map((limit) => (
-                          <button
-                            key={limit}
-                            onClick={() => setDesignSettings(prev => ({ ...prev, pageLimit: limit as 1 | 2 | 3 | 4 }))}
-                            className={cn(
-                              "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
-                              designSettings.pageLimit === limit 
-                                ? "bg-blue-50 border-blue-200 text-blue-700 font-bold" 
-                                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                            )}
-                          >
-                            {limit} Page{limit > 1 ? 's' : ''}
-                          </button>
-                        ))}
+                      <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Pages & Options</label>
+                      <div className="px-3 py-2 rounded border border-gray-200 bg-gray-50 text-[10px] stitch-mono text-gray-600">
+                        {actualPageCount} page{actualPageCount > 1 ? 's' : ''} {actualPageCount > 2 && <span className="text-amber-600 ml-1">(les recruteurs preferent 1-2 pages)</span>}
                       </div>
                       <div className="mt-3">
                         <button

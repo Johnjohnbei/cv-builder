@@ -57,7 +57,8 @@ export interface DesignSettings {
   sectionTitleWeight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'black';
   sectionTitleTransform?: 'none' | 'uppercase' | 'capitalize';
   sectionTitleSpacing?: 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
-  pageLimit?: 1 | 2 | 3 | 4;
+  /** @deprecated Pages are now determined automatically by visible content. Kept for backward compat with stored CVs. */
+  pageLimit?: number;
   showPhoto?: boolean;
   paperSize?: 'a4' | 'letter' | 'legal';
   orientation?: 'portrait' | 'landscape';

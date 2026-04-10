@@ -63,7 +63,8 @@ export async function serverlessPDF(
   designSettings: DesignSettings,
   options?: ServerlessPDFOptions,
 ): Promise<void> {
-  const pageLimit = designSettings.pageLimit || 1;
+  // Count actual pages from the DOM
+  const pageCount = cvElement.querySelectorAll('.cv-page').length || 1;
 
   // 1. Run DOM pre-check validation (D-14)
   if (options?.expectedText && options?.onValidation) {
@@ -83,7 +84,7 @@ export async function serverlessPDF(
     const response = await fetch('/api/generate-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, styles, pageLimit }),
+      body: JSON.stringify({ html, styles, pageLimit: pageCount }),
     });
 
     if (!response.ok) {
@@ -125,7 +126,7 @@ export function renderPDF(
   designSettings: DesignSettings,
   options?: RenderPDFOptions,
 ): void {
-  const pageLimit = designSettings.pageLimit || 1;
+  const pageCount = cvElement.querySelectorAll('.cv-page').length || 1;
 
   // Create hidden iframe
   const iframe = document.createElement('iframe');
@@ -133,7 +134,7 @@ export function renderPDF(
   iframe.style.top = '-10000px';
   iframe.style.left = '-10000px';
   iframe.style.width = '210mm';
-  iframe.style.height = `${297 * pageLimit}mm`;
+  iframe.style.height = `${297 * pageCount}mm`;
   iframe.style.border = 'none';
   document.body.appendChild(iframe);
 
@@ -173,7 +174,7 @@ export function renderPDF(
   ${styleLinks}
   <style>
     ${inlineStyles}
-    ${getPdfCss(pageLimit)}
+    ${getPdfCss(pageCount)}
   </style>
 </head>
 <body>

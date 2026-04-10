@@ -92,66 +92,41 @@ function parseYear(d?: string): number | null {
 // --- Auto-Assign Display Modes ---
 
 /**
- * Auto-assign displayModes to experiences based on scores + page budget.
- * When respectUserModes is true (default), experiences that already have a
+ * Auto-assign displayModes based on ATS relevance scores.
+ * - No job description (no keywords): all experiences shown as 'normal'
+ * - Score > 75: 'extended' (full detail with KPI)
+ * - Score > 50: 'normal' (standard detail)
+ * - Score <= 50: 'hidden' (filtered out)
+ *
+ * When respectUserModes is true (default), experiences with an existing
  * displayMode are left untouched — only unset ones get auto-assigned.
- * Pass respectUserModes=false to force full reassignment (e.g. page limit change).
+ * Pass respectUserModes=false to force full reassignment.
  * Returns a new array with displayMode set. Does NOT mutate input.
  */
+export const SCORE_THRESHOLD_EXTENDED = 75;
+export const SCORE_THRESHOLD_NORMAL = 50;
+
 export function autoAssignModes(
   experiences: Experience[],
   jobKeywords: string[],
-  pageLimit: number,
   respectUserModes = true,
 ): Experience[] {
-  // Budget heuristics: how many experiences can fit on N pages
-  const maxVisible = Math.min(experiences.length, pageLimit <= 1 ? 4 : pageLimit <= 2 ? 8 : 12);
-  const extendedBudget = pageLimit <= 1 ? 1 : Math.min(pageLimit, 3);
-  const normalBudget = pageLimit <= 1 ? 1 : Math.min(pageLimit + 1, maxVisible - extendedBudget);
+  return experiences.map(exp => {
+    if (respectUserModes && exp.displayMode) return { ...exp };
 
-  // When respecting user modes, count already-pinned experiences against budget
-  let usedExtended = 0;
-  let usedNormal = 0;
-  let usedVisible = 0;
-
-  if (respectUserModes) {
-    for (const exp of experiences) {
-      if (!exp.displayMode) continue;
-      if (exp.displayMode === 'hidden') continue;
-      usedVisible++;
-      if (exp.displayMode === 'extended') usedExtended++;
-      if (exp.displayMode === 'normal') usedNormal++;
+    // No job description → show everything as normal
+    if (jobKeywords.length === 0) {
+      return { ...exp, displayMode: 'normal' as ExperienceDisplayMode };
     }
-  }
 
-  // Only score+assign experiences that need assignment
-  const toAssign = experiences
-    .map((exp, idx) => ({ exp, idx, score: scoreExperience(exp, jobKeywords) }))
-    .filter(({ exp }) => !respectUserModes || !exp.displayMode);
-
-  const sorted = [...toAssign].sort((a, b) => b.score - a.score);
-
-  const remainingExtended = Math.max(0, extendedBudget - usedExtended);
-  const remainingNormal = Math.max(0, normalBudget - usedNormal);
-  const remainingVisible = Math.max(0, maxVisible - usedVisible);
-
-  const result = experiences.map(exp => ({ ...exp }));
-
-  sorted.forEach(({ idx, score }, rank) => {
+    const score = scoreExperience(exp, jobKeywords);
     let mode: ExperienceDisplayMode;
-    if (rank >= remainingVisible || score < 15) {
-      mode = 'hidden';
-    } else if (rank < remainingExtended) {
-      mode = 'extended';
-    } else if (rank < remainingExtended + remainingNormal) {
-      mode = 'normal';
-    } else {
-      mode = 'compact';
-    }
-    result[idx] = { ...result[idx], displayMode: mode };
-  });
+    if (score > SCORE_THRESHOLD_EXTENDED) mode = 'extended';
+    else if (score > SCORE_THRESHOLD_NORMAL) mode = 'normal';
+    else mode = 'hidden';
 
-  return result;
+    return { ...exp, displayMode: mode };
+  });
 }
 
 // --- ATS Format Scoring ---

@@ -141,47 +141,57 @@ describe('autoAssignModes', () => {
   it('does not mutate input array', () => {
     const exps = [makeExp({ current: true }), makeExp()];
     const original = JSON.stringify(exps);
-    autoAssignModes(exps, [], 1);
+    autoAssignModes(exps, []);
     expect(JSON.stringify(exps)).toBe(original);
   });
 
-  it('assigns extended to top-scored experience on 1 page', () => {
+  it('shows all as normal when no keywords', () => {
     const exps = [
-      makeExp({ current: true, end_date: '', position: 'CTO' }),
+      makeExp({ current: true, position: 'CTO' }),
       makeExp({ end_date: '2020', position: 'Intern' }),
-      makeExp({ end_date: '2010', position: 'Junior' }),
     ];
-    const result = autoAssignModes(exps, [], 1);
-    // The current position should be extended (highest score)
-    expect(result[0].displayMode).toBe('extended');
+    const result = autoAssignModes(exps, []);
+    expect(result.every(e => e.displayMode === 'normal')).toBe(true);
   });
 
-  it('hides excess experiences on 1 page', () => {
-    const exps = Array.from({ length: 8 }, (_, i) =>
-      makeExp({ end_date: `${2024 - i}`, position: `Role ${i}` })
-    );
-    const result = autoAssignModes(exps, [], 1);
-    const hidden = result.filter(e => e.displayMode === 'hidden');
-    expect(hidden.length).toBeGreaterThan(0);
+  it('hides low-score experiences when keywords provided', () => {
+    const exps = [
+      makeExp({ position: 'React Developer', description: ['Built React apps with TypeScript'] }),
+      makeExp({ position: 'Waiter', description: ['Served food at restaurant'] }),
+    ];
+    const result = autoAssignModes(exps, ['react', 'typescript', 'developer']);
+    // React developer should be visible, waiter should be hidden
+    expect(result[0].displayMode).not.toBe('hidden');
+    expect(result[1].displayMode).toBe('hidden');
   });
 
-  it('shows more experiences on 2 pages', () => {
-    const exps = Array.from({ length: 8 }, (_, i) =>
-      makeExp({ end_date: `${2024 - i}`, position: `Role ${i}` })
-    );
-    const r1 = autoAssignModes(exps, [], 1);
-    const r2 = autoAssignModes(exps, [], 2);
-    const visible1 = r1.filter(e => e.displayMode !== 'hidden').length;
-    const visible2 = r2.filter(e => e.displayMode !== 'hidden').length;
-    expect(visible2).toBeGreaterThanOrEqual(visible1);
+  it('preserves user-set modes when respectUserModes is true', () => {
+    const exps = [
+      makeExp({ position: 'A', displayMode: 'compact' }),
+      makeExp({ position: 'B' }),
+    ];
+    const result = autoAssignModes(exps, []);
+    expect(result[0].displayMode).toBe('compact');
+    expect(result[1].displayMode).toBe('normal');
   });
 
-  it('preserves original order (index-based assignment)', () => {
+  it('overrides all modes when respectUserModes is false', () => {
+    const exps = [
+      makeExp({ position: 'A', displayMode: 'hidden' }),
+      makeExp({ position: 'B', displayMode: 'extended' }),
+    ];
+    const result = autoAssignModes(exps, [], false);
+    // Without keywords, all should be normal regardless of previous mode
+    expect(result[0].displayMode).toBe('normal');
+    expect(result[1].displayMode).toBe('normal');
+  });
+
+  it('preserves original order', () => {
     const exps = [
       makeExp({ position: 'A', end_date: '2020' }),
       makeExp({ position: 'B', current: true }),
     ];
-    const result = autoAssignModes(exps, [], 1);
+    const result = autoAssignModes(exps, []);
     expect(result[0].position).toBe('A');
     expect(result[1].position).toBe('B');
   });

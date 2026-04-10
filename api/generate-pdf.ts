@@ -106,8 +106,8 @@ function validatePayload(body: unknown): { valid: true; data: GeneratePDFRequest
     return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (1-4) required' };
   }
 
-  if (typeof pageLimit !== 'number' || pageLimit < 1 || pageLimit > 4 || !Number.isInteger(pageLimit)) {
-    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (1-4) required' };
+  if (typeof pageLimit !== 'number' || pageLimit < 1 || pageLimit > 20 || !Number.isInteger(pageLimit)) {
+    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (positive integer) required' };
   }
 
   return { valid: true, data: { html, styles, pageLimit } };
