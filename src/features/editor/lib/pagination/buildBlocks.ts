@@ -6,13 +6,13 @@ import type { CVData } from '@/src/shared/types';
 import type { ContentBlock, SubBlock } from './types';
 import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro } from '../displayModes';
 
-// ─── Constants (calibrated against real DOM measurements 2024-04) ───
+// ─── Constants (calibrated with 20% safety margin over measured values) ───
 
-const CHARS_PER_LINE_NARROW = 65;
-const CHARS_PER_LINE_WIDE = 100;
-const LINE_HEIGHT = 18;
-const SECTION_TITLE_H = 28;
-const SPACING = 12;
+const CHARS_PER_LINE_NARROW = 60;
+const CHARS_PER_LINE_WIDE = 90;
+const LINE_HEIGHT = 20;
+const SECTION_TITLE_H = 32;
+const SPACING = 16;
 
 function estimateTextHeight(text: string, charsPerLine: number): number {
   return Math.max(1, Math.ceil(text.length / charsPerLine)) * LINE_HEIGHT;
@@ -31,8 +31,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'header',
       type: 'header',
-      heightPx: 80 + titleLines * 20 + 20,
-      fullWidthHeightPx: 80 + titleLines * 20 + 12,
+      heightPx: 100 + titleLines * 24 + 30,
+      fullWidthHeightPx: 100 + titleLines * 24 + 20,
       splittable: false,
       data: cvData.personal_info,
     });
@@ -57,8 +57,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     const intro = getIntro(exp);
     const bullets = getActionBullets(exp);
 
-    const positionLines = Math.ceil((exp.position?.length || 20) / 40);
-    const headerH = positionLines * 20 + 24;
+    const positionLines = Math.ceil((exp.position?.length || 20) / 35);
+    const headerH = positionLines * 22 + 28;
     const introH = intro ? estimateTextHeight(intro, CHARS_PER_LINE_NARROW) + 8 : 0;
     const expHeaderH = headerH + introH;
 
@@ -131,8 +131,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: SECTION_TITLE_H + cvData.education.length * 36,
-      fullWidthHeightPx: SECTION_TITLE_H + cvData.education.length * 32,
+      heightPx: SECTION_TITLE_H + cvData.education.length * 45,
+      fullWidthHeightPx: SECTION_TITLE_H + cvData.education.length * 40,
       splittable: false,
       data: cvData.education,
     });
@@ -143,8 +143,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'languages',
       type: 'languages',
-      heightPx: SECTION_TITLE_H + cvData.languages.length * 22,
-      fullWidthHeightPx: SECTION_TITLE_H + cvData.languages.length * 22,
+      heightPx: SECTION_TITLE_H + cvData.languages.length * 26,
+      fullWidthHeightPx: SECTION_TITLE_H + cvData.languages.length * 26,
       splittable: false,
       data: cvData.languages,
     });
