@@ -1,73 +1,66 @@
-import { useRef, useLayoutEffect, useState, useCallback } from 'react';
-import type { ContentBlock, SubBlock, SubBlockType } from '../lib/pagination/types';
-import { MEASUREMENT_SAFETY_PX } from '../lib/pagination/types';
+import { useLayoutEffect, useState, useRef } from 'react';
+import type { ContentBlock, SubBlock, SubBlockType, BlockRendererMap, PlacedBlock } from '../lib/pagination/types';
+import type { DesignSettings } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/languageDetection';
 
 /**
- * A block descriptor passed to the measurement hook.
- * The hook renders these as React elements, measures their height,
- * and returns ContentBlock objects with measured dimensions.
- */
-export interface MeasurableBlock {
-  id: string;
-  type: ContentBlock['type'];
-  splittable: boolean;
-  data: ContentBlock['data'];
-  /** Sub-block types for splittable blocks (used to find sub-block elements) */
-  subBlockTypes?: SubBlockType[];
-}
-
-interface MeasureResult {
-  blocks: ContentBlock[];
-  measuring: boolean;
-}
-
-/**
- * Measures the pixel height of DOM elements rendered inside a measurement container.
+ * Measures real DOM heights for content blocks rendered in a hidden container.
  *
- * Usage:
- * 1. Render blocks inside a MeasurementContainer, each wrapped with `data-measure-id={id}`
- * 2. For splittable blocks, mark sub-elements with `data-sub-id={subId}` and `data-sub-type={type}`
- * 3. Call `measure()` after render to read heights
+ * Renders each block at two widths (main column + full width) using actual
+ * block renderers, then reads offsetHeight from the DOM.
  *
- * The hook reads heights from the DOM via refs, producing ContentBlock objects
- * that the pagination allocator can consume.
+ * Returns measured ContentBlock[] with real pixel heights, replacing heuristic estimates.
  */
 export function useMeasureBlocks(
   containerRef: React.RefObject<HTMLDivElement | null>,
-  descriptors: MeasurableBlock[],
-): MeasureResult {
-  const [blocks, setBlocks] = useState<ContentBlock[]>([]);
+  blocks: ContentBlock[],
+  blockRenderers: BlockRendererMap,
+  designSettings: DesignSettings,
+  language: SupportedLanguage,
+  mainWidthMm: number,
+  fullWidthMm: number,
+): { measuredBlocks: ContentBlock[]; measuring: boolean } {
+  const [measuredBlocks, setMeasuredBlocks] = useState<ContentBlock[]>(blocks);
   const [measuring, setMeasuring] = useState(true);
-  const prevDescriptorsKey = useRef('');
+  const prevKey = useRef('');
 
-  // Create a stable key from descriptors to detect changes
-  const descriptorsKey = descriptors.map(d => `${d.id}:${d.type}`).join('|');
+  // Stable key to detect when blocks change
+  const key = blocks.map(b => b.id).join('|') + `|${mainWidthMm}|${fullWidthMm}`;
 
   useLayoutEffect(() => {
-    if (descriptorsKey === prevDescriptorsKey.current) return;
-    prevDescriptorsKey.current = descriptorsKey;
+    if (key === prevKey.current || blocks.length === 0) {
+      if (blocks.length === 0) {
+        setMeasuredBlocks([]);
+        setMeasuring(false);
+      }
+      return;
+    }
+    prevKey.current = key;
 
     const container = containerRef.current;
-    if (!container || descriptors.length === 0) {
-      setBlocks([]);
+    if (!container) {
+      setMeasuredBlocks(blocks);
       setMeasuring(false);
       return;
     }
 
-    // Wait for next frame to ensure DOM is painted
+    // Wait for paint
     const raf = requestAnimationFrame(() => {
       const measured: ContentBlock[] = [];
 
-      for (const desc of descriptors) {
-        const el = container.querySelector(`[data-measure-id="${desc.id}"]`) as HTMLElement | null;
-        if (!el) continue;
+      for (const block of blocks) {
+        // Read main-column height
+        const mainEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="main"]`) as HTMLElement | null;
+        const mainH = mainEl ? mainEl.offsetHeight : block.heightPx;
 
-        const heightPx = el.offsetHeight + MEASUREMENT_SAFETY_PX;
+        // Read full-width height
+        const fullEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="full"]`) as HTMLElement | null;
+        const fullH = fullEl ? fullEl.offsetHeight : block.fullWidthHeightPx;
 
-        // Measure sub-blocks for splittable blocks
-        let subBlocks: SubBlock[] | undefined;
-        if (desc.splittable) {
-          const subEls = el.querySelectorAll('[data-sub-id]');
+        // Read sub-block heights for splittable blocks
+        let subBlocks: SubBlock[] | undefined = block.subBlocks;
+        if (block.splittable && mainEl) {
+          const subEls = mainEl.querySelectorAll('[data-sub-id]');
           if (subEls.length > 0) {
             subBlocks = Array.from(subEls).map(subEl => ({
               id: subEl.getAttribute('data-sub-id') || '',
@@ -78,38 +71,19 @@ export function useMeasureBlocks(
         }
 
         measured.push({
-          id: desc.id,
-          type: desc.type,
-          heightPx,
-          fullWidthHeightPx: heightPx, // Will be overridden by second pass if needed
-          splittable: desc.splittable,
+          ...block,
+          heightPx: mainH,
+          fullWidthHeightPx: fullH,
           subBlocks,
-          data: desc.data,
         });
       }
 
-      setBlocks(measured);
+      setMeasuredBlocks(measured);
       setMeasuring(false);
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [descriptorsKey, containerRef, descriptors]);
+  }, [key, containerRef, blocks]);
 
-  return { blocks, measuring };
-}
-
-/**
- * Merge two measurement passes: main-column widths and full-widths.
- * The main pass provides `heightPx`, the full-width pass provides `fullWidthHeightPx`.
- */
-export function mergeBlockMeasurements(
-  mainBlocks: ContentBlock[],
-  fullWidthBlocks: ContentBlock[],
-): ContentBlock[] {
-  const fullWidthMap = new Map(fullWidthBlocks.map(b => [b.id, b.heightPx]));
-
-  return mainBlocks.map(block => ({
-    ...block,
-    fullWidthHeightPx: fullWidthMap.get(block.id) ?? block.heightPx,
-  }));
+  return { measuredBlocks, measuring };
 }

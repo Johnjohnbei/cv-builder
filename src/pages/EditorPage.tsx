@@ -13,6 +13,7 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useATSAnalysis } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
+import { MeasurementContainer } from '../features/editor/components/MeasurementContainer';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
@@ -90,10 +91,12 @@ export default function EditorPage() {
   }, [loadedJobDescription]);
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
-  const { pageAssignments, actualPageCount } = usePaginationFit(
-    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
-  );
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const { pageAssignments, actualPageCount, heuristicBlocks } = usePaginationFit(
+    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
+    blockRenderers, (designSettings.atsMode ? 'fr' : 'fr') as 'fr' | 'en', measureRef,
+  );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
     return idx >= 0 ? idx : 0;
@@ -1931,6 +1934,21 @@ export default function EditorPage() {
                   firstExperiencePage={firstExperiencePage}
                 />
               </div>
+
+              {/* Hidden measurement container for real DOM height measurement */}
+              <MeasurementContainer
+                ref={measureRef}
+                blocks={heuristicBlocks}
+                blockRenderers={blockRenderers}
+                designSettings={designSettings}
+                language={currentLanguage}
+                mainWidthMm={140}
+                fullWidthMm={176}
+                templateStyle={{
+                  '--primary': designSettings.primaryColor,
+                  '--secondary': designSettings.secondaryColor,
+                } as React.CSSProperties}
+              />
             </div>
           ) : (
             /* Empty state */

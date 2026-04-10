@@ -1,9 +1,11 @@
 import { useEffect, useRef, useMemo } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import type { PageAssignment } from '../lib/pagination/types';
+import type { ContentBlock, PageAssignment, BlockRendererMap } from '../lib/pagination/types';
+import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
 import { allocatePages } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
+import { useMeasureBlocks } from './useMeasureBlocks';
 import { extractKeywords, scoreExperience } from '../lib/scoring';
 import { condenseOneStep } from '../lib/autoFit';
 
@@ -11,11 +13,10 @@ const MAX_FIT_ITERATIONS = 50;
 
 /**
  * Orchestrates the full pagination pipeline:
- * 1. Build content blocks from CVData (with estimated heights)
- * 2. Allocate blocks to pages via the pagination engine
- * 3. Auto-condense if actual pages exceed pageLimit
- *
- * Replaces useOverflowDetection with a proper pagination-aware system.
+ * 1. Build content blocks from CVData (with heuristic heights as initial pass)
+ * 2. Measure real DOM heights via useMeasureBlocks
+ * 3. Allocate blocks to pages using measured heights
+ * 4. Auto-condense if actual pages exceed pageLimit
  */
 export function usePaginationFit(
   cvData: CVData | null,
@@ -25,23 +26,50 @@ export function usePaginationFit(
   userModified: boolean,
   isExporting: boolean,
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>,
+  blockRenderers: BlockRendererMap,
+  language: SupportedLanguage,
+  measureRef: React.RefObject<HTMLDivElement | null>,
 ): {
   pageAssignments: PageAssignment[];
   actualPageCount: number;
+  /** Blocks with heuristic heights (for rendering in MeasurementContainer) */
+  heuristicBlocks: ContentBlock[];
 } {
   const fitIterations = useRef(0);
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
   const pageLimit = designSettings.pageLimit || 2;
 
-  const pageAssignments = useMemo(() => {
+  // Step 1: Build blocks with heuristic heights (fast, synchronous)
+  const heuristicBlocks = useMemo(() => {
     if (!cvData) return [];
-    const blocks = buildBlocks(cvData);
-    return allocatePages(blocks, layout, pageLimit);
-  }, [cvData, layout, pageLimit]);
+    return buildBlocks(cvData);
+  }, [cvData]);
+
+  // Step 2: Measure real DOM heights
+  const mainWidthMm = layout.page1.mainColumnWidthMm || layout.page1.contentWidthMm;
+  const fullWidthMm = layout.page2Plus.contentWidthMm;
+
+  const { measuredBlocks, measuring } = useMeasureBlocks(
+    measureRef,
+    heuristicBlocks,
+    blockRenderers,
+    designSettings,
+    language,
+    mainWidthMm,
+    fullWidthMm,
+  );
+
+  // Step 3: Allocate pages using measured heights (or heuristics while measuring)
+  const activeBlocks = measuring ? heuristicBlocks : measuredBlocks;
+
+  const pageAssignments = useMemo(() => {
+    if (activeBlocks.length === 0) return [];
+    return allocatePages(activeBlocks, layout, pageLimit);
+  }, [activeBlocks, layout, pageLimit]);
 
   const actualPageCount = pageAssignments.length;
 
-  // Auto-fit: condense if we exceed pageLimit
+  // Step 4: Auto-fit condense if we exceed pageLimit
   useEffect(() => {
     if (!cvData || userModified || isExporting) return;
     if (actualPageCount <= pageLimit) return;
@@ -53,9 +81,9 @@ export function usePaginationFit(
 
     if (result) {
       fitIterations.current++;
-      setCvData(prev => prev ? { ...prev, experience: result.experiences, skills: result.skills } : null);
+      setCvData(prev => prev ? { ...prev, experience: result.experiences, skills: result.skills } : prev);
     }
   }, [cvData, actualPageCount, pageLimit, userModified, isExporting, jobDescription, setCvData]);
 
-  return { pageAssignments, actualPageCount };
+  return { pageAssignments, actualPageCount, heuristicBlocks };
 }
