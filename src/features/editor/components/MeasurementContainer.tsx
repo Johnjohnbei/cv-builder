@@ -6,6 +6,9 @@ import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { getFontClass } from '../templates/shared';
 
+/** Block types placed in the sidebar column */
+const SIDEBAR_TYPES = new Set(['skill-category', 'education', 'languages']);
+
 interface Props {
   blocks: ContentBlock[];
   blockRenderers: BlockRendererMap;
@@ -13,6 +16,7 @@ interface Props {
   language: SupportedLanguage;
   mainWidthMm: number;
   fullWidthMm: number;
+  sidebarWidthMm: number;
   templateStyle?: React.CSSProperties;
 }
 
@@ -21,7 +25,7 @@ interface Props {
  * usePaginationFit reads offsetHeight via data-measure-block attributes.
  */
 export function MeasurementContainer({
-  blocks, blockRenderers, designSettings, language, mainWidthMm, fullWidthMm, templateStyle,
+  blocks, blockRenderers, designSettings, language, mainWidthMm, fullWidthMm, sidebarWidthMm, templateStyle,
 }: Props) {
   const fontClass = getFontClass(designSettings.fontFamily);
 
@@ -59,6 +63,15 @@ export function MeasurementContainer({
           </div>
         ))}
       </div>
+      {sidebarWidthMm > 0 && (
+        <div style={{ width: `${sidebarWidthMm}mm` }} className={fontClass}>
+          {blocks.filter(b => SIDEBAR_TYPES.has(b.type)).map(block => (
+            <div key={`s-${block.id}`} data-measure-block={block.id} data-measure-width="sidebar">
+              {renderBlock(block)}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

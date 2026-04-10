@@ -1909,6 +1909,7 @@ export default function EditorPage() {
                   language={currentLanguage}
                   mainWidthMm={getTemplateLayout(selectedTemplate).page1.mainColumnWidthMm}
                   fullWidthMm={getTemplateLayout(selectedTemplate).page2Plus.contentWidthMm}
+                  sidebarWidthMm={getTemplateLayout(selectedTemplate).page1.sidebarWidthMm}
                   templateStyle={{ '--primary': designSettings.primaryColor, '--secondary': designSettings.secondaryColor } as React.CSSProperties}
                 />
               )}

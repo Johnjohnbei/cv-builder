@@ -46,9 +46,18 @@ export function usePaginationFit(
         return;
       }
 
+      const SIDEBAR_TYPES = new Set(['skill-category', 'education', 'languages']);
+
       const measured = heuristicBlocks.map(block => {
         const mainEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="main"]`) as HTMLElement | null;
         const fullEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="full"]`) as HTMLElement | null;
+        const sidebarEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="sidebar"]`) as HTMLElement | null;
+
+        const mainH = mainEl ? mainEl.offsetHeight : block.heightPx;
+        const sidebarH = sidebarEl ? sidebarEl.offsetHeight : mainH;
+
+        // For sidebar blocks, use the sidebar measurement (narrower → taller)
+        const effectiveH = SIDEBAR_TYPES.has(block.type) ? Math.max(mainH, sidebarH) : mainH;
 
         let subBlocks: SubBlock[] | undefined = block.subBlocks;
         if (block.splittable && mainEl) {
@@ -64,7 +73,7 @@ export function usePaginationFit(
 
         return {
           ...block,
-          heightPx: mainEl ? mainEl.offsetHeight : block.heightPx,
+          heightPx: effectiveH,
           fullWidthHeightPx: fullEl ? fullEl.offsetHeight : block.fullWidthHeightPx,
           subBlocks,
         };
