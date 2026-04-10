@@ -1,17 +1,37 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm list:*)",
-      "Bash(where gsd:*)",
-      "Bash(npm bin:*)",
-      "Bash(npm prefix:*)",
-      "Bash(sed -i 's/^\\\\*\\\\*Plans\\\\*\\\\*: 3 plans$/\\\\*\\\\*Plans\\\\*\\\\*: 1 plan/' .planning/ROADMAP.md)",
-      "Bash(sed -i 's/^- \\\\[ \\\\] 10-01: TBD$/- [ ] 10-01-PLAN.md \\\\x97 PDF text extractability validation with DOM pre-check and user warning/' .planning/ROADMAP.md)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(npx tsx -e ':*)",
-      "Bash(npx tsx --eval ':*)",
-      "Bash(npx convex:*)",
-      "Read(//c/Users/joaud/AppData/Local/Temp/claude/C--Users-joaud-Documents-GitHub-cv-builder/9fe0be5e-bbd7-4aa2-9eba-5b667b8a26b1/tasks/**)"
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Bash(where:*)",
+      "Bash(gh:*)",
+      "WebFetch",
+      "WebSearch",
+      "Skill(gsd-discuss-phase)",
+      "Skill(gsd-plan-phase)",
+      "Skill(gsd-execute-phase)",
+      "Read(//tmp/**)"
     ]
   }
 }
