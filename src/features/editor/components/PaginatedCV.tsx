@@ -5,6 +5,7 @@ import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { CVPage } from './CVPage';
 import { getFontClass } from '../templates/shared';
 import { getSectionTitle } from '../lib/atsRules';
+import { getContrastTextColor } from '@/src/shared/lib/colorContrast';
 
 /** Per-template grid layout config for CVPage */
 interface TemplateGridConfig {
@@ -16,6 +17,8 @@ interface TemplateGridConfig {
   paddingClass: string;
   /** Padding for pages 2+ (always needed since no grid on continuation pages) */
   page2PaddingClass: string;
+  /** Whether the sidebar uses primaryColor as background (affects text contrast) */
+  sidebarHasPrimaryBg?: boolean;
 }
 
 const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
@@ -30,10 +33,11 @@ const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
   TEMPLATE_B: {
     sidebarPosition: 'left',
     gridClass: 'grid-cols-[1fr_2fr]',
-    sidebarClassName: 'p-12 text-white',
+    sidebarClassName: 'p-12',
     mainClassName: 'p-16',
     paddingClass: '',
     page2PaddingClass: 'px-16 pt-16 pb-10',
+    sidebarHasPrimaryBg: true,
   },
   TEMPLATE_C: {
     sidebarPosition: 'right',
@@ -150,7 +154,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
               sidebarClassName={gridConfig.sidebarClassName}
               mainClassName={gridConfig.mainClassName}
               sidebarStyle={
-                selectedTemplate === 'TEMPLATE_B'
+                gridConfig.sidebarHasPrimaryBg
                   ? { backgroundColor: primaryColor }
                   : undefined
               }
@@ -158,6 +162,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
                 page.sidebarBlocks && page.sidebarBlocks.length > 0
                   ? (() => {
                       let skillsTitleShown = false;
+                      const sidebarTitleColor = designSettings.atsMode ? '#000' : gridConfig.sidebarHasPrimaryBg ? getContrastTextColor(primaryColor) : primaryColor;
                       return page.sidebarBlocks.map((sb, i) => {
                         const needsSkillsTitle = sb.block.type === 'skill-category' && !skillsTitleShown;
                         if (needsSkillsTitle) skillsTitleShown = true;
@@ -166,7 +171,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
                             {needsSkillsTitle && (
                               <SectionTitle
                                 title={getSectionTitle('skills', language)}
-                                color={designSettings.atsMode ? '#000' : primaryColor}
+                                color={sidebarTitleColor}
                                 isContinuation={false}
                               />
                             )}
