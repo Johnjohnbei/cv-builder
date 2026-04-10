@@ -19,12 +19,14 @@ const EMPTY_KEYWORDS: KeywordAnalysisResult = {
 /**
  * Hook wrapping computeATSScore + computeKeywordAnalysis.
  * Recomputes via useMemo when inputs change (no debounce -- scoring is < 5ms).
+ * When aiKeywords are provided (from IA extraction), they replace NLP extraction.
  * Returns null score when cvData is null.
  */
 export function useATSAnalysis(
   cvData: CVData | null,
   designSettings: DesignSettings,
   jobDescription: string,
+  aiKeywords?: string[],
 ): ATSAnalysisResult {
   const language = cvData ? getCVLanguage(cvData) : 'fr';
   const hasJobDescription = jobDescription.trim().length > 0;
@@ -37,9 +39,9 @@ export function useATSAnalysis(
   const keywords = useMemo(
     () =>
       cvData && hasJobDescription
-        ? computeKeywordAnalysis(cvData, jobDescription, language)
+        ? computeKeywordAnalysis(cvData, jobDescription, language, aiKeywords)
         : EMPTY_KEYWORDS,
-    [cvData, jobDescription, language, hasJobDescription],
+    [cvData, jobDescription, language, hasJobDescription, aiKeywords],
   );
 
   return { score, keywords, hasJobDescription } as const;

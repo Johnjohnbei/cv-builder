@@ -183,6 +183,9 @@ body {
 /* PDF export: page-break control for iframe + window.print() */
 .pdf-safe {
   background-color: white;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
 }
 
 /* Individual blocks (one experience, one education) should not be split */

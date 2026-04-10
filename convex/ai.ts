@@ -140,6 +140,7 @@ async function chatJSON(prompt: string, model?: string): Promise<any> {
         model: m,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
+        max_tokens: 8192,
         response_format: { type: "json_object" },
       });
       return safeParseJSON(response.choices[0]?.message?.content);
@@ -149,6 +150,7 @@ async function chatJSON(prompt: string, model?: string): Promise<any> {
           model: m,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.3,
+          max_tokens: 8192,
         });
         return safeParseJSON(response.choices[0]?.message?.content);
       }
@@ -164,6 +166,7 @@ async function chatText(prompt: string, model?: string): Promise<string> {
       model: model || getModel("default", provider),
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
+      max_tokens: 8192,
     });
     return response.choices[0]?.message?.content || "";
   });
@@ -273,9 +276,7 @@ Retourne UNIQUEMENT le JSON, rien d'autre.
         .slice(0, 5);
     }
 
-    if (data.personal_info?.summary && data.personal_info.summary.length > 300) {
-      data.personal_info.summary = data.personal_info.summary.substring(0, 297) + "...";
-    }
+    // No summary truncation — display modes and autoFit handle visible length
 
     if (data.personal_info?.title && data.personal_info.title.length > 50) {
       const parts = data.personal_info.title.split(/[|,]/);
@@ -490,6 +491,41 @@ ${args.pdfText}
 `;
 
     return await chatText(prompt, getModel("fast"));
+  },
+});
+
+export const extractJobKeywords = action({
+  args: {
+    jobDescription: v.string(),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+
+    const prompt = `Tu es un expert en recrutement et ATS (Applicant Tracking Systems).
+
+MISSION : Extrais les compétences et mots-clés qu'un ATS rechercherait dans un CV pour cette offre.
+
+OFFRE D'EMPLOI :
+${args.jobDescription}
+
+RÈGLES D'EXTRACTION :
+- Extrais UNIQUEMENT des compétences concrètes et vérifiables :
+  • Outils et technologies (Figma, React, SAP, Excel, Salesforce...)
+  • Méthodologies (Agile, Scrum, Lean, Design Thinking, Six Sigma...)
+  • Compétences techniques (UX Design, data analysis, product management, SEO...)
+  • Certifications (PMP, AWS, Google Analytics, ITIL...)
+  • Compétences métier spécifiques au poste (brand management, supply chain, audit financier...)
+  • Soft skills UNIQUEMENT si explicitement demandées dans l'offre (leadership, négociation...)
+- N'extrais JAMAIS de mots génériques (gestion, projet, équipe, entreprise, travail, expérience...)
+- N'extrais JAMAIS de verbes d'action (gérer, piloter, développer, concevoir...)
+- N'extrais JAMAIS de mots courants qui ne sont pas des compétences
+- Maximum 30 mots-clés, triés par importance pour le poste
+
+Retourne un JSON : { "keywords": ["keyword1", "keyword2", ...] }
+Retourne UNIQUEMENT le JSON.`;
+
+    return await chatJSON(prompt, getModel("fast"));
   },
 });
 

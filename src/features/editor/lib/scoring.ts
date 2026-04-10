@@ -2,15 +2,9 @@ import type { Experience, ExperienceDisplayMode, CVData, DesignSettings, ATSScor
 import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { extractNLPKeywords as _extractNLPKeywords, scoreRelevance as _scoreRelevance } from './atsHelpers';
+import { STOP_WORDS } from '@/src/shared/lib/stopWords';
 
 // --- Keyword Extraction ---
-
-const STOP_WORDS = new Set([
-  'les', 'des', 'une', 'pour', 'dans', 'avec', 'sur', 'par', 'est', 'sont', 'qui', 'que',
-  'the', 'and', 'for', 'with', 'from', 'this', 'that', 'are', 'was', 'will', 'been',
-  'vous', 'nous', 'être', 'avoir', 'tout', 'plus', 'très', 'votre', 'notre',
-  'not', 'but', 'all', 'can', 'has', 'her', 'his', 'its', 'may', 'our', 'she',
-]);
 
 /**
  * Extract keywords from a job description for scoring.
@@ -99,44 +93,62 @@ function parseYear(d?: string): number | null {
 
 /**
  * Auto-assign displayModes to experiences based on scores + page budget.
+ * When respectUserModes is true (default), experiences that already have a
+ * displayMode are left untouched — only unset ones get auto-assigned.
+ * Pass respectUserModes=false to force full reassignment (e.g. page limit change).
  * Returns a new array with displayMode set. Does NOT mutate input.
  */
 export function autoAssignModes(
   experiences: Experience[],
   jobKeywords: string[],
   pageLimit: number,
+  respectUserModes = true,
 ): Experience[] {
-  const scored = experiences.map((exp, idx) => ({
-    exp,
-    idx,
-    score: scoreExperience(exp, jobKeywords),
-  }));
-
-  // Sort by score descending to assign modes
-  const sorted = [...scored].sort((a, b) => b.score - a.score);
-
   // Budget heuristics: how many experiences can fit on N pages
-  // 1 page: ~5 visible (1 extended + 1 normal + 3 compact)
-  // 2 pages: ~10 visible (2 extended + 3 normal + 5 compact)
-  // 3-4 pages: ~15 visible
   const maxVisible = Math.min(experiences.length, pageLimit <= 1 ? 4 : pageLimit <= 2 ? 8 : 12);
   const extendedBudget = pageLimit <= 1 ? 1 : Math.min(pageLimit, 3);
   const normalBudget = pageLimit <= 1 ? 1 : Math.min(pageLimit + 1, maxVisible - extendedBudget);
 
-  const result = new Array<Experience>(experiences.length);
+  // When respecting user modes, count already-pinned experiences against budget
+  let usedExtended = 0;
+  let usedNormal = 0;
+  let usedVisible = 0;
 
-  sorted.forEach(({ exp, idx, score }, rank) => {
+  if (respectUserModes) {
+    for (const exp of experiences) {
+      if (!exp.displayMode) continue;
+      if (exp.displayMode === 'hidden') continue;
+      usedVisible++;
+      if (exp.displayMode === 'extended') usedExtended++;
+      if (exp.displayMode === 'normal') usedNormal++;
+    }
+  }
+
+  // Only score+assign experiences that need assignment
+  const toAssign = experiences
+    .map((exp, idx) => ({ exp, idx, score: scoreExperience(exp, jobKeywords) }))
+    .filter(({ exp }) => !respectUserModes || !exp.displayMode);
+
+  const sorted = [...toAssign].sort((a, b) => b.score - a.score);
+
+  const remainingExtended = Math.max(0, extendedBudget - usedExtended);
+  const remainingNormal = Math.max(0, normalBudget - usedNormal);
+  const remainingVisible = Math.max(0, maxVisible - usedVisible);
+
+  const result = experiences.map(exp => ({ ...exp }));
+
+  sorted.forEach(({ idx, score }, rank) => {
     let mode: ExperienceDisplayMode;
-    if (rank >= maxVisible || score < 15) {
+    if (rank >= remainingVisible || score < 15) {
       mode = 'hidden';
-    } else if (rank < extendedBudget) {
+    } else if (rank < remainingExtended) {
       mode = 'extended';
-    } else if (rank < extendedBudget + normalBudget) {
+    } else if (rank < remainingExtended + remainingNormal) {
       mode = 'normal';
     } else {
       mode = 'compact';
     }
-    result[idx] = { ...exp, displayMode: mode };
+    result[idx] = { ...result[idx], displayMode: mode };
   });
 
   return result;

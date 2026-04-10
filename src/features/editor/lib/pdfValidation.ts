@@ -5,6 +5,7 @@
  * cases where ATS parsers would fail to extract meaningful text.
  */
 import type { CVData } from '@/src/shared/types';
+import { getActionBullets, getIntro, isHidden, isSkillHidden, getVisibleSkills } from './displayModes';
 
 // ─── Types ───
 
@@ -36,13 +37,14 @@ export function extractExpectedText(cvData: CVData): string {
   if (pi.location) parts.push(pi.location);
   if (pi.summary) parts.push(pi.summary);
 
-  // Experiences (skip hidden)
+  // Experiences — only include what's actually rendered (respects displayMode)
   for (const exp of cvData.experience) {
-    if (exp.displayMode === 'hidden') continue;
+    if (isHidden(exp)) continue;
     parts.push(exp.company);
     parts.push(exp.position);
-    if (exp.intro) parts.push(exp.intro);
-    for (const bullet of exp.description) {
+    const intro = getIntro(exp);
+    if (intro) parts.push(intro);
+    for (const bullet of getActionBullets(exp)) {
       parts.push(bullet);
     }
   }
@@ -54,10 +56,10 @@ export function extractExpectedText(cvData: CVData): string {
     if (edu.field) parts.push(edu.field);
   }
 
-  // Skills (skip hidden)
+  // Skills — only include visible items (respects displayMode)
   for (const cat of cvData.skills) {
-    if (cat.displayMode === 'hidden') continue;
-    for (const item of cat.items) {
+    if (isSkillHidden(cat)) continue;
+    for (const item of getVisibleSkills(cat)) {
       parts.push(item);
     }
   }

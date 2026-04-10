@@ -39,6 +39,7 @@ export default function EditorPage() {
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
   const rewriteBulletsAction = useAction(api.ai.rewriteBulletsForJob);
+  const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
@@ -58,6 +59,8 @@ export default function EditorPage() {
   const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
   const [pendingRewrites, setPendingRewrites] = useState<Map<string, { original: string; rewritten: string }>>(new Map());
   const [isOptimizingBullets, setIsOptimizingBullets] = useState(false);
+  const [integratingKeyword, setIntegratingKeyword] = useState<string | null>(null);
+  const [aiKeywords, setAiKeywords] = useState<string[]>([]);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -89,15 +92,23 @@ export default function EditorPage() {
     cvRef, cvData, designSettings, jobDescription, userModified, isExporting, setCvData,
   );
 
-  const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription);
+  const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
-  // Auto-open ATS tab when JD transitions from empty to non-empty
+  // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
   const prevJDRef = useRef(jobDescription);
   useEffect(() => {
     const wasEmpty = !prevJDRef.current.trim();
     const isNowFilled = jobDescription.trim().length > 0;
     if (wasEmpty && isNowFilled) {
       setActiveTab('ats');
+      // Extract real keywords via AI
+      extractKeywordsAction({ jobDescription, accessCode: getCode() })
+        .then(data => {
+          if (data.keywords && Array.isArray(data.keywords)) {
+            setAiKeywords(data.keywords);
+          }
+        })
+        .catch(() => {}); // Fallback to NLP extraction silently
     }
     prevJDRef.current = jobDescription;
   }, [jobDescription]);
@@ -353,6 +364,44 @@ export default function EditorPage() {
     notify({ message: `Competence "${skill}" ajoutee`, type: 'success' });
   };
 
+  const handleIntegrateKeyword = async (keyword: string, expIndex: number) => {
+    if (!cvData || !jobDescription) return;
+    const exp = cvData.experience[expIndex];
+    if (!exp || exp.description.length === 0) return;
+
+    setIntegratingKeyword(keyword);
+    try {
+      // Pick the longest bullet (most context to work with)
+      let bestIdx = 0;
+      for (let i = 1; i < exp.description.length; i++) {
+        if (exp.description[i].length > exp.description[bestIdx].length) bestIdx = i;
+      }
+
+      const data = await improveBulletAction({
+        bullet: exp.description[bestIdx],
+        position: exp.position,
+        company: exp.company,
+        jobDescription,
+        missingKeywords: [keyword],
+        accessCode: getCode(),
+      });
+
+      if (data.suggestions?.[0]) {
+        const rewriteKey = `${expIndex}-${bestIdx}`;
+        setPendingRewrites(prev => {
+          const next = new Map(prev);
+          next.set(rewriteKey, { original: exp.description[bestIdx], rewritten: data.suggestions[0] });
+          return next;
+        });
+        notify({ message: `"${keyword}" intégré dans ${exp.position} — vérifiez la suggestion`, type: 'success' });
+      }
+    } catch {
+      notify({ message: `Erreur lors de l'intégration de "${keyword}"`, type: 'error' });
+    } finally {
+      setIntegratingKeyword(null);
+    }
+  };
+
   return (
     <div className="stitch-container relative">
       {/* Notifications */}
@@ -497,7 +546,7 @@ export default function EditorPage() {
                           // Re-assign modes for the new page budget
                           if (cvData) {
                             const keywords = jobKeywords;
-                            const reassigned = autoAssignModes(cvData.experience, keywords, newLimit);
+                            const reassigned = autoAssignModes(cvData.experience, keywords, newLimit, false);
                             setCvData(prev => prev ? { ...prev, experience: reassigned } : null);
                           }
                           setUserModified(false);
@@ -535,7 +584,7 @@ export default function EditorPage() {
                     onClick={() => {
                       if (!cvData) return;
                       const keywords = jobKeywords;
-                      const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1);
+                      const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1, false);
                       setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
                       setUserModified(false);
                       resetFitIterations();
@@ -1729,10 +1778,12 @@ export default function EditorPage() {
                 keywords={atsKeywords}
                 hasJobDescription={hasJobDescription}
                 onAddSkill={handleAddSkill}
+                onIntegrateKeyword={handleIntegrateKeyword}
                 onToggleAtsMode={() => handleAtsModeChange(!designSettings.atsMode)}
                 onOptimizeBullets={handleOptimizeBullets}
                 isOptimizing={isOptimizingBullets}
                 isAtsMode={designSettings.atsMode}
+                integratingKeyword={integratingKeyword}
               />
             ) : null}
           </div>

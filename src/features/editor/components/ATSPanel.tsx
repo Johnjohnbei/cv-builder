@@ -8,11 +8,13 @@ interface ATSPanelProps {
   keywords: KeywordAnalysisResult;
   hasJobDescription: boolean;
   onAddSkill?: (skill: string) => void;
+  onIntegrateKeyword?: (keyword: string, expIndex: number) => void;
   onToggleAtsMode?: () => void;
   onRequestAIAnalysis?: () => void;
   onOptimizeBullets?: () => void;
   isOptimizing?: boolean;
   isAtsMode?: boolean;
+  integratingKeyword?: string | null;
 }
 
 /** Return Tailwind bg class based on score tier. */
@@ -54,11 +56,13 @@ export function ATSPanel({
   keywords,
   hasJobDescription,
   onAddSkill,
+  onIntegrateKeyword,
   onToggleAtsMode,
   onRequestAIAnalysis,
   onOptimizeBullets,
   isOptimizing,
   isAtsMode,
+  integratingKeyword,
 }: ATSPanelProps) {
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
@@ -101,32 +105,57 @@ export function ATSPanel({
               {keywords.matchedCount}/{keywords.totalCount}
             </span>
           </div>
+          {/* Found keywords */}
           <div className="flex flex-wrap gap-1.5">
-            {keywords.keywords.map(kw => (
+            {keywords.keywords.filter(kw => kw.found).map(kw => (
               <span
                 key={kw.keyword}
-                className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border ${
-                  kw.found
-                    ? 'bg-green-100 text-green-800 border-green-300'
-                    : 'bg-red-100 text-red-800 border-red-300'
-                }`}
+                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
               >
                 {kw.keyword}
-                {kw.found && kw.locations.length > 0 && (
+                {kw.locations.length > 0 && (
                   <span className="text-green-600 text-[8px]">({formatLocations(kw.locations)})</span>
-                )}
-                {!kw.found && onAddSkill && (
-                  <button
-                    onClick={() => onAddSkill(kw.keyword)}
-                    className="ml-0.5 text-[8px] font-bold underline hover:text-red-900"
-                    aria-label={`Ajouter la compétence ${kw.keyword}`}
-                  >
-                    Ajouter
-                  </button>
                 )}
               </span>
             ))}
           </div>
+          {/* Missing keywords with contextual actions */}
+          {keywords.keywords.some(kw => !kw.found) && (
+            <div className="flex flex-col gap-1.5 mt-2">
+              <span className="text-[10px] font-mono text-red-600">
+                Manquants ({keywords.keywords.filter(kw => !kw.found).length})
+              </span>
+              {keywords.keywords.filter(kw => !kw.found).map(kw => {
+                const p = kw.placement;
+                const isIntegrating = integratingKeyword === kw.keyword;
+                return (
+                  <div key={kw.keyword} className="flex items-center gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                    <span className="font-semibold text-red-800 shrink-0">{kw.keyword}</span>
+                    <span className="text-gray-400 mx-1">→</span>
+                    {p?.type === 'experience' && onIntegrateKeyword && p.expIndex != null ? (
+                      <button
+                        onClick={() => onIntegrateKeyword(kw.keyword, p.expIndex!)}
+                        disabled={isIntegrating}
+                        className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline truncate max-w-[180px] disabled:opacity-50"
+                        title={`Intégrer dans : ${p.label}`}
+                      >
+                        {isIntegrating ? '...' : `Intégrer dans ${p.label}`}
+                      </button>
+                    ) : p?.type === 'summary' ? (
+                      <span className="text-[10px] text-gray-500 italic">Résumé professionnel</span>
+                    ) : onAddSkill ? (
+                      <button
+                        onClick={() => onAddSkill(kw.keyword)}
+                        className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline"
+                      >
+                        Ajouter aux compétences
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

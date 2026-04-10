@@ -1,4 +1,4 @@
-import type { CVData, KeywordMatch, KeywordAnalysisResult } from '@/src/shared/types';
+import type { CVData, KeywordMatch, KeywordAnalysisResult, KeywordPlacement, Experience } from '@/src/shared/types';
 import { extractNLPKeywords } from './atsHelpers';
 
 // ─── Acronym detection ───
@@ -82,6 +82,8 @@ function matchKeyword(keyword: string, text: string): boolean {
 
 /**
  * Compute keyword analysis: compare JD keywords against CV content.
+ * When aiKeywords are provided (from AI extraction), they replace NLP extraction.
+ * Acronyms from the JD are still merged in as they're reliably detected.
  * Returns typed list of matched/missing keywords with section locations.
  * Pure function, no side effects.
  */
@@ -89,22 +91,25 @@ export function computeKeywordAnalysis(
   cvData: CVData,
   jobDescription: string,
   language: 'fr' | 'en',
+  aiKeywords?: string[],
 ): KeywordAnalysisResult {
   if (!jobDescription?.trim()) {
     return { keywords: [], matchedCount: 0, totalCount: 0 };
   }
 
-  // Extract NLP keywords from job description
-  const nlpKeywords = extractNLPKeywords(jobDescription, language);
+  // Use AI-extracted keywords when available, otherwise fall back to NLP
+  const baseKeywords = aiKeywords && aiKeywords.length > 0
+    ? aiKeywords
+    : extractNLPKeywords(jobDescription, language);
 
-  // Extract acronyms from job description
+  // Extract acronyms from job description (always reliable)
   const acronyms = extractAcronyms(jobDescription);
 
   // Merge and deduplicate (NLP keywords are lowercase, acronyms are uppercase)
   const seen = new Set<string>();
   const allKeywords: string[] = [];
 
-  for (const kw of nlpKeywords) {
+  for (const kw of baseKeywords) {
     const lower = kw.toLowerCase();
     if (!seen.has(lower)) {
       seen.add(lower);
@@ -138,7 +143,9 @@ export function computeKeywordAnalysis(
     const found = locations.length > 0;
     if (found) matchedCount++;
 
-    return { keyword: kw, found, locations };
+    const placement = found ? null : findBestPlacement(kw, cvData);
+
+    return { keyword: kw, found, locations, placement };
   });
 
   return {
@@ -146,4 +153,46 @@ export function computeKeywordAnalysis(
     matchedCount,
     totalCount: keywords.length,
   };
+}
+
+// ─── Keyword placement logic ───
+
+/**
+ * Find the best place in the CV to integrate a missing keyword.
+ * Single-word keywords without context → skills.
+ * Multi-word or keywords matching an experience context → that experience.
+ */
+function findBestPlacement(keyword: string, cvData: CVData): KeywordPlacement {
+  const kwLower = keyword.toLowerCase();
+
+  // Score each visible experience by relevance to this keyword
+  let bestExp: { index: number; score: number; exp: Experience } | null = null;
+
+  for (let i = 0; i < cvData.experience.length; i++) {
+    const exp = cvData.experience[i];
+    if ((exp.displayMode || 'normal') === 'hidden') continue;
+
+    let score = 0;
+    const fullText = [exp.position, exp.company, exp.intro || '', ...exp.description].join(' ').toLowerCase();
+
+    for (const w of kwLower.split(/\s+/)) {
+      if (w.length >= 3 && fullText.includes(w)) score += 3;
+    }
+
+    if (exp.current) score += 2;
+    if (i === 0) score += 1;
+    if (exp.description.length >= 2) score += 1;
+
+    if (!bestExp || score > bestExp.score) {
+      bestExp = { index: i, score, exp };
+    }
+  }
+
+  // If keyword relates to an experience, suggest integrating there
+  if (bestExp && bestExp.score >= 2) {
+    return { type: 'experience', expIndex: bestExp.index, label: `${bestExp.exp.position} @ ${bestExp.exp.company}` };
+  }
+
+  // Otherwise → skills (most keywords from AI extraction are competencies)
+  return { type: 'skill', label: 'Compétences' };
 }

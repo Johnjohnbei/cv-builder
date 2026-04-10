@@ -94,11 +94,22 @@ export interface ATSScoreResult {
   suggestions: string[];
 }
 
+/** Where a missing keyword should be integrated. */
+export interface KeywordPlacement {
+  type: 'experience' | 'summary' | 'skill';
+  /** For experience: index into cvData.experience */
+  expIndex?: number;
+  /** Short label for the UI, e.g. "Lead Product Design @ TF1" */
+  label: string;
+}
+
 /** Keyword match result for JD-to-CV comparison. */
 export interface KeywordMatch {
   keyword: string;
   found: boolean;
   locations: string[];  // CV sections where keyword was found: 'summary' | 'experience' | 'skills' | 'education'
+  /** Best place to integrate this keyword when missing (null if found) */
+  placement: KeywordPlacement | null;
 }
 
 /** Full keyword analysis result. */
@@ -116,7 +127,7 @@ export const DEFAULT_DESIGN: DesignSettings = {
   sectionTitleWeight: 'bold',
   sectionTitleTransform: 'uppercase',
   sectionTitleSpacing: 'widest',
-  pageLimit: 1,
+  pageLimit: 2,
   showPhoto: true,
   paperSize: 'a4',
   orientation: 'portrait',

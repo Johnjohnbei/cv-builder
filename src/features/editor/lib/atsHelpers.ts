@@ -1,5 +1,6 @@
 import nlp from 'compromise';
 import stats from 'compromise-stats';
+import { STOP_WORDS } from '@/src/shared/lib/stopWords';
 
 nlp.plugin(stats);
 
@@ -11,14 +12,6 @@ interface SubScoreResult {
   score: number;
   suggestions: string[];
 }
-
-// --- French stop words for bigram filtering ---
-
-const FR_STOP_WORDS = new Set([
-  'le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'en', 'au', 'aux',
-  'pour', 'dans', 'avec', 'sur', 'par', 'est', 'sont', 'qui', 'que',
-  'vous', 'nous', 'ils', 'son', 'ses', 'ces', 'pas', 'plus', 'tout',
-]);
 
 /**
  * Extract keywords from text using NLP (English) or sliding-window (French).
@@ -37,7 +30,7 @@ export function extractNLPKeywords(text: string, language: 'fr' | 'en'): string[
   return extractFrenchKeywords(lower);
 }
 
-/** English NLP extraction via compromise: nouns + bigrams + unigrams. */
+/** English NLP extraction via compromise: nouns + bigrams + unigrams, capped. */
 function extractEnglishKeywords(text: string): string[] {
   const doc = nlp(text);
   const nouns: string[] = doc.nouns().out('array');
@@ -52,23 +45,46 @@ function extractEnglishKeywords(text: string): string[] {
     ...unigrams,
   ];
 
-  return deduplicateAndFilter(all);
+  return deduplicateAndFilter(all).slice(0, 40);
 }
 
-/** French fallback: unigrams + sliding-window bigrams (compromise is English-optimized). */
+/** French fallback: unigrams + sliding-window bigrams, filtered by frequency. */
 function extractFrenchKeywords(text: string): string[] {
-  const unigrams = extractKeywords(text);
   const words = text
     .replace(/[^a-zà-ÿ0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 3 && !FR_STOP_WORDS.has(w));
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
-  const bigrams: string[] = [];
-  for (let i = 0; i < words.length - 1; i++) {
-    bigrams.push(`${words[i]} ${words[i + 1]}`);
+  // Count word frequency
+  const freq = new Map<string, number>();
+  for (const w of words) {
+    freq.set(w, (freq.get(w) || 0) + 1);
   }
 
-  return deduplicateAndFilter([...unigrams, ...bigrams]);
+  // For long texts (real JDs), only keep terms appearing 2+ times to filter noise
+  // For short texts, keep all unique words
+  const minFreq = freq.size > 50 ? 2 : 1;
+
+  const unigrams = [...freq.entries()]
+    .filter(([, count]) => count >= minFreq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([word]) => word);
+
+  // Bigrams: only from words that passed frequency filter
+  const bigramFreq = new Map<string, number>();
+  for (let i = 0; i < words.length - 1; i++) {
+    if (freq.get(words[i])! >= minFreq || freq.get(words[i + 1])! >= minFreq) {
+      const bg = `${words[i]} ${words[i + 1]}`;
+      bigramFreq.set(bg, (bigramFreq.get(bg) || 0) + 1);
+    }
+  }
+
+  const bigrams = [...bigramFreq.entries()]
+    .filter(([, count]) => count >= minFreq)
+    .map(([bg]) => bg);
+
+  // Cap total keywords to avoid UI overload
+  return deduplicateAndFilter([...unigrams, ...bigrams]).slice(0, 40);
 }
 
 /** Deduplicate and filter terms < 3 chars. */

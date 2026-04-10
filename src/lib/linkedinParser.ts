@@ -283,7 +283,7 @@ function parsePersonalInfo(headerLines: Line[]): CVData['personal_info'] {
   const summaryText = right
     .filter(l => l.role === FontRole.BODY && l.text.length > 20 && !/@/.test(l.text))
     .map(l => l.text).join(' ');
-  if (summaryText) info.summary = summaryText.length > 300 ? summaryText.slice(0, 297) + '...' : summaryText;
+  if (summaryText) info.summary = summaryText;
 
   return info;
 }
@@ -314,7 +314,7 @@ function buildExperience(b: ExpBuilder): Experience {
   if (prose) {
     const sentences = prose.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
     intro = sentences.slice(0, 2).join(' ');
-    if (intro.length > 200) intro = intro.slice(0, 197) + '...';
+    // No truncation — let display modes and autoFit handle visible length
 
     // No bullets found — derive from prose
     if (b.description.length === 0 && prose.length > 50) {
