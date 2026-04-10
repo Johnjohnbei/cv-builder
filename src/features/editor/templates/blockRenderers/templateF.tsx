@@ -57,7 +57,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
         renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-full border-2 border-white")
       ) : (
         <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-          <User className="w-10 h-10 text-gray-400" />
+          <User className="w-10 h-10 text-gray-500" />
         </div>
       )}
       <div className="space-y-1">
@@ -106,7 +106,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
         <div className="space-y-3">
           <div className="flex justify-between items-baseline gap-4" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
             <h3 className="text-lg font-bold text-gray-900 min-w-0">{exp.position}</h3>
-            <span className="text-[10px] font-bold text-gray-400 shrink-0 whitespace-nowrap">
+            <span className="text-[10px] font-bold text-gray-500 shrink-0 whitespace-nowrap">
               {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
             </span>
           </div>
@@ -158,7 +158,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
   return (
     <div className="space-y-1" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <p className="text-[9px] font-bold text-gray-400 uppercase" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
+        <p className="text-[9px] font-bold text-gray-500 uppercase" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
           {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
         </p>
       )}
@@ -185,7 +185,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
           <div key={idx} className="space-y-0.5" data-cv-block="education">
             <p className="text-[11px] font-bold text-gray-900">{edu.degree}</p>
             <p className="text-[10px] text-gray-500">{edu.school}</p>
-            <p className="text-[9px] font-mono text-gray-400">{edu.end_date}</p>
+            <p className="text-[9px] font-mono text-gray-500">{edu.end_date}</p>
           </div>
         ))}
       </div>
@@ -204,7 +204,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center">
             <span className="text-[11px] font-bold text-gray-900">{lang.name}</span>
-            <span className="text-[9px] uppercase tracking-widest text-gray-400">{normalizeProficiency(lang.proficiency)}</span>
+            <span className="text-[9px] uppercase tracking-widest text-gray-500">{normalizeProficiency(lang.proficiency)}</span>
           </div>
         ))}
       </div>

@@ -6,11 +6,74 @@ import { CVPage } from './CVPage';
 import { getFontClass } from '../templates/shared';
 import { getSectionTitle } from '../lib/atsRules';
 
+/** Per-template grid layout config for CVPage */
+interface TemplateGridConfig {
+  sidebarPosition: 'left' | 'right';
+  gridClass: string;
+  sidebarClassName?: string;
+  mainClassName?: string;
+  /** Padding for page 1 (empty when grid columns handle their own padding) */
+  paddingClass: string;
+  /** Padding for pages 2+ (always needed since no grid on continuation pages) */
+  page2PaddingClass: string;
+}
+
+const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
+  TEMPLATE_A: {
+    sidebarPosition: 'right',
+    gridClass: 'grid-cols-3 gap-12',
+    mainClassName: 'col-span-2',
+    sidebarClassName: 'col-span-1',
+    paddingClass: 'px-16 pt-16 pb-10',
+    page2PaddingClass: 'px-16 pt-16 pb-10',
+  },
+  TEMPLATE_B: {
+    sidebarPosition: 'left',
+    gridClass: 'grid-cols-[1fr_2fr]',
+    sidebarClassName: 'p-12 text-white',
+    mainClassName: 'p-16',
+    paddingClass: '',
+    page2PaddingClass: 'px-16 pt-16 pb-10',
+  },
+  TEMPLATE_C: {
+    sidebarPosition: 'right',
+    gridClass: 'grid-cols-1',
+    paddingClass: 'px-16 pt-16 pb-10',
+    page2PaddingClass: 'px-16 pt-16 pb-10',
+  },
+  TEMPLATE_D: {
+    sidebarPosition: 'right',
+    gridClass: 'grid-cols-[2fr_1fr] gap-16',
+    paddingClass: 'px-16 pt-12 pb-10',
+    page2PaddingClass: 'px-16 pt-16 pb-10',
+  },
+  TEMPLATE_E: {
+    sidebarPosition: 'right',
+    gridClass: 'grid-cols-1',
+    paddingClass: 'px-16 pt-16 pb-10',
+    page2PaddingClass: 'px-16 pt-16 pb-10',
+  },
+  TEMPLATE_F: {
+    sidebarPosition: 'left',
+    gridClass: 'grid-cols-[260px_1fr]',
+    sidebarClassName: 'p-12 bg-gray-50',
+    mainClassName: 'p-12',
+    paddingClass: '',
+    page2PaddingClass: 'px-12 pt-12 pb-10',
+  },
+};
+
+function getTemplateGridConfig(templateId: string): TemplateGridConfig {
+  return TEMPLATE_GRID_CONFIGS[templateId] ?? TEMPLATE_GRID_CONFIGS.TEMPLATE_A;
+}
+
 interface Props {
   pageAssignments: PageAssignment[];
   designSettings: DesignSettings;
   language: SupportedLanguage;
   blockRenderers: BlockRendererMap;
+  /** The selected template ID (e.g. 'TEMPLATE_A') */
+  selectedTemplate: string;
   /** CSS variables for template colors */
   templateStyle?: React.CSSProperties;
   /** Padding class override per template */
@@ -45,6 +108,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
     designSettings,
     language,
     blockRenderers,
+    selectedTemplate,
     templateStyle,
     paddingClass,
     firstExperiencePage = 0,
@@ -52,6 +116,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
     const { primaryColor } = designSettings;
     const fontClass = getFontClass(designSettings.fontFamily);
     const isTwoColumn = pageAssignments[0]?.layoutMode === 'two-column';
+    const gridConfig = getTemplateGridConfig(selectedTemplate);
 
     const renderBlock = (placed: PlacedBlock, pageIndex: number) => {
       const renderer = blockRenderers[placed.block.type];
@@ -79,7 +144,16 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
               accentColor={primaryColor}
               fontClass={fontClass}
               style={templateStyle}
-              paddingClass={paddingClass}
+              paddingClass={paddingClass || (page.pageIndex > 0 ? gridConfig.page2PaddingClass : gridConfig.paddingClass)}
+              sidebarPosition={gridConfig.sidebarPosition}
+              gridClass={gridConfig.gridClass}
+              sidebarClassName={gridConfig.sidebarClassName}
+              mainClassName={gridConfig.mainClassName}
+              sidebarStyle={
+                selectedTemplate === 'TEMPLATE_B'
+                  ? { backgroundColor: primaryColor }
+                  : undefined
+              }
               sidebar={
                 page.sidebarBlocks && page.sidebarBlocks.length > 0
                   ? (() => {

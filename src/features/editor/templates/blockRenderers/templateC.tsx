@@ -46,7 +46,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-full mb-2 border-2 border-gray-100")}
       <h1 className="text-5xl font-light tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
       <p className="text-sm uppercase tracking-[0.3em] text-gray-500">{data?.title}</p>
-      {renderContactInfo(cvDataShim, designSettings.atsMode, "justify-center text-[10px] font-mono text-gray-400 uppercase tracking-widest")}
+      {renderContactInfo(cvDataShim, designSettings.atsMode, "justify-center text-[10px] font-mono text-gray-500 uppercase tracking-widest")}
     </header>
   );
 }
@@ -56,7 +56,7 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
 
   return (
     <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
-      <h2 className="text-gray-300 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
+      <h2 className="text-gray-400 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
       <p className="text-sm text-gray-600 leading-relaxed italic">"{summary}"</p>
     </section>
   );
@@ -72,7 +72,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
     <div data-cv-block="experience" data-measure-id={block.block.id} className="grid grid-cols-[120px_1fr] gap-8">
       {!isOverflow ? (
         <>
-          <div className="text-[10px] font-mono text-gray-400 pt-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="text-[10px] font-mono text-gray-500 pt-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
             {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
           </div>
           <div className="space-y-2">
@@ -151,7 +151,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
   return (
     <div className="space-y-1" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
+        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-500" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
           {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
         </p>
       )}
@@ -171,7 +171,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="text-gray-300 mb-6 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('education', language)}</h2>
+      <h2 className="text-gray-400 mb-6 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('education', language)}</h2>
       <div className="space-y-4">
         {educations.map((edu, idx) => (
           <div key={idx} data-cv-block="education">
@@ -189,12 +189,12 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="text-gray-300 mb-6 text-center font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
+      <h2 className="text-gray-400 mb-6 text-center font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
       <div className="flex justify-center gap-12">
         {languages.map((lang, idx) => (
           <div key={idx} className="text-center">
             <p className="text-xs font-bold text-gray-900 uppercase">{lang.name}</p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest">{normalizeProficiency(lang.proficiency)}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{normalizeProficiency(lang.proficiency)}</p>
           </div>
         ))}
       </div>

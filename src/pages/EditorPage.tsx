@@ -1900,6 +1900,7 @@ export default function EditorPage() {
                         designSettings={designSettings}
                         language={currentLanguage}
                         blockRenderers={blockRenderers}
+                        selectedTemplate={selectedTemplate}
                         templateStyle={{
                           '--primary': designSettings.primaryColor,
                           '--secondary': designSettings.secondaryColor,
@@ -1922,6 +1923,7 @@ export default function EditorPage() {
                   designSettings={designSettings}
                   language={currentLanguage}
                   blockRenderers={blockRenderers}
+                  selectedTemplate={selectedTemplate}
                   templateStyle={{
                     '--primary': designSettings.primaryColor,
                     '--secondary': designSettings.secondaryColor,

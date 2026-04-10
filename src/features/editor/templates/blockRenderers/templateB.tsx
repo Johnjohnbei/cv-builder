@@ -60,7 +60,7 @@ function SummaryBlock({ block }: BlockRendererProps) {
 
   return (
     <section data-cv-section="summary" className="mb-12">
-      <h2 className="opacity-60 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '10px' }}>Profil</h2>
+      <h2 className="opacity-80 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '10px' }}>Profil</h2>
       <p className="text-[11px] leading-relaxed opacity-90">{summary}</p>
     </section>
   );
@@ -139,7 +139,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
       )}
       <div className="flex flex-wrap gap-2">
         {displaySkills.map((skill, i) => (
-          <span key={skill} className="px-2 py-1 text-[9px] font-medium rounded" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }} data-sub-id={`${block.block.id}-item-${i}`} data-sub-type="skill-row">
+          <span key={skill} className="px-2 py-1 text-[9px] font-medium rounded" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff' }} data-sub-id={`${block.block.id}-item-${i}`} data-sub-type="skill-row">
             {skill}
           </span>
         ))}
@@ -175,12 +175,12 @@ function LanguagesBlock({ block, designSettings }: BlockRendererProps) {
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="opacity-60 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '10px' }}>Langues</h2>
+      <h2 className="opacity-80 mb-4 font-bold uppercase tracking-wider" style={{ fontSize: '10px' }}>Langues</h2>
       <div className="space-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center text-[11px]">
             <span className="opacity-90">{lang.name}</span>
-            <span className="opacity-60 text-[9px] uppercase tracking-wider">{normalizeProficiency(lang.proficiency)}</span>
+            <span className="opacity-75 text-[9px] uppercase tracking-wider">{normalizeProficiency(lang.proficiency)}</span>
           </div>
         ))}
       </div>

@@ -57,10 +57,10 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
         {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-xl border-2 border-gray-100")}
         <div className="space-y-1">
           <h1 className="text-5xl font-extrabold tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
-          <p className="text-lg font-medium tracking-wide uppercase opacity-70">{data?.title}</p>
+          <p className="text-lg font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
         </div>
       </div>
-      {renderContactInfo(cvDataShim, atsMode, cn("text-xs opacity-60", atsMode ? "flex-wrap" : "flex-col text-right space-y-1"))}
+      {renderContactInfo(cvDataShim, atsMode, cn("text-xs opacity-75", atsMode ? "flex-wrap" : "flex-col text-right space-y-1"))}
     </div>
   );
 }
@@ -92,7 +92,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
           {!atsMode && <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
           <div className="flex justify-between items-baseline gap-4 mb-2" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
-            <span className="text-[10px] font-bold opacity-50 shrink-0 whitespace-nowrap">
+            <span className="text-[10px] font-bold opacity-70 shrink-0 whitespace-nowrap">
               {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
             </span>
           </div>
@@ -149,7 +149,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
   return (
     <div data-measure-id={block.block.id}>
       {!isOverflow && (
-        <p className="text-[10px] font-bold uppercase mb-1 opacity-40" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
+        <p className="text-[10px] font-bold uppercase mb-1 opacity-60" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
           {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
         </p>
       )}
@@ -196,7 +196,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">{lang.name}</span>
-            <span className="text-[10px] font-bold uppercase opacity-40">{normalizeProficiency(lang.proficiency)}</span>
+            <span className="text-[10px] font-bold uppercase opacity-60">{normalizeProficiency(lang.proficiency)}</span>
           </div>
         ))}
       </div>

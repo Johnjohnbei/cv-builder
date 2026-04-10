@@ -15,6 +15,16 @@ interface Props {
   sidebar?: React.ReactNode;
   /** Padding classes */
   paddingClass?: string;
+  /** Sidebar position: 'left' or 'right' (default: 'right') */
+  sidebarPosition?: 'left' | 'right';
+  /** Template-specific grid class (e.g. 'grid-cols-3 gap-12') */
+  gridClass?: string;
+  /** Extra CSS classes applied to the sidebar column */
+  sidebarClassName?: string;
+  /** Extra CSS classes applied to the main column */
+  mainClassName?: string;
+  /** Inline styles applied to the sidebar column (e.g. background color) */
+  sidebarStyle?: React.CSSProperties;
 }
 
 /**
@@ -33,6 +43,11 @@ export function CVPage({
   children,
   sidebar,
   paddingClass = 'px-16 pt-16 pb-10',
+  sidebarPosition = 'right',
+  gridClass = 'grid-cols-3 gap-12',
+  sidebarClassName,
+  mainClassName,
+  sidebarStyle,
 }: Props) {
   const isPage2Plus = pageIndex > 0;
   const showSidebar = twoColumn && pageIndex === 0 && sidebar;
@@ -58,9 +73,18 @@ export function CVPage({
 
       <div className={cn(paddingClass, isPage2Plus && accentColor && 'pl-20')}>
         {showSidebar ? (
-          <div className="grid grid-cols-3 gap-12 h-full">
-            <div className="col-span-2 space-y-6">{children}</div>
-            <div className="col-span-1 space-y-8">{sidebar}</div>
+          <div className={cn('grid h-full', gridClass)}>
+            {sidebarPosition === 'left' ? (
+              <>
+                <div className={cn('space-y-8', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
+                <div className={cn('space-y-6', mainClassName)}>{children}</div>
+              </>
+            ) : (
+              <>
+                <div className={cn('space-y-6', mainClassName)}>{children}</div>
+                <div className={cn('space-y-8', sidebarClassName)} style={sidebarStyle}>{sidebar}</div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-6">{children}</div>

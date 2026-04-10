@@ -147,7 +147,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
   return (
     <div className="space-y-2" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-500" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
           {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
         </h3>
       )}
