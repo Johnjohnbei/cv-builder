@@ -1832,7 +1832,7 @@ export default function EditorPage() {
         >
           {cvData && pageAssignments.length > 0 ? (
             /* Paginated preview — each page is a separate visual sheet */
-            <div className="flex flex-col items-center print:hidden" style={{ marginBottom: '100px' }}>
+            <div className="flex flex-col items-center" style={{ marginBottom: '100px' }}>
               {pageAssignments.map((page, idx) => (
                 <div key={idx} style={{ marginBottom: idx < pageAssignments.length - 1 ? '24px' : 0 }}>
                   {/* Page label for pages 2+ */}
