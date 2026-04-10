@@ -94,6 +94,10 @@ export default function EditorPage() {
     cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
   );
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
+  const firstExperiencePage = useMemo(() => {
+    const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
+    return idx >= 0 ? idx : 0;
+  }, [pageAssignments]);
 
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
@@ -1901,6 +1905,7 @@ export default function EditorPage() {
                           '--primary': designSettings.primaryColor,
                           '--secondary': designSettings.secondaryColor,
                         } as React.CSSProperties}
+                        firstExperiencePage={firstExperiencePage}
                       />
                     </div>
                   </div>
@@ -1922,6 +1927,7 @@ export default function EditorPage() {
                     '--primary': designSettings.primaryColor,
                     '--secondary': designSettings.secondaryColor,
                   } as React.CSSProperties}
+                  firstExperiencePage={firstExperiencePage}
                 />
               </div>
             </div>
