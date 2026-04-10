@@ -260,6 +260,17 @@ body {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
+
+  /* Hide measurement container and non-CV elements during print */
+  [data-measure-container] {
+    display: none !important;
+  }
+
+  /* Reset zoom scaling on preview pages for correct print size */
+  .cv-page {
+    transform: none !important;
+    position: relative !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
