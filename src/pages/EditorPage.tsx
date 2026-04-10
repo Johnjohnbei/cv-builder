@@ -6,7 +6,7 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { renderPDF } from '../features/editor/lib/pdfExport';
+import { serverlessPDF, renderPDF } from '../features/editor/lib/pdfExport';
 import { extractExpectedText } from '../features/editor/lib/pdfValidation';
 import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
@@ -265,16 +265,20 @@ export default function EditorPage() {
     }
   };
 
-  // Inject a temporary stylesheet that overrides ALL oklch Tailwind v4 color variables to hex
-  const handleDownloadPDF = () => {
-    if (!cvRef.current) return;
+  // Serverless PDF generation with fallback to window.print()
+  const handleDownloadPDF = async () => {
+    if (!cvRef.current || isExporting) return;
     const expectedText = cvData ? extractExpectedText(cvData) : '';
-    renderPDF(cvRef.current, designSettings, {
+    await serverlessPDF(cvRef.current, designSettings, {
       expectedText,
       onValidation: (result) => {
         if (!result.valid && result.warning) {
           notify({ message: result.warning, type: 'error' });
         }
+      },
+      onLoadingChange: setIsExporting,
+      onFallback: (reason) => {
+        notify({ message: reason, type: 'error' });
       },
     });
   };
@@ -1913,6 +1917,16 @@ export default function EditorPage() {
           </div>
         </div>
       </main>
+
+      {/* PDF generation overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[300]">
+          <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span className="text-sm text-gray-700">Generation du PDF...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
