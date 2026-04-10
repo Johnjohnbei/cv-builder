@@ -60,7 +60,12 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
           <p className="text-sm font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
         </div>
       </div>
-      {renderContactInfo(cvDataShim, atsMode, cn("text-[10px] opacity-75", atsMode ? "flex-wrap" : "flex-col items-end space-y-0.5"))}
+      <div className="text-[10px] text-right space-y-0.5 text-gray-500 shrink-0">
+        {data?.email && <p>{data.email}</p>}
+        {data?.phone && <p>{data.phone}</p>}
+        {data?.location && <p>{data.location}</p>}
+        {data?.linkedin && <p>{data.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</p>}
+      </div>
     </div>
   );
 }
