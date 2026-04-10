@@ -25,7 +25,6 @@ export function usePaginationFit(
   userModified: boolean,
   isExporting: boolean,
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>,
-  measureRef: React.RefObject<HTMLDivElement | null>,
 ): {
   pageAssignments: PageAssignment[];
   actualPageCount: number;
@@ -42,7 +41,7 @@ export function usePaginationFit(
   }, [cvData]);
 
   // Step 2: Measure real DOM heights from MeasurementContainer
-  const { measuredBlocks, measuring } = useMeasureBlocks(measureRef, heuristicBlocks);
+  const { measuredBlocks, measuring } = useMeasureBlocks(heuristicBlocks);
 
   // Step 3: Allocate pages using measured heights (or heuristics while measuring)
   const activeBlocks = measuring ? heuristicBlocks : measuredBlocks;

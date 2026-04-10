@@ -1,31 +1,20 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { ContentBlock, SubBlock, SubBlockType } from '../lib/pagination/types';
 
 /**
  * Measures real DOM heights for content blocks rendered in a MeasurementContainer.
  *
- * Reads offsetHeight from elements with data-measure-block/data-measure-width
- * attributes at three widths: main, full, and sidebar.
- *
- * Uses useEffect (not useLayoutEffect) to ensure the MeasurementContainer
- * has fully rendered before reading measurements.
+ * Finds the container via `[data-measure-container]` attribute and reads
+ * offsetHeight from elements with data-measure-block/data-measure-width.
+ * Measures at three widths: main, full, and sidebar.
  */
 export function useMeasureBlocks(
-  containerRef: React.RefObject<HTMLDivElement | null>,
   blocks: ContentBlock[],
 ): { measuredBlocks: ContentBlock[]; measuring: boolean } {
   const [measuredBlocks, setMeasuredBlocks] = useState<ContentBlock[]>(blocks);
   const [measuring, setMeasuring] = useState(true);
-  const [renderCycle, setRenderCycle] = useState(0);
 
-  // Re-measure whenever blocks change (by id list)
   const blockIds = blocks.map(b => b.id).join('|');
-
-  // Trigger a second measurement after initial render to catch MeasurementContainer updates
-  useEffect(() => {
-    const timer = setTimeout(() => setRenderCycle(c => c + 1), 100);
-    return () => clearTimeout(timer);
-  }, [blockIds]);
 
   useEffect(() => {
     if (blocks.length === 0) {
@@ -36,9 +25,9 @@ export function useMeasureBlocks(
 
     setMeasuring(true);
 
-    // Wait for paint + MeasurementContainer render
-    const raf = requestAnimationFrame(() => {
-      const container = containerRef.current;
+    // Delay to ensure MeasurementContainer has rendered and painted
+    const timer = setTimeout(() => {
+      const container = document.querySelector('[data-measure-container]');
       if (!container) {
         setMeasuredBlocks(blocks);
         setMeasuring(false);
@@ -57,7 +46,6 @@ export function useMeasureBlocks(
         const sidebarEl = container.querySelector(`[data-measure-block="${block.id}"][data-measure-width="sidebar"]`) as HTMLElement | null;
         const sidebarH = sidebarEl ? sidebarEl.offsetHeight : undefined;
 
-        // Read sub-block heights for splittable blocks
         let subBlocks: SubBlock[] | undefined = block.subBlocks;
         if (block.splittable && mainEl) {
           const subEls = mainEl.querySelectorAll('[data-sub-id]');
@@ -81,10 +69,10 @@ export function useMeasureBlocks(
 
       setMeasuredBlocks(measured);
       setMeasuring(false);
-    });
+    }, 150);
 
-    return () => cancelAnimationFrame(raf);
-  }, [blockIds, containerRef, blocks, renderCycle]);
+    return () => clearTimeout(timer);
+  }, [blockIds, blocks]);
 
   return { measuredBlocks, measuring };
 }

@@ -93,9 +93,8 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const measureRef = useRef<HTMLDivElement | null>(null);
   const { pageAssignments, actualPageCount, heuristicBlocks } = usePaginationFit(
-    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData, measureRef,
+    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
   );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
@@ -1937,7 +1936,6 @@ export default function EditorPage() {
 
               {/* Hidden measurement container for real DOM height measurement */}
               <MeasurementContainer
-                ref={measureRef}
                 blocks={heuristicBlocks}
                 blockRenderers={blockRenderers}
                 designSettings={designSettings}

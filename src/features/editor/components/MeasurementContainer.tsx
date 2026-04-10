@@ -53,6 +53,7 @@ export const MeasurementContainer = forwardRef<HTMLDivElement, Props>(
       <div
         ref={ref}
         aria-hidden="true"
+        data-measure-container="true"
         style={{
           position: 'absolute',
           left: '-9999px',
