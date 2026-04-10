@@ -1,18 +1,123 @@
 import type { DesignSettings } from '@/src/shared/types';
 import { validateCVTextExtractability, type ValidationResult } from './pdfValidation';
 
+// ─── Types ───
+
 export interface RenderPDFOptions {
   expectedText?: string;
   onValidation?: (result: ValidationResult) => void;
 }
 
+export interface ServerlessPDFOptions {
+  expectedText?: string;
+  onValidation?: (result: ValidationResult) => void;
+  onLoadingChange?: (loading: boolean) => void;
+  onFallback?: (reason: string) => void;
+}
+
+// ─── DOM Serialization ───
+
+/**
+ * Extract CV HTML and all stylesheets from the live DOM.
+ * Returns a payload suitable for the serverless PDF endpoint.
+ */
+export function serializeCV(cvElement: HTMLElement): { html: string; styles: string } {
+  const styleLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+    .map(link => link.outerHTML)
+    .join('\n');
+
+  const inlineStyles = Array.from(document.styleSheets)
+    .map(sheet => {
+      try { return Array.from(sheet.cssRules).map(r => r.cssText).join('\n'); }
+      catch { return ''; }
+    })
+    .join('\n');
+
+  const clone = cvElement.cloneNode(true) as HTMLElement;
+  clone.style.transform = 'none';
+  clone.style.position = 'relative';
+  clone.style.top = '0';
+  clone.style.left = '0';
+  clone.style.width = '210mm';
+  clone.style.height = 'auto';
+  clone.style.overflow = 'visible';
+  clone.style.border = 'none';
+  clone.style.boxShadow = 'none';
+  clone.style.margin = '0';
+
+  return {
+    html: clone.outerHTML,
+    styles: `${styleLinks}\n<style>${inlineStyles}</style>`,
+  };
+}
+
+// ─── Serverless PDF Generation ───
+
+/**
+ * Generate PDF via the serverless endpoint.
+ * Falls back to window.print() via renderPDF on any error.
+ */
+export async function serverlessPDF(
+  cvElement: HTMLElement,
+  designSettings: DesignSettings,
+  options?: ServerlessPDFOptions,
+): Promise<void> {
+  const pageLimit = designSettings.pageLimit || 1;
+
+  // 1. Run DOM pre-check validation (D-14)
+  if (options?.expectedText && options?.onValidation) {
+    const renderedText = cvElement.innerText || cvElement.textContent || '';
+    const result = validateCVTextExtractability(renderedText, options.expectedText);
+    options.onValidation(result);
+  }
+
+  // 2. Notify loading start
+  options?.onLoadingChange?.(true);
+
+  try {
+    // 3. Serialize CV DOM
+    const { html, styles } = serializeCV(cvElement);
+
+    // 4. POST to serverless function
+    const response = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html, styles, pageLimit }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+
+    // 5. Download PDF via blob URL (D-12)
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = `CV_${date}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    // 6. Fallback to window.print() (D-13)
+    console.error('Serverless PDF generation failed:', error);
+    options?.onFallback?.('La generation serveur a echoue. Utilisation de l\'impression navigateur.');
+    renderPDF(cvElement, designSettings, {
+      expectedText: options?.expectedText,
+      onValidation: options?.onValidation,
+    });
+  } finally {
+    options?.onLoadingChange?.(false);
+  }
+}
+
+// ─── Legacy PDF Export (fallback) ───
+
 /**
  * PDF export via browser print dialog.
- *
- * This is the ONLY reliable way to get WYSIWYG PDF output.
- * The browser's print engine renders CSS perfectly — same engine as the preview.
- *
- * Approach: create an iframe with the CV content + all stylesheets, then print it.
+ * Used as fallback when serverless generation fails.
  */
 export function renderPDF(
   cvElement: HTMLElement,
@@ -68,12 +173,12 @@ export function renderPDF(
   ${styleLinks}
   <style>
     ${inlineStyles}
-    
+
     @page {
       size: A4 portrait;
       margin: 0;
     }
-    
+
     html, body {
       margin: 0 !important;
       padding: 0 !important;
@@ -83,7 +188,7 @@ export function renderPDF(
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
-    
+
     /* Individual blocks (one experience entry) should not be split */
     [data-cv-block] {
       break-inside: avoid !important;
