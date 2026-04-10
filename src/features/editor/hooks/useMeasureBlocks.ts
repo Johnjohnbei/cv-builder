@@ -1,22 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { ContentBlock, SubBlock, SubBlockType } from '../lib/pagination/types';
 
 /**
  * Measures real DOM heights for content blocks rendered in a MeasurementContainer.
- *
- * Finds the container via `[data-measure-container]` attribute and reads
- * offsetHeight from elements with data-measure-block/data-measure-width.
- * Measures at three widths: main, full, and sidebar.
+ * Measures ONCE after initial render, then stops to prevent re-allocation loops.
  */
 export function useMeasureBlocks(
   blocks: ContentBlock[],
 ): { measuredBlocks: ContentBlock[]; measuring: boolean } {
   const [measuredBlocks, setMeasuredBlocks] = useState<ContentBlock[]>(blocks);
   const [measuring, setMeasuring] = useState(true);
+  const hasMeasured = useRef(false);
+  const prevBlockIds = useRef('');
 
   const blockIds = blocks.map(b => b.id).join('|');
 
   useEffect(() => {
+    // Only re-measure if block IDs actually changed (new CV data, not re-allocation)
+    if (blockIds === prevBlockIds.current && hasMeasured.current) return;
+    prevBlockIds.current = blockIds;
+
     if (blocks.length === 0) {
       setMeasuredBlocks([]);
       setMeasuring(false);
@@ -24,13 +27,14 @@ export function useMeasureBlocks(
     }
 
     setMeasuring(true);
+    hasMeasured.current = false;
 
-    // Delay to ensure MeasurementContainer has rendered and painted
     const timer = setTimeout(() => {
       const container = document.querySelector('[data-measure-container]');
       if (!container) {
         setMeasuredBlocks(blocks);
         setMeasuring(false);
+        hasMeasured.current = true;
         return;
       }
 
@@ -67,12 +71,10 @@ export function useMeasureBlocks(
         });
       }
 
-      if (measured.length > 0 && measured[0].heightPx !== blocks[0]?.heightPx) {
-        console.log('[useMeasureBlocks] DOM measurements applied:', measured.length, 'blocks. Sample:', measured[0].id, measured[0].heightPx, 'vs heuristic', blocks[0]?.heightPx);
-      }
+      hasMeasured.current = true;
       setMeasuredBlocks(measured);
       setMeasuring(false);
-    }, 150);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [blockIds, blocks]);
