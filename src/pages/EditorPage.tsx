@@ -200,6 +200,7 @@ export default function EditorPage() {
       const optimizedData = await optimizeCVAction({
         cvData,
         pageLimit: designSettings.pageLimit || 1,
+        jobDescription: jobDescription || undefined,
         accessCode: getCode(),
       });
       

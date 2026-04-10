@@ -333,14 +333,23 @@ LANGUAGE: ${outputLang}
 
 MISSION: Adapt this CV to maximize alignment with the job description.
 
+═══ ÉTAPE 1 — ANALYSE DES MOTS-CLÉS ═══
+Avant de réécrire, identifie les 15-20 mots-clés et compétences les plus importants de l'offre :
+- Outils et technologies (Figma, React, SAP...)
+- Méthodologies (Agile, Scrum, Design Thinking...)
+- Compétences techniques spécifiques au poste
+- Soft skills explicitement demandées
+Intègre ces mots-clés NATURELLEMENT dans le CV (summary, bullets, skills). Ne les force pas — chaque mot-clé doit apparaître dans un contexte crédible.
+
+═══ ÉTAPE 2 — RÉÉCRITURE ═══
 RULES:
 1. KEEP all experiences, education, skills, languages — delete NOTHING
 2. Output JSON structure IDENTICAL to input (same number of elements everywhere)
 3. Rewrite bullets with strong action verbs (${actionVerbs})
 4. Relevant experiences: enrich descriptions, integrate job keywords, develop results
 5. Less relevant experiences: condense to 1-2 bullets while keeping them
-6. Summary: 2-3 sentences targeting the position directly
-7. Skills: reorder — most relevant for the job first
+6. Summary: 2-3 sentences targeting the position directly, weaving in key terms from the job
+7. Skills: reorder — most relevant for the job first. Add missing key skills from the job if the candidate likely has them
 8. ${FABRICATION_GUARD}
 
 CV:
@@ -552,7 +561,10 @@ export const optimizeCVForPage = action({
 JOB DESCRIPTION:
 ${args.jobDescription}
 
-Use this job to PRIORITIZE: most relevant experiences and skills should be most developed.`
+═══ MOTS-CLÉS À INTÉGRER ═══
+Identifie les 15-20 mots-clés critiques de cette offre (outils, méthodologies, compétences techniques, soft skills demandées).
+Intègre-les NATURELLEMENT dans les bullets, le summary et les skills — chaque mot-clé dans un contexte crédible.
+Priorise les expériences qui correspondent le mieux à ces mots-clés.`
       : `
 No job description provided. Prioritize by RECENCY: most recent experiences are most developed.`;
 
