@@ -30,12 +30,13 @@ export function usePaginationFit(
     return buildBlocks(cvData);
   }, [cvData]);
 
-  const blockIds = heuristicBlocks.map(b => b.id).join('|');
+  // Key includes IDs + heights + template + font so re-measurement triggers on any visual change
+  const contentKey = heuristicBlocks.map(b => `${b.id}:${b.heightPx}`).join('|') + `|${selectedTemplate}|${designSettings.fontFamily}`;
 
   // After first paint, read real heights from the rendered CV pages + measurement container
   useEffect(() => {
-    if (blockIds === prevBlockIds.current || heuristicBlocks.length === 0) return;
-    prevBlockIds.current = blockIds;
+    if (contentKey === prevBlockIds.current || heuristicBlocks.length === 0) return;
+    prevBlockIds.current = contentKey;
     measuredRef.current = null;
     setMeasureDone(false);
 
@@ -90,7 +91,7 @@ export function usePaginationFit(
       measuredRef.current = measured;
       setMeasureDone(true);
     });
-  }, [blockIds, heuristicBlocks]);
+  }, [contentKey, heuristicBlocks]);
 
   const activeBlocks = measuredRef.current ?? heuristicBlocks;
 
