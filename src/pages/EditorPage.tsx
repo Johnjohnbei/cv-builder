@@ -13,7 +13,10 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useATSAnalysis } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
+import { MeasurementContainer } from '../features/editor/components/MeasurementContainer';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
+import { getTemplateLayout } from '../features/editor/lib/pagination/templateLayouts';
+import { buildBlocks } from '../features/editor/lib/pagination/buildBlocks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
@@ -1897,6 +1900,18 @@ export default function EditorPage() {
                 />
               </div>
 
+              {/* Off-screen measurement — usePaginationFit reads heights from this */}
+              {cvData && (
+                <MeasurementContainer
+                  blocks={buildBlocks(cvData)}
+                  blockRenderers={blockRenderers}
+                  designSettings={designSettings}
+                  language={currentLanguage}
+                  mainWidthMm={getTemplateLayout(selectedTemplate).page1.mainColumnWidthMm}
+                  fullWidthMm={getTemplateLayout(selectedTemplate).page2Plus.contentWidthMm}
+                  templateStyle={{ '--primary': designSettings.primaryColor, '--secondary': designSettings.secondaryColor } as React.CSSProperties}
+                />
+              )}
             </div>
           ) : (
             /* Empty state */

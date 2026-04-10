@@ -19,13 +19,11 @@ function estimateTextHeight(text: string, charsPerLine: number): number {
 }
 
 /**
- * Global safety multiplier applied to ALL height estimates.
- * Better to overestimate (extra page) than underestimate (clipped content).
+ * Safety multiplier for initial heuristic pass (before DOM measurement).
+ * Kept at 1.0 since usePaginationFit replaces these with real DOM heights.
  */
-const SAFETY_MULTIPLIER = 1.3;
-
 function safe(px: number): number {
-  return Math.ceil(px * SAFETY_MULTIPLIER);
+  return Math.ceil(px);
 }
 
 /**
