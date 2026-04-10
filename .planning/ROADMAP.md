@@ -185,7 +185,11 @@ Plans:
   3. Page breaks never cut mid-block (experience entry, education entry, skill group)
   4. PDF rendering matches the editor preview exactly (colors, fonts, layout, multi-column)
   5. Multi-page CVs (1-3 pages) render correctly with proper margins
-**Plans**: 0 plans
+**Plans**: 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Vercel Serverless Function with puppeteer-core + @sparticuz/chromium, infrastructure config
+- [ ] 11-02-PLAN.md — Client-side serialization, serverless download, fallback to window.print(), EditorPage integration
 
 ## Progress
 
@@ -204,4 +208,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. ATS Panel UI | 3/3 | Complete | 2026-04-09 |
 | 9. AI Content Optimization | 3/3 | Complete | 2026-04-09 |
 | 10. PDF Validation | 1/1 | Complete | 2026-04-09 |
-| 11. PDF Export Engine | 0/0 | Pending | — |
+| 11. PDF Export Engine | 0/2 | In Progress | — |
