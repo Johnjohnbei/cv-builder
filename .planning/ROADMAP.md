@@ -175,10 +175,22 @@ Plans:
 Plans:
 - [x] 10-01-PLAN.md — PDF text extractability validation with DOM pre-check and user warning
 
+### Phase 11: PDF Export Engine
+**Goal**: Replace window.print() with Puppeteer headless Chrome on Vercel Serverless for direct PDF download with perfect rendering, reliable page breaks, and ATS-safe text extraction
+**Depends on**: Phase 10
+**Requirements**: PDFX-01, PDFX-02, PDFX-03, PDFX-04, PDFX-05
+**Success Criteria** (what must be TRUE):
+  1. User clicks "Download PDF" and receives a direct file download — no print dialog
+  2. Generated PDF has selectable, extractable text (ATS-compatible)
+  3. Page breaks never cut mid-block (experience entry, education entry, skill group)
+  4. PDF rendering matches the editor preview exactly (colors, fonts, layout, multi-column)
+  5. Multi-page CVs (1-3 pages) render correctly with proper margins
+**Plans**: 0 plans
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -192,3 +204,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. ATS Panel UI | 3/3 | Complete | 2026-04-09 |
 | 9. AI Content Optimization | 3/3 | Complete | 2026-04-09 |
 | 10. PDF Validation | 1/1 | Complete | 2026-04-09 |
+| 11. PDF Export Engine | 0/0 | Pending | — |
