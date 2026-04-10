@@ -60,7 +60,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
           <p className="text-sm font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
         </div>
       </div>
-      {renderContactInfo(cvDataShim, atsMode, cn("text-[10px] opacity-75", atsMode ? "flex-wrap" : "flex-col text-right space-y-0.5"))}
+      {renderContactInfo(cvDataShim, atsMode, cn("text-[10px] opacity-75", atsMode ? "flex-wrap" : "flex-col items-end space-y-0.5"))}
     </div>
   );
 }
@@ -90,11 +90,12 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
       {!isOverflow && (
         <div className="relative pl-6 border-l-2" style={{ borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` }}>
           {!atsMode && <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
-          <div className="flex justify-between items-baseline gap-4 mb-2" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="flex justify-between items-start gap-4 mb-2" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
-            <span className="text-[10px] font-bold opacity-70 shrink-0 whitespace-nowrap">
-              {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
-            </span>
+            <div className="text-[10px] font-bold opacity-70 shrink-0 text-right leading-tight">
+              <div>{formatDateShort(exp.start_date)}</div>
+              <div>{exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</div>
+            </div>
           </div>
           <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>{exp.company}</p>
           {intro && <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>}

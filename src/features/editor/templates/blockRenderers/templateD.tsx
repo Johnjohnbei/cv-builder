@@ -44,16 +44,14 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
 
   return (
     <div data-cv-section="header" className="pb-3 mb-2" style={{ backgroundColor: `${primaryColor}10` }}>
-      <div className="px-10 py-6">
-        <div className="flex justify-between items-start">
-          <div className="flex gap-5 items-start">
-            {renderPhoto(cvDataShim, showPhoto, "w-24 h-24 rounded-none border-4 border-black")}
-            <div className="space-y-1">
-              <h1 className="text-3xl font-black italic tracking-tighter" style={{ color: primaryColor }}>
-                {data?.name}
-              </h1>
-              <p className="text-sm font-bold uppercase tracking-widest" style={{ color: secondaryColor }}>{data?.title}</p>
-            </div>
+      <div className="px-10 py-6 space-y-4">
+        {/* Row 1: photo + name | contact */}
+        <div className="flex justify-between items-center">
+          <div className="flex gap-4 items-center">
+            {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-none border-4 border-black")}
+            <h1 className="text-3xl font-black italic tracking-tighter" style={{ color: primaryColor }}>
+              {data?.name}
+            </h1>
           </div>
           <div className="text-right space-y-0.5 text-[10px] font-bold font-mono shrink-0">
             <p>{data?.email}</p>
@@ -62,6 +60,8 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
             {data?.linkedin && <p>{data.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</p>}
           </div>
         </div>
+        {/* Row 2: title full-width */}
+        <p className="text-sm font-bold uppercase tracking-widest border-t pt-3" style={{ color: secondaryColor, borderColor: `${primaryColor}20` }}>{data?.title}</p>
       </div>
     </div>
   );

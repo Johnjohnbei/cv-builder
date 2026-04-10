@@ -188,7 +188,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
   const languages = block.block.data as Language[];
 
   return (
-    <section data-cv-section="languages" data-measure-id={block.block.id}>
+    <section data-cv-section="languages" data-measure-id={block.block.id} className="mt-auto">
       <h2 className="text-gray-400 mb-3 text-center font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('languages', language)}</h2>
       <div className="flex justify-center gap-12">
         {languages.map((lang, idx) => (

@@ -87,7 +87,7 @@ export function CVPage({
             )}
           </div>
         ) : (
-          <div className="space-y-4">{children}</div>
+          <div className="flex flex-col gap-4 h-full">{children}</div>
         )}
       </div>
     </div>

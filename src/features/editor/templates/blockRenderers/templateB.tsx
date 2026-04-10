@@ -87,8 +87,8 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
   const isOverflow = (block.startSubBlock ?? 0) > 0;
 
   return (
-    <div data-cv-block="experience" data-measure-id={block.block.id} className={cn("relative pl-8 border-l-2", atsMode && "pl-0 border-l-0")} style={!atsMode ? { borderColor: `${secondaryColor}30` } : undefined}>
-      {!atsMode && <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white" style={{ backgroundColor: secondaryColor }} />}
+    <div data-cv-block="experience" data-measure-id={block.block.id} className={cn("relative pl-6 border-l-2", atsMode && "pl-0 border-l-0")} style={!atsMode ? { borderColor: `${secondaryColor}30` } : undefined}>
+      {!atsMode && <div className="absolute -left-[4px] top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />}
       {!isOverflow && (
         <div>
           <div className="flex justify-between items-baseline gap-4 mb-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
@@ -104,8 +104,8 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
       {bullets.length > 0 && (
         <ul className="space-y-1.5 mt-2">
           {bullets.map((bullet, bIdx) => (
-            <li key={bIdx} className="text-[11px] text-gray-600 leading-relaxed flex gap-2.5" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
-              <span className="mt-[7px] w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
+            <li key={bIdx} className="text-[11px] text-gray-600 leading-relaxed flex gap-2" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
+              <span className="mt-[6px] w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
               {bullet}
             </li>
           ))}
