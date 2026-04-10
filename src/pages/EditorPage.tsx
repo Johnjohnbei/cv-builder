@@ -1878,10 +1878,10 @@ export default function EditorPage() {
                 </div>
               ))}
 
-              {/* Hidden full export container — all pages stacked for serializeCV */}
+              {/* Export container — hidden on screen, visible during print */}
               <div
                 ref={cvRef}
-                className="print:hidden"
+                data-print-export
                 style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}
                 aria-hidden
               >

@@ -238,24 +238,26 @@ body {
     padding: 0 !important;
   }
 
-  /* Hide ALL UI except CV pages */
+  /* Hide everything except the print-ready export container */
   body * {
     visibility: hidden;
   }
-  .cv-page, .cv-page * {
+  [data-print-export], [data-print-export] * {
     visibility: visible !important;
+  }
+  [data-print-export] {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
   }
 
   /* Pre-paginated pages: each .cv-page is exactly one A4 sheet */
   .cv-page {
-    width: 210mm !important;
-    height: 297mm !important;
-    overflow: hidden !important;
-    position: relative !important;
-    transform: none !important;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
     page-break-after: always;
     break-after: page;
-    margin: 0 !important;
   }
   .cv-page:last-child {
     page-break-after: auto;

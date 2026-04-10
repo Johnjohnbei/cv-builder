@@ -101,9 +101,10 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   // Skill categories (one block per visible category)
   cvData.skills?.filter(cat => !isSkillHidden(cat)).forEach((cat, idx) => {
     const items = getVisibleSkills(cat);
-    const titleH = 22;
-    const rowH = 26;
-    const rowsNarrow = Math.ceil(items.length / 3);
+    const titleH = 24;
+    const rowH = 28;
+    // In narrow sidebar, ~2 items per row; in wide column, ~4-5
+    const rowsNarrow = Math.ceil(items.length / 2);
     const rowsWide = Math.ceil(items.length / 5);
 
     const subBlocks = [
@@ -131,7 +132,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: SECTION_TITLE_H + cvData.education.length * 45,
+      heightPx: SECTION_TITLE_H + cvData.education.length * 55,
       fullWidthHeightPx: SECTION_TITLE_H + cvData.education.length * 40,
       splittable: false,
       data: cvData.education,
