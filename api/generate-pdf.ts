@@ -24,8 +24,18 @@ function getPdfCss(): string {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
+    .cv-page {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+    .cv-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
     .pdf-safe {
-      padding-bottom: 10mm !important;
       height: auto !important;
       min-height: 0 !important;
       overflow: visible !important;
@@ -37,10 +47,6 @@ function getPdfCss(): string {
     [data-cv-section] > h2 {
       break-after: avoid !important;
       page-break-after: avoid !important;
-    }
-    [data-cv-block] li {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
     }
   `;
 }

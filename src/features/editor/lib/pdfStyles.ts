@@ -3,7 +3,7 @@
  * Single source of truth — used by both serverless (generate-pdf.ts)
  * and browser fallback (pdfExport.ts renderPDF).
  */
-export function getPdfCss(pageLimit: number): string {
+export function getPdfCss(_pageLimit: number): string {
   return `
     @page {
       size: A4 portrait;
@@ -19,30 +19,34 @@ export function getPdfCss(pageLimit: number): string {
       print-color-adjust: exact !important;
     }
 
-    /* Template root: flow naturally, no fixed height */
+    /* Pre-paginated pages: each .cv-page is exactly one A4 page */
+    .cv-page {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+    .cv-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    /* Template root: flow naturally */
     .pdf-safe {
-      padding-bottom: 10mm !important;
       height: auto !important;
       min-height: 0 !important;
       overflow: visible !important;
     }
 
-    /* Individual blocks (one experience, one education) must not split */
+    /* Fallback: keep blocks together if CSS pagination still applies */
     [data-cv-block] {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
-
-    /* Section headers stay with following content */
     [data-cv-section] > h2 {
       break-after: avoid !important;
       page-break-after: avoid !important;
-    }
-
-    /* Bullet items stay together */
-    [data-cv-block] li {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
     }
   `;
 }

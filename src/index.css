@@ -236,27 +236,27 @@ body {
     print-color-adjust: exact !important;
   }
 
-  /* Template root must flow naturally, not fill fixed height */
+  /* Pre-paginated pages: each .cv-page is exactly one A4 sheet */
+  .cv-page {
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .cv-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
   .pdf-safe {
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
   }
 
-  /* Individual blocks should not be split across pages */
+  /* Fallback block protection */
   [data-cv-block] {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  /* Section headers should stay with their content */
-  [data-cv-section] > h2 {
-    break-after: avoid !important;
-    page-break-after: avoid !important;
-  }
-
-  /* Bullet lists: keep individual items together */
-  [data-cv-block] li {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }

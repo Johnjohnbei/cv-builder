@@ -8,10 +8,12 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { serverlessPDF, renderPDF } from '../features/editor/lib/pdfExport';
 import { extractExpectedText } from '../features/editor/lib/pdfValidation';
-import { CVRenderer as CVRendererComponent } from '../features/editor/templates';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useOverflowDetection, useATSAnalysis } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis } from '../features/editor/hooks';
+import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
+import { PaginatedCV } from '../features/editor/components/PaginatedCV';
+import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
@@ -88,9 +90,10 @@ export default function EditorPage() {
   }, [loadedJobDescription]);
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
-  const { overflowPx, resetFitIterations } = useOverflowDetection(
-    cvRef, cvData, designSettings, jobDescription, userModified, isExporting, setCvData,
+  const { pageAssignments, actualPageCount } = usePaginationFit(
+    cvData, designSettings, selectedTemplate, jobDescription, userModified, isExporting, setCvData,
   );
+  const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
 
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
@@ -187,10 +190,7 @@ export default function EditorPage() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const renderCV = () => {
-    if (!cvData) return null;
-    return <CVRendererComponent selectedTemplate={selectedTemplate} cvData={cvData} designSettings={designSettings} language={currentLanguage} />;
-  };
+  // renderCV replaced by PaginatedCV — block-based pagination engine
 
   const handleOptimize = async () => {
     if (!cvData) return;
@@ -555,7 +555,7 @@ export default function EditorPage() {
                             setCvData(prev => prev ? { ...prev, experience: reassigned } : null);
                           }
                           setUserModified(false);
-                          resetFitIterations();
+                          // pagination fit auto-resets on cvData change
                           resetAutoAssign(); // allow re-fit
                         }}
                         className="bg-white border border-blue-200 rounded text-[10px] px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -592,7 +592,7 @@ export default function EditorPage() {
                       const autoExperiences = autoAssignModes(cvData.experience, keywords, designSettings.pageLimit || 1, false);
                       setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
                       setUserModified(false);
-                      resetFitIterations();
+                      // pagination fit auto-resets on cvData change
                     }}
                     className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     disabled={!cvData}
@@ -621,7 +621,7 @@ export default function EditorPage() {
                   
                   {/* Overflow warning */}
                   <OverflowIndicator
-                    overflowPx={overflowPx}
+                    overflowPx={actualPageCount > (designSettings.pageLimit || 1) ? (actualPageCount - (designSettings.pageLimit || 1)) * 100 : 0}
                     pageLimit={designSettings.pageLimit || 1}
                     userModified={userModified}
                     hasCvData={!!cvData}
@@ -1860,62 +1860,94 @@ export default function EditorPage() {
           ref={previewContainerRef}
           className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
-          {/* Scaled wrapper — reserves exact scaled space */}
-          <div
-            style={{
-              width: `${210 * (zoom / 100)}mm`,
-              height: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
-              minHeight: `${297 * (designSettings.pageLimit || 1) * (zoom / 100)}mm`,
-              marginBottom: '100px',
-            }}
-            className="relative shrink-0"
-          >
-            {/* Page break indicators — outside cvRef so they are NOT exported */}
-            {Array.from({ length: (designSettings.pageLimit || 1) - 1 }, (_, i) => (
-              <div
-                key={i}
-                className="absolute left-0 w-full pointer-events-none"
-                style={{ top: `${297 * (i + 1) * (zoom / 100)}mm`, zIndex: 60 }}
-              >
-                <div className="border-t-2 border-dashed border-blue-300 w-full" />
-                <div className="absolute top-0 right-2 bg-blue-50 text-blue-500 text-[8px] px-2 py-0.5 rounded-b font-mono uppercase tracking-wider">
-                  Page {i + 2}
-                </div>
-              </div>
-            ))}
-
-            {/* Single CV render — constrained height for overflow detection + export */}
-            <div
-              ref={cvRef}
-              style={{
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: 'top left',
-                width: '210mm',
-                height: `${297 * (designSettings.pageLimit || 1)}mm`,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-              }}
-              className="bg-white shadow-2xl border border-[#DADCE0] pdf-safe overflow-hidden"
-            >
-              {cvData ? renderCV() : (
-                <div className="h-full flex items-center justify-center p-8">
-                  <div className="text-center max-w-sm">
-                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-sm font-bold text-gray-700 mb-2">Aucun CV chargé</h3>
-                    <p className="text-xs text-gray-500 mb-6">Importez un CV depuis le dashboard ou créez-en un nouveau pour commencer l'édition.</p>
-                    <Link
-                      to="/dashboard"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+          {cvData && pageAssignments.length > 0 ? (
+            /* Paginated preview — each page is a separate visual sheet */
+            <div className="flex flex-col items-center" style={{ marginBottom: '100px' }}>
+              {pageAssignments.map((page, idx) => (
+                <div key={idx} style={{ marginBottom: idx < pageAssignments.length - 1 ? '24px' : 0 }}>
+                  {/* Page label for pages 2+ */}
+                  {idx > 0 && (
+                    <div className="flex items-center justify-center mb-2">
+                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {idx + 1}</span>
+                    </div>
+                  )}
+                  {/* Scaled page sheet */}
+                  <div
+                    style={{
+                      width: `${210 * (zoom / 100)}mm`,
+                      height: `${297 * (zoom / 100)}mm`,
+                    }}
+                    className="relative shrink-0 overflow-hidden"
+                  >
+                    <div
+                      ref={idx === 0 ? cvRef : undefined}
+                      style={{
+                        transform: `scale(${zoom / 100})`,
+                        transformOrigin: 'top left',
+                        width: '210mm',
+                        height: '297mm',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                      }}
+                      className="bg-white shadow-2xl border border-[#DADCE0]"
                     >
-                      <ArrowLeft className="w-4 h-4" />
-                      Retour au dashboard
-                    </Link>
+                      <PaginatedCV
+                        pageAssignments={[page]}
+                        designSettings={designSettings}
+                        language={currentLanguage}
+                        blockRenderers={blockRenderers}
+                        templateStyle={{
+                          '--primary': designSettings.primaryColor,
+                          '--secondary': designSettings.secondaryColor,
+                        } as React.CSSProperties}
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
+              ))}
+
+              {/* Hidden full export container — all pages stacked for serializeCV */}
+              <div
+                ref={cvRef}
+                style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}
+                aria-hidden
+              >
+                <PaginatedCV
+                  pageAssignments={pageAssignments}
+                  designSettings={designSettings}
+                  language={currentLanguage}
+                  blockRenderers={blockRenderers}
+                  templateStyle={{
+                    '--primary': designSettings.primaryColor,
+                    '--secondary': designSettings.secondaryColor,
+                  } as React.CSSProperties}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Empty state */
+            <div
+              style={{
+                width: `${210 * (zoom / 100)}mm`,
+                height: `${297 * (zoom / 100)}mm`,
+              }}
+              className="relative shrink-0 shadow-2xl border border-[#DADCE0] bg-white flex items-center justify-center"
+            >
+              <div className="text-center max-w-sm p-8">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Aucun CV chargé</h3>
+                <p className="text-xs text-gray-500 mb-6">Importez un CV depuis le dashboard ou créez-en un nouveau pour commencer l'édition.</p>
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Retour au dashboard
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
