@@ -103,14 +103,16 @@ function allocateTwoColumn(
   }
 
   // Sidebar: fill with skills/education/languages
+  // Blocks that don't fit flow to page 2+ as full-width content
+  const sidebarOverflow: ContentBlock[] = [];
   let sidebarUsed = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
   for (const sb of sidebarBlocks) {
     if (sidebarUsed + sb.heightPx + MEASUREMENT_SAFETY_PX <= page1Height) {
       page1Sidebar.push({ block: sb });
       sidebarUsed += sb.heightPx + MEASUREMENT_SAFETY_PX;
+    } else {
+      sidebarOverflow.push(sb);
     }
-    // If sidebar overflows, we drop the block (it won't show — sidebar is page 1 only)
-    // TODO: In a future version, consider flowing sidebar overflow to a section on page 2
   }
 
   // Main column: fill with experiences
@@ -129,11 +131,12 @@ function allocateTwoColumn(
     usedHeightPx: Math.max(mainTotal, sideTotal),
   });
 
-  // ─── Pages 2+: Full-width experiences ───
+  // ─── Pages 2+: Full-width overflow (experiences + sidebar overflow) ───
 
-  if (overflowExperiences.length > 0) {
+  const allOverflow = [...overflowExperiences, ...sidebarOverflow];
+  if (allOverflow.length > 0) {
     const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    allocateOverflowPages(overflowExperiences, page2Height, pages, true);
+    allocateOverflowPages(allOverflow, page2Height, pages, true);
   }
 
   return pages;

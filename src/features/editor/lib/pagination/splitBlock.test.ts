@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { splitBlock, getPlacedBlockHeight } from './splitBlock';
 import type { ContentBlock, SubBlock } from './types';
+import { MEASUREMENT_SAFETY_PX } from './types';
 
 // ─── Helpers ───
 
@@ -49,8 +50,10 @@ function makeSkillBlock(itemCount: number, itemHeight = 20): ContentBlock {
 describe('splitBlock — experience', () => {
   it('splits experience keeping header + 2 bullets when enough space', () => {
     const block = makeExpBlock(4, 24);
-    // header=80, 2 bullets=48 → need ~131 with safety margin
-    const result = splitBlock(block, 140);
+    // headerH = 80 + safety. Each bullet check: usedPx + bullet + safety <= remaining
+    // Need: header(80+S) + bullet1(24) + bullet2_check(24+S) to fit but bullet3 not
+    const space = 80 + MEASUREMENT_SAFETY_PX + 24 + 24 + MEASUREMENT_SAFETY_PX + 1;
+    const result = splitBlock(block, space);
     expect(result).not.toBeNull();
     expect(result!.kept.startSubBlock).toBe(0);
     expect(result!.kept.endSubBlock).toBe(3); // header + 2 bullets
@@ -60,8 +63,8 @@ describe('splitBlock — experience', () => {
 
   it('returns null when less than 2 bullets fit', () => {
     const block = makeExpBlock(4, 24);
-    // Only space for header + 1 bullet
-    const result = splitBlock(block, 110);
+    // Only space for header + 1 bullet (not enough for 2)
+    const result = splitBlock(block, 80 + 24 + MEASUREMENT_SAFETY_PX - 1);
     expect(result).toBeNull();
   });
 
@@ -91,8 +94,8 @@ describe('splitBlock — experience', () => {
 
   it('keeps all bullets if all fit', () => {
     const block = makeExpBlock(3, 24);
-    // header=80 + 3*24=72 + safety=3 = 155
-    const result = splitBlock(block, 200);
+    // header(80)+safety + 3*(bullet(24)+safety) — generous space for all
+    const result = splitBlock(block, 80 + MEASUREMENT_SAFETY_PX + 3 * (24 + MEASUREMENT_SAFETY_PX) + 10);
     expect(result).not.toBeNull();
     expect(result!.kept.endSubBlock).toBe(4); // header + 3 bullets (all)
   });
@@ -103,8 +106,10 @@ describe('splitBlock — experience', () => {
 describe('splitBlock — skill-category', () => {
   it('splits keeping title + 2 items', () => {
     const block = makeSkillBlock(5, 20);
-    // title=30, 2 items=40 → need ~73 with safety
-    const result = splitBlock(block, 80);
+    // titleH = 30 + safety. Each item check: usedPx + item + safety <= remaining
+    // Enough for 2 items but not 3
+    const space = 30 + MEASUREMENT_SAFETY_PX + 20 + 20 + MEASUREMENT_SAFETY_PX + 1;
+    const result = splitBlock(block, space);
     expect(result).not.toBeNull();
     expect(result!.kept.endSubBlock).toBe(3); // title + 2 items
     expect(result!.overflow.startSubBlock).toBe(3);
@@ -132,8 +137,8 @@ describe('getPlacedBlockHeight', () => {
 
   it('returns slice height for split block', () => {
     const block = makeExpBlock(4, 24);
-    // header(80) + 2 bullets(48) + safety(3) = 131
+    // header(80) + 2 bullets(48) + safety
     const height = getPlacedBlockHeight({ block, startSubBlock: 0, endSubBlock: 3 });
-    expect(height).toBe(80 + 24 + 24 + 3);
+    expect(height).toBe(80 + 24 + 24 + MEASUREMENT_SAFETY_PX);
   });
 });
