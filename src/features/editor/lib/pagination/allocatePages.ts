@@ -114,8 +114,8 @@ function allocateTwoColumn(
   }
 
   // Main column: fill with experiences
-  const mainAvailable = page1Height - mainUsed;
-  const overflowExperiences = fillColumn(experiences, mainAvailable, page1Main);
+  // Note: fillColumn calculates usedPx from already-placed blocks in page1Main
+  const overflowExperiences = fillColumn(experiences, page1Height, page1Main);
 
   // Determine effective page 1 height
   const mainTotal = page1Main.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
