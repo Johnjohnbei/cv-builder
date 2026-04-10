@@ -197,7 +197,8 @@ function fillColumn(
   availablePx: number,
   placed: PlacedBlock[],
 ): ContentBlock[] {
-  let usedPx = placed.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
+  const FILL_CORRECTION = 1.2;
+  let usedPx = placed.reduce((sum, pb) => sum + Math.ceil(getPlacedBlockHeight(pb) * FILL_CORRECTION) + MEASUREMENT_SAFETY_PX, 0);
   const overflow: ContentBlock[] = [];
   let overflowStarted = false;
 
@@ -208,11 +209,12 @@ function fillColumn(
     }
 
     const remaining = availablePx - usedPx;
+    const correctedHeight = Math.ceil(block.heightPx * FILL_CORRECTION);
 
     // Block fits entirely
-    if (block.heightPx + MEASUREMENT_SAFETY_PX <= remaining) {
+    if (correctedHeight + MEASUREMENT_SAFETY_PX <= remaining) {
       placed.push({ block });
-      usedPx += block.heightPx + MEASUREMENT_SAFETY_PX;
+      usedPx += correctedHeight + MEASUREMENT_SAFETY_PX;
       continue;
     }
 
@@ -259,7 +261,10 @@ function allocateOverflowPages(
         continue;
       }
 
-      const height = useFullWidthHeight ? block.fullWidthHeightPx : block.heightPx;
+      const rawHeight = useFullWidthHeight ? block.fullWidthHeightPx : block.heightPx;
+      // Apply correction factor: off-screen measurements underestimate real heights
+      const OVERFLOW_CORRECTION = 1.2;
+      const height = Math.ceil(rawHeight * OVERFLOW_CORRECTION);
       const space = pageHeightPx - usedPx;
 
       if (height + MEASUREMENT_SAFETY_PX <= space) {

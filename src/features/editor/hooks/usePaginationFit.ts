@@ -39,8 +39,10 @@ export function usePaginationFit(
 
   const pageAssignments = useMemo(() => {
     if (activeBlocks.length === 0) return [];
-    return allocatePages(activeBlocks, layout, 99);
-  }, [activeBlocks, layout]);
+    const result = allocatePages(activeBlocks, layout, 99);
+    console.log('[usePaginationFit] allocated', result.length, 'pages, measuring:', measuring, 'blocks sample:', activeBlocks[0]?.heightPx);
+    return result;
+  }, [activeBlocks, layout, measuring]);
 
   const actualPageCount = pageAssignments.length;
 

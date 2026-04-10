@@ -67,6 +67,9 @@ export function useMeasureBlocks(
         });
       }
 
+      if (measured.length > 0 && measured[0].heightPx !== blocks[0]?.heightPx) {
+        console.log('[useMeasureBlocks] DOM measurements applied:', measured.length, 'blocks. Sample:', measured[0].id, measured[0].heightPx, 'vs heuristic', blocks[0]?.heightPx);
+      }
       setMeasuredBlocks(measured);
       setMeasuring(false);
     }, 150);
