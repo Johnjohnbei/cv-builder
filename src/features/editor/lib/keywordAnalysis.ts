@@ -95,20 +95,23 @@ export function normalizeForMatch(s: string): string {
 
 /**
  * Strip common FR/EN suffixes for lightweight stemming.
- * Preserves roots ≥ 3 chars after stripping to avoid over-reduction.
+ *
+ * Scope (intentionally minimal — see Phase 12-02 trade-offs):
+ *   - Plural normalization:  -s / -es / -x
+ *   - EN present participle: -ing
+ *   - FR profession suffix:  -eur / -eurs (less common but useful)
+ *
+ * NOT covered:
+ *   - FR verb conjugations (gestion ↔ gère, piloter ↔ pilote)
+ *   - Synonyms / abbreviations (React ↔ ReactJS, JS ↔ JavaScript)
+ *   - Typos (Levenshtein distance)
+ *
+ * Preserves roots ≥ 3 chars after stripping to avoid over-reduction
+ * (e.g., "les" stays "les", "iOS" stays "iOS").
  */
 export function stripSimpleSuffixes(word: string): string {
   if (word.length < 4) return word;
-  const suffixes = [
-    'ements', 'ement',
-    'ations', 'ation',
-    'tions', 'tion',
-    'euses', 'euse', 'eurs', 'eur',
-    'ings', 'ing',
-    'ees', 'ee',
-    'ed', 'er', 'ers',
-    'es', 's', 'x',
-  ];
+  const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x'];
   for (const suf of suffixes) {
     if (word.length - suf.length >= 3 && word.endsWith(suf)) {
       return word.slice(0, -suf.length);

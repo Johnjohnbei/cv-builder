@@ -20,21 +20,41 @@ describe('normalizeForMatch', () => {
 });
 
 describe('stripSimpleSuffixes', () => {
-  it('strips FR plural -s from designers', () => {
-    expect(stripSimpleSuffixes('designers')).toBe('design');
+  // ─── In-scope: what the stemmer intentionally covers ───
+
+  it('strips FR plural -s (designers → designer)', () => {
+    // Conservative: keeps the meaningful root "designer" rather than over-stripping to "design".
+    expect(stripSimpleSuffixes('designers')).toBe('designer');
   });
-  it('strips -tion from gestion', () => {
-    expect(stripSimpleSuffixes('gestion')).toBe('ges');
+  it('strips -es (classes → class)', () => {
+    expect(stripSimpleSuffixes('classes')).toBe('class');
   });
-  it('strips -ing from coding', () => {
+  it('strips -ing (coding → cod)', () => {
     expect(stripSimpleSuffixes('coding')).toBe('cod');
   });
-  it('protects words < 4 chars (UI, iOS)', () => {
+  it('strips -eur profession suffix (coiffeur → coiff)', () => {
+    expect(stripSimpleSuffixes('coiffeur')).toBe('coiff');
+  });
+
+  // ─── Out-of-scope: documents what the stemmer does NOT attempt ───
+
+  it('does NOT handle FR verb conjugations (gère stays gère)', () => {
+    // A more aggressive stemmer could map gère ↔ gestion but hand-rolled
+    // suffix-strip is too blunt. Deferred to a real FR stemmer library.
+    expect(stripSimpleSuffixes('gère')).toBe('gère');
+  });
+  it('does NOT handle -tion derivations (gestion stays gestion)', () => {
+    // Previously stripped to 'ges' — too aggressive, caused false positives.
+    expect(stripSimpleSuffixes('gestion')).toBe('gestion');
+  });
+
+  // ─── Guard: min root length of 3 chars ───
+
+  it('protects short words < 4 chars (iOS, UI)', () => {
     expect(stripSimpleSuffixes('iOS')).toBe('iOS');
     expect(stripSimpleSuffixes('UI')).toBe('UI');
   });
-  it('does not over-strip short roots', () => {
-    // "les" would become "" without the min-root-3 guard — must stay "les"
+  it('does not over-strip: "les" stays "les" (stripping -es would leave "l", < 3 chars)', () => {
     expect(stripSimpleSuffixes('les')).toBe('les');
   });
   it('leaves already-stemmed words alone', () => {
@@ -58,8 +78,8 @@ describe('matchKeywordFuzzy', () => {
   it('matches despite accent mismatch (text accented, keyword not)', () => {
     expect(matchKeywordFuzzy('developpeur', 'Développeur Full Stack')).toBe(true);
   });
-  it('matches via -tion suffix strip', () => {
-    expect(matchKeywordFuzzy('gestion', 'gère les équipes et la gestion des projets')).toBe(true);
+  it('matches profession suffix (coiffeur → coiffeurs via -eurs)', () => {
+    expect(matchKeywordFuzzy('coiffeur', 'équipe de 5 coiffeurs')).toBe(true);
   });
   it('matches multi-word keyword (AND semantics)', () => {
     expect(matchKeywordFuzzy('design system', 'refonte du design system multi-marque')).toBe(true);
@@ -72,6 +92,18 @@ describe('matchKeywordFuzzy', () => {
   });
   it('word-boundary: Java does not match JavaScript', () => {
     expect(matchKeywordFuzzy('java', 'JavaScript on the backend')).toBe(false);
+  });
+
+  // ─── Honest documentation of what fuzzy does NOT cover ───
+
+  it('does NOT match FR verb conjugations — piloter/pilote are different tokens', () => {
+    // "piloter" stemmed is "pilot", "pilote" stemmed is "pilot" — actually matches!
+    // But a derived noun like "pilotage" → "pilotag" does NOT match "pilote" → "pilot".
+    // Locked as negative to prevent regressions on an overly-aggressive stemmer.
+    expect(matchKeywordFuzzy('pilotage', 'pilote la refonte')).toBe(false);
+  });
+  it('does NOT match synonyms / abbreviations (React ↔ ReactJS)', () => {
+    expect(matchKeywordFuzzy('reactjs', 'React on the frontend')).toBe(false);
   });
 });
 
