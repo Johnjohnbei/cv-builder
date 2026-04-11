@@ -14,7 +14,7 @@ interface PanelHeaderProps {
 
 export function Panel({ children, className }: PanelProps) {
   return (
-    <div className={cn('border border-[--border-color] bg-white rounded', className)}>
+    <div className={cn('border border-[var(--border-color)] bg-white rounded', className)}>
       {children}
     </div>
   );
@@ -23,8 +23,8 @@ export function Panel({ children, className }: PanelProps) {
 export function PanelHeader({ children, className, action }: PanelHeaderProps) {
   return (
     <div className={cn(
-      'h-9 border-b border-[--border-color] bg-[--bg-side] flex items-center justify-between px-3',
-      'font-mono text-[11px] uppercase tracking-wider text-[--text-secondary]',
+      'h-9 border-b border-[var(--border-color)] bg-[var(--bg-side)] flex items-center justify-between px-3',
+      'font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]',
       className,
     )}>
       <span>{children}</span>

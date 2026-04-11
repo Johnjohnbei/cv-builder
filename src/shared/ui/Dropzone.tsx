@@ -25,7 +25,7 @@ export function Dropzone({ onDrop, accept, loading, label = 'Déposer un fichier
     <div
       {...getRootProps()}
       className={cn(
-        'border-2 border-dashed border-[--border-color] rounded cursor-pointer hover:bg-gray-50 transition-colors text-center',
+        'border-2 border-dashed border-[var(--border-color)] rounded cursor-pointer hover:bg-gray-50 transition-colors text-center',
         isDragActive && 'bg-blue-50 border-blue-400',
         compact ? 'p-3' : 'p-8',
         className,
