@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-last_updated: "2026-04-11T11:50:00.000Z"
+last_updated: "2026-04-11T13:58:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -75,10 +75,16 @@ All 10 phases complete. Post-milestone work in progress:
 - break-inside:avoid only on individual blocks (not sections)
 - Section headers protected from orphaning
 
+## Quick Tasks Completed
+
+| ID | Date | Description | Commits |
+|----|------|-------------|---------|
+| 260411-m24 | 2026-04-11 | Inline cover letter generation in editor (drawer + cvId linking) | 74b4c1e, d782b69, 12a3fc6 |
+
 ## Known Issues
 
-- PDF multi-column layout still imperfect across page breaks (window.print limitation)
-- EditorPage.tsx is ~1800 lines (above 400-line guideline)
+- PDF multi-column layout imperfect on fallback path (window.print used only when serverless Puppeteer fails)
+- EditorPage.tsx is ~1740 lines (above 400-line guideline — known, accepted scope)
 - Gemini free tier has strict rate limits from Convex servers
 
 ## Accumulated Context
