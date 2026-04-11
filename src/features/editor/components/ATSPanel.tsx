@@ -1,17 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ATSScoreResult, KeywordAnalysisResult } from '@/src/shared/types';
 import { ScoreGauge } from '@/src/shared/ui/ScoreGauge';
 import { Button } from '@/src/shared/ui/Button';
-
-export interface DistributionProposal {
-  keyword: string;
-  expIndex: number | null;
-  bulletIndex: number | null;
-  originalBullet: string | null;
-  rewrittenBullet: string | null;
-  reason: string;
-  expLabel: string;
-}
 
 interface ATSPanelProps {
   score: ATSScoreResult | null;
@@ -25,13 +15,14 @@ interface ATSPanelProps {
   isOptimizing?: boolean;
   isAtsMode?: boolean;
   integratingKeyword?: string | null;
+  /** Optional click handler for the auto-distribute CTA. Hides the CTA when undefined. */
   onAutoDistribute?: () => void;
+  /** Disable + loading label on the auto-distribute CTA. */
   isDistributing?: boolean;
-  distributionProposals?: DistributionProposal[];
-  onAcceptAssignment?: (keyword: string) => void;
-  onRejectAssignment?: (keyword: string) => void;
-  onAcceptAllAssignments?: () => void;
-  onRejectAllAssignments?: () => void;
+  /** Number of pending proposals — controls whether the CTA is rendered (hidden when > 0). */
+  pendingProposalsCount?: number;
+  /** Slot for the proposals review panel, rendered after the missing keyword list. */
+  proposalsSlot?: ReactNode;
 }
 
 /** Return Tailwind bg class based on score tier. */
@@ -82,11 +73,8 @@ export function ATSPanel({
   integratingKeyword,
   onAutoDistribute,
   isDistributing,
-  distributionProposals,
-  onAcceptAssignment,
-  onRejectAssignment,
-  onAcceptAllAssignments,
-  onRejectAllAssignments,
+  pendingProposalsCount = 0,
+  proposalsSlot,
 }: ATSPanelProps) {
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
@@ -146,7 +134,7 @@ export function ATSPanel({
           {/* Auto-distribute CTA — appears when 2+ missing keywords and no pending proposals */}
           {onAutoDistribute
             && keywords.keywords.filter(kw => !kw.found).length >= 2
-            && (!distributionProposals || distributionProposals.length === 0) && (
+            && pendingProposalsCount === 0 && (
             <Button
               variant="secondary"
               size="sm"
@@ -161,80 +149,8 @@ export function ATSPanel({
             </Button>
           )}
 
-          {/* Auto-distribution proposals — shown after the AI call returns */}
-          {distributionProposals && distributionProposals.length > 0 && (
-            <section
-              role="region"
-              aria-label="Propositions d'intégration automatique"
-              aria-live="polite"
-              className="flex flex-col gap-2 mt-3 border-t border-gray-200 pt-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
-                  Propositions ({distributionProposals.length})
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={onAcceptAllAssignments}
-                    className="text-[9px] font-mono px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-                    aria-label="Accepter toutes les propositions"
-                  >
-                    Tout accepter
-                  </button>
-                  <button
-                    onClick={onRejectAllAssignments}
-                    className="text-[9px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
-                    aria-label="Rejeter toutes les propositions"
-                  >
-                    Tout rejeter
-                  </button>
-                </div>
-              </div>
-              <ul className="flex flex-col gap-2">
-                {distributionProposals.map((p) => (
-                  <li
-                    key={p.keyword}
-                    className="p-2 bg-amber-50 border border-amber-200 rounded space-y-1"
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-semibold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
-                        {p.keyword}
-                      </span>
-                      <span className="text-[9px] text-gray-500 truncate max-w-[160px]" title={p.expLabel}>
-                        → {p.expLabel}
-                      </span>
-                    </div>
-                    {p.originalBullet && (
-                      <p className="text-[10px] text-red-600 line-through">{p.originalBullet}</p>
-                    )}
-                    {p.rewrittenBullet && (
-                      <p className="text-[10px] text-green-700 font-medium">{p.rewrittenBullet}</p>
-                    )}
-                    {p.reason && (
-                      <p className="text-[9px] text-gray-500 italic">{p.reason}</p>
-                    )}
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={() => onAcceptAssignment?.(p.keyword)}
-                        className="text-[9px] font-mono px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-                        aria-label={`Accepter l'intégration de ${p.keyword}`}
-                        disabled={p.expIndex === null || p.bulletIndex === null}
-                      >
-                        Accepter
-                      </button>
-                      <button
-                        onClick={() => onRejectAssignment?.(p.keyword)}
-                        className="text-[9px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
-                        aria-label={`Rejeter l'intégration de ${p.keyword}`}
-                      >
-                        Rejeter
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* Proposals slot — composed by the consumer via <DistributionProposalsPanel /> */}
+          {proposalsSlot}
 
           {/* Missing keywords with contextual actions */}
           {keywords.keywords.some(kw => !kw.found) && (

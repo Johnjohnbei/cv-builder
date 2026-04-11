@@ -4,5 +4,5 @@ export { OverflowIndicator } from './OverflowIndicator';
 export { EditorHeader } from './EditorHeader';
 export { LanguageSelector } from './LanguageSelector';
 export { ATSPanel } from './ATSPanel';
-export type { DistributionProposal } from './ATSPanel';
+export { DistributionProposalsPanel } from './DistributionProposalsPanel';
 export { BulletDiffView } from './BulletDiffView';
