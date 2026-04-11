@@ -7,6 +7,7 @@ import { chatJSON, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { FABRICATION_GUARD } from "./_ai/prompts/fragments";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
+import { buildAdaptPrompt } from "./_ai/prompts/adapt";
 import { normalizeCVData } from "./_ai/normalizers";
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -32,57 +33,22 @@ export const tailorCV = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    // Strip non-content fields to reduce prompt size ~50%
-    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.baseData;
-
-    // Detect language from JD or CV
-    const lang = languageOverride || detectedLanguage || 'fr';
-    const isEn = lang === 'en' || /\b(experience|skills|education|responsibilities|requirements)\b/i.test(args.jobDescription.slice(0, 500));
-    const actionVerbs = isEn
-      ? 'Led, Designed, Orchestrated, Deployed, Optimized — NEVER "Responsible for", "Helped with", "Participated in"'
-      : 'Pilote, Conçoit, Orchestre, Déploie, Optimise — JAMAIS "Responsable de", "Aide à", "Participe à"';
-    const outputLang = isEn ? 'Write ALL content in English.' : 'Rédige TOUT le contenu en français.';
-
-    const prompt = `You are a senior CV writer specialized in ATS optimization (2025-2026).
-
-LANGUAGE: ${outputLang}
-
-MISSION: Adapt this CV to maximize alignment with the job description.
-
-═══ ÉTAPE 1 — ANALYSE DES MOTS-CLÉS ═══
-Avant de réécrire, identifie les 15-20 mots-clés et compétences les plus importants de l'offre :
-- Outils et technologies (Figma, React, SAP...)
-- Méthodologies (Agile, Scrum, Design Thinking...)
-- Compétences techniques spécifiques au poste
-- Soft skills explicitement demandées
-Intègre ces mots-clés NATURELLEMENT dans le CV (summary, bullets, skills). Ne les force pas — chaque mot-clé doit apparaître dans un contexte crédible.
-
-═══ ÉTAPE 2 — RÉÉCRITURE ═══
-RULES:
-1. KEEP all experiences, education, skills, languages — delete NOTHING
-2. Output JSON structure IDENTICAL to input (same number of elements everywhere)
-3. Rewrite bullets with strong action verbs (${actionVerbs})
-4. Relevant experiences: enrich descriptions, integrate job keywords, develop results
-5. Less relevant experiences: condense to 1-2 bullets while keeping them
-6. Summary: 2-3 sentences targeting the position directly, weaving in key terms from the job
-7. Skills: reorder — most relevant for the job first. Add missing key skills from the job if the candidate likely has them
-8. ${FABRICATION_GUARD}
-
-CV:
-${JSON.stringify(contentOnly)}
-
-JOB DESCRIPTION:
-${args.jobDescription}
-
-Return ONLY the optimized CV JSON.`;
-
-    const result = await chatJSON(prompt);
-    // Re-attach stripped fields
-    if (design) result.design = design;
-    if (detectedLanguage) result.detectedLanguage = detectedLanguage;
-    if (languageOverride) result.languageOverride = languageOverride;
-    return result;
+    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.baseData || {};
+    const prompt = buildAdaptPrompt({
+      mode: "tailor",
+      cvData: contentOnly,
+      jobDescription: args.jobDescription,
+      detectedLanguage,
+      languageOverride,
+    });
+    const raw = await chatJSON(prompt);
+    const normalized = normalizeCVData(raw);
+    return {
+      ...normalized,
+      ...(design && { design }),
+      ...(detectedLanguage && { detectedLanguage }),
+      ...(languageOverride && { languageOverride }),
+    };
   },
 });
 
