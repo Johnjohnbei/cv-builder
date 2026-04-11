@@ -3,6 +3,9 @@ import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown
 import { Link } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
+import { Input } from '../shared/ui/Input';
+import { Textarea } from '../shared/ui/Textarea';
+import { Select } from '../shared/ui/Select';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -354,12 +357,12 @@ export default function EditorPage() {
                       <p className="mt-1 line-clamp-3">{jobDescription.slice(0, 300)}{jobDescription.length > 300 ? '...' : ''}</p>
                     </div>
                   ) : (
-                    <textarea
+                    <Textarea
                       value={jobDescription}
                       onChange={(e) => setJobDescription(e.target.value)}
                       placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
                       rows={2}
-                      className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-[9px] stitch-mono focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none"
+                      className="border-blue-200 rounded-lg text-[9px] focus:border-blue-400 focus:ring-blue-400"
                     />
                   )}
 
@@ -419,80 +422,66 @@ export default function EditorPage() {
                   </button>
                   {expandedSection === 'personal' && (
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div>
-                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Nom complet</label>
-                        <input 
-                          type="text" 
-                          value={cvData?.personal_info?.name || ''} 
-                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, name: e.target.value}} : null)}
-                          className="stitch-input stitch-mono text-xs" 
+                      <Input
+                        label="Nom complet"
+                        type="text"
+                        value={cvData?.personal_info?.name || ''}
+                        onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, name: e.target.value}} : null)}
+                      />
+                      <Input
+                        label="Titre pro"
+                        type="text"
+                        value={cvData?.personal_info?.title || ''}
+                        onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, title: e.target.value}} : null)}
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          label="Email"
+                          type="email"
+                          className="text-[10px]"
+                          value={cvData?.personal_info?.email || ''}
+                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, email: e.target.value}} : null)}
                         />
-                      </div>
-                      <div>
-                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Titre pro</label>
-                        <input 
-                          type="text" 
-                          value={cvData?.personal_info?.title || ''} 
-                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, title: e.target.value}} : null)}
-                          className="stitch-input stitch-mono text-xs" 
+                        <Input
+                          label="Téléphone"
+                          type="text"
+                          className="text-[10px]"
+                          value={cvData?.personal_info?.phone || ''}
+                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, phone: e.target.value}} : null)}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Email</label>
-                          <input 
-                            type="email" 
-                            value={cvData?.personal_info?.email || ''} 
-                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, email: e.target.value}} : null)}
-                            className="stitch-input stitch-mono text-[10px]" 
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Téléphone</label>
-                          <input 
-                            type="text" 
-                            value={cvData?.personal_info?.phone || ''} 
-                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, phone: e.target.value}} : null)}
-                            className="stitch-input stitch-mono text-[10px]" 
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Localisation</label>
-                          <input 
-                            type="text" 
-                            value={cvData?.personal_info?.location || ''} 
-                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, location: e.target.value}} : null)}
-                            className="stitch-input stitch-mono text-[10px]" 
-                            placeholder="Ex: Paris, France"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">LinkedIn URL</label>
-                          <input 
-                            type="text" 
-                            value={cvData?.personal_info?.linkedin || ''} 
-                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, linkedin: e.target.value}} : null)}
-                            className="stitch-input stitch-mono text-[10px]" 
-                          />
-                        </div>
+                        <Input
+                          label="Localisation"
+                          type="text"
+                          className="text-[10px]"
+                          placeholder="Ex: Paris, France"
+                          value={cvData?.personal_info?.location || ''}
+                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, location: e.target.value}} : null)}
+                        />
+                        <Input
+                          label="LinkedIn URL"
+                          type="text"
+                          className="text-[10px]"
+                          value={cvData?.personal_info?.linkedin || ''}
+                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, linkedin: e.target.value}} : null)}
+                        />
                       </div>
                       <div>
                         <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Photo de profil (URL ou Upload)</label>
                         <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={cvData?.personal_info?.photo_url || ''} 
-                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: e.target.value}} : null)}
-                            className="stitch-input stitch-mono text-[10px] flex-1" 
+                          <Input
+                            type="text"
+                            className="text-[10px] flex-1"
                             placeholder="https://..."
+                            value={cvData?.personal_info?.photo_url || ''}
+                            onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: e.target.value}} : null)}
                           />
                           <label className="px-3 py-1 bg-gray-100 border border-gray-200 rounded text-[9px] stitch-mono cursor-pointer hover:bg-gray-200 transition-colors flex items-center">
                             UPLOAD
-                            <input 
-                              type="file" 
-                              className="hidden" 
+                            <input
+                              type="file"
+                              className="hidden"
                               accept="image/*"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
@@ -543,16 +532,13 @@ export default function EditorPage() {
                   </button>
                   {expandedSection === 'summary' && (
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div>
-                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Résumé professionnel</label>
-                        <textarea 
-                          rows={4}
-                          value={cvData?.personal_info?.summary || ''} 
-                          onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, summary: e.target.value}} : null)}
-                          className="stitch-input stitch-mono text-xs w-full resize-none" 
-                          placeholder="Décrivez brièvement votre parcours et vos objectifs..."
-                        />
-                      </div>
+                      <Textarea
+                        label="Résumé professionnel"
+                        rows={4}
+                        value={cvData?.personal_info?.summary || ''}
+                        onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, summary: e.target.value}} : null)}
+                        placeholder="Décrivez brièvement votre parcours et vos objectifs..."
+                      />
                     </div>
                   )}
                 </section>
@@ -664,8 +650,9 @@ export default function EditorPage() {
                             <p className="text-[10px] text-gray-400 italic line-through">{exp.position} — {exp.company}</p>
                           ) : (
                           <>
-                          <input 
-                            className="w-full bg-transparent font-bold text-[11px] mb-1 focus:outline-none"
+                          <Input
+                            variant="bare"
+                            className="font-bold text-[11px] mb-1"
                             value={exp.position}
                             onChange={(e) => {
                               const newExp = [...(cvData?.experience || [])];
@@ -673,8 +660,10 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, experience: newExp} : null);
                             }}
                           />
-                          <input 
-                            className="w-full bg-transparent text-[10px] text-blue-600 focus:outline-none"
+                          <Input
+                            variant="bare"
+                            mono={false}
+                            className="text-[10px] text-blue-600"
                             value={exp.company}
                             onChange={(e) => {
                               const newExp = [...(cvData?.experience || [])];
@@ -683,8 +672,10 @@ export default function EditorPage() {
                             }}
                           />
                           {/* ─── Intro (short role description) ─── */}
-                          <textarea
-                            className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[9px] mt-1 focus:outline-none focus:border-blue-600 resize-none"
+                          <Textarea
+                            inputSize="xs"
+                            mono={false}
+                            className="mt-1 focus:border-blue-600"
                             rows={2}
                             value={exp.intro || ''}
                             placeholder="Description courte du rôle (1-2 lignes, optionnel)"
@@ -696,8 +687,9 @@ export default function EditorPage() {
                           />
 
                           <div className="grid grid-cols-3 gap-2 mt-1">
-                            <input
-                              className="bg-white border border-gray-200 rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-blue-600"
+                            <Input
+                              inputSize="xs"
+                              className="focus:border-blue-600"
                               value={exp.start_date}
                               placeholder="Début"
                               onChange={(e) => {
@@ -706,8 +698,9 @@ export default function EditorPage() {
                                 setCvData(prev => prev ? {...prev, experience: newExp} : null);
                               }}
                             />
-                            <input
-                              className="bg-white border border-gray-200 rounded px-2 py-1 text-[9px] font-mono focus:outline-none focus:border-blue-600 disabled:opacity-40"
+                            <Input
+                              inputSize="xs"
+                              className="focus:border-blue-600 disabled:opacity-40"
                               value={exp.end_date || ''}
                               placeholder="Fin"
                               disabled={exp.current}
@@ -736,8 +729,10 @@ export default function EditorPage() {
                           {/* ─── KPI field (single row: label + input + visibility toggle) ─── */}
                           <div className="mt-2 flex items-center gap-2">
                             <label className="text-[7px] stitch-mono text-emerald-600 uppercase shrink-0">KPI</label>
-                            <input
-                              className="flex-1 min-w-0 bg-white border border-emerald-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-emerald-500"
+                            <Input
+                              inputSize="xs"
+                              mono={false}
+                              className="flex-1 min-w-0 border-emerald-200 focus:border-emerald-500"
                               value={exp.kpi || ''}
                               placeholder="Ex: +35% de CA, 12 personnes managées..."
                               onChange={(e) => {
@@ -775,8 +770,10 @@ export default function EditorPage() {
                                 return (
                                 <div key={bIdx} className="space-y-1">
                                   <div className="flex items-center gap-1 group/bullet">
-                                    <input 
-                                      className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-blue-600"
+                                    <Input
+                                      inputSize="xs"
+                                      mono={false}
+                                      className="flex-1 focus:border-blue-600"
                                       value={bullet}
                                       onChange={(e) => {
                                         const newExp = [...(cvData?.experience || [])];
@@ -862,8 +859,10 @@ export default function EditorPage() {
                           {/* Compact mode: show summary line */}
                           {(exp.displayMode || 'normal') === 'compact' && (
                             <div className="mt-2">
-                              <input
-                                className="w-full bg-white border border-amber-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                              <Input
+                                inputSize="xs"
+                                mono={false}
+                                className="border-amber-200 focus:border-amber-500"
                                 value={exp.description?.[0] || ''}
                                 placeholder="Description synthétique du poste..."
                                 onChange={(e) => {
@@ -943,8 +942,9 @@ export default function EditorPage() {
                             <p className="text-[9px] text-gray-400 italic line-through">{cat.category}</p>
                           ) : (
                           <>
-                          <input 
-                            className="w-full bg-transparent font-bold text-[10px] stitch-mono uppercase focus:outline-none"
+                          <Input
+                            variant="bare"
+                            className="font-bold text-[10px] uppercase"
                             value={cat.category}
                             placeholder="NOM_CATEGORIE"
                             onChange={(e) => {
@@ -967,10 +967,11 @@ export default function EditorPage() {
                   </div>
                 ))}
               </div>
-                          <input 
-                            type="text" 
+                          <Input
+                            inputSize="xs"
+                            type="text"
                             placeholder="Ajouter compétence..."
-                            className="w-full bg-white border border-[#DADCE0] rounded px-2 py-1 text-[9px] stitch-mono focus:outline-none focus:border-blue-600"
+                            className="focus:border-blue-600"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 const val = (e.target as HTMLInputElement).value;
@@ -1019,8 +1020,10 @@ export default function EditorPage() {
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
-                          <input 
-                            className="w-full bg-transparent font-bold text-[11px] focus:outline-none"
+                          <Input
+                            variant="bare"
+                            mono={false}
+                            className="font-bold text-[11px]"
                             value={edu.degree}
                             placeholder="Diplôme"
                             onChange={(e) => {
@@ -1029,8 +1032,10 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, education: newEdu} : null);
                             }}
                           />
-                          <input 
-                            className="w-full bg-transparent text-[10px] text-blue-600 focus:outline-none"
+                          <Input
+                            variant="bare"
+                            mono={false}
+                            className="text-[10px] text-blue-600"
                             value={edu.school}
                             placeholder="École"
                             onChange={(e) => {
@@ -1039,8 +1044,10 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, education: newEdu} : null);
                             }}
                           />
-                          <input 
-                            className="w-full bg-transparent text-[9px] text-gray-400 focus:outline-none"
+                          <Input
+                            variant="bare"
+                            mono={false}
+                            className="text-[9px] text-gray-400"
                             value={edu.end_date}
                             placeholder="Année"
                             onChange={(e) => {
@@ -1083,8 +1090,10 @@ export default function EditorPage() {
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
-                          <input 
-                            className="w-full bg-transparent font-bold text-[11px] focus:outline-none"
+                          <Input
+                            variant="bare"
+                            mono={false}
+                            className="font-bold text-[11px]"
                             value={lang.name}
                             placeholder="Langue"
                             onChange={(e) => {
@@ -1093,20 +1102,23 @@ export default function EditorPage() {
                               setCvData(prev => prev ? {...prev, languages: newLang} : null);
                             }}
                           />
-                          <select 
-                            className="w-full bg-transparent text-[10px] text-blue-600 focus:outline-none"
+                          <Select
+                            variant="bare"
+                            mono={false}
+                            className="text-[10px] text-blue-600"
                             value={lang.proficiency}
                             onChange={(e) => {
                               const newLang = [...(cvData?.languages || [])];
                               newLang[idx].proficiency = e.target.value;
                               setCvData(prev => prev ? {...prev, languages: newLang} : null);
                             }}
-                          >
-                            <option value="Natif">Natif</option>
-                            <option value="Courant">Courant</option>
-                            <option value="Intermédiaire">Intermédiaire</option>
-                            <option value="Débutant">Débutant</option>
-                          </select>
+                            options={[
+                              { value: 'Natif', label: 'Natif' },
+                              { value: 'Courant', label: 'Courant' },
+                              { value: 'Intermédiaire', label: 'Intermédiaire' },
+                              { value: 'Débutant', label: 'Débutant' },
+                            ]}
+                          />
                         </div>
                       ))}
                       <button 
@@ -1225,34 +1237,34 @@ export default function EditorPage() {
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Primary Color</label>
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="color" 
+                        <input
+                          type="color"
                           value={designSettings.primaryColor}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
                           className="w-8 h-8 rounded cursor-pointer border-none p-0"
                         />
-                        <input 
-                          type="text" 
+                        <Input
+                          type="text"
+                          className="text-[10px] py-1"
                           value={designSettings.primaryColor}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
-                          className="stitch-input stitch-mono text-[10px] py-1"
                         />
                       </div>
                     </div>
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Secondary Color</label>
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="color" 
+                        <input
+                          type="color"
                           value={designSettings.secondaryColor}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
                           className="w-8 h-8 rounded cursor-pointer border-none p-0"
                         />
-                        <input 
-                          type="text" 
+                        <Input
+                          type="text"
+                          className="text-[10px] py-1"
                           value={designSettings.secondaryColor}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                          className="stitch-input stitch-mono text-[10px] py-1"
                         />
                       </div>
                     </div>
@@ -1424,28 +1436,32 @@ export default function EditorPage() {
                   <div className="stitch-panel-header">08. PDF_EXPORT_SETTINGS</div>
                   <div className="p-4 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Format</label>
-                        <select 
+                      <div className="space-y-2">
+                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block">Format</label>
+                        <Select
+                          inputSize="sm"
+                          className="focus:border-blue-500"
                           value={designSettings.paperSize}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, paperSize: e.target.value as PaperSize }))}
-                          className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[10px] stitch-mono focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="a4">A4</option>
-                          <option value="letter">Letter</option>
-                          <option value="legal">Legal</option>
-                        </select>
+                          options={[
+                            { value: 'a4', label: 'A4' },
+                            { value: 'letter', label: 'Letter' },
+                            { value: 'legal', label: 'Legal' },
+                          ]}
+                        />
                       </div>
-                      <div>
-                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Orientation</label>
-                        <select 
+                      <div className="space-y-2">
+                        <label className="text-[9px] stitch-mono text-gray-500 uppercase block">Orientation</label>
+                        <Select
+                          inputSize="sm"
+                          className="focus:border-blue-500"
                           value={designSettings.orientation}
                           onChange={(e) => setDesignSettings(prev => ({ ...prev, orientation: e.target.value as Orientation }))}
-                          className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[10px] stitch-mono focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="portrait">Portrait</option>
-                          <option value="landscape">Paysage</option>
-                        </select>
+                          options={[
+                            { value: 'portrait', label: 'Portrait' },
+                            { value: 'landscape', label: 'Paysage' },
+                          ]}
+                        />
                       </div>
                     </div>
 
