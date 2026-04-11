@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft, Mail } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
 import { Logo } from '../shared/ui/Logo';
 import { Input } from '../shared/ui/Input';
@@ -12,12 +12,12 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, type RewriteKey } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, type RewriteKey } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel, CoverLetterDrawer } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
@@ -63,6 +63,7 @@ export default function EditorPage() {
 
   // ─── Auth & API ───
   const { user } = useUser();
+  const { id: cvId } = useParams<{ id: string }>();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const storeUser = useMutation(api.users.store);
@@ -155,6 +156,14 @@ export default function EditorPage() {
     designSettings,
     setDesignSettings,
     notify,
+  });
+  const coverLetter = useCoverLetter({
+    cvData,
+    jobDescription,
+    cvId,
+    user,
+    notify,
+    accessCode: getCode(),
   });
 
   // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
@@ -1541,6 +1550,16 @@ export default function EditorPage() {
                     >
                       TÉLÉCHARGER_DOCX
                     </Button>
+
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+                      icon={<Mail className="w-4 h-4" />}
+                      onClick={coverLetter.open}
+                    >
+                      GÉNÉRER_LETTRE
+                    </Button>
                   </div>
                 </section>
               </div>
@@ -1712,6 +1731,13 @@ export default function EditorPage() {
           </div>
         </div>
       )}
+
+      {/* Cover letter drawer */}
+      <CoverLetterDrawer
+        controller={coverLetter}
+        user={user}
+        cvName={cvData?.personal_info?.name}
+      />
     </div>
   );
 }
