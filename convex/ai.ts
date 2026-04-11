@@ -11,9 +11,11 @@ import {
   buildBulletSuggestionsPrompt,
   buildBulletRewritePrompt,
 } from "./_ai/prompts/rewrite";
+import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import {
   BulletSuggestionsSchema,
   BulletRewriteSchema,
+  ATSAnalysisSchema,
 } from "./_ai/schemas";
 import { normalizeCVData } from "./_ai/normalizers";
 
@@ -67,25 +69,17 @@ export const getATSAnalysis = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    const prompt = `
-Tu es un expert en recrutement et en systèmes ATS.
-Analyse le CV suivant par rapport à l'offre d'emploi fournie.
-
-CV : ${JSON.stringify(args.cvData)}
-Offre : ${args.jobDescription}
-
-Retourne un objet JSON avec :
-- score : un nombre entre 0 et 100
-- missingKeywords : liste des mots-clés importants manquants
-- strengths : points forts du CV pour ce poste
-- improvements : conseils concrets d'amélioration
-- ats_compatibility : 'LOW', 'MEDIUM' ou 'HIGH'
-
-Retourne UNIQUEMENT le JSON.
-`;
-
-    return await chatJSON(prompt, getModel("fast"));
+    const prompt = buildATSAnalysisPrompt({
+      cvData: args.cvData,
+      jobDescription: args.jobDescription,
+    });
+    const raw = await chatJSON(prompt, getModel("fast"));
+    const parsed = ATSAnalysisSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[getATSAnalysis] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné une analyse invalide. Veuillez réessayer.");
+    }
+    return parsed.data;
   },
 });
 
