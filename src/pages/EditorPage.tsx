@@ -6,6 +6,7 @@ import { Logo } from '../shared/ui/Logo';
 import { Input } from '../shared/ui/Input';
 import { Textarea } from '../shared/ui/Textarea';
 import { Select } from '../shared/ui/Select';
+import { Button } from '../shared/ui/Button';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -367,7 +368,12 @@ export default function EditorPage() {
                   )}
 
                   {/* Auto-assign button */}
-                  <button
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    className="rounded-lg py-2 px-4 text-[9px] tracking-widest"
+                    icon={<Zap className="w-3.5 h-3.5" />}
+                    disabled={!cvData}
                     onClick={() => {
                       if (!cvData) return;
                       const keywords = jobKeywords;
@@ -376,30 +382,22 @@ export default function EditorPage() {
                       setUserModified(false);
                       // pagination fit auto-resets on cvData change
                     }}
-                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    disabled={!cvData}
                   >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span className="text-[9px] stitch-mono font-bold uppercase tracking-widest">
-                      AUTO-ASSIGNATION
-                    </span>
-                  </button>
+                    AUTO-ASSIGNATION
+                  </Button>
 
                   {/* AI content optimization button */}
-                  <button
-                    onClick={handleOptimize}
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    className="rounded-lg py-2 px-4 text-[9px] tracking-widest bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                    icon={isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    loading={false}
                     disabled={isOptimizing}
-                    className="w-full py-2 px-4 bg-gray-100 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleOptimize}
                   >
-                    {isOptimizing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5" />
-                    )}
-                    <span className="text-[9px] stitch-mono font-bold uppercase tracking-widest">
-                      {isOptimizing ? 'OPTIMISATION...' : 'RÉÉCRIRE CONTENU (IA)'}
-                    </span>
-                  </button>
+                    {isOptimizing ? 'OPTIMISATION...' : 'RÉÉCRIRE CONTENU (IA)'}
+                  </Button>
                   
                   {/* Page count indicator */}
                   <OverflowIndicator
@@ -1508,45 +1506,41 @@ export default function EditorPage() {
                 <section className="stitch-panel">
                   <div className="stitch-panel-header">08. PREVIEW_EXPORT</div>
                   <div className="p-4 space-y-3">
-                    <button
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+                      icon={<Eye className="w-4 h-4" />}
                       onClick={pdfExport.previewPDF}
-                      className="w-full py-3 px-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                     >
-                      <Eye className="w-4 h-4" />
-                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                        PRÉVISUALISER_PDF
-                      </span>
-                    </button>
+                      PRÉVISUALISER_PDF
+                    </Button>
 
-                    <button
-                      onClick={pdfExport.downloadPDF}
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      className="rounded-lg py-3 px-4 text-[10px] tracking-widest shadow-md"
+                      icon={pdfExport.isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                       disabled={pdfExport.isExporting}
-                      className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                      onClick={pdfExport.downloadPDF}
                     >
-                      {pdfExport.isExporting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                        {pdfExport.isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
-                      </span>
-                    </button>
+                      {pdfExport.isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
+                    </Button>
 
-                    <button
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                      icon={<Download className="w-4 h-4" />}
                       onClick={async () => {
                         if (!cvData) return;
                         const { exportToDocx } = await import('../shared/lib/export-docx');
                         await exportToDocx(cvData);
                         notify({ message: 'DOCX téléchargé !', type: 'success' });
                       }}
-                      className="w-full py-3 px-4 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2 group"
                     >
-                      <Download className="w-4 h-4" />
-                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                        TÉLÉCHARGER_DOCX
-                      </span>
-                    </button>
+                      TÉLÉCHARGER_DOCX
+                    </Button>
                   </div>
                 </section>
               </div>
@@ -1582,30 +1576,26 @@ export default function EditorPage() {
         </div>
 
         <div className="p-4 border-t border-[#DADCE0] bg-white">
-          <button 
-            onClick={persistence.saveDraft}
+          <Button
+            variant="secondary"
+            fullWidth
+            className="mb-2 py-2 text-[10px] normal-case tracking-normal font-medium"
+            icon={persistence.isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             disabled={persistence.isSaving || !cvData}
-            className="w-full stitch-button-secondary flex items-center justify-center space-x-2 mb-2 disabled:opacity-50"
+            onClick={persistence.saveDraft}
           >
-            {persistence.isSaving ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Save className="w-3 h-3" />
-            )}
-            <span className="text-[10px] stitch-mono">SAVE_DRAFT</span>
-          </button>
-          <button
-            onClick={pdfExport.downloadPDF}
+            SAVE_DRAFT
+          </Button>
+          <Button
+            variant="primary"
+            fullWidth
+            className="py-2 text-[10px] normal-case tracking-normal font-medium"
+            icon={pdfExport.isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             disabled={pdfExport.isExporting || !cvData}
-            className="w-full stitch-button-primary flex items-center justify-center space-x-2"
+            onClick={pdfExport.downloadPDF}
           >
-            {pdfExport.isExporting ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Download className="w-3 h-3" />
-            )}
-            <span className="text-[10px] stitch-mono">EXPORT_PDF</span>
-          </button>
+            EXPORT_PDF
+          </Button>
         </div>
       </aside>
 
