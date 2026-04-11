@@ -7,7 +7,20 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { CVData } from '../shared/types';
+import { CVData, DesignSettings } from '../shared/types';
+
+/**
+ * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: we
+ * only type the fields the dashboard render actually reads. Covers both
+ * Convex Doc<"cvs"> (authenticated) and localStorage entries (guest mode)
+ * via structural compatibility — both paths provide at least these fields.
+ */
+interface SavedCVEntry {
+  _id: string;
+  createdAt: string | number;
+  personal_info: { name: string; email: string; title?: string };
+  design?: { template?: string };
+}
 import { extractTextFromPDF } from '../lib/pdfTextExtract';
 import { parseLinkedInPDF } from '../lib/linkedinParser';
 import { useAccessCode, useDocumentTitle } from '../shared/hooks';
@@ -36,7 +49,7 @@ export default function DashboardPage() {
   const [newCodeLabel, setNewCodeLabel] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
-  const [savedCVs, setSavedCVs] = useState<any[]>([]);
+  const [savedCVs, setSavedCVs] = useState<SavedCVEntry[]>([]);
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);

@@ -16,6 +16,34 @@ import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
+import type { DesignSettings } from '../shared/types';
+
+// ─── Typed option arrays (avoid `as any` on DesignSettings union props) ───
+type FontFamily = DesignSettings['fontFamily'];
+type FontWeight = NonNullable<DesignSettings['sectionTitleWeight']>;
+type TitleTransform = NonNullable<DesignSettings['sectionTitleTransform']>;
+type TitleSpacing = NonNullable<DesignSettings['sectionTitleSpacing']>;
+type PaperSize = NonNullable<DesignSettings['paperSize']>;
+type Orientation = NonNullable<DesignSettings['orientation']>;
+
+const FONT_OPTIONS: ReadonlyArray<{ id: FontFamily; name: string }> = [
+  { id: 'sans', name: 'Inter (Sans)' },
+  { id: 'serif', name: 'Georgia (Serif)' },
+  { id: 'mono', name: 'JetBrains (Mono)' },
+  { id: 'playfair', name: 'Playfair (Display)' },
+  { id: 'outfit', name: 'Outfit (Modern)' },
+];
+const TITLE_WEIGHTS: ReadonlyArray<FontWeight> = ['normal', 'medium', 'semibold', 'bold', 'black'];
+const TITLE_TRANSFORMS: ReadonlyArray<TitleTransform> = ['none', 'uppercase', 'capitalize'];
+const TITLE_SPACINGS: ReadonlyArray<TitleSpacing> = ['tight', 'normal', 'wide', 'wider', 'widest'];
+
+interface ColorTheme { name: string; p: string; s: string; f: FontFamily }
+const COLOR_THEMES: ReadonlyArray<ColorTheme> = [
+  { name: 'Corporate', p: '#1e293b', s: '#64748b', f: 'sans' },
+  { name: 'Creative', p: '#f97316', s: '#0f172a', f: 'outfit' },
+  { name: 'Elegant', p: '#111827', s: '#94a3b8', f: 'playfair' },
+  { name: 'Tech', p: '#2563eb', s: '#475569', f: 'mono' },
+];
 
 const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
@@ -1147,19 +1175,14 @@ export default function EditorPage() {
                 <section className="stitch-panel">
                   <div className="stitch-panel-header">02. QUICK_THEMES</div>
                   <div className="p-4 grid grid-cols-2 gap-2">
-                    {[
-                      { name: 'Corporate', p: '#1e293b', s: '#64748b', f: 'sans' },
-                      { name: 'Creative', p: '#f97316', s: '#0f172a', f: 'outfit' },
-                      { name: 'Elegant', p: '#111827', s: '#94a3b8', f: 'playfair' },
-                      { name: 'Tech', p: '#2563eb', s: '#475569', f: 'mono' }
-                    ].map((theme) => (
+                    {COLOR_THEMES.map((theme) => (
                       <button
                         key={theme.name}
-                        onClick={() => setDesignSettings(prev => ({ 
-                          ...prev, 
-                          primaryColor: theme.p, 
+                        onClick={() => setDesignSettings(prev => ({
+                          ...prev,
+                          primaryColor: theme.p,
                           secondaryColor: theme.s,
-                          fontFamily: theme.f as any
+                          fontFamily: theme.f,
                         }))}
                         className="p-2 border border-gray-200 rounded text-[9px] stitch-mono hover:bg-gray-50 transition-all text-left flex flex-col gap-1"
                       >
@@ -1239,16 +1262,10 @@ export default function EditorPage() {
                 <section className="stitch-panel">
                   <div className="stitch-panel-header">05. TYPOGRAPHY</div>
                   <div className="p-4 space-y-3">
-                    {[
-                      { id: 'sans', name: 'Inter (Sans)' },
-                      { id: 'serif', name: 'Georgia (Serif)' },
-                      { id: 'mono', name: 'JetBrains (Mono)' },
-                      { id: 'playfair', name: 'Playfair (Display)' },
-                      { id: 'outfit', name: 'Outfit (Modern)' }
-                    ].map((font) => (
+                    {FONT_OPTIONS.map((font) => (
                       <button
                         key={font.id}
-                        onClick={() => setDesignSettings(prev => ({ ...prev, fontFamily: font.id as any }))}
+                        onClick={() => setDesignSettings(prev => ({ ...prev, fontFamily: font.id }))}
                         className={cn(
                           "w-full text-left px-3 py-2 rounded border text-[10px] stitch-mono transition-colors",
                           designSettings.fontFamily === font.id 
@@ -1268,10 +1285,10 @@ export default function EditorPage() {
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Font Weight</label>
                       <div className="grid grid-cols-2 gap-2">
-                        {['normal', 'medium', 'semibold', 'bold', 'black'].map((weight) => (
+                        {TITLE_WEIGHTS.map((weight) => (
                           <button
                             key={weight}
-                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleWeight: weight as any }))}
+                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleWeight: weight }))}
                             className={cn(
                               "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
                               designSettings.sectionTitleWeight === weight 
@@ -1287,10 +1304,10 @@ export default function EditorPage() {
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Transform</label>
                       <div className="grid grid-cols-3 gap-2">
-                        {['none', 'uppercase', 'capitalize'].map((transform) => (
+                        {TITLE_TRANSFORMS.map((transform) => (
                           <button
                             key={transform}
-                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleTransform: transform as any }))}
+                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleTransform: transform }))}
                             className={cn(
                               "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
                               designSettings.sectionTitleTransform === transform 
@@ -1306,10 +1323,10 @@ export default function EditorPage() {
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Spacing</label>
                       <div className="grid grid-cols-3 gap-2">
-                        {['tight', 'normal', 'wide', 'wider', 'widest'].map((spacing) => (
+                        {TITLE_SPACINGS.map((spacing) => (
                           <button
                             key={spacing}
-                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleSpacing: spacing as any }))}
+                            onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleSpacing: spacing }))}
                             className={cn(
                               "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
                               designSettings.sectionTitleSpacing === spacing 
@@ -1411,7 +1428,7 @@ export default function EditorPage() {
                         <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Format</label>
                         <select 
                           value={designSettings.paperSize}
-                          onChange={(e) => setDesignSettings(prev => ({ ...prev, paperSize: e.target.value as any }))}
+                          onChange={(e) => setDesignSettings(prev => ({ ...prev, paperSize: e.target.value as PaperSize }))}
                           className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[10px] stitch-mono focus:outline-none focus:border-blue-500"
                         >
                           <option value="a4">A4</option>
@@ -1423,7 +1440,7 @@ export default function EditorPage() {
                         <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Orientation</label>
                         <select 
                           value={designSettings.orientation}
-                          onChange={(e) => setDesignSettings(prev => ({ ...prev, orientation: e.target.value as any }))}
+                          onChange={(e) => setDesignSettings(prev => ({ ...prev, orientation: e.target.value as Orientation }))}
                           className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-[10px] stitch-mono focus:outline-none focus:border-blue-500"
                         >
                           <option value="portrait">Portrait</option>
