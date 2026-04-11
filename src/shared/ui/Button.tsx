@@ -3,7 +3,7 @@ import { cn } from '../lib/cn';
 import { Spinner } from './Spinner';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type Size = 'sm' | 'md' | 'lg';
+type Size = 'xs' | 'sm' | 'md' | 'lg';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -11,6 +11,7 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
   icon?: React.ReactNode;
   mono?: boolean;
+  fullWidth?: boolean;
 }
 
 const variantStyles: Record<Variant, string> = {
@@ -21,13 +22,14 @@ const variantStyles: Record<Variant, string> = {
 };
 
 const sizeStyles: Record<Size, string> = {
+  xs: 'px-2 py-1 text-[9px] gap-1',
   sm: 'px-3 py-1.5 text-[10px] gap-1.5',
   md: 'px-4 py-2 text-xs gap-2',
   lg: 'px-6 py-3 text-sm gap-2.5',
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(
-  ({ variant = 'primary', size = 'md', loading, icon, mono = true, className, children, disabled, ...props }, ref) => (
+  ({ variant = 'primary', size = 'md', loading, icon, mono = true, fullWidth, className, children, disabled, ...props }, ref) => (
     <button
       ref={ref}
       disabled={disabled || loading}
@@ -38,6 +40,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--google-blue)]',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         mono && 'font-mono uppercase tracking-wider',
+        fullWidth && 'w-full',
         variantStyles[variant],
         sizeStyles[size],
         className,

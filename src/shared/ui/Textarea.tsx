@@ -1,33 +1,79 @@
 import { forwardRef, type TextareaHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
 
+type TextareaSize = 'xs' | 'sm' | 'md';
+type TextareaVariant = 'default' | 'bare';
+
 interface Props extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   mono?: boolean;
+  inputSize?: TextareaSize;
+  variant?: TextareaVariant;
+  containerClassName?: string;
 }
 
+const sizePadding: Record<TextareaSize, string> = {
+  xs: 'px-2 py-1',
+  sm: 'px-2 py-1',
+  md: 'px-3 py-2',
+};
+
+const sizeText: Record<TextareaSize, string> = {
+  xs: 'text-[9px]',
+  sm: 'text-[10px]',
+  md: 'text-xs',
+};
+
+const defaultVariantBase =
+  'border border-[var(--border-color)] rounded bg-white resize-none focus:outline-none focus:border-[var(--google-blue)] focus:ring-1 focus:ring-[var(--google-blue)] placeholder:text-gray-400';
+
+const bareVariantBase =
+  'bg-transparent border-0 p-0 resize-none focus:outline-none placeholder:text-gray-400';
+
 export const Textarea = forwardRef<HTMLTextAreaElement, Props>(
-  ({ label, mono = true, className, id, ...props }, ref) => {
+  (
+    {
+      label,
+      mono = true,
+      inputSize = 'md',
+      variant = 'default',
+      containerClassName,
+      className,
+      id,
+      ...props
+    },
+    ref,
+  ) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
-    return (
-      <div className="space-y-1">
-        {label && (
-          <label htmlFor={inputId} className="text-[9px] font-mono text-gray-500 uppercase block tracking-wider">
-            {label}
-          </label>
+    const textareaEl = (
+      <textarea
+        ref={ref}
+        id={inputId}
+        className={cn(
+          'w-full',
+          variant === 'default' ? defaultVariantBase : bareVariantBase,
+          variant === 'default' && sizePadding[inputSize],
+          sizeText[inputSize],
+          mono && 'font-mono',
+          className,
         )}
-        <textarea
-          ref={ref}
-          id={inputId}
-          className={cn(
-            'w-full border border-[var(--border-color)] rounded px-3 py-2 text-sm bg-white resize-none',
-            'focus:outline-none focus:border-[var(--google-blue)] focus:ring-1 focus:ring-[var(--google-blue)]',
-            'placeholder:text-gray-400',
-            mono && 'font-mono text-xs',
-            className,
-          )}
-          {...props}
-        />
+        {...props}
+      />
+    );
+
+    if (!label) {
+      return containerClassName ? <div className={containerClassName}>{textareaEl}</div> : textareaEl;
+    }
+
+    return (
+      <div className={cn('space-y-1', containerClassName)}>
+        <label
+          htmlFor={inputId}
+          className="text-[9px] font-mono text-gray-500 uppercase block tracking-wider"
+        >
+          {label}
+        </label>
+        {textareaEl}
       </div>
     );
   },
