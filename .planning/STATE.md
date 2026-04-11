@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-last_updated: "2026-04-11T13:58:00.000Z"
+last_updated: "2026-04-11T14:25:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -80,6 +80,7 @@ All 10 phases complete. Post-milestone work in progress:
 | ID | Date | Description | Commits |
 |----|------|-------------|---------|
 | 260411-m24 | 2026-04-11 | Inline cover letter generation in editor (drawer + cvId linking) | 74b4c1e, d782b69, 12a3fc6 |
+| 260411-mij | 2026-04-11 | Auto-extract company name from JD and pre-fill cover letter drawer (Phase A logo roadmap) | d90e5b0, e5392a0 |
 
 ## Known Issues
 
