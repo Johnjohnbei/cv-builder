@@ -31,8 +31,12 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
     <button
       ref={ref}
       disabled={disabled || loading}
+      aria-busy={loading ? true : undefined}
+      aria-disabled={(disabled || loading) ? true : undefined}
       className={cn(
-        'inline-flex items-center justify-center font-bold rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center font-bold rounded transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[--google-blue]',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
         mono && 'font-mono uppercase tracking-wider',
         variantStyles[variant],
         sizeStyles[size],
@@ -40,7 +44,12 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
       )}
       {...props}
     >
-      {loading ? <Spinner className="w-3.5 h-3.5" /> : icon}
+      {loading ? (
+        <>
+          <Spinner className="w-3.5 h-3.5" />
+          <span className="sr-only">Chargement en cours</span>
+        </>
+      ) : icon}
       {children && <span>{children}</span>}
     </button>
   ),

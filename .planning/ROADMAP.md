@@ -195,10 +195,35 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 ### Phase 11: AI Layer Refactor — couche par couche, schemas Zod, normalizers unifiés, tests exhaustifs
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Restructure convex/ai.ts into a layered architecture (convex/_ai/) with Zod schemas, unified normalizers, prompt fragments, and unit tests — while keeping api.ai.* surface stable.
+**Status:** Complete (2026-04-11)
+**Requirements:** AICV-01, AICV-04, AICV-05, AICV-06
 **Depends on:** Phase 10
-**Plans:** 0 plans
+**Plans:** 11/11 complete (see 11-VERIFICATION.md)
+
+Delivered:
+- [x] 11-01 Zod schemas (14 tests)
+- [x] 11-02 Normalizers (30 tests)
+- [x] 11-03 Infra helpers extraction
+- [x] 11-04 Prompt fragments (12 tests)
+- [x] 11-05 Extract prompt + wire (5 tests)
+- [x] 11-06 Tailor adapt — critical fix (9 tests)
+- [x] 11-07 Optimize adapt
+- [x] 11-08 Rewrite prompts (10 tests)
+- [x] 11-09 ATS analysis (4 tests)
+- [x] 11-10 Cover letter (6 tests)
+- [x] 11-11 Final verification + docs + utility builders (7 tests)
+
+Result: `convex/ai.ts` 864 → 314 lines, 193 → 290 tests, all 10 actions preserved, API stable.
+
+### Phase 12: ATS Workflow UX + A11y + Auto-Distribute Keywords
+
+**Goal:** Fix blocking a11y issues on the primary Button atom, stop false-negative keyword matching in the ATS panel, and add a one-click flow to auto-distribute missing keywords across experiences using a new AI action.
+**Requirements:** AICV-04 (keyword integration), plus accessibility baseline
+**Depends on:** Phase 11
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 11 to break down)
+- [ ] 12-01 Button atom a11y — focus-visible ring, aria-busy, aria-label, remove forced uppercase/tracking defaults, WCAG contrast audit
+- [ ] 12-02 Keyword matcher fuzziness — stem-based comparison (plural, accent, simple conjugation) in `keywordAnalysis.ts` / `atsHelpers.ts` to eliminate false negatives
+- [ ] 12-03 `autoDistributeMissingKeywords` AI action — new prompt builder + Zod schema + Convex action that takes (cvData, missingKeywords, JD) and returns per-keyword assignments with rewritten bullets
+- [ ] 12-04 UI integration — "Répartir automatiquement" CTA in ATSPanel, accept-all/reject-all flow for the assignments, final verification + codebase docs update
