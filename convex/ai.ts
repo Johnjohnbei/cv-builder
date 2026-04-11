@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { getModel } from "./_ai/providers";
 import { chatJSON, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
+import { FABRICATION_GUARD } from "./_ai/prompts/fragments";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -628,8 +629,6 @@ Retourne UNIQUEMENT le JSON.`;
 });
 
 // ─── Bullet rewriting actions ──────────────────────────────────────
-
-const FABRICATION_GUARD = `RÈGLE ABSOLUE : Ne JAMAIS inventer de chiffres, métriques ou résultats. Si le bullet original ne contient pas de données chiffrées, la version réécrite ne doit pas en ajouter. Tu peux reformuler pour être plus percutant sans fabriquer de données.`;
 
 export const rewriteBulletsForJob = action({
   args: {
