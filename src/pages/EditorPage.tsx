@@ -10,7 +10,7 @@ import { serverlessPDF, renderPDF } from '../features/editor/lib/pdfExport';
 import { extractExpectedText } from '../features/editor/lib/pdfValidation';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, type RewriteKey } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, type RewriteKey } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
@@ -37,7 +37,6 @@ export default function EditorPage() {
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const storeUser = useMutation(api.users.store);
-  const createCV = useMutation(api.cvs.createMyCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
 
@@ -45,7 +44,6 @@ export default function EditorPage() {
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isExporting, setIsExporting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -113,6 +111,14 @@ export default function EditorPage() {
     missingKeywords: missingKeywordsList,
     notify,
     accessCode: getCode(),
+  });
+  const persistence = useCVPersistence({
+    cvData,
+    designSettings,
+    selectedTemplate,
+    user,
+    isGuest,
+    notify,
   });
 
   // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
@@ -238,48 +244,6 @@ export default function EditorPage() {
       notify({ message: 'Erreur lors de l\'optimisation du CV.', type: 'error' });
     } finally {
       setIsOptimizing(false);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    if (!cvData) return;
-    
-    setIsSaving(true);
-    try {
-      const updatedCvData = { ...cvData, design: { ...designSettings, template: selectedTemplate } };
-      
-      if (user) {
-        await storeUser();
-        
-        // Also save to a historical collection for "Mes CV"
-        await createCV({
-          personal_info: updatedCvData.personal_info,
-          experience: updatedCvData.experience,
-          education: updatedCvData.education,
-          skills: updatedCvData.skills,
-          languages: updatedCvData.languages,
-          design: updatedCvData.design
-        });
-      } else if (isGuest) {
-        // Save to local storage for guests
-        localStorage.setItem('guest_last_optimized', JSON.stringify(updatedCvData));
-        
-        // Also add to guest_cvs list
-        const guestCVs = JSON.parse(localStorage.getItem('guest_cvs') || '[]');
-        const newGuestCV = {
-          ...updatedCvData,
-          _id: `guest_${Date.now()}`,
-          createdAt: new Date().toISOString()
-        };
-        localStorage.setItem('guest_cvs', JSON.stringify([newGuestCV, ...guestCVs]));
-      }
-      
-      notify({ message: 'Brouillon sauvegardé !', type: 'success' });
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      notify({ message: 'Erreur lors de la sauvegarde.', type: 'error' });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -1719,11 +1683,11 @@ export default function EditorPage() {
 
         <div className="p-4 border-t border-[#DADCE0] bg-white">
           <button 
-            onClick={handleSaveDraft}
-            disabled={isSaving || !cvData}
+            onClick={persistence.saveDraft}
+            disabled={persistence.isSaving || !cvData}
             className="w-full stitch-button-secondary flex items-center justify-center space-x-2 mb-2 disabled:opacity-50"
           >
-            {isSaving ? (
+            {persistence.isSaving ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               <Save className="w-3 h-3" />
@@ -1755,9 +1719,9 @@ export default function EditorPage() {
           onZoomIn={() => { setZoom(prev => Math.min(150, prev + 10)); setIsAutoZoom(false); }}
           onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
           onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
-          onSave={handleSaveDraft}
+          onSave={persistence.saveDraft}
           onExport={handleDownloadPDF}
-          isSaving={isSaving}
+          isSaving={persistence.isSaving}
           isExporting={isExporting}
           hasCvData={!!cvData}
           atsMode={designSettings.atsMode ?? false}
