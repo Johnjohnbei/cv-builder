@@ -83,6 +83,8 @@ All 10 phases complete. Post-milestone work in progress:
 |----|------|-------------|---------|
 | 260411-m24 | 2026-04-11 | Inline cover letter generation in editor (drawer + cvId linking) | 74b4c1e, d782b69, 12a3fc6 |
 | 260411-mij | 2026-04-11 | Auto-extract company name from JD and pre-fill cover letter drawer (Phase A logo roadmap) | d90e5b0, e5392a0 |
+| 260411-nl2 | 2026-04-11 | ~~OpenRouter refactor~~ (reverted in 67239be — replaced by 260411-rcg) | 6a7123f..4873ded reverted |
+| 260411-rcg | 2026-04-11 | Fix Claude fallback via native @anthropic-ai/sdk Messages API + protocol discriminant | d91fe82 |
 
 ## Known Issues
 
