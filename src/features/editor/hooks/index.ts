@@ -9,3 +9,5 @@ export type { RewriteKey, BulletRewriteEntry, BulletSuggestionState } from './us
 export { useCVPersistence } from './useCVPersistence';
 export { usePDFExport } from './usePDFExport';
 export { useTemplateSelection } from './useTemplateSelection';
+export { useCoverLetter } from './useCoverLetter';
+export type { CoverLetterData } from './useCoverLetter';
