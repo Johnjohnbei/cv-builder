@@ -13,6 +13,7 @@ import {
 } from "./_ai/prompts/rewrite";
 import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
+import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
@@ -24,6 +25,7 @@ import {
   BulletRewriteSchema,
   ATSAnalysisSchema,
   CoverLetterSchema,
+  CompanyMetaSchema,
   KeywordListSchema,
   KeywordDistributionSchema,
 } from "./_ai/schemas";
@@ -248,6 +250,31 @@ export const generateCoverLetter = action({
       body: parsed.data.body,
       closing: parsed.data.closing,
     };
+  },
+});
+
+export const extractCompanyMeta = action({
+  args: {
+    jobDescription: v.string(),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+    const FALLBACK = { companyName: null, domainGuess: null, industry: null };
+    if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
+    try {
+      const prompt = buildCompanyExtractionPrompt({ jobDescription: args.jobDescription });
+      const raw = await chatJSON(prompt, getModel("fast"));
+      const parsed = CompanyMetaSchema.safeParse(raw);
+      if (!parsed.success) {
+        console.warn("[extractCompanyMeta] schema parse failed:", parsed.error.message);
+        return FALLBACK;
+      }
+      return parsed.data;
+    } catch (e) {
+      console.warn("[extractCompanyMeta] LLM call failed:", e);
+      return FALLBACK;
+    }
   },
 });
 

@@ -87,6 +87,13 @@ export const CoverLetterSchema = z.object({
   closing: z.string(),
 }).passthrough();
 
+export const CompanyMetaSchema = z.object({
+  companyName: z.string().nullable(),
+  domainGuess: z.string().nullable(),
+  industry: z.string().nullable(),
+}).passthrough();
+export type CompanyMetaParsed = z.infer<typeof CompanyMetaSchema>;
+
 export const BulletSuggestionsSchema = z.object({
   suggestions: z.array(z.string()).default([]),
 }).passthrough();
