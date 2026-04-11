@@ -12,10 +12,12 @@ import {
   buildBulletRewritePrompt,
 } from "./_ai/prompts/rewrite";
 import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
+import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import {
   BulletSuggestionsSchema,
   BulletRewriteSchema,
   ATSAnalysisSchema,
+  CoverLetterSchema,
 } from "./_ai/schemas";
 import { normalizeCVData } from "./_ai/normalizers";
 
@@ -261,37 +263,24 @@ export const generateCoverLetter = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    const tone = args.tone || "professionnel et engagé";
-    const company = args.companyName ? `pour l'entreprise ${args.companyName}` : "";
-
-    const prompt = `
-Tu es un expert en rédaction de lettres de motivation ${company}.
-Rédige une lettre de motivation percutante en français, ton ${tone}.
-
-CV du candidat :
-${JSON.stringify(args.cvData)}
-
-Offre d'emploi :
-${args.jobDescription}
-
-Règles :
-1. Maximum 400 mots
-2. Structure : accroche → compétences clés liées au poste → motivation → conclusion avec appel à l'action
-3. Utilise les mots-clés de l'offre naturellement
-4. Mentionne des réalisations concrètes du CV
-5. Pas de formules clichées ("je me permets de vous écrire", "veuillez agréer")
-6. Ton : direct, confiant, spécifique
-
-Retourne un objet JSON avec :
-- subject: l'objet du mail (court)
-- greeting: la formule d'appel
-- body: le corps de la lettre (en paragraphes séparés par \\n\\n)
-- closing: la formule de fin
-
-Retourne UNIQUEMENT le JSON.
-`;
-
-    return await chatJSON(prompt, getModel("fast"));
+    const prompt = buildCoverLetterPrompt({
+      cvData: args.cvData,
+      jobDescription: args.jobDescription,
+      companyName: args.companyName,
+      tone: args.tone,
+    });
+    const raw = await chatJSON(prompt, getModel("fast"));
+    const parsed = CoverLetterSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[generateCoverLetter] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné une lettre invalide. Veuillez réessayer.");
+    }
+    return {
+      subject: parsed.data.subject,
+      greeting: parsed.data.greeting,
+      body: parsed.data.body,
+      closing: parsed.data.closing,
+    };
   },
 });
 

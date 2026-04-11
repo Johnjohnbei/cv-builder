@@ -81,10 +81,10 @@ export const KeywordListSchema = z.object({
 }).passthrough();
 
 export const CoverLetterSchema = z.object({
-  subject: z.string().default(""),
-  greeting: z.string().default(""),
-  body: z.string().default(""),
-  closing: z.string().default(""),
+  subject: z.string(),
+  greeting: z.string(),
+  body: z.string(),
+  closing: z.string(),
 }).passthrough();
 
 export const BulletSuggestionsSchema = z.object({
