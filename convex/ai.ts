@@ -230,139 +230,23 @@ export const optimizeCVForPage = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    // Strip non-content fields to reduce prompt size
     const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
-
-    // Detect language
-    const lang = languageOverride || detectedLanguage || 'fr';
-    const isEn = lang === 'en' || (args.jobDescription && /\b(experience|skills|education|responsibilities|requirements)\b/i.test(args.jobDescription.slice(0, 500)));
-    const outputLang = isEn ? 'Write ALL content in English.' : 'Rédige TOUT le contenu en français.';
-
-    const jobContext = args.jobDescription
-      ? `
-JOB DESCRIPTION:
-${args.jobDescription}
-
-═══ MOTS-CLÉS À INTÉGRER ═══
-Identifie les 15-20 mots-clés critiques de cette offre (outils, méthodologies, compétences techniques, soft skills demandées).
-Intègre-les NATURELLEMENT dans les bullets, le summary et les skills — chaque mot-clé dans un contexte crédible.
-Priorise les expériences qui correspondent le mieux à ces mots-clés.`
-      : `
-No job description provided. Prioritize by RECENCY: most recent experiences are most developed.`;
-
-    const prompt = `You are an expert in professional CV writing and layout optimization.
-
-LANGUAGE: ${outputLang}
-
-Your mission: reorganize and adjust the content of this CV to fit on ${args.pageLimit} A4 page(s) while maximizing professional impact.
-
-CV DATA:
-${JSON.stringify(contentOnly)}
-${jobContext}
-
-═══ RÈGLE ABSOLUE — NE SUPPRIME RIEN ═══
-Toutes les expériences, formations, compétences, langues présentes en entrée DOIVENT être présentes en sortie.
-Le nombre d'éléments dans chaque section doit être IDENTIQUE.
-Tu n'as le droit que de : réordonner, reformuler, condenser, enrichir, et changer le displayMode.
-
-═══ SYSTÈME DE BLOCS MODULABLES ═══
-
-Chaque expérience a un champ "displayMode" qui contrôle la place qu'elle prend :
-
-- "compact" : Le poste + entreprise + 1 ligne de description synthétique. Pour les postes anciens ou peu pertinents.
-- "normal" : Le poste + entreprise + 2 bullet points d'actions clés (une ligne chacun). Le mode par défaut.
-- "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés. Pour les postes les plus importants.
-
-═══ CHAMP "kpi" — OBLIGATOIRE SUR TOUTES LES EXPÉRIENCES ═══
-
-Chaque expérience DOIT avoir un champ "kpi" (string) rempli, quel que soit son displayMode.
-Le KPI est un résultat chiffré ou un indicateur d'envergure marquant, calibré sur la durée de la mission.
-
-RÈGLES DE CALIBRAGE :
-- DURÉE : un stage de 3 mois ne peut pas afficher "+50% de CA sur 3 ans". Adapte l'ampleur
-  du KPI au temps réellement passé sur la mission (start_date → end_date ou current=true).
-- RÉALISME : extrais le KPI du texte source si présent. Sinon, SYNTHÉTISE-le à partir du rôle,
-  du secteur, et du contexte — en restant crédible.
-- PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : quand le source ne fournit pas de métrique,
-  utilise taille d'équipe, nombre de projets, périmètre (marques/marchés/utilisateurs), stack déployée.
-- NE PAS INVENTER de pourcentages précis sans base factuelle.
-- NE JAMAIS laisser "kpi" vide — toujours produire un indicateur d'envergure cohérent.
-
-EXEMPLES DE BONS KPI :
-- "+35% de trafic organique en 6 mois" (si données existantes dans le source)
-- "Équipe de 8 designers encadrée" (périmètre managérial)
-- "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
-- "12 projets simultanés livrés" (volumétrie)
-- "Stack Notion / Figma / GTM déployée" (scope technique pour une mission courte)
-
-Note : la visibilité du KPI à l'écran est contrôlée par le displayMode + un override user.
-Ta mission est de GÉNÉRER la donnée pour toutes les expériences, indépendamment de sa visibilité future.
-
-═══ STRATÉGIE DE PRIORISATION ═══
-
-1. RÉORDONNE les expériences par pertinence (la plus importante en premier)
-2. ASSIGNE un displayMode à chaque expérience :
-   - TOP priorité (1-2 premières) → "extended"
-   - MOYENNE priorité → "normal"
-   - BASSE priorité (anciennes/peu pertinentes) → "compact"
-3. Ajuste le nombre de bullets selon le mode :
-   - "extended" : 3-5 bullets détaillés
-   - "normal" : exactement 2 bullets concis
-   - "compact" : 1 seule phrase descriptive dans description[0]
-4. REMPLIS kpi SUR CHAQUE EXPÉRIENCE (voir règles ci-dessus).
-
-5. RÉSUMÉ : 2-3 phrases percutantes.
-6. COMPÉTENCES : Réordonne — les plus pertinentes en premier.
-7. FORMATIONS et LANGUES : Garde tel quel.
-
-═══ QUALITÉ DES REFORMULATIONS ═══
-- Verbe d'action fort et précis en début de bullet (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure — JAMAIS "Responsable de", "Participe à", "Aide à", "Gère")
-- Structure : ACTION + CONTEXTE + RÉSULTAT en 1-2 lignes max
-- Conserve les chiffres existants, ne PAS en inventer dans les bullets
-- Mots-clés du secteur / de l'offre intégrés naturellement
-
-═══ CONTRAINTE TAILLE ═══
-Pour ${args.pageLimit} page(s) A4, un bon équilibre est :
-- 1 page : max 1 extended + 1-2 normal + le reste compact
-- 2 pages : max 2-3 extended + 2-3 normal + le reste compact
-
-Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode ET kpi.`;
-
-    const optimizedData = await chatJSON(prompt);
-
-    // Sanitize skills
-    if (optimizedData.skills) {
-      optimizedData.skills = optimizedData.skills.map((cat: any) => ({
-        ...cat,
-        category: typeof cat.category === "string" ? cat.category : "Compétences",
-        items: Array.isArray(cat.items)
-          ? cat.items.map((item: any) => {
-              if (typeof item === "string") return item;
-              if (typeof item === "object" && item !== null) {
-                return item.name || item.skill || item.title || JSON.stringify(item);
-              }
-              return String(item);
-            })
-          : [],
-      }));
-    }
-
-    // Ensure displayMode and kpi on all experiences
-    if (optimizedData.experience) {
-      optimizedData.experience = optimizedData.experience.map((exp: any) => ({
-        ...exp,
-        displayMode: exp.displayMode || "normal",
-        kpi: typeof exp.kpi === "string" ? exp.kpi.trim() : "",
-      }));
-    }
-
-    // Re-attach stripped fields
-    if (design) optimizedData.design = design;
-    if (detectedLanguage) optimizedData.detectedLanguage = detectedLanguage;
-    if (languageOverride) optimizedData.languageOverride = languageOverride;
-
-    return optimizedData;
+    const prompt = buildAdaptPrompt({
+      mode: "optimize",
+      cvData: contentOnly,
+      pageLimit: args.pageLimit,
+      jobDescription: args.jobDescription,
+      detectedLanguage,
+      languageOverride,
+    });
+    const raw = await chatJSON(prompt);
+    const normalized = normalizeCVData(raw);
+    return {
+      ...normalized,
+      ...(design && { design }),
+      ...(detectedLanguage && { detectedLanguage }),
+      ...(languageOverride && { languageOverride }),
+    };
   },
 });
 
