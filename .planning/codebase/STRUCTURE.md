@@ -55,7 +55,7 @@ cv-builder/
 - Contains: DashboardPage.tsx, EditorPage.tsx, NotFoundPage.tsx
 - Key files: 
   - `DashboardPage.tsx` (450+ lines): CV upload, AI generation, saved CV list, admin panel
-  - `EditorPage.tsx` (600+ lines): CV editing interface, template selection, design settings, PDF export
+  - `EditorPage.tsx` (~1700 lines): CV editing interface, template selection, design settings, PDF export. Uses DS atoms (`Input`, `Textarea`, `Select`, `Button`) for all form fields and full-width action buttons since Phase 14.
 
 **src/features/auth/**
 - Purpose: Authentication flows and protected route enforcement
@@ -229,6 +229,7 @@ cv-builder/
 - Generated: No (hand-written)
 - Committed: Yes
 - Strategy: Design system approach; components use Tailwind tokens only, no hardcoded colors
+- Form atoms (`Input`, `Textarea`, `Select`) expose `inputSize` (`xs | sm | md`) and `variant` (`default | bare`) props since Phase 14 to support compact patterns in editor sidebars. `Button` atom supports sizes `xs | sm | md | lg` + `fullWidth` prop.
 
 **convex/_generated/:**
 - Purpose: Auto-generated type definitions from schema and functions
