@@ -1,9 +1,16 @@
 "use node";
 
-import OpenAI from "openai";
+// ─── AIProvider interface ──────────────────────────────────────────
+// The `protocol` discriminant exists because Anthropic's native API uses the
+// Messages API (`/v1/messages`) with a different request/response shape than
+// OpenAI's chat-completions. chat.ts branches on this field to pick the right
+// SDK. Do NOT attempt to unify under one baseURL-patched OpenAI client — that
+// was attempted and returns 404 on api.anthropic.com/v1/chat/completions
+// (revert 67239be). The correct fix is per-vendor SDK via the protocol tag.
 
 export interface AIProvider {
-  baseURL: string;
+  protocol: "openai" | "anthropic";
+  baseURL: string; // kept on both variants for symmetry in withRetry log messages
   apiKey: string;
   defaultModel: string;
   fastModel: string;
@@ -12,10 +19,11 @@ export interface AIProvider {
 export function getProviders(): AIProvider[] {
   const providers: AIProvider[] = [];
 
-  // Priority 1: Gemini Flash (free tier)
+  // Priority 1: Gemini Flash (free tier, OpenAI-compatible surface)
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     providers.push({
+      protocol: "openai",
       baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
       apiKey: geminiKey,
       defaultModel: "gemini-2.5-flash",
@@ -23,54 +31,30 @@ export function getProviders(): AIProvider[] {
     });
   }
 
-  // Priority 2: Claude (best quality, fallback)
+  // Priority 2: Claude (quality fallback, native Messages API via @anthropic-ai/sdk)
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey) {
     providers.push({
-      baseURL: "https://api.anthropic.com/v1/",
+      protocol: "anthropic",
+      baseURL: "https://api.anthropic.com", // for log symmetry only; SDK ignores this
       apiKey: anthropicKey,
-      defaultModel: "claude-sonnet-4-20250514",
+      defaultModel: "claude-sonnet-4-5",
       fastModel: "claude-haiku-4-5-20251001",
-    });
-  }
-
-  // Priority 3: NVIDIA NIM (free tier)
-  const nvidiaKey = process.env.NVIDIA_API_KEY;
-  if (nvidiaKey) {
-    providers.push({
-      baseURL: "https://integrate.api.nvidia.com/v1",
-      apiKey: nvidiaKey,
-      defaultModel: "meta/llama-3.1-70b-instruct",
-      fastModel: "meta/llama-3.1-70b-instruct",
     });
   }
 
   if (providers.length === 0) {
     throw new Error(
-      "No AI provider configured. Set ANTHROPIC_API_KEY, GEMINI_API_KEY, or NVIDIA_API_KEY in Convex env vars."
+      "No AI provider configured. Set GEMINI_API_KEY or ANTHROPIC_API_KEY in Convex env vars (npx convex env set ...)."
     );
   }
   return providers;
-}
-
-export function getProvider(): AIProvider {
-  return getProviders()[0];
-}
-
-export function getClient(provider?: AIProvider): OpenAI {
-  const p = provider || getProvider();
-  const opts: any = { baseURL: p.baseURL, apiKey: p.apiKey };
-  // Anthropic requires extra headers for OpenAI compatibility
-  if (p.baseURL.includes("anthropic.com")) {
-    opts.defaultHeaders = { "anthropic-version": "2023-06-01" };
-  }
-  return new OpenAI(opts);
 }
 
 export function getModel(
   speed: "default" | "fast" = "default",
   provider?: AIProvider
 ): string {
-  const p = provider || getProvider();
+  const p = provider || getProviders()[0];
   return speed === "fast" ? p.fastModel : p.defaultModel;
 }

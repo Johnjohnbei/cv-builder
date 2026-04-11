@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-last_updated: "2026-04-11T14:25:00.000Z"
+last_updated: "2026-04-11T19:50:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -51,9 +51,11 @@ All 10 phases complete. Post-milestone work in progress:
 
 ### AI Provider Architecture
 
-- Multi-provider with automatic fallback: Gemini → Claude → NVIDIA
+- Multi-provider with automatic fallback: Gemini → Claude (via @anthropic-ai/sdk Messages API)
 - Retry logic for 503/429 errors with exponential backoff
-- Provider priority: Gemini (free) > Claude (quality) > NVIDIA (fallback)
+- Provider priority: Gemini (free tier) > Claude (native Anthropic SDK, Messages API)
+- NVIDIA removed 2026-04-11 (persistent 404, deprecated Llama 3.1 70B model, no fix path)
+- Protocol discriminant (`openai` | `anthropic`) on AIProvider enables per-vendor SDK without baseURL hacks
 
 ### Prompt Improvements
 
@@ -86,7 +88,7 @@ All 10 phases complete. Post-milestone work in progress:
 
 - PDF multi-column layout imperfect on fallback path (window.print used only when serverless Puppeteer fails)
 - EditorPage.tsx is ~1740 lines (above 400-line guideline — known, accepted scope)
-- Gemini free tier has strict rate limits from Convex servers
+- Gemini free tier has strict rate limits from Convex servers — Claude fallback now active via native SDK (quick 260411-rcg)
 
 ## Accumulated Context
 

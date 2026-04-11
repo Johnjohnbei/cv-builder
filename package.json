@@ -13,6 +13,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
     "@clerk/clerk-react": "^5.61.4",
     "@google/genai": "^1.48.0",
     "@sparticuz/chromium": "^143.0.4",
