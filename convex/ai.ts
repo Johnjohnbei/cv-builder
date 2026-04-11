@@ -195,11 +195,25 @@ RÈGLES IMPORTANTES :
    Si seule l'année est disponible, utilise juste "YYYY".
    Pour un poste actuel, met end_date à "" et current à true.
 
-2. EXPÉRIENCES : Chaque expérience a deux parties distinctes :
+2. EXPÉRIENCES : Chaque expérience a trois parties distinctes :
    - "intro" : UNE phrase de description du rôle/contexte (1-2 lignes). Toujours présent.
    - "description" : Liste de bullet points d'ACTIONS concrètes et résultats.
-   Chaque bullet commence par un verbe d'action. Maximum 4 bullets par expérience.
-   L'intro décrit LE QUOI, les bullets décrivent LE COMMENT et LES RÉSULTATS.
+     Chaque bullet commence par un verbe d'action. Maximum 4 bullets par expérience.
+     L'intro décrit LE QUOI, les bullets décrivent LE COMMENT et LES RÉSULTATS.
+   - "kpi" : UN résultat chiffré ou indicateur d'envergure marquant (OBLIGATOIRE, jamais vide).
+     Extrais-le du texte source si présent. Sinon, synthétise-le à partir du contexte de l'expérience
+     en restant réaliste et crédible. Règles de calibrage :
+     * CALIBRAGE SUR LA DURÉE : un stage de 3 mois ne peut pas avoir "+50% de CA sur 3 ans".
+       Adapte l'ampleur au temps réellement passé sur la mission (start_date → end_date).
+     * PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : taille d'équipe, nombre de projets gérés,
+       périmètre (marques, marchés, utilisateurs), stack technique déployée.
+     * EXEMPLES CRÉDIBLES :
+       - "Équipe de 8 designers encadrée" (périmètre managérial)
+       - "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
+       - "12 projets simultanés livrés" (volumétrie)
+       - "Stack Notion / Figma / GTM déployée" (scope technique)
+     * NE PAS INVENTER de pourcentages précis si le texte source ne les mentionne pas.
+     * NE JAMAIS laisser kpi vide — toujours produire au moins un indicateur d'envergure déduit.
 
 3. TITRE PROFESSIONNEL : Utilise un titre court et percutant (max 5 mots).
    Pas de liste de postes, pas de "Ex-xxx".
@@ -215,7 +229,7 @@ RÈGLES IMPORTANTES :
 Structure JSON attendue :
 {
   "personal_info": { "name": "", "email": "", "phone": "", "location": "", "title": "", "summary": "" },
-  "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": false, "intro": "Description courte du rôle (1-2 lignes)", "description": ["action bullet 1", "action bullet 2"] } ],
+  "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": false, "intro": "Description courte du rôle (1-2 lignes)", "description": ["action bullet 1", "action bullet 2"], "kpi": "indicateur chiffré ou envergure" } ],
   "education": [ { "school": "", "degree": "", "field": "", "start_date": "", "end_date": "" } ],
   "skills": [ { "category": "", "items": ["item1", "item2"] } ],
   "languages": [ { "name": "", "proficiency": "" } ]
@@ -256,6 +270,8 @@ Retourne UNIQUEMENT le JSON, rien d'autre.
               })
               .slice(0, 5)
           : [],
+        // Normalize kpi: trim, ensure string, leave empty only if model omitted it entirely
+        kpi: typeof exp.kpi === "string" ? exp.kpi.trim() : "",
       }));
     }
 
@@ -589,45 +605,62 @@ Chaque expérience a un champ "displayMode" qui contrôle la place qu'elle prend
 
 - "compact" : Le poste + entreprise + 1 ligne de description synthétique. Pour les postes anciens ou peu pertinents.
 - "normal" : Le poste + entreprise + 2 bullet points d'actions clés (une ligne chacun). Le mode par défaut.
-- "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés + un champ "kpi" avec un résultat chiffré. Pour les postes les plus importants.
+- "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés. Pour les postes les plus importants.
 
-Chaque expérience a aussi un champ optionnel "kpi" (string) : un résultat chiffré clé (ex: "+35% de CA", "Management de 12 personnes", "Réduction de 40% des coûts"). Remplis-le UNIQUEMENT pour les expériences en mode "extended".
+═══ CHAMP "kpi" — OBLIGATOIRE SUR TOUTES LES EXPÉRIENCES ═══
+
+Chaque expérience DOIT avoir un champ "kpi" (string) rempli, quel que soit son displayMode.
+Le KPI est un résultat chiffré ou un indicateur d'envergure marquant, calibré sur la durée de la mission.
+
+RÈGLES DE CALIBRAGE :
+- DURÉE : un stage de 3 mois ne peut pas afficher "+50% de CA sur 3 ans". Adapte l'ampleur
+  du KPI au temps réellement passé sur la mission (start_date → end_date ou current=true).
+- RÉALISME : extrais le KPI du texte source si présent. Sinon, SYNTHÉTISE-le à partir du rôle,
+  du secteur, et du contexte — en restant crédible.
+- PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : quand le source ne fournit pas de métrique,
+  utilise taille d'équipe, nombre de projets, périmètre (marques/marchés/utilisateurs), stack déployée.
+- NE PAS INVENTER de pourcentages précis sans base factuelle.
+- NE JAMAIS laisser "kpi" vide — toujours produire un indicateur d'envergure cohérent.
+
+EXEMPLES DE BONS KPI :
+- "+35% de trafic organique en 6 mois" (si données existantes dans le source)
+- "Équipe de 8 designers encadrée" (périmètre managérial)
+- "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
+- "12 projets simultanés livrés" (volumétrie)
+- "Stack Notion / Figma / GTM déployée" (scope technique pour une mission courte)
+
+Note : la visibilité du KPI à l'écran est contrôlée par le displayMode + un override user.
+Ta mission est de GÉNÉRER la donnée pour toutes les expériences, indépendamment de sa visibilité future.
 
 ═══ STRATÉGIE DE PRIORISATION ═══
 
 1. RÉORDONNE les expériences par pertinence (la plus importante en premier)
 2. ASSIGNE un displayMode à chaque expérience :
-   - TOP priorité (1-2 premières) → "extended" avec kpi rempli
+   - TOP priorité (1-2 premières) → "extended"
    - MOYENNE priorité → "normal"
    - BASSE priorité (anciennes/peu pertinentes) → "compact"
 3. Ajuste le nombre de bullets selon le mode :
-   - "extended" : 3-5 bullets détaillés + kpi
+   - "extended" : 3-5 bullets détaillés
    - "normal" : exactement 2 bullets concis
    - "compact" : 1 seule phrase descriptive dans description[0]
+4. REMPLIS kpi SUR CHAQUE EXPÉRIENCE (voir règles ci-dessus).
 
-4. RÉSUMÉ : 2-3 phrases percutantes.
-5. COMPÉTENCES : Réordonne — les plus pertinentes en premier.
-6. FORMATIONS et LANGUES : Garde tel quel.
+5. RÉSUMÉ : 2-3 phrases percutantes.
+6. COMPÉTENCES : Réordonne — les plus pertinentes en premier.
+7. FORMATIONS et LANGUES : Garde tel quel.
 
 ═══ QUALITÉ DES REFORMULATIONS ═══
 - Verbe d'action fort et précis en début de bullet (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure — JAMAIS "Responsable de", "Participe à", "Aide à", "Gère")
 - Structure : ACTION + CONTEXTE + RÉSULTAT en 1-2 lignes max
-- Conserve les chiffres existants, ne PAS en inventer
-- Si pas de chiffres, utilise des indicateurs qualitatifs réalistes (périmètre, équipe, nombre de projets)
+- Conserve les chiffres existants, ne PAS en inventer dans les bullets
 - Mots-clés du secteur / de l'offre intégrés naturellement
-- KPI (champ "kpi" des extended) : résultat concret et crédible. Exemples de bons KPIs :
-  * "+35% de trafic organique en 6 mois" (si données existantes)
-  * "Management d'une équipe de 8 designers" (périmètre)
-  * "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure)
-  * "Réduction de 40% du time-to-market" (si données existantes)
-  Ne PAS inventer de pourcentages ou chiffres. Préférer l'envergure (taille équipe, nombre projets, périmètre) aux métriques inventées.
 
 ═══ CONTRAINTE TAILLE ═══
 Pour ${args.pageLimit} page(s) A4, un bon équilibre est :
 - 1 page : max 1 extended + 1-2 normal + le reste compact
 - 2 pages : max 2-3 extended + 2-3 normal + le reste compact
 
-Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode et les extended DOIVENT avoir kpi.`;
+Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode ET kpi.`;
 
     const optimizedData = await chatJSON(prompt);
 
@@ -648,11 +681,12 @@ Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOI
       }));
     }
 
-    // Ensure displayMode on all experiences
+    // Ensure displayMode and kpi on all experiences
     if (optimizedData.experience) {
       optimizedData.experience = optimizedData.experience.map((exp: any) => ({
         ...exp,
         displayMode: exp.displayMode || "normal",
+        kpi: typeof exp.kpi === "string" ? exp.kpi.trim() : "",
       }));
     }
 

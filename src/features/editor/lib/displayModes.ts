@@ -49,7 +49,13 @@ export function getActionBullets(exp: Experience): string[] {
 }
 
 export function shouldShowKPI(exp: Experience): boolean {
-  return getMode(exp) === 'extended' && !!exp.kpi;
+  // No KPI content → nothing to show
+  if (!exp.kpi) return false;
+  // Explicit per-experience override wins over default
+  if (exp.showKpi === true) return true;
+  if (exp.showKpi === false) return false;
+  // Default: visible only when displayMode is 'extended'
+  return getMode(exp) === 'extended';
 }
 
 export function isCompact(exp: Experience): boolean {

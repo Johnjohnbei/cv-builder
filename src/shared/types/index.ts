@@ -24,7 +24,14 @@ export interface Experience {
   current: boolean;
   intro?: string;           // Short description of the role (1-2 lines, always visible except hidden)
   description: string[];    // Action bullet points (shown based on displayMode)
-  kpi?: string;
+  kpi?: string;             // Result / scope indicator ("Team of 12", "+35% traffic", etc.)
+  /**
+   * Override KPI visibility:
+   * - undefined (default) → visible only when displayMode === 'extended'
+   * - true                → always visible (if kpi is non-empty)
+   * - false               → always hidden
+   */
+  showKpi?: boolean;
   displayMode?: ExperienceDisplayMode;
 }
 

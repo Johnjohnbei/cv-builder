@@ -937,22 +937,41 @@ export default function EditorPage() {
                             </label>
                           </div>
 
-                          {/* ─── KPI field (extended mode only) ─── */}
-                          {(exp.displayMode || 'normal') === 'extended' && (
-                            <div className="mt-2">
-                              <label className="text-[7px] stitch-mono text-emerald-600 uppercase block mb-0.5">KPI / Résultat clé</label>
-                              <input
-                                className="w-full bg-white border border-emerald-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-emerald-500"
-                                value={exp.kpi || ''}
-                                placeholder="Ex: +35% de CA, 12 personnes managées..."
-                                onChange={(e) => {
-                                  const newExp = [...(cvData?.experience || [])];
-                                  newExp[idx] = { ...newExp[idx], kpi: e.target.value };
-                                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                                }}
-                              />
+                          {/* ─── KPI field (always editable, visibility toggle below) ─── */}
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[7px] stitch-mono text-emerald-600 uppercase">KPI / Résultat clé</label>
+                              <label
+                                className="flex items-center gap-1 text-[8px] font-mono text-gray-500 cursor-pointer"
+                                title="Par défaut le KPI ne s'affiche qu'en mode Étendu. Coche pour forcer l'affichage quel que soit le mode."
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={exp.showKpi === true}
+                                  onChange={(e) => {
+                                    const newExp = [...(cvData?.experience || [])];
+                                    newExp[idx] = {
+                                      ...newExp[idx],
+                                      showKpi: e.target.checked ? true : undefined,
+                                    };
+                                    setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+                                  }}
+                                  className="w-3 h-3"
+                                />
+                                Toujours afficher
+                              </label>
                             </div>
-                          )}
+                            <input
+                              className="w-full bg-white border border-emerald-200 rounded px-2 py-1 text-[9px] focus:outline-none focus:border-emerald-500"
+                              value={exp.kpi || ''}
+                              placeholder="Ex: +35% de CA, 12 personnes managées..."
+                              onChange={(e) => {
+                                const newExp = [...(cvData?.experience || [])];
+                                newExp[idx] = { ...newExp[idx], kpi: e.target.value };
+                                setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+                              }}
+                            />
+                          </div>
 
                           {/* ─── Bullet points (hidden in compact mode) ─── */}
                           {(exp.displayMode || 'normal') !== 'compact' && (
