@@ -6,6 +6,8 @@ import { getModel } from "./_ai/providers";
 import { chatJSON, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { FABRICATION_GUARD } from "./_ai/prompts/fragments";
+import { buildExtractPrompt } from "./_ai/prompts/extract";
+import { normalizeCVData } from "./_ai/normalizers";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -16,145 +18,9 @@ export const extractCVDataFromPDF = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    const prompt = `
-Tu es un expert en recrutement et en structuration de données CV.
-Extrais les informations professionnelles du texte de CV suivant et retourne-les au format JSON strict.
-
-TEXTE DU CV :
-${args.pdfText}
-
-RÈGLES IMPORTANTES :
-
-1. DATES : Utilise TOUJOURS le format "Mois YYYY" (ex: "Septembre 2016", "Janvier 2024").
-   Si seule l'année est disponible, utilise juste "YYYY".
-   Pour un poste actuel, met end_date à "" et current à true.
-
-2. EXPÉRIENCES : Chaque expérience a trois parties distinctes :
-   - "intro" : UNE phrase de description du rôle/contexte (1-2 lignes). Toujours présent.
-   - "description" : Liste de bullet points d'ACTIONS concrètes et résultats.
-     Chaque bullet commence par un verbe d'action. Maximum 4 bullets par expérience.
-     L'intro décrit LE QUOI, les bullets décrivent LE COMMENT et LES RÉSULTATS.
-   - "kpi" : UN résultat chiffré ou indicateur d'envergure marquant (OBLIGATOIRE, jamais vide).
-     Extrais-le du texte source si présent. Sinon, synthétise-le à partir du contexte de l'expérience
-     en restant réaliste et crédible. Règles de calibrage :
-     * CALIBRAGE SUR LA DURÉE : un stage de 3 mois ne peut pas avoir "+50% de CA sur 3 ans".
-       Adapte l'ampleur au temps réellement passé sur la mission (start_date → end_date).
-     * PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : taille d'équipe, nombre de projets gérés,
-       périmètre (marques, marchés, utilisateurs), stack technique déployée.
-     * EXEMPLES CRÉDIBLES :
-       - "Équipe de 8 designers encadrée" (périmètre managérial)
-       - "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
-       - "12 projets simultanés livrés" (volumétrie)
-       - "Stack Notion / Figma / GTM déployée" (scope technique)
-     * NE PAS INVENTER de pourcentages précis si le texte source ne les mentionne pas.
-     * NE JAMAIS laisser kpi vide — toujours produire au moins un indicateur d'envergure déduit.
-
-3. TITRE PROFESSIONNEL : Utilise un titre court et percutant (max 5 mots).
-   Pas de liste de postes, pas de "Ex-xxx".
-
-4. SUMMARY : Maximum 3 phrases. Résume le profil, les spécialités et la valeur ajoutée.
-
-5. COMPÉTENCES : Regroupe en 2-4 catégories max. Chaque catégorie a 3-6 items.
-   Catégories typiques : "Métier/Product", "Technique", "Outils", "Soft Skills".
-   Chaque item est un mot ou expression courte (1-3 mots).
-
-6. LANGUES : Utilise les proficiencies standards : "Natif", "Bilingue", "Courant (C1)", "Intermédiaire (B1/B2)", "Débutant (A1/A2)".
-
-Structure JSON attendue :
-{
-  "personal_info": { "name": "", "email": "", "phone": "", "location": "", "title": "", "summary": "" },
-  "experience": [ { "company": "", "position": "", "location": "", "start_date": "", "end_date": "", "current": false, "intro": "Description courte du rôle (1-2 lignes)", "description": ["action bullet 1", "action bullet 2"], "kpi": "indicateur chiffré ou envergure" } ],
-  "education": [ { "school": "", "degree": "", "field": "", "start_date": "", "end_date": "" } ],
-  "skills": [ { "category": "", "items": ["item1", "item2"] } ],
-  "languages": [ { "name": "", "proficiency": "" } ]
-}
-
-IMPORTANT : Retourne TOUTES les expériences du CV, même les anciennes. L'utilisateur choisira lesquelles afficher.
-Retourne UNIQUEMENT le JSON, rien d'autre.
-`;
-
-    const data = await chatJSON(prompt);
-
-    // ─── Post-processing: normalize and clean the extracted data ───
-
-    if (data.experience) {
-      data.experience = data.experience.map((exp: any) => ({
-        ...exp,
-        current:
-          exp.current === true ||
-          exp.end_date === "" ||
-          exp.end_date?.toLowerCase?.() === "présent" ||
-          exp.end_date?.toLowerCase?.() === "present",
-        end_date:
-          exp.current === true ||
-          exp.end_date?.toLowerCase?.() === "présent" ||
-          exp.end_date?.toLowerCase?.() === "present"
-            ? ""
-            : exp.end_date,
-        description: Array.isArray(exp.description)
-          ? exp.description
-              .flatMap((d: string) => {
-                if (typeof d === "string" && d.length > 200) {
-                  return d
-                    .split(/[•·\-–—]\s+|(?:\.\s+)(?=[A-Z])/)
-                    .filter((s) => s.trim().length > 10)
-                    .map((s) => s.trim());
-                }
-                return [typeof d === "string" ? d.trim() : String(d)];
-              })
-              .slice(0, 5)
-          : [],
-        // Normalize kpi: trim, ensure string, leave empty only if model omitted it entirely
-        kpi: typeof exp.kpi === "string" ? exp.kpi.trim() : "",
-      }));
-    }
-
-    if (data.skills) {
-      data.skills = data.skills
-        .map((cat: any) => ({
-          category: typeof cat.category === "string" ? cat.category : "Compétences",
-          items: Array.isArray(cat.items)
-            ? cat.items
-                .map((item: any) =>
-                  typeof item === "string"
-                    ? item
-                    : item?.name || item?.skill || String(item)
-                )
-                .slice(0, 8)
-            : [],
-        }))
-        .slice(0, 5);
-    }
-
-    // No summary truncation — display modes and autoFit handle visible length
-
-    if (data.personal_info?.title && data.personal_info.title.length > 50) {
-      const parts = data.personal_info.title.split(/[|,]/);
-      data.personal_info.title = parts[0].trim();
-    }
-
-    const proficiencyMap: Record<string, string> = {
-      "native or bilingual": "Natif / Bilingue",
-      "native or bilingual proficiency": "Natif / Bilingue",
-      "full professional": "Courant (C1)",
-      "full professional proficiency": "Courant (C1)",
-      "professional working": "Professionnel (B2)",
-      "professional working proficiency": "Professionnel (B2)",
-      "limited working": "Intermédiaire (B1)",
-      "limited working proficiency": "Intermédiaire (B1)",
-      elementary: "Débutant (A2)",
-      "elementary proficiency": "Débutant (A2)",
-    };
-    if (data.languages) {
-      data.languages = data.languages.map((lang: any) => ({
-        ...lang,
-        proficiency:
-          proficiencyMap[lang.proficiency?.toLowerCase?.().trim()] || lang.proficiency,
-      }));
-    }
-
-    return data;
+    const prompt = buildExtractPrompt({ pdfText: args.pdfText });
+    const raw = await chatJSON(prompt);
+    return normalizeCVData(raw);
   },
 });
 
