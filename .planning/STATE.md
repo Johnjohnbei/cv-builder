@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-last_updated: "2026-04-10T13:09:39.446Z"
+last_updated: "2026-04-11T11:50:00.000Z"
 progress:
-  total_phases: 10
+  total_phases: 11
   completed_phases: 10
   total_plans: 18
   completed_plans: 18
-  percent: 100
+  percent: 91
 ---
 
 # Project State
@@ -80,3 +80,9 @@ All 10 phases complete. Post-milestone work in progress:
 - PDF multi-column layout still imperfect across page breaks (window.print limitation)
 - EditorPage.tsx is ~1800 lines (above 400-line guideline)
 - Gemini free tier has strict rate limits from Convex servers
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 11 added: AI Layer Refactor — couche par couche, schemas Zod, normalizers unifiés, tests exhaustifs

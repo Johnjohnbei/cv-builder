@@ -192,3 +192,13 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. ATS Panel UI | 3/3 | Complete | 2026-04-09 |
 | 9. AI Content Optimization | 3/3 | Complete | 2026-04-09 |
 | 10. PDF Validation | 1/1 | Complete | 2026-04-09 |
+
+### Phase 11: AI Layer Refactor — couche par couche, schemas Zod, normalizers unifiés, tests exhaustifs
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
