@@ -22,7 +22,7 @@ export interface UseCoverLetterResult {
   tone: string; setTone: (v: string) => void;
   localJobDescription: string; setLocalJobDescription: (v: string) => void;
   letter: CoverLetterData | null; setLetter: (l: CoverLetterData) => void;
-  isGenerating: boolean; isSaving: boolean;
+  isGenerating: boolean; isSaving: boolean; isExtractingCompany: boolean;
   generate: () => Promise<void>; save: () => Promise<void>;
   copy: () => void; download: () => void;
 }
@@ -52,12 +52,18 @@ export function canSave(user: unknown, letter: CoverLetterData | null): boolean 
   return Boolean(user) && letter !== null;
 }
 
+/** True when we should kick off auto-extraction of the company name on drawer open. */
+export function shouldTriggerExtraction(companyName: string, jobDescription: string): boolean {
+  return companyName.trim().length === 0 && jobDescription.trim().length >= 50;
+}
+
 const DEFAULT_TONE = 'professionnel et engagé';
 
 /** Owns the inline cover letter drawer state for the editor. */
 export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const { cvData, jobDescription, cvId, user, notify, accessCode } = deps;
   const generateAction = useAction(api.ai.generateCoverLetter);
+  const extractAction = useAction(api.ai.extractCompanyMeta);
   const saveMutation = useMutation(api.coverLetters.save);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -67,11 +73,19 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const [letter, setLetter] = useState<CoverLetterData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExtractingCompany, setIsExtractingCompany] = useState(false);
 
   const open = useCallback(() => {
+    const jd = localJobDescription.length > 0 ? localJobDescription : jobDescription;
     setLocalJobDescription(prev => (prev.length > 0 ? prev : jobDescription));
     setIsOpen(true);
-  }, [jobDescription]);
+    if (!shouldTriggerExtraction(companyName, jd)) return;
+    setIsExtractingCompany(true);
+    extractAction({ jobDescription: jd, accessCode })
+      .then(r => { if (r?.companyName) setCompanyName(curr => (curr.trim().length === 0 ? r.companyName! : curr)); })
+      .catch(e => { console.warn('[useCoverLetter] extract failed:', e); })
+      .finally(() => setIsExtractingCompany(false));
+  }, [jobDescription, localJobDescription, companyName, accessCode, extractAction]);
   const close = useCallback(() => setIsOpen(false), []);
 
   const generate = useCallback(async () => {
@@ -127,12 +141,8 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, [letter, cvData, companyName]);
 
   return {
-    isOpen, open, close,
-    companyName, setCompanyName,
-    tone, setTone,
-    localJobDescription, setLocalJobDescription,
-    letter, setLetter,
-    isGenerating, isSaving,
-    generate, save, copy, download,
+    isOpen, open, close, companyName, setCompanyName, tone, setTone,
+    localJobDescription, setLocalJobDescription, letter, setLetter,
+    isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
   };
 }

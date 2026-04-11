@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildCoverLetterText, buildFilename, canSave, type CoverLetterData } from './useCoverLetter';
+import {
+  buildCoverLetterText,
+  buildFilename,
+  canSave,
+  shouldTriggerExtraction,
+  type CoverLetterData,
+} from './useCoverLetter';
 
 const SAMPLE: CoverLetterData = {
   subject: 'Candidature — Dev Senior',
@@ -82,5 +88,39 @@ describe('canSave', () => {
 
   it('returns true only when both user and letter are present', () => {
     expect(canSave({ id: 'user_123' }, SAMPLE)).toBe(true);
+  });
+});
+
+describe('shouldTriggerExtraction', () => {
+  it('returns false when companyName already filled', () => {
+    expect(shouldTriggerExtraction('Google', 'A'.repeat(100))).toBe(false);
+  });
+
+  it('returns false when JD shorter than 50 chars', () => {
+    expect(shouldTriggerExtraction('', 'short JD')).toBe(false);
+  });
+
+  it('returns false when both empty', () => {
+    expect(shouldTriggerExtraction('', '')).toBe(false);
+  });
+
+  it('returns true when companyName empty and JD >= 50 chars', () => {
+    expect(shouldTriggerExtraction('', 'A'.repeat(50))).toBe(true);
+  });
+
+  it('treats whitespace-only companyName as empty', () => {
+    expect(shouldTriggerExtraction('   ', 'A'.repeat(100))).toBe(true);
+  });
+
+  it('treats whitespace-padded JD as trimmed for length check', () => {
+    expect(shouldTriggerExtraction('', '   ' + 'A'.repeat(60) + '   ')).toBe(true);
+  });
+
+  it('returns false when JD is whitespace-only', () => {
+    expect(shouldTriggerExtraction('', '     ')).toBe(false);
+  });
+
+  it('returns false when companyName has content (even with long JD)', () => {
+    expect(shouldTriggerExtraction('Acme', 'A'.repeat(1000))).toBe(false);
   });
 });

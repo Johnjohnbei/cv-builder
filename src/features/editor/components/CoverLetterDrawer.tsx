@@ -81,7 +81,7 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
                     label="Nom de l'entreprise"
                     value={controller.companyName}
                     onChange={(e) => controller.setCompanyName(e.target.value)}
-                    placeholder="Ex: Google, Airbus..."
+                    placeholder={controller.isExtractingCompany ? 'Détection automatique...' : 'Ex: Google, Airbus...'}
                   />
 
                   <Textarea
