@@ -18,12 +18,14 @@ import {
   buildJobDescriptionFromPDFPrompt,
   buildJobKeywordsPrompt,
 } from "./_ai/prompts/jobDescription";
+import { buildKeywordDistributionPrompt } from "./_ai/prompts/distribute";
 import {
   BulletSuggestionsSchema,
   BulletRewriteSchema,
   ATSAnalysisSchema,
   CoverLetterSchema,
   KeywordListSchema,
+  KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData } from "./_ai/normalizers";
 
@@ -310,5 +312,29 @@ export const rewriteBulletsForJob = action({
       throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
     }
     return parsed.data;
+  },
+});
+
+export const autoDistributeMissingKeywords = action({
+  args: {
+    cvData: v.any(),
+    missingKeywords: v.array(v.string()),
+    jobDescription: v.string(),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+    const prompt = buildKeywordDistributionPrompt({
+      cvData: { experience: args.cvData?.experience ?? [] },
+      missingKeywords: args.missingKeywords,
+      jobDescription: args.jobDescription,
+    });
+    const raw = await chatJSON(prompt);
+    const parsed = KeywordDistributionSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[autoDistributeMissingKeywords] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
+    }
+    return { assignments: parsed.data.assignments };
   },
 });

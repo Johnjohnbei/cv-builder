@@ -100,3 +100,19 @@ export const BulletRewriteSchema = z.object({
     }).passthrough()
   ).default([]),
 }).passthrough();
+
+// ─── Keyword distribution (Phase 12) ────────────────────────────
+export const KeywordAssignmentSchema = z.object({
+  keyword: z.string(),
+  expIndex: z.number().nullable(),
+  bulletIndex: z.number().nullable().optional(),
+  originalBullet: z.string().nullable().optional(),
+  rewrittenBullet: z.string().nullable().optional(),
+  reason: z.string().default(""),
+}).passthrough();
+
+export const KeywordDistributionSchema = z.object({
+  assignments: z.array(KeywordAssignmentSchema).default([]),
+}).passthrough();
+
+export type KeywordDistributionParsed = z.infer<typeof KeywordDistributionSchema>;
