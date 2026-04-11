@@ -128,8 +128,39 @@
 
 **AI Provider Abstraction:**
 - Purpose: Support multiple AI providers without client code changes
-- Examples: `getProvider()` in `convex/ai.ts` returns AIProvider interface
+- Examples: `getProvider()` in `convex/_ai/providers.ts` returns AIProvider interface
 - Pattern: OpenAI-compatible API used by all providers, single getClient() function
+
+### AI Layer Structure (convex/_ai/)
+
+As of Phase 11, the Convex AI layer is organized as a layered architecture under
+`convex/_ai/` (the underscore keeps Convex from exposing the sub-files as API modules):
+
+- `convex/ai.ts` — thin action definitions (public API: `api.ai.*`). Each handler
+  follows the same pattern: `auth → buildPrompt → chat → schema.safeParse / normalize → return`.
+- `convex/_ai/providers.ts` — `getProviders`, `getClient`, `getModel` (multi-provider with fallback).
+- `convex/_ai/chat.ts` — `safeParseJSON`, `withRetry`, `chatJSON`, `chatText`.
+- `convex/_ai/auth.ts` — `verifyAccessCode`.
+- `convex/_ai/schemas.ts` — Zod schemas, single source of truth for AI output validation.
+  Lenient (`.optional()` + `.passthrough()`) to stay backward compatible with CVs
+  persisted before fields like `kpi` / `showKpi` / `displayMode` existed.
+- `convex/_ai/normalizers.ts` — `normalizeCVData` and friends. Coerces raw LLM output
+  into canonical `CVData` (date/current coherence, proficiency mapping, description
+  splitting/capping, skill dedupe, title truncation, `displayMode` defaulting).
+- `convex/_ai/prompts/fragments.ts` — shared rule fragments (`FABRICATION_GUARD`,
+  `ACTION_VERBS_FR/EN`, `KPI_RULES_FR`, `INTRO_PRESERVATION_FR/EN`, `LANGUAGE_OUTPUT_INSTRUCTION`).
+- `convex/_ai/prompts/*.ts` — one builder per action family: `extract.ts`,
+  `adapt.ts` (shared by `tailorCV` + `optimizeCVForPage`), `rewrite.ts` (shared by
+  `improveBulletPoint` + `rewriteBulletsForJob`), `analysis.ts`, `coverLetter.ts`,
+  `jobDescription.ts`.
+- `convex/_ai/__tests__/` — vitest specs for every pure helper (schemas, normalizers,
+  each prompt builder). ~100 tests, zero LLM calls.
+
+The 10 actions in `api.ai.*` are stable — callers (`DashboardPage.tsx`,
+`EditorPage.tsx`, `CoverLetterPage.tsx`) were never touched. All 3 CV-returning
+actions (`extractCVDataFromPDF`, `tailorCV`, `optimizeCVForPage`) now pipe through
+`normalizeCVData`, closing the dead zone where raw AI output previously flowed
+straight to the frontend on `tailorCV`.
 
 ## Entry Points
 

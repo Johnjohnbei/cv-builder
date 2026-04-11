@@ -14,10 +14,16 @@ import {
 import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import {
+  buildJobDescriptionFromURLPrompt,
+  buildJobDescriptionFromPDFPrompt,
+  buildJobKeywordsPrompt,
+} from "./_ai/prompts/jobDescription";
+import {
   BulletSuggestionsSchema,
   BulletRewriteSchema,
   ATSAnalysisSchema,
   CoverLetterSchema,
+  KeywordListSchema,
 } from "./_ai/schemas";
 import { normalizeCVData } from "./_ai/normalizers";
 
@@ -148,22 +154,7 @@ export const extractJobDescriptionFromURL = action({
       );
     }
 
-    const prompt = `Tu es un expert en extraction d'offres d'emploi.
-
-Voici le contenu texte extrait de la page ${args.url} :
-
-${pageText}
-
-Extrais et structure la description complète de l'offre d'emploi :
-- Titre du poste
-- Entreprise
-- Missions et responsabilités
-- Profil recherché (compétences hard & soft)
-- Avantages et infos entreprise
-- Localisation, type de contrat, salaire si mentionnés
-
-Retourne le texte structuré, sans commentaires.`;
-
+    const prompt = buildJobDescriptionFromURLPrompt({ url: args.url, pageText });
     return await chatText(prompt);
   },
 });
@@ -175,16 +166,7 @@ export const extractJobDescriptionFromPDF = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    const prompt = `
-Analyse ce texte extrait d'un document PDF qui est une fiche de poste.
-Extrais la description complète de l'offre d'emploi.
-Retourne uniquement le texte de la description.
-
-Texte du PDF :
-${args.pdfText}
-`;
-
+    const prompt = buildJobDescriptionFromPDFPrompt({ pdfText: args.pdfText });
     return await chatText(prompt, getModel("fast"));
   },
 });
@@ -196,31 +178,14 @@ export const extractJobKeywords = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    const prompt = `Tu es un expert en recrutement et ATS (Applicant Tracking Systems).
-
-MISSION : Extrais les compétences et mots-clés qu'un ATS rechercherait dans un CV pour cette offre.
-
-OFFRE D'EMPLOI :
-${args.jobDescription}
-
-RÈGLES D'EXTRACTION :
-- Extrais UNIQUEMENT des compétences concrètes et vérifiables :
-  • Outils et technologies (Figma, React, SAP, Excel, Salesforce...)
-  • Méthodologies (Agile, Scrum, Lean, Design Thinking, Six Sigma...)
-  • Compétences techniques (UX Design, data analysis, product management, SEO...)
-  • Certifications (PMP, AWS, Google Analytics, ITIL...)
-  • Compétences métier spécifiques au poste (brand management, supply chain, audit financier...)
-  • Soft skills UNIQUEMENT si explicitement demandées dans l'offre (leadership, négociation...)
-- N'extrais JAMAIS de mots génériques (gestion, projet, équipe, entreprise, travail, expérience...)
-- N'extrais JAMAIS de verbes d'action (gérer, piloter, développer, concevoir...)
-- N'extrais JAMAIS de mots courants qui ne sont pas des compétences
-- Maximum 30 mots-clés, triés par importance pour le poste
-
-Retourne un JSON : { "keywords": ["keyword1", "keyword2", ...] }
-Retourne UNIQUEMENT le JSON.`;
-
-    return await chatJSON(prompt, getModel("fast"));
+    const prompt = buildJobKeywordsPrompt({ jobDescription: args.jobDescription });
+    const raw = await chatJSON(prompt, getModel("fast"));
+    const parsed = KeywordListSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[extractJobKeywords] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
+    }
+    return { keywords: parsed.data.keywords };
   },
 });
 

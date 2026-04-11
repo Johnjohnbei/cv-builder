@@ -18,8 +18,23 @@ cv-builder/
 │   ├── schema.ts                  # Database schema definition
 │   ├── cvs.ts                     # CV CRUD operations
 │   ├── users.ts                   # User profile management
-│   ├── ai.ts                      # AI optimization actions
-│   ├── coverLetters.ts            # Cover letter generation
+│   ├── ai.ts                      # Thin AI action definitions (public api.ai.*)
+│   ├── _ai/                       # Private AI layer — Convex ignores underscore-prefixed dirs
+│   │   ├── providers.ts           # Multi-provider config (Gemini / Claude / NVIDIA fallback)
+│   │   ├── chat.ts                # safeParseJSON, withRetry, chatJSON, chatText
+│   │   ├── auth.ts                # verifyAccessCode
+│   │   ├── schemas.ts             # Zod schemas (single source of truth for AI output validation)
+│   │   ├── normalizers.ts         # normalizeCVData — coerces raw LLM output into canonical CVData
+│   │   ├── prompts/
+│   │   │   ├── fragments.ts       # Shared rule constants (FABRICATION_GUARD, ACTION_VERBS_*, KPI_RULES_FR...)
+│   │   │   ├── extract.ts         # buildExtractPrompt (CV from PDF text)
+│   │   │   ├── adapt.ts           # buildAdaptPrompt (shared by tailorCV + optimizeCVForPage)
+│   │   │   ├── rewrite.ts         # buildBulletSuggestionsPrompt + buildBulletRewritePrompt
+│   │   │   ├── analysis.ts        # buildATSAnalysisPrompt
+│   │   │   ├── coverLetter.ts     # buildCoverLetterPrompt
+│   │   │   └── jobDescription.ts  # Job scrape / PDF / keyword extraction prompts
+│   │   └── __tests__/             # Vitest specs for every helper (~100 tests, zero LLM calls)
+│   ├── coverLetters.ts            # Cover letter CRUD
 │   ├── accessCodes.ts             # Beta access code validation
 │   ├── _generated/                # Auto-generated type definitions (do not edit)
 │   └── convex.json                # Config (functions: "convex/")
