@@ -2,21 +2,18 @@
 // Derived from actual Tailwind classes in each template.
 // 210mm ≈ 794px at 96dpi. 1rem = 16px. Tailwind spacing: p-12=48px, p-16=64px.
 // Conversions: 64px ≈ 16.9mm, 48px ≈ 12.7mm, gap-12=48px ≈ 12.7mm, gap-16=64px ≈ 16.9mm
+//
+// All templates use symmetric safety margins (pt == pb) — uniform breathing room
+// on every side of the page. Templates using p-16 → 16.9mm; templates using p-12 → 12.7mm.
 
 import type { TemplateLayout } from './types';
 
 // ─── Shared constants ───
 
-/** Standard padding used by most templates (px-16 = 64px ≈ 16.9mm) */
+/** Standard padding (p-16 = 64px ≈ 16.9mm) */
 const PAD_16 = 16.9;
 /** Smaller padding (p-12 = 48px ≈ 12.7mm) */
 const PAD_12 = 12.7;
-/** Standard top padding (pt-16 = 64px ≈ 16.9mm) */
-const PT_16 = 16.9;
-/** Standard bottom padding (pb-10 = 40px ≈ 10.6mm) */
-const PB_10 = 10.6;
-/** Bottom padding for pages 2+ (breathing room) */
-const PB_PAGE2 = 10.6;
 /** Gap between grid columns (gap-12 = 48px ≈ 12.7mm) */
 const GAP_12 = 12.7;
 /** Large gap between grid columns (gap-16 = 64px ≈ 16.9mm) */
@@ -38,15 +35,15 @@ const TEMPLATE_A: TemplateLayout = {
     mainColumnWidthMm: (210 - 2 * PAD_16 - GAP_12) * (2 / 3),
     sidebarWidthMm: (210 - 2 * PAD_16 - GAP_12) * (1 / 3),
     gapMm: GAP_12,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_10,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_PAGE2,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
@@ -73,8 +70,8 @@ const TEMPLATE_B: TemplateLayout = {
   },
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_PAGE2,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
@@ -93,15 +90,15 @@ const TEMPLATE_C: TemplateLayout = {
     mainColumnWidthMm: 210 - 2 * PAD_16,
     sidebarWidthMm: 0,
     gapMm: 0,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_10,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_PAGE2,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
@@ -121,15 +118,15 @@ const TEMPLATE_D: TemplateLayout = {
     mainColumnWidthMm: (210 - 2 * PAD_16 - GAP_16) * (2 / 3),
     sidebarWidthMm: (210 - 2 * PAD_16 - GAP_16) * (1 / 3),
     gapMm: GAP_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_10,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_PAGE2,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
@@ -148,15 +145,15 @@ const TEMPLATE_E: TemplateLayout = {
     mainColumnWidthMm: 210 - 2 * PAD_16,
     sidebarWidthMm: 0,
     gapMm: 0,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_10,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PT_16,
-    paddingBottomMm: PB_PAGE2,
+    paddingTopMm: PAD_16,
+    paddingBottomMm: PAD_16,
     paddingLeftMm: PAD_16,
     paddingRightMm: PAD_16,
   },
@@ -183,7 +180,7 @@ const TEMPLATE_F: TemplateLayout = {
   page2Plus: {
     contentWidthMm: 210 - 2 * PAD_12,
     paddingTopMm: PAD_12,
-    paddingBottomMm: PB_PAGE2,
+    paddingBottomMm: PAD_12,
     paddingLeftMm: PAD_12,
     paddingRightMm: PAD_12,
   },

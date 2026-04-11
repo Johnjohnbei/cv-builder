@@ -90,8 +90,8 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {/* Show section title only for the first experience on each page */}
       {!isOverflow && (
-        <div>
-          <div className="flex justify-between items-baseline gap-4 mb-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+        <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="flex justify-between items-baseline gap-4 mb-1">
             <h3 className="font-bold text-gray-900 min-w-0">{exp.position}</h3>
             <span className="text-xs text-gray-500 font-mono shrink-0 whitespace-nowrap">
               {formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}

@@ -180,9 +180,11 @@ body {
   box-shadow: 0 0 0 1px var(--google-blue);
 }
 
-/* PDF export: page-break control for iframe + window.print() */
+/* PDF export: page-break control for iframe + window.print().
+   NOTE: no background-color here — each .cv-page has its own bg-white via
+   CVPage.tsx. Setting it on .pdf-safe would bleed white into the inter-page
+   gaps in the preview and hide the editor's grey page-separation visual. */
 .pdf-safe {
-  background-color: white;
   overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
@@ -225,6 +227,13 @@ body {
 }
 
 /* ─── Print styles ─── */
+/*
+ * Single-tree architecture: the same DOM is used for preview AND print.
+ * Preview chrome (scale, shadow, borders, labels) is injected via a wrapper
+ * in EditorPage's renderPageWrapper. In print mode, these wrapper visuals are
+ * neutralized so each .cv-page renders at its true 210×297mm with native
+ * page-breaks.
+ */
 @media print {
   @page {
     size: A4 portrait;
@@ -236,13 +245,49 @@ body {
     print-color-adjust: exact !important;
     margin: 0 !important;
     padding: 0 !important;
+    visibility: hidden !important;
+  }
+
+  /* Visibility inherits — hide body hides the whole tree except the CV subtree */
+  [data-cv-root],
+  [data-cv-root] * {
+    visibility: visible !important;
+  }
+  [data-cv-root] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm !important;
+  }
+
+  /* Neutralize the preview frame — remove scale, fixed dims, shadow, border */
+  .cv-page-slot {
+    margin: 0 !important;
+  }
+  .cv-page-label {
+    display: none !important;
+  }
+  .cv-page-frame {
+    width: 210mm !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .cv-page-scale {
+    transform: none !important;
+    position: static !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 210mm !important;
+    height: 297mm !important;
   }
 
   /* Pre-paginated pages: each .cv-page is exactly one A4 sheet */
   .cv-page {
-    width: 210mm;
-    height: 297mm;
-    overflow: hidden;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
     page-break-after: always;
     break-after: page;
   }
@@ -264,7 +309,6 @@ body {
   }
 
   /* Hide containers that duplicate CV content during print */
-  [data-measure-container],
   .print-hidden {
     display: none !important;
   }

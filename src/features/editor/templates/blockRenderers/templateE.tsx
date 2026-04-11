@@ -93,9 +93,9 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div className="relative pl-6 border-l-2" style={{ borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` }}>
+        <div className="relative pl-6 border-l-2" style={{ borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
           {!atsMode && <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
-          <div className="flex justify-between items-start gap-4 mb-2" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="flex justify-between items-start gap-4 mb-2">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
             <div className="text-[10px] font-bold opacity-70 shrink-0 text-right leading-tight">
               <div>{formatDateShort(exp.start_date)}</div>

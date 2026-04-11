@@ -13,10 +13,7 @@ import { autoAssignModes, extractKeywords, scoreExperience } from '../features/e
 import { useCVLoader, useAutoZoom, useATSAnalysis } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
-import { MeasurementContainer } from '../features/editor/components/MeasurementContainer';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
-import { getTemplateLayout } from '../features/editor/lib/pagination/templateLayouts';
-import { buildBlocks } from '../features/editor/lib/pagination/buildBlocks';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
@@ -1832,87 +1829,57 @@ export default function EditorPage() {
           className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
         >
           {cvData && pageAssignments.length > 0 ? (
-            /* Paginated preview — each page is a separate visual sheet */
-            <div className="flex flex-col items-center" style={{ marginBottom: '100px' }}>
-              {pageAssignments.map((page, idx) => (
-                <div key={idx} style={{ marginBottom: idx < pageAssignments.length - 1 ? '24px' : 0 }}>
-                  {/* Page label for pages 2+ */}
-                  {idx > 0 && (
-                    <div className="flex items-center justify-center mb-2">
-                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {idx + 1}</span>
-                    </div>
-                  )}
-                  {/* Scaled page sheet */}
+            /* Single-tree preview — one PaginatedCV, preview chrome injected via renderPageWrapper.
+               In print mode, the wrapper visuals are neutralized by @media print rules. */
+            <div ref={cvRef} data-cv-root className="flex flex-col items-center" style={{ marginBottom: '100px' }}>
+              <PaginatedCV
+                pageAssignments={pageAssignments}
+                designSettings={designSettings}
+                language={currentLanguage}
+                blockRenderers={blockRenderers}
+                selectedTemplate={selectedTemplate}
+                templateStyle={{
+                  '--primary': designSettings.primaryColor,
+                  '--secondary': designSettings.secondaryColor,
+                } as React.CSSProperties}
+                firstExperiencePage={firstExperiencePage}
+                renderPageWrapper={(cvPage, pageIndex, totalPages) => (
                   <div
-                    style={{
-                      width: `${210 * (zoom / 100)}mm`,
-                      height: `${297 * (zoom / 100)}mm`,
-                    }}
-                    className="relative shrink-0 overflow-hidden"
+                    className="cv-page-slot"
+                    style={{ marginBottom: pageIndex < totalPages - 1 ? '24px' : 0 }}
                   >
+                    {/* Page label for pages 2+ — hidden in print */}
+                    {pageIndex > 0 && (
+                      <div className="cv-page-label flex items-center justify-center mb-2">
+                        <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {pageIndex + 1}</span>
+                      </div>
+                    )}
+                    {/* Scaled frame: fixed outer box + transform-scaled inner at true 210×297mm */}
                     <div
+                      className="cv-page-frame relative shrink-0 overflow-hidden"
                       style={{
-                        transform: `scale(${zoom / 100})`,
-                        transformOrigin: 'top left',
-                        width: '210mm',
-                        height: '297mm',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
+                        width: `${210 * (zoom / 100)}mm`,
+                        height: `${297 * (zoom / 100)}mm`,
                       }}
-                      className="bg-white shadow-2xl border border-[#DADCE0]"
                     >
-                      <PaginatedCV
-                        pageAssignments={[page]}
-                        designSettings={designSettings}
-                        language={currentLanguage}
-                        blockRenderers={blockRenderers}
-                        selectedTemplate={selectedTemplate}
-                        templateStyle={{
-                          '--primary': designSettings.primaryColor,
-                          '--secondary': designSettings.secondaryColor,
-                        } as React.CSSProperties}
-                        firstExperiencePage={firstExperiencePage}
-                      />
+                      <div
+                        className="cv-page-scale bg-white shadow-2xl border border-[#DADCE0]"
+                        style={{
+                          transform: `scale(${zoom / 100})`,
+                          transformOrigin: 'top left',
+                          width: '210mm',
+                          height: '297mm',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                        }}
+                      >
+                        {cvPage}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-
-              {/* Export container — hidden on screen, visible during print */}
-              <div
-                ref={cvRef}
-                data-print-export
-                style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}
-                aria-hidden
-              >
-                <PaginatedCV
-                  pageAssignments={pageAssignments}
-                  designSettings={designSettings}
-                  language={currentLanguage}
-                  blockRenderers={blockRenderers}
-                  selectedTemplate={selectedTemplate}
-                  templateStyle={{
-                    '--primary': designSettings.primaryColor,
-                    '--secondary': designSettings.secondaryColor,
-                  } as React.CSSProperties}
-                  firstExperiencePage={firstExperiencePage}
-                />
-              </div>
-
-              {/* Off-screen measurement — usePaginationFit reads heights from this */}
-              {cvData && (
-                <MeasurementContainer
-                  blocks={buildBlocks(cvData)}
-                  blockRenderers={blockRenderers}
-                  designSettings={designSettings}
-                  language={currentLanguage}
-                  mainWidthMm={getTemplateLayout(selectedTemplate).page1.mainColumnWidthMm}
-                  fullWidthMm={getTemplateLayout(selectedTemplate).page2Plus.contentWidthMm}
-                  sidebarWidthMm={getTemplateLayout(selectedTemplate).page1.sidebarWidthMm}
-                  templateStyle={{ '--primary': designSettings.primaryColor, '--secondary': designSettings.secondaryColor } as React.CSSProperties}
-                />
-              )}
+                )}
+              />
             </div>
           ) : (
             /* Empty state */

@@ -90,8 +90,8 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
     <div data-cv-block="experience" data-measure-id={block.block.id} className={cn("relative pl-6 border-l-2", atsMode && "pl-0 border-l-0")} style={!atsMode ? { borderColor: `${secondaryColor}30` } : undefined}>
       {!atsMode && <div className="absolute -left-[4px] top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />}
       {!isOverflow && (
-        <div>
-          <div className="flex justify-between items-baseline gap-4 mb-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+        <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="flex justify-between items-baseline gap-4 mb-1">
             <h3 className="font-bold text-gray-900 text-sm">{exp.position}</h3>
             <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>
               {formatDateShort(exp.start_date)} — {exp.current ? 'Present' : formatDateShort(exp.end_date)}

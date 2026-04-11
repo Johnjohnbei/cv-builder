@@ -91,8 +91,8 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div>
-          <div className="flex justify-between items-baseline gap-4 mb-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+        <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="flex justify-between items-baseline gap-4 mb-1">
             <h3 className="text-lg font-black uppercase tracking-tight">{exp.position}</h3>
             <span className="text-[11px] font-bold font-mono px-3 py-1 shrink-0 whitespace-nowrap" style={{ backgroundColor: '#000', color: '#fff' }}>
               {formatDateShort(exp.start_date)} — {exp.current ? 'NOW' : formatDateShort(exp.end_date)}

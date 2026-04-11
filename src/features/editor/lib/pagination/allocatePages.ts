@@ -7,7 +7,7 @@ import type {
   PlacedBlock,
   TemplateLayout,
 } from './types';
-import { A4_HEIGHT_MM, MEASUREMENT_SAFETY_PX } from './types';
+import { A4_HEIGHT_MM, MEASUREMENT_SAFETY_PX, SECTION_TITLE_HEIGHT_PX } from './types';
 import { splitBlock, getPlacedBlockHeight } from './splitBlock';
 
 // ─── Helpers ───
@@ -21,6 +21,25 @@ function mmToPx(mm: number): number {
 
 function getUsableHeight(paddingTopMm: number, paddingBottomMm: number): number {
   return mmToPx(A4_HEIGHT_MM - paddingTopMm - paddingBottomMm);
+}
+
+// ─── Options ───
+
+/**
+ * Optional overrides for live-measured heights.
+ * usePaginationFit reads these from the real rendered DOM and passes them here,
+ * replacing the previously-hardcoded SECTION_TITLE_HEIGHT_PX constant.
+ */
+export interface AllocateOptions {
+  /** Height of injected section titles, in pixels, per section type */
+  sectionTitleHeights?: {
+    experience?: number;
+    skills?: number;
+  };
+}
+
+function resolveTitleH(override: number | undefined): number {
+  return override ?? SECTION_TITLE_HEIGHT_PX;
 }
 
 // ─── Block Classification ───
@@ -58,14 +77,15 @@ export function allocatePages(
   blocks: ContentBlock[],
   layout: TemplateLayout,
   _pageLimit: number,
+  options: AllocateOptions = {},
 ): PageAssignment[] {
   const { header, summary, experiences, sidebarBlocks } = classifyBlocks(blocks);
   const isTwoColumn = layout.type !== 'single-column';
 
   if (isTwoColumn) {
-    return allocateTwoColumn(header, summary, experiences, sidebarBlocks, layout);
+    return allocateTwoColumn(header, summary, experiences, sidebarBlocks, layout, options);
   }
-  return allocateSingleColumn(header, summary, experiences, sidebarBlocks, layout);
+  return allocateSingleColumn(header, summary, experiences, sidebarBlocks, layout, options);
 }
 
 // ─── Two-Column Layout (Templates A, B, D, F) ───
@@ -76,13 +96,15 @@ function allocateTwoColumn(
   experiences: ContentBlock[],
   sidebarBlocks: ContentBlock[],
   layout: TemplateLayout,
+  options: AllocateOptions,
 ): PageAssignment[] {
   const pages: PageAssignment[] = [];
   const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);
+  const expTitleH = resolveTitleH(options.sectionTitleHeights?.experience);
+  const skillsTitleH = resolveTitleH(options.sectionTitleHeights?.skills);
 
   // ─── Page 1: Header + Main Column + Sidebar ───
 
-  let mainUsed = 0;
   const page1Main: PlacedBlock[] = [];
   const page1Sidebar: PlacedBlock[] = [];
 
@@ -90,7 +112,6 @@ function allocateTwoColumn(
   if (header) {
     if (layout.headerFullWidth) {
       page1Main.push({ block: header });
-      mainUsed += header.heightPx + MEASUREMENT_SAFETY_PX;
     } else {
       page1Sidebar.push({ block: header });
     }
@@ -99,7 +120,6 @@ function allocateTwoColumn(
   // Summary (always in main column)
   if (summary) {
     page1Main.push({ block: summary });
-    mainUsed += summary.heightPx + MEASUREMENT_SAFETY_PX;
   }
 
   // Sidebar: fill with skills/education/languages
@@ -107,6 +127,11 @@ function allocateTwoColumn(
   const sidebarOverflow: ContentBlock[] = [];
   const headerSidebarH = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
   let sidebarUsed = headerSidebarH;
+  // Reserve space for the "COMPÉTENCES" section title injected by PaginatedCV
+  const hasSkills = sidebarBlocks.some(b => b.type === 'skill-category');
+  if (hasSkills) {
+    sidebarUsed += skillsTitleH + MEASUREMENT_SAFETY_PX;
+  }
   for (const sb of sidebarBlocks) {
     if (sidebarUsed + sb.heightPx + MEASUREMENT_SAFETY_PX <= page1Height) {
       page1Sidebar.push({ block: sb });
@@ -117,8 +142,9 @@ function allocateTwoColumn(
   }
 
   // Main column: fill with experiences
-  // Note: fillColumn calculates usedPx from already-placed blocks in page1Main
-  const overflowExperiences = fillColumn(experiences, page1Height, page1Main);
+  // Subtract space for the "EXPÉRIENCE PROFESSIONNELLE" section title injected by PaginatedCV
+  const mainAvailable = experiences.length > 0 ? page1Height - expTitleH - MEASUREMENT_SAFETY_PX : page1Height;
+  const overflowExperiences = fillColumn(experiences, mainAvailable, page1Main);
 
   // Determine effective page 1 height
   const mainTotal = page1Main.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
@@ -137,7 +163,9 @@ function allocateTwoColumn(
   const allOverflow = [...overflowExperiences, ...sidebarOverflow];
   if (allOverflow.length > 0) {
     const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    allocateOverflowPages(allOverflow, page2Height, pages, true);
+    // Reserve space for the "(suite)" section title on page 2+ (only for experience overflow)
+    const continuationTitleH = overflowExperiences.length > 0 ? expTitleH + MEASUREMENT_SAFETY_PX : 0;
+    allocateOverflowPages(allOverflow, page2Height - continuationTitleH, pages, true);
   }
 
   return pages;
@@ -151,6 +179,7 @@ function allocateSingleColumn(
   experiences: ContentBlock[],
   sidebarBlocks: ContentBlock[],
   layout: TemplateLayout,
+  _options: AllocateOptions,
 ): PageAssignment[] {
   const pages: PageAssignment[] = [];
   const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);

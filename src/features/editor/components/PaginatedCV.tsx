@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, Fragment } from 'react';
 import type { PageAssignment, PlacedBlock, BlockRendererMap } from '../lib/pagination/types';
 import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
@@ -21,14 +21,18 @@ interface TemplateGridConfig {
   sidebarHasPrimaryBg?: boolean;
 }
 
+// NOTE: paddings around the page are safety margins — kept symmetric (pt == pb == px)
+// so the content has equal breathing room on every side. Templates B and F use
+// per-column padding (their sidebar has its own visual treatment) so the page-level
+// padding is empty. Templates A/C/D/E use a uniform page-level p-16 (64px).
 const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
   TEMPLATE_A: {
     sidebarPosition: 'right',
     gridClass: 'grid-cols-3 gap-12',
     mainClassName: 'col-span-2',
     sidebarClassName: 'col-span-1',
-    paddingClass: 'px-16 pt-16 pb-10',
-    page2PaddingClass: 'px-16 pt-16 pb-10',
+    paddingClass: 'p-16',
+    page2PaddingClass: 'p-16',
   },
   TEMPLATE_B: {
     sidebarPosition: 'left',
@@ -36,26 +40,26 @@ const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
     sidebarClassName: 'p-12',
     mainClassName: 'p-16',
     paddingClass: '',
-    page2PaddingClass: 'px-16 pt-16 pb-10',
+    page2PaddingClass: 'p-16',
     sidebarHasPrimaryBg: true,
   },
   TEMPLATE_C: {
     sidebarPosition: 'right',
     gridClass: 'grid-cols-1',
-    paddingClass: 'px-16 pt-16 pb-10',
-    page2PaddingClass: 'px-16 pt-16 pb-10',
+    paddingClass: 'p-16',
+    page2PaddingClass: 'p-16',
   },
   TEMPLATE_D: {
     sidebarPosition: 'right',
     gridClass: 'grid-cols-[2fr_1fr] gap-16',
-    paddingClass: 'px-16 pt-12 pb-10',
-    page2PaddingClass: 'px-16 pt-16 pb-10',
+    paddingClass: 'p-16',
+    page2PaddingClass: 'p-16',
   },
   TEMPLATE_E: {
     sidebarPosition: 'right',
     gridClass: 'grid-cols-1',
-    paddingClass: 'px-16 pt-16 pb-10',
-    page2PaddingClass: 'px-16 pt-16 pb-10',
+    paddingClass: 'p-16',
+    page2PaddingClass: 'p-16',
   },
   TEMPLATE_F: {
     sidebarPosition: 'left',
@@ -63,11 +67,11 @@ const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
     sidebarClassName: 'p-12 bg-gray-50',
     mainClassName: 'p-12',
     paddingClass: '',
-    page2PaddingClass: 'px-12 pt-12 pb-10',
+    page2PaddingClass: 'p-12',
   },
 };
 
-function getTemplateGridConfig(templateId: string): TemplateGridConfig {
+export function getTemplateGridConfig(templateId: string): TemplateGridConfig {
   return TEMPLATE_GRID_CONFIGS[templateId] ?? TEMPLATE_GRID_CONFIGS.TEMPLATE_A;
 }
 
@@ -84,16 +88,27 @@ interface Props {
   paddingClass?: string;
   /** Index of the first page that has experience blocks (for "suite" label) */
   firstExperiencePage?: number;
+  /**
+   * Optional per-page chrome wrapper — lets the caller inject preview visuals
+   * (scale, shadow, page labels, spacing) around each CVPage while keeping a
+   * single DOM tree for both preview and print. In print mode, the wrapper's
+   * visual styles are neutralized via @media print rules.
+   */
+  renderPageWrapper?: (cvPage: React.ReactNode, pageIndex: number, totalPages: number) => React.ReactNode;
 }
 
 /**
  * Section title rendered before the first experience block on a page.
  * Shows "(suite)" on pages 2+ to indicate continuation.
+ *
+ * NOTE: no mb-4 — the column's space-y-4 / gap-4 provides the gap to the
+ * following sibling. Keeping mb-4 would create a double gap when title and
+ * block become separate live-measurable siblings.
  */
 function SectionTitle({ title, color, isContinuation }: { title: string; color: string; isContinuation: boolean }) {
   return (
     <h2
-      className="text-sm font-bold uppercase tracking-wider border-b pb-2 mb-4"
+      className="text-sm font-bold uppercase tracking-wider border-b pb-2"
       style={{ color, borderColor: `${color}20` }}
     >
       {title}{isContinuation ? ' (suite)' : ''}
@@ -116,11 +131,13 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
     templateStyle,
     paddingClass,
     firstExperiencePage = 0,
+    renderPageWrapper,
   }, ref) {
     const { primaryColor } = designSettings;
     const fontClass = getFontClass(designSettings.fontFamily);
     const isTwoColumn = pageAssignments[0]?.layoutMode === 'two-column';
     const gridConfig = getTemplateGridConfig(selectedTemplate);
+    const totalPages = pageAssignments.length;
 
     const renderBlock = (placed: PlacedBlock, pageIndex: number) => {
       const renderer = blockRenderers[placed.block.type];
@@ -140,9 +157,8 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
           const hasExperiences = firstExpIdx !== -1;
           const isContinuation = hasExperiences && page.pageIndex > firstExperiencePage;
 
-          return (
+          const cvPage = (
             <CVPage
-              key={page.pageIndex}
               pageIndex={page.pageIndex}
               twoColumn={isTwoColumn && page.pageIndex === 0}
               accentColor={primaryColor}
@@ -167,16 +183,20 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
                         const needsSkillsTitle = sb.block.type === 'skill-category' && !skillsTitleShown;
                         if (needsSkillsTitle) skillsTitleShown = true;
                         return (
-                          <div key={sb.block.id || i}>
+                          <Fragment key={sb.block.id || i}>
                             {needsSkillsTitle && (
-                              <SectionTitle
-                                title={getSectionTitle('skills', language)}
-                                color={sidebarTitleColor}
-                                isContinuation={false}
-                              />
+                              <div data-live-title="skills">
+                                <SectionTitle
+                                  title={getSectionTitle('skills', language)}
+                                  color={sidebarTitleColor}
+                                  isContinuation={false}
+                                />
+                              </div>
                             )}
-                            {renderBlock(sb, page.pageIndex)}
-                          </div>
+                            <div data-live-block={sb.block.id}>
+                              {renderBlock(sb, page.pageIndex)}
+                            </div>
+                          </Fragment>
                         );
                       });
                     })()
@@ -184,20 +204,33 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
               }
             >
               {page.blocks.map((pb, i) => (
-                <div key={pb.block.id || i}>
+                <Fragment key={pb.block.id || i}>
                   {/* Inject section title before the first experience on each page */}
                   {i === firstExpIdx && (
-                    <SectionTitle
-                      title={getSectionTitle('experience', language)}
-                      color={designSettings.atsMode ? '#000' : primaryColor}
-                      isContinuation={isContinuation}
-                    />
+                    <div data-live-title="experience">
+                      <SectionTitle
+                        title={getSectionTitle('experience', language)}
+                        color={designSettings.atsMode ? '#000' : primaryColor}
+                        isContinuation={isContinuation}
+                      />
+                    </div>
                   )}
-                  {renderBlock(pb, page.pageIndex)}
-                </div>
+                  <div data-live-block={pb.block.id}>
+                    {renderBlock(pb, page.pageIndex)}
+                  </div>
+                </Fragment>
               ))}
             </CVPage>
           );
+
+          // Let the caller wrap each page with custom chrome (scale, label, shadow...).
+          // In print mode, @media print rules neutralize the wrapper's visuals.
+          const wrapped = renderPageWrapper
+            ? renderPageWrapper(cvPage, page.pageIndex, totalPages)
+            : cvPage;
+
+          // Use a Fragment with key to preserve React's list identity
+          return <Fragment key={page.pageIndex}>{wrapped}</Fragment>;
         })}
       </div>
     );

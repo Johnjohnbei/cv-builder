@@ -93,6 +93,8 @@ export const A4_WIDTH_MM = 210;
 export const MIN_KEEP_SUB_BLOCKS = 2;
 /** Inter-block gap in px — matches CSS space-y-4 (16px) used in CVPage columns */
 export const MEASUREMENT_SAFETY_PX = 16;
+/** Injected section title height in px (text-sm ~20px + pb-2 8px + border 1px + mb-4 16px) */
+export const SECTION_TITLE_HEIGHT_PX = 45;
 
 // ─── Block Renderer Interface ───
 

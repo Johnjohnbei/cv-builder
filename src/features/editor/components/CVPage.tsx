@@ -58,7 +58,7 @@ export function CVPage({
       style={{
         width: '210mm',
         height: '297mm',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
         ...style,
       }}

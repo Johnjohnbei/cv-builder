@@ -72,14 +72,16 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
     <div data-cv-block="experience" data-measure-id={block.block.id} className="grid grid-cols-[120px_1fr] gap-8">
       {!isOverflow ? (
         <>
-          <div className="text-[10px] font-mono text-gray-500 pt-1" data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="text-[10px] font-mono text-gray-500 pt-1">
             {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
           </div>
           <div className="space-y-2">
-            <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
-            <p className="text-xs font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
-            <div className="pt-2">
-              {intro && <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>}
+            <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+              <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
+              <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>{exp.company}</p>
+              {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{intro}</p>}
+            </div>
+            <div>
               {bullets.length > 0 && (
                 <ul className="space-y-1.5 mt-1.5">
                   {bullets.map((bullet, bIdx) => (
