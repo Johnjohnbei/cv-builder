@@ -152,7 +152,8 @@ As of Phase 11, the Convex AI layer is organized as a layered architecture under
 - `convex/_ai/prompts/*.ts` — one builder per action family: `extract.ts`,
   `adapt.ts` (shared by `tailorCV` + `optimizeCVForPage`), `rewrite.ts` (shared by
   `improveBulletPoint` + `rewriteBulletsForJob`), `analysis.ts`, `coverLetter.ts`,
-  `jobDescription.ts`.
+  `jobDescription.ts`, `distribute.ts` (Phase 12 — `autoDistributeMissingKeywords`
+  returns per-keyword placements with rewritten bullets in a single AI call).
 - `convex/_ai/__tests__/` — vitest specs for every pure helper (schemas, normalizers,
   each prompt builder). ~100 tests, zero LLM calls.
 

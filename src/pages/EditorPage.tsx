@@ -15,7 +15,7 @@ import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, type DistributionProposal } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
@@ -42,6 +42,7 @@ export default function EditorPage() {
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
   const rewriteBulletsAction = useAction(api.ai.rewriteBulletsForJob);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
+  const distributeAction = useAction(api.ai.autoDistributeMissingKeywords);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
@@ -63,6 +64,8 @@ export default function EditorPage() {
   const [isOptimizingBullets, setIsOptimizingBullets] = useState(false);
   const [integratingKeyword, setIntegratingKeyword] = useState<string | null>(null);
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
+  const [distributionProposals, setDistributionProposals] = useState<DistributionProposal[]>([]);
+  const [isDistributing, setIsDistributing] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -356,6 +359,86 @@ export default function EditorPage() {
 
   const handleRejectRewrite = (key: string) => {
     setPendingRewrites(prev => { const next = new Map(prev); next.delete(key); return next; });
+  };
+
+  // ─── Auto-distribute missing keywords (Phase 12) ───
+  const handleAutoDistribute = async () => {
+    if (!cvData || !jobDescription) return;
+    const missingKw = atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword);
+    if (missingKw.length === 0) return;
+    setIsDistributing(true);
+    try {
+      const { design: _d, detectedLanguage: _dl, languageOverride: _lo, ...contentOnly } = cvData;
+      void _d; void _dl; void _lo;
+      const data = await distributeAction({
+        cvData: contentOnly,
+        missingKeywords: missingKw,
+        jobDescription,
+        accessCode: getCode(),
+      });
+      const proposals: DistributionProposal[] = data.assignments.map((a) => {
+        const exp = a.expIndex != null ? cvData.experience[a.expIndex] : null;
+        const expLabel = exp ? `${exp.position} @ ${exp.company}` : 'Non assigné';
+        return {
+          keyword: a.keyword,
+          expIndex: a.expIndex,
+          bulletIndex: a.bulletIndex ?? null,
+          originalBullet: a.originalBullet ?? null,
+          rewrittenBullet: a.rewrittenBullet ?? null,
+          reason: a.reason ?? '',
+          expLabel,
+        };
+      });
+      setDistributionProposals(proposals);
+      notify({ message: `${proposals.length} proposition(s) générée(s)`, type: 'success' });
+    } catch {
+      notify({ message: 'Erreur lors de la distribution automatique', type: 'error' });
+    } finally {
+      setIsDistributing(false);
+    }
+  };
+
+  const handleAcceptAssignment = (keyword: string) => {
+    const proposal = distributionProposals.find(p => p.keyword === keyword);
+    if (!proposal || !cvData || proposal.expIndex === null || proposal.bulletIndex === null || !proposal.rewrittenBullet) return;
+    const targetExpIdx = proposal.expIndex;
+    const targetBulletIdx = proposal.bulletIndex;
+    const rewritten = proposal.rewrittenBullet;
+    const newExp = cvData.experience.map((exp, i) => {
+      if (i !== targetExpIdx) return exp;
+      const newDesc = [...exp.description];
+      newDesc[targetBulletIdx] = rewritten;
+      return { ...exp, description: newDesc };
+    });
+    setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+    setDistributionProposals(prev => prev.filter(p => p.keyword !== keyword));
+  };
+
+  const handleRejectAssignment = (keyword: string) => {
+    setDistributionProposals(prev => prev.filter(p => p.keyword !== keyword));
+  };
+
+  const handleAcceptAllAssignments = () => {
+    if (!cvData) return;
+    let next = cvData.experience;
+    for (const p of distributionProposals) {
+      if (p.expIndex === null || p.bulletIndex === null || !p.rewrittenBullet) continue;
+      const targetExpIdx = p.expIndex;
+      const targetBulletIdx = p.bulletIndex;
+      const rewritten = p.rewrittenBullet;
+      next = next.map((exp, i) => {
+        if (i !== targetExpIdx) return exp;
+        const newDesc = [...exp.description];
+        newDesc[targetBulletIdx] = rewritten;
+        return { ...exp, description: newDesc };
+      });
+    }
+    setCvData(prev => prev ? { ...prev, experience: next } : null);
+    setDistributionProposals([]);
+  };
+
+  const handleRejectAllAssignments = () => {
+    setDistributionProposals([]);
   };
 
   const handleAddSkill = (skill: string) => {
@@ -1787,6 +1870,13 @@ export default function EditorPage() {
                 isOptimizing={isOptimizingBullets}
                 isAtsMode={designSettings.atsMode}
                 integratingKeyword={integratingKeyword}
+                onAutoDistribute={handleAutoDistribute}
+                isDistributing={isDistributing}
+                distributionProposals={distributionProposals}
+                onAcceptAssignment={handleAcceptAssignment}
+                onRejectAssignment={handleRejectAssignment}
+                onAcceptAllAssignments={handleAcceptAllAssignments}
+                onRejectAllAssignments={handleRejectAllAssignments}
               />
             ) : null}
           </div>
