@@ -5,9 +5,16 @@ import { v } from "convex/values";
 import { getModel } from "./_ai/providers";
 import { chatJSON, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
-import { FABRICATION_GUARD } from "./_ai/prompts/fragments";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildAdaptPrompt } from "./_ai/prompts/adapt";
+import {
+  buildBulletSuggestionsPrompt,
+  buildBulletRewritePrompt,
+} from "./_ai/prompts/rewrite";
+import {
+  BulletSuggestionsSchema,
+  BulletRewriteSchema,
+} from "./_ai/schemas";
 import { normalizeCVData } from "./_ai/normalizers";
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -305,46 +312,22 @@ export const improveBulletPoint = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    const jobContext = args.jobDescription
-      ? `\n\nOffre ciblée :\n${args.jobDescription}`
-      : "";
-
-    const keywordContext = args.missingKeywords?.length
-      ? `\nMots-clés manquants à intégrer si pertinent : ${args.missingKeywords.join(", ")}`
-      : "";
-
-    const prompt = `Tu es un rédacteur de CV senior spécialisé dans l'optimisation ATS et le recrutement tech/business en France.
-
-CONTEXTE :
-- Poste : ${args.position} chez ${args.company}
-- Bullet actuel : "${args.bullet}"${jobContext}${keywordContext}
-
-MISSION : Propose exactement 3 reformulations de ce bullet, chacune avec un angle différent :
-1. **Version impact** : met en avant le résultat business ou l'impact concret
-2. **Version leadership** : met en avant le rôle de pilotage, de décision ou de collaboration
-3. **Version technique** : met en avant la méthodologie, les outils ou l'expertise déployée
-
-RÈGLES DE RÉDACTION :
-- Commence TOUJOURS par un verbe d'action fort et précis (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige — PAS "Responsable de", "Participe à", "Aide à", "Gère")
-- Une bullet = UNE action + UN contexte + UN résultat/impact
-- Maximum 2 lignes, privilégie la concision
-- Vocabulaire professionnel et naturel, adapté au secteur de ${args.company}
-- ${FABRICATION_GUARD}
-- Si le bullet original contient des chiffres, conserve-les. Sinon, utilise des indicateurs qualitatifs (équipe de X, X projets, périmètre Y)
-
-EXEMPLES DE BONNE QUALITÉ :
-- "Pilote la refonte du Design System multi-marques pour 5 marques premium, couvrant 30M+ utilisateurs"
-- "Orchestre la transition data-driven du product management avec définition de KPIs et dashboards de suivi"
-- "Conçoit l'architecture front-end modulaire permettant le déploiement simultané sur 3 plateformes"
-
-Retourne un JSON : { "suggestions": ["suggestion1", "suggestion2", "suggestion3"] }
-Retourne UNIQUEMENT le JSON.`;
-
-    return await chatJSON(prompt, getModel("fast"));
+    const prompt = buildBulletSuggestionsPrompt({
+      bullet: args.bullet,
+      position: args.position,
+      company: args.company,
+      jobDescription: args.jobDescription,
+      missingKeywords: args.missingKeywords,
+    });
+    const raw = await chatJSON(prompt, getModel("fast"));
+    const parsed = BulletSuggestionsSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[improveBulletPoint] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
+    }
+    return parsed.data;
   },
 });
-
-// ─── Bullet rewriting actions ──────────────────────────────────────
 
 export const rewriteBulletsForJob = action({
   args: {
@@ -362,52 +345,22 @@ export const rewriteBulletsForJob = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-
-    const bulletsList = args.bullets
-      .map((b) => `[${b.index}] (${b.position} @ ${b.company}) "${b.text}"`)
-      .join("\n");
-
-    const keywordsLine = args.missingKeywords.length
-      ? `Intègre naturellement ces mots-clés si pertinent : ${args.missingKeywords.join(", ")}`
-      : "";
-
-    const prompt = `Tu es un rédacteur de CV senior spécialisé dans l'optimisation ATS pour le marché français.
-
-MISSION : Réécris chaque bullet point pour maximiser l'alignement avec l'offre d'emploi tout en restant fidèle à l'expérience réelle du candidat.
-
-OFFRE D'EMPLOI :
-${args.jobDescription}
-
-${keywordsLine}
-
-${FABRICATION_GUARD}
-
-BULLETS À RÉÉCRIRE :
-${bulletsList}
-
-RÈGLES DE RÉDACTION :
-1. Verbe d'action fort en début (Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure — JAMAIS "Responsable de", "Participe à", "Aide à")
-2. Structure : ACTION + CONTEXTE + RÉSULTAT/IMPACT en 1-2 lignes
-3. Intègre les mots-clés de l'offre de façon naturelle, pas forcée
-4. Conserve le sens original — tu améliores la formulation, tu ne changes pas l'expérience
-5. Si le bullet original a des chiffres, conserve-les. Sinon, ne pas en inventer — utilise des indicateurs qualitatifs si possible
-6. Adapte le vocabulaire au secteur de l'entreprise
-
-EXEMPLES AVANT/APRÈS :
-- AVANT : "Responsable de la gestion de projets digitaux"
-  APRÈS : "Pilote un portefeuille de projets digitaux de la conception au déploiement, en coordination avec les équipes tech et marketing"
-- AVANT : "Aide à la création de maquettes"
-  APRÈS : "Conçoit les maquettes UI/UX et prototypes interactifs, validés en user testing auprès de panels utilisateurs"
-
-Retourne un JSON : { "rewrites": [{ "index": <numero>, "original": "<texte original>", "rewritten": "<version améliorée>" }] }
-Retourne UNIQUEMENT le JSON.`;
-
-    const data = await chatJSON(prompt);
-
-    if (!data.rewrites || !Array.isArray(data.rewrites)) {
-      throw new Error("L'IA a retourné un format invalide.");
+    const prompt = buildBulletRewritePrompt({
+      bullets: args.bullets.map((b) => ({
+        index: b.index,
+        text: b.text,
+        position: b.position,
+        company: b.company,
+      })),
+      jobDescription: args.jobDescription,
+      missingKeywords: args.missingKeywords,
+    });
+    const raw = await chatJSON(prompt);
+    const parsed = BulletRewriteSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[rewriteBulletsForJob] schema parse failed:", parsed.error.message);
+      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
     }
-
-    return data;
+    return parsed.data;
   },
 });
