@@ -78,6 +78,80 @@ function matchKeyword(keyword: string, text: string): boolean {
   return re.test(text);
 }
 
+// ─── Fuzzy matching: normalize + stem + word-boundary ───
+
+/**
+ * Lowercase + strip diacritics (accents) + collapse whitespace.
+ * Pure.
+ */
+export function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining marks
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Strip common FR/EN suffixes for lightweight stemming.
+ * Preserves roots ≥ 3 chars after stripping to avoid over-reduction.
+ */
+export function stripSimpleSuffixes(word: string): string {
+  if (word.length < 4) return word;
+  const suffixes = [
+    'ements', 'ement',
+    'ations', 'ation',
+    'tions', 'tion',
+    'euses', 'euse', 'eurs', 'eur',
+    'ings', 'ing',
+    'ees', 'ee',
+    'ed', 'er', 'ers',
+    'es', 's', 'x',
+  ];
+  for (const suf of suffixes) {
+    if (word.length - suf.length >= 3 && word.endsWith(suf)) {
+      return word.slice(0, -suf.length);
+    }
+  }
+  return word;
+}
+
+/** Stem a normalized phrase token-by-token (skip tokens < 4 chars). */
+function stemPhrase(s: string): string {
+  return s
+    .split(/\s+/)
+    .map(t => (t.length >= 4 ? stripSimpleSuffixes(t) : t))
+    .join(' ');
+}
+
+/**
+ * Fuzzy keyword match — tolerates plural, accents, and common FR/EN suffixes.
+ * Multi-word keywords use AND semantics: every token must appear (after stemming).
+ */
+export function matchKeywordFuzzy(keyword: string, text: string): boolean {
+  // Fast path: exact match
+  if (matchKeyword(keyword, text)) return true;
+
+  const nk = normalizeForMatch(keyword);
+  const nt = normalizeForMatch(text);
+  if (nk.length === 0) return false;
+
+  // Accent-stripped exact match
+  if (matchKeyword(nk, nt)) return true;
+
+  // Stem both sides and compare token-by-token
+  const stemmedKeyword = stemPhrase(nk);
+  const stemmedText = stemPhrase(nt);
+  const tokens = stemmedKeyword.split(/\s+/).filter(t => t.length >= 3);
+  if (tokens.length === 0) return false;
+
+  for (const tok of tokens) {
+    if (!matchKeyword(tok, stemmedText)) return false;
+  }
+  return true;
+}
+
 // ─── Main analysis ───
 
 /**
@@ -135,7 +209,7 @@ export function computeKeywordAnalysis(
     const locations: string[] = [];
 
     for (const section of sectionKeys) {
-      if (matchKeyword(kw, sections[section])) {
+      if (matchKeywordFuzzy(kw, sections[section])) {
         locations.push(section);
       }
     }
