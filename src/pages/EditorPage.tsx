@@ -10,7 +10,7 @@ import { serverlessPDF, renderPDF } from '../features/editor/lib/pdfExport';
 import { extractExpectedText } from '../features/editor/lib/pdfValidation';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, type RewriteKey } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
@@ -39,8 +39,6 @@ export default function EditorPage() {
   const storeUser = useMutation(api.users.store);
   const createCV = useMutation(api.cvs.createMyCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
-  const improveBulletAction = useAction(api.ai.improveBulletPoint);
-  const rewriteBulletsAction = useAction(api.ai.rewriteBulletsForJob);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
 
   // ─── UI state ───
@@ -54,14 +52,9 @@ export default function EditorPage() {
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
   const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [improvingBullet, setImprovingBullet] = useState<string | null>(null);
-  const [bulletSuggestions, setBulletSuggestions] = useState<{ key: string; suggestions: string[] } | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [preAtsTemplate, setPreAtsTemplate] = useState<string | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
-  const [pendingRewrites, setPendingRewrites] = useState<Map<string, { original: string; rewritten: string }>>(new Map());
-  const [isOptimizingBullets, setIsOptimizingBullets] = useState(false);
-  const [integratingKeyword, setIntegratingKeyword] = useState<string | null>(null);
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
 
   // ─── Refs ───
@@ -106,6 +99,14 @@ export default function EditorPage() {
     [atsKeywords],
   );
   const keywordDistribution = useKeywordDistribution({
+    cvData,
+    setCvData,
+    jobDescription,
+    missingKeywords: missingKeywordsList,
+    notify,
+    accessCode: getCode(),
+  });
+  const bullets = useBulletOptimization({
     cvData,
     setCvData,
     jobDescription,
@@ -324,54 +325,7 @@ export default function EditorPage() {
     );
   }
 
-  const handleOptimizeBullets = async () => {
-    if (!cvData || !jobDescription) return;
-    setIsOptimizingBullets(true);
-    try {
-      const indexMap: Array<{ expIndex: number; bulletIndex: number }> = [];
-      const bullets: Array<{ index: number; text: string; position: string; company: string }> = [];
-      let flatIdx = 0;
-      for (let ei = 0; ei < cvData.experience.length; ei++) {
-        const exp = cvData.experience[ei];
-        if (exp.displayMode === 'hidden') continue;
-        for (let bi = 0; bi < exp.description.length; bi++) {
-          bullets.push({ index: flatIdx, text: exp.description[bi], position: exp.position, company: exp.company });
-          indexMap.push({ expIndex: ei, bulletIndex: bi });
-          flatIdx++;
-        }
-      }
-      const missingKw = atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword);
-      const data = await rewriteBulletsAction({ bullets, jobDescription, missingKeywords: missingKw, accessCode: getCode() });
-      const next = new Map<string, { original: string; rewritten: string }>();
-      for (const rw of data.rewrites) {
-        const mapping = indexMap[rw.index];
-        if (mapping) next.set(`${mapping.expIndex}-${mapping.bulletIndex}`, { original: rw.original, rewritten: rw.rewritten });
-      }
-      setPendingRewrites(next);
-      notify({ message: `${next.size} bullet(s) optimise(s)`, type: 'success' });
-    } catch {
-      notify({ message: "Erreur lors de l'optimisation", type: 'error' });
-    } finally {
-      setIsOptimizingBullets(false);
-    }
-  };
-
-  const handleAcceptRewrite = (key: string) => {
-    const rewrite = pendingRewrites.get(key);
-    if (!rewrite || !cvData) return;
-    const [expIdx, bulIdx] = key.split('-').map(Number);
-    const newExp = [...cvData.experience];
-    newExp[expIdx] = { ...newExp[expIdx], description: [...newExp[expIdx].description] };
-    newExp[expIdx].description[bulIdx] = rewrite.rewritten;
-    setCvData(prev => prev ? { ...prev, experience: newExp } : null);
-    setPendingRewrites(prev => { const next = new Map(prev); next.delete(key); return next; });
-  };
-
-  const handleRejectRewrite = (key: string) => {
-    setPendingRewrites(prev => { const next = new Map(prev); next.delete(key); return next; });
-  };
-
-  // Auto-distribute missing keywords — all state + handlers in useKeywordDistribution hook.
+  // Bullet optimization (rewrite/integrate/suggestions) + auto-distribute are in dedicated hooks.
 
   const handleAddSkill = (skill: string) => {
     if (!cvData) return;
@@ -386,44 +340,6 @@ export default function EditorPage() {
     }
     setCvData(prev => prev ? { ...prev, skills } : null);
     notify({ message: `Competence "${skill}" ajoutee`, type: 'success' });
-  };
-
-  const handleIntegrateKeyword = async (keyword: string, expIndex: number) => {
-    if (!cvData || !jobDescription) return;
-    const exp = cvData.experience[expIndex];
-    if (!exp || exp.description.length === 0) return;
-
-    setIntegratingKeyword(keyword);
-    try {
-      // Pick the longest bullet (most context to work with)
-      let bestIdx = 0;
-      for (let i = 1; i < exp.description.length; i++) {
-        if (exp.description[i].length > exp.description[bestIdx].length) bestIdx = i;
-      }
-
-      const data = await improveBulletAction({
-        bullet: exp.description[bestIdx],
-        position: exp.position,
-        company: exp.company,
-        jobDescription,
-        missingKeywords: [keyword],
-        accessCode: getCode(),
-      });
-
-      if (data.suggestions?.[0]) {
-        const rewriteKey = `${expIndex}-${bestIdx}`;
-        setPendingRewrites(prev => {
-          const next = new Map(prev);
-          next.set(rewriteKey, { original: exp.description[bestIdx], rewritten: data.suggestions[0] });
-          return next;
-        });
-        notify({ message: `"${keyword}" intégré dans ${exp.position} — vérifiez la suggestion`, type: 'success' });
-      }
-    } catch {
-      notify({ message: `Erreur lors de l'intégration de "${keyword}"`, type: 'error' });
-    } finally {
-      setIntegratingKeyword(null);
-    }
   };
 
   return (
@@ -1015,26 +931,11 @@ export default function EditorPage() {
                                     })()}
                                     <button
                                       title="Améliorer avec l'IA"
-                                      disabled={improvingBullet === bulletKey}
-                                      onClick={async () => {
-                                        setImprovingBullet(bulletKey);
-                                        setBulletSuggestions(null);
-                                        try {
-                                          const result = await improveBulletAction({
-                                            bullet,
-                                            accessCode: getCode(),
-                                            position: exp.position,
-                                            company: exp.company,
-                                            jobDescription: jobDescription || undefined,
-                                            missingKeywords: atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
-                                          });
-                                          setBulletSuggestions({ key: bulletKey, suggestions: result.suggestions || [] });
-                                        } catch { /* ignore */ }
-                                        setImprovingBullet(null);
-                                      }}
+                                      disabled={bullets.improvingBulletKey === (bulletKey as RewriteKey)}
+                                      onClick={() => bullets.requestSuggestions(bulletKey as RewriteKey, bullet, exp)}
                                       className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
                                     >
-                                      {improvingBullet === bulletKey
+                                      {bullets.improvingBulletKey === (bulletKey as RewriteKey)
                                         ? <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-500" />
                                         : <Sparkles className="w-2.5 h-2.5" />}
                                     </button>
@@ -1049,37 +950,32 @@ export default function EditorPage() {
                                       <Trash2 className="w-2 h-2" />
                                     </button>
                                   </div>
-                                  {bulletSuggestions?.key === bulletKey && (
+                                  {bullets.bulletSuggestions?.key === (bulletKey as RewriteKey) && (
                                     <div className="ml-2 p-2 bg-blue-50 border border-blue-100 rounded space-y-1 animate-in fade-in duration-200">
                                       <p className="text-[8px] font-mono text-blue-500 uppercase tracking-wider mb-1">Suggestions IA</p>
-                                      {bulletSuggestions.suggestions.map((sug, sIdx) => (
+                                      {bullets.bulletSuggestions.suggestions.map((sug, sIdx) => (
                                         <button
                                           key={sIdx}
-                                          onClick={() => {
-                                            const newExp = [...(cvData?.experience || [])];
-                                            newExp[idx].description[bIdx] = sug;
-                                            setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                                            setBulletSuggestions(null);
-                                          }}
+                                          onClick={() => bullets.pickSuggestion(bulletKey as RewriteKey, sug)}
                                           className="w-full text-left px-2 py-1 text-[9px] text-gray-700 hover:bg-blue-100 rounded transition-colors"
                                         >
                                           {sug}
                                         </button>
                                       ))}
                                       <button
-                                        onClick={() => setBulletSuggestions(null)}
+                                        onClick={bullets.dismissSuggestions}
                                         className="text-[8px] font-mono text-gray-400 hover:text-gray-600 mt-1"
                                       >
                                         Fermer
                                       </button>
                                     </div>
                                   )}
-                                  {pendingRewrites.has(bulletKey) && (
+                                  {bullets.pendingRewrites.has(bulletKey as RewriteKey) && (
                                     <BulletDiffView
-                                      original={pendingRewrites.get(bulletKey)!.original}
-                                      rewritten={pendingRewrites.get(bulletKey)!.rewritten}
-                                      onAccept={() => handleAcceptRewrite(bulletKey)}
-                                      onReject={() => handleRejectRewrite(bulletKey)}
+                                      original={bullets.pendingRewrites.get(bulletKey as RewriteKey)!.original}
+                                      rewritten={bullets.pendingRewrites.get(bulletKey as RewriteKey)!.rewritten}
+                                      onAccept={() => bullets.acceptRewrite(bulletKey as RewriteKey)}
+                                      onReject={() => bullets.rejectRewrite(bulletKey as RewriteKey)}
                                     />
                                   )}
                                 </div>
@@ -1796,12 +1692,12 @@ export default function EditorPage() {
                 keywords={atsKeywords}
                 hasJobDescription={hasJobDescription}
                 onAddSkill={handleAddSkill}
-                onIntegrateKeyword={handleIntegrateKeyword}
+                onIntegrateKeyword={bullets.integrateKeyword}
                 onToggleAtsMode={() => handleAtsModeChange(!designSettings.atsMode)}
-                onOptimizeBullets={handleOptimizeBullets}
-                isOptimizing={isOptimizingBullets}
+                onOptimizeBullets={bullets.optimize}
+                isOptimizing={bullets.isOptimizing}
                 isAtsMode={designSettings.atsMode}
-                integratingKeyword={integratingKeyword}
+                integratingKeyword={bullets.integratingKeyword}
                 onAutoDistribute={keywordDistribution.distribute}
                 isDistributing={keywordDistribution.isDistributing}
                 pendingProposalsCount={keywordDistribution.proposals.length}
