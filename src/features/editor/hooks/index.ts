@@ -7,3 +7,4 @@ export type { DistributionProposal } from './useKeywordDistribution';
 export { useBulletOptimization } from './useBulletOptimization';
 export type { RewriteKey, BulletRewriteEntry, BulletSuggestionState } from './useBulletOptimization';
 export { useCVPersistence } from './useCVPersistence';
+export { usePDFExport } from './usePDFExport';

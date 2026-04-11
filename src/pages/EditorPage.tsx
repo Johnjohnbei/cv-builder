@@ -6,11 +6,9 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { serverlessPDF, renderPDF } from '../features/editor/lib/pdfExport';
-import { extractExpectedText } from '../features/editor/lib/pdfValidation';
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, type RewriteKey } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, type RewriteKey } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
@@ -43,10 +41,7 @@ export default function EditorPage() {
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
-  const [isExporting, setIsExporting] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
   const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -118,6 +113,12 @@ export default function EditorPage() {
     selectedTemplate,
     user,
     isGuest,
+    notify,
+  });
+  const pdfExport = usePDFExport({
+    cvRef,
+    cvData,
+    designSettings,
     notify,
   });
 
@@ -247,37 +248,6 @@ export default function EditorPage() {
     }
   };
 
-  // Serverless PDF generation with fallback to window.print()
-  const handleDownloadPDF = async () => {
-    if (!cvRef.current || isExporting) return;
-    const expectedText = cvData ? extractExpectedText(cvData) : '';
-    await serverlessPDF(cvRef.current, designSettings, {
-      expectedText,
-      onValidation: (result) => {
-        if (!result.valid && result.warning) {
-          notify({ message: result.warning, type: 'error' });
-        }
-      },
-      onLoadingChange: setIsExporting,
-      onFallback: (reason) => {
-        notify({ message: reason, type: 'error' });
-      },
-    });
-  };
-
-  const handlePreviewPDF = () => {
-    if (!cvRef.current) return;
-    const expectedText = cvData ? extractExpectedText(cvData) : '';
-    renderPDF(cvRef.current, designSettings, {
-      expectedText,
-      onValidation: (result) => {
-        if (!result.valid && result.warning) {
-          notify({ message: result.warning, type: 'error' });
-        }
-      },
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
@@ -310,50 +280,6 @@ export default function EditorPage() {
     <div className="stitch-container relative">
       {/* Notifications */}
       {notification && <EditorNotification message={notification.message} type={notification.type} />}
-
-      {/* PDF Preview Modal */}
-      {previewUrl && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-4 lg:p-12">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-            <div className="p-4 border-b flex items-center justify-between bg-gray-50">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">APERÇU_PDF_FINAL</h3>
-                  <p className="text-[10px] text-gray-500 stitch-mono">Vérifiez le rendu avant l'exportation</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={handleDownloadPDF}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold stitch-mono hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  TÉLÉCHARGER
-                </button>
-                <button 
-                  onClick={() => {
-                    URL.revokeObjectURL(previewUrl);
-                    setPreviewUrl(null);
-                  }}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-gray-200 overflow-hidden relative">
-              <iframe 
-                src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
-                className="w-full h-full border-none"
-                title="PDF Preview"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Confirmation Modal */}
       {showTemplateConfirm && (
@@ -1604,32 +1530,27 @@ export default function EditorPage() {
                   <div className="stitch-panel-header">08. PREVIEW_EXPORT</div>
                   <div className="p-4 space-y-3">
                     <button
-                      onClick={handlePreviewPDF}
-                      disabled={isPreviewing}
+                      onClick={pdfExport.previewPDF}
                       className="w-full py-3 px-4 bg-white border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                     >
-                      {isPreviewing ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      <Eye className="w-4 h-4" />
                       <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                        {isPreviewing ? 'GÉNÉRATION...' : 'PRÉVISUALISER_PDF'}
+                        PRÉVISUALISER_PDF
                       </span>
                     </button>
-                    
+
                     <button
-                      onClick={handleDownloadPDF}
-                      disabled={isExporting}
+                      onClick={pdfExport.downloadPDF}
+                      disabled={pdfExport.isExporting}
                       className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                     >
-                      {isExporting ? (
+                      {pdfExport.isExporting ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Download className="w-4 h-4" />
                       )}
                       <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">
-                        {isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
+                        {pdfExport.isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
                       </span>
                     </button>
 
@@ -1694,12 +1615,12 @@ export default function EditorPage() {
             )}
             <span className="text-[10px] stitch-mono">SAVE_DRAFT</span>
           </button>
-          <button 
-            onClick={handleDownloadPDF}
-            disabled={isExporting || !cvData}
+          <button
+            onClick={pdfExport.downloadPDF}
+            disabled={pdfExport.isExporting || !cvData}
             className="w-full stitch-button-primary flex items-center justify-center space-x-2"
           >
-            {isExporting ? (
+            {pdfExport.isExporting ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               <Download className="w-3 h-3" />
@@ -1720,9 +1641,9 @@ export default function EditorPage() {
           onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
           onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
           onSave={persistence.saveDraft}
-          onExport={handleDownloadPDF}
+          onExport={pdfExport.downloadPDF}
           isSaving={persistence.isSaving}
-          isExporting={isExporting}
+          isExporting={pdfExport.isExporting}
           hasCvData={!!cvData}
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={handleAtsModeChange}
@@ -1814,7 +1735,7 @@ export default function EditorPage() {
       </main>
 
       {/* PDF generation overlay */}
-      {isExporting && (
+      {pdfExport.isExporting && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[300]">
           <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
