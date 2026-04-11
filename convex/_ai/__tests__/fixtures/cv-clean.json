@@ -1,0 +1,35 @@
+{
+  "personal_info": {
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "phone": "+33 6 12 34 56 78",
+    "location": "Paris",
+    "title": "Senior Product Designer",
+    "summary": "Designer with 8 years of experience in B2B SaaS."
+  },
+  "experience": [
+    {
+      "company": "Acme",
+      "position": "Senior Designer",
+      "location": "Paris",
+      "start_date": "Janvier 2022",
+      "end_date": "",
+      "current": true,
+      "intro": "Leads the design system across 5 brands.",
+      "description": ["Pilote la refonte du design system", "Orchestre les ateliers de discovery"],
+      "kpi": "Équipe de 8 designers encadrée",
+      "showKpi": true,
+      "displayMode": "extended"
+    }
+  ],
+  "education": [
+    { "school": "ENSCI", "degree": "Master", "field": "Design Industriel", "start_date": "Septembre 2014", "end_date": "Juin 2016" }
+  ],
+  "skills": [
+    { "category": "Design", "items": ["Figma", "Sketch", "Prototyping"], "displayMode": "normal" }
+  ],
+  "languages": [
+    { "name": "Français", "proficiency": "Natif" },
+    { "name": "Anglais", "proficiency": "Courant (C1)" }
+  ]
+}

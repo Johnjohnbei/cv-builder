@@ -1,0 +1,37 @@
+{
+  "unknown_field": "should be preserved by passthrough",
+  "personal_info": {
+    "name": "John Smith",
+    "email": "john@example.com",
+    "title": "Very Long Title With Many Words | Product Manager | Growth Lead"
+  },
+  "experience": [
+    {
+      "company": "Globex",
+      "position": "Manager",
+      "start_date": "2020",
+      "end_date": "présent",
+      "current": false,
+      "description": "Long unstructured description with bullets separated by periods. Led the team. Shipped the product.",
+      "kpi": "  35% growth  "
+    },
+    {
+      "company": "Initech",
+      "position": "Analyst",
+      "start_date": "2018",
+      "end_date": "2020",
+      "current": false,
+      "description": ["did stuff"]
+    }
+  ],
+  "education": [],
+  "skills": [
+    {
+      "category": "Technical",
+      "items": [{"name": "React"}, {"skill": "TypeScript"}, "Plain String"]
+    }
+  ],
+  "languages": [
+    { "name": "English", "proficiency": "full professional proficiency" }
+  ]
+}

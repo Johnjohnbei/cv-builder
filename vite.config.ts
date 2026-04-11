@@ -10,7 +10,7 @@ export default defineConfig(({mode}) => {
     test: {
       globals: true,
       environment: 'node',
-      include: ['src/**/*.test.ts'],
+      include: ['src/**/*.test.ts', 'convex/**/*.test.ts'],
     },
     define: {
       'import.meta.env.VITE_CONVEX_URL': JSON.stringify(env.VITE_CONVEX_URL),
