@@ -8,15 +8,14 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, type RewriteKey } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, type RewriteKey } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel } from '../features/editor/components';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
-import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '../features/editor/lib/atsRules';
-import type { DesignSettings } from '../shared/types';
+import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
 
 const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
@@ -42,11 +41,8 @@ export default function EditorPage() {
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
-  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
-  const [preAtsTemplate, setPreAtsTemplate] = useState<string | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
 
@@ -121,6 +117,13 @@ export default function EditorPage() {
     designSettings,
     notify,
   });
+  const templateSelection = useTemplateSelection({
+    selectedTemplate,
+    setSelectedTemplate,
+    designSettings,
+    setDesignSettings,
+    notify,
+  });
 
   // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
   const prevJDRef = useRef(jobDescription);
@@ -144,38 +147,6 @@ export default function EditorPage() {
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
 
-  // ─── ATS mode ───
-  const handleAtsModeChange = (enabled: boolean) => {
-    if (enabled) {
-      const compat = TEMPLATE_ATS_COMPAT[selectedTemplate];
-      if (compat === 'limited') {
-        setPreAtsTemplate(selectedTemplate);
-        setSelectedTemplate(ATS_FALLBACK_TEMPLATE);
-        setDesignSettings(prev => ({
-          ...prev,
-          atsMode: true,
-          template: ATS_FALLBACK_TEMPLATE,
-        }));
-        notify({ message: 'Template incompatible ATS \u2014 bascul\u00e9 vers Classic', type: 'success' });
-      } else {
-        setDesignSettings(prev => ({ ...prev, atsMode: true }));
-      }
-    } else {
-      if (preAtsTemplate) {
-        setSelectedTemplate(preAtsTemplate);
-        setDesignSettings(prev => ({
-          ...prev,
-          atsMode: false,
-          template: preAtsTemplate,
-        }));
-        setPreAtsTemplate(null);
-      } else {
-        setDesignSettings(prev => ({ ...prev, atsMode: false }));
-      }
-      notify({ message: 'Mode ATS d\u00e9sactiv\u00e9 \u2014 le CV ne sera plus optimis\u00e9 ATS', type: 'error' });
-    }
-  };
-
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
 
@@ -186,30 +157,6 @@ export default function EditorPage() {
 
   const getWeakIssues = (expIdx: number, bulIdx: number) =>
     weakBullets.find(w => w.expIndex === expIdx && w.bulletIndex === bulIdx);
-
-  const applyTemplateDefaults = (templateId: string) => {
-    const defaults: Record<string, Partial<DesignSettings>> = {
-      'TEMPLATE_A': { fontFamily: 'sans', sectionTitleWeight: 'bold', sectionTitleSpacing: 'widest', sectionTitleTransform: 'uppercase' },
-      'TEMPLATE_B': { fontFamily: 'sans', sectionTitleWeight: 'semibold', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
-      'TEMPLATE_C': { fontFamily: 'serif', sectionTitleWeight: 'normal', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
-      'TEMPLATE_D': { fontFamily: 'playfair', sectionTitleWeight: 'black', sectionTitleSpacing: 'tight', sectionTitleTransform: 'none' },
-      'TEMPLATE_E': { fontFamily: 'outfit', sectionTitleWeight: 'medium', sectionTitleSpacing: 'wide', sectionTitleTransform: 'uppercase' },
-      'TEMPLATE_F': { fontFamily: 'sans', sectionTitleWeight: 'bold', sectionTitleSpacing: 'wider', sectionTitleTransform: 'uppercase' },
-    };
-    
-    if (defaults[templateId]) {
-      setDesignSettings(prev => ({ ...prev, ...defaults[templateId], template: templateId }));
-    }
-    setSelectedTemplate(templateId);
-  };
-
-  const confirmTemplateChange = () => {
-    if (pendingTemplate) {
-      applyTemplateDefaults(pendingTemplate);
-      setPendingTemplate(null);
-      setShowTemplateConfirm(false);
-    }
-  };
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -282,11 +229,11 @@ export default function EditorPage() {
       {notification && <EditorNotification message={notification.message} type={notification.type} />}
 
       {/* Confirmation Modal */}
-      {showTemplateConfirm && (
+      {templateSelection.showTemplateConfirm && (
         <TemplateConfirmModal
-          pendingTemplate={pendingTemplate}
-          onConfirm={confirmTemplateChange}
-          onCancel={() => { setShowTemplateConfirm(false); setPendingTemplate(null); }}
+          pendingTemplate={templateSelection.pendingTemplate}
+          onConfirm={templateSelection.confirmTemplateChange}
+          onCancel={templateSelection.cancelTemplateChange}
         />
       )}
 
@@ -1161,8 +1108,7 @@ export default function EditorPage() {
                         key={tpl.id}
                         onClick={() => {
                           if (selectedTemplate !== tpl.id) {
-                            setPendingTemplate(tpl.id as any);
-                            setShowTemplateConfirm(true);
+                            templateSelection.requestTemplateChange(tpl.id);
                           }
                         }}
                         className={cn(
@@ -1578,7 +1524,7 @@ export default function EditorPage() {
                 hasJobDescription={hasJobDescription}
                 onAddSkill={handleAddSkill}
                 onIntegrateKeyword={bullets.integrateKeyword}
-                onToggleAtsMode={() => handleAtsModeChange(!designSettings.atsMode)}
+                onToggleAtsMode={() => templateSelection.setAtsMode(!designSettings.atsMode)}
                 onOptimizeBullets={bullets.optimize}
                 isOptimizing={bullets.isOptimizing}
                 isAtsMode={designSettings.atsMode}
@@ -1646,7 +1592,7 @@ export default function EditorPage() {
           isExporting={pdfExport.isExporting}
           hasCvData={!!cvData}
           atsMode={designSettings.atsMode ?? false}
-          onAtsModeChange={handleAtsModeChange}
+          onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
           onLanguageChange={setCurrentLanguage}
         />
