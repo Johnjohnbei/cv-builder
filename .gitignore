@@ -39,3 +39,7 @@ npm-debug.log*
 
 .vercel
 .claude/worktrees/
+
+# Playwright
+test-results/
+playwright-report/
