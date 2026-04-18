@@ -31,7 +31,8 @@ Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA
 - React 19.2.4 - UI framework
 - React Router DOM 7.14.0 - Client-side routing (`src/App.tsx`)
 - Convex 1.34.1 - Backend as a service (BaaS) with built-in database
-- Vitest 4.1.2 - Unit/integration test runner
+- Vitest 4.1.2 - Unit/integration test runner (`convex/_ai/__tests__/`)
+- Playwright 1.59.1 - E2E test runner (`e2e/` — smoke + ATS panel tests, mode guest)
 - Vite 6.2.0 - Dev server and build tool
 - @vitejs/plugin-react 5.0.4 - React fast refresh
 - @tailwindcss/vite 4.2.2 - Tailwind CSS integration (v4)
@@ -157,7 +158,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA
 - Feature-based organization with co-located components, hooks, and utilities
 - Template-based CV rendering with memoization optimization
 - Backend authentication via Clerk + Convex identity validation
-- AI integration via pluggable provider abstraction (NVIDIA NIM primary, Gemini fallback)
+- AI integration via pluggable provider abstraction (Gemini primary, Claude/Anthropic fallback)
+- AI schemas in `convex/_ai/schemas.ts`: `ATSAnalysisSchema` includes optional `seniority_match` (UNDER|MATCH|OVER) and `compensation_estimate`; `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
+- Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
+- E2E tests: `e2e/smoke.spec.ts` (pages publiques) + `e2e/ats-panel.spec.ts` (ATS panel + edge cases, via mode guest)
 - Display mode system for content optimization (experience and skills visibility control)
 ## Layers
 - Purpose: Render UI, handle user interactions, manage local UI state
