@@ -8,6 +8,7 @@ import {
   CoverLetterSchema,
   BulletSuggestionsSchema,
   CompanyMetaSchema,
+  KeywordAssignmentSchema,
 } from "../schemas";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -163,5 +164,69 @@ describe("CompanyMetaSchema", () => {
       extraField: "keep me",
     });
     expect((result as any).extraField).toBe("keep me");
+  });
+});
+
+describe("ATSAnalysisSchema — career-ops fields", () => {
+  const BASE = {
+    score: 75,
+    missingKeywords: [],
+    strengths: [],
+    improvements: [],
+    ats_compatibility: "MEDIUM" as const,
+  };
+
+  it("accepts seniority_match when provided with a valid enum value", () => {
+    const result = ATSAnalysisSchema.parse({ ...BASE, seniority_match: "MATCH" });
+    expect(result.seniority_match).toBe("MATCH");
+  });
+
+  it("accepts compensation_estimate as a string", () => {
+    const result = ATSAnalysisSchema.parse({ ...BASE, compensation_estimate: "45k-65k€" });
+    expect(result.compensation_estimate).toBe("45k-65k€");
+  });
+
+  it("accepts compensation_estimate as null", () => {
+    const result = ATSAnalysisSchema.parse({ ...BASE, compensation_estimate: null });
+    expect(result.compensation_estimate).toBeNull();
+  });
+
+  it("still parses when both new fields are absent (backward compat)", () => {
+    const result = ATSAnalysisSchema.parse(BASE);
+    expect(result.seniority_match).toBeUndefined();
+    expect(result.compensation_estimate).toBeUndefined();
+  });
+
+  it("rejects seniority_match outside the enum (e.g. JUNIOR)", () => {
+    const parsed = ATSAnalysisSchema.safeParse({ ...BASE, seniority_match: "JUNIOR" });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("KeywordAssignmentSchema — target field", () => {
+  it("accepts a valid target value (summary|experience|skills)", () => {
+    const result = KeywordAssignmentSchema.parse({
+      keyword: "Figma",
+      expIndex: 0,
+      target: "summary",
+    });
+    expect(result.target).toBe("summary");
+  });
+
+  it("still parses assignments without a target field (existing shape)", () => {
+    const result = KeywordAssignmentSchema.parse({
+      keyword: "Figma",
+      expIndex: 0,
+    });
+    expect(result.target).toBeUndefined();
+  });
+
+  it("rejects target outside the enum (e.g. cover_letter)", () => {
+    const parsed = KeywordAssignmentSchema.safeParse({
+      keyword: "Figma",
+      expIndex: 0,
+      target: "cover_letter",
+    });
+    expect(parsed.success).toBe(false);
   });
 });

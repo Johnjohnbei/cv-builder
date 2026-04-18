@@ -74,6 +74,8 @@ export const ATSAnalysisSchema = z.object({
   strengths: z.array(z.string()).default([]),
   improvements: z.array(z.string()).default([]),
   ats_compatibility: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  seniority_match: z.enum(["UNDER", "MATCH", "OVER"]).optional(),
+  compensation_estimate: z.string().nullable().optional(),
 }).passthrough();
 
 export const KeywordListSchema = z.object({
@@ -116,6 +118,7 @@ export const KeywordAssignmentSchema = z.object({
   originalBullet: z.string().nullable().optional(),
   rewrittenBullet: z.string().nullable().optional(),
   reason: z.string().default(""),
+  target: z.enum(["summary", "experience", "skills"]).optional(),
 }).passthrough();
 
 export const KeywordDistributionSchema = z.object({
