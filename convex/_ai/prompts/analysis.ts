@@ -17,6 +17,8 @@ Retourne un objet JSON avec :
 - strengths : points forts du CV pour ce poste
 - improvements : conseils concrets d'amélioration
 - ats_compatibility : 'LOW', 'MEDIUM' ou 'HIGH'
+- seniority_match : 'UNDER', 'MATCH' ou 'OVER' — niveau du candidat vs seniorité demandée dans l'offre
+- compensation_estimate : string | null — fourchette salariale estimée (ex: "45k-65k€") basée sur les signaux de l'offre, null si aucun signal détectable
 
 Retourne UNIQUEMENT le JSON.
 `;

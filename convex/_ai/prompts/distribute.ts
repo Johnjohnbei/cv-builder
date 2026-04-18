@@ -12,6 +12,7 @@ export interface DistributeContext {
   };
   missingKeywords: string[];
   jobDescription: string;
+  summary?: string;
 }
 
 /**
@@ -35,6 +36,9 @@ function summarizeExperiences(experiences: DistributeContext["cvData"]["experien
 export function buildKeywordDistributionPrompt(ctx: DistributeContext): string {
   const expSummary = summarizeExperiences(ctx.cvData.experience);
   const keywordsList = ctx.missingKeywords.map((k) => `- ${k}`).join("\n");
+  const summaryBlock = ctx.summary
+    ? `\nRÉSUMÉ ACTUEL DU CV :\n${ctx.summary}\n`
+    : "";
 
   return `Tu es un expert en optimisation de CV pour ATS.
 
@@ -42,7 +46,7 @@ MISSION : Pour CHAQUE mot-clé manquant, propose son intégration dans UNE expé
 
 OFFRE D'EMPLOI :
 ${ctx.jobDescription}
-
+${summaryBlock}
 EXPÉRIENCES DU CV (index 0 = la plus récente) :
 ${expSummary}
 
@@ -51,14 +55,20 @@ ${keywordsList}
 
 RÈGLES DE DISTRIBUTION :
 1. Pour chaque mot-clé, choisis l'expérience la PLUS crédible (pas forcer un mot-clé technique sur un poste sans rapport).
-2. Choisis UN bullet point spécifique de cette expérience à réécrire (indexer par expIndex + bulletIndex).
-3. Réécris le bullet pour intégrer le mot-clé NATURELLEMENT — pas en liste, pas parachuté.
-4. Si un mot-clé n'a AUCUNE expérience crédible pour l'accueillir, retourne expIndex: null (l'utilisateur décidera).
-5. Un même bullet ne doit PAS recevoir 2 mots-clés d'un coup — distribue intelligemment.
-6. Verbe d'action fort en début de bullet (${ACTION_VERBS_FR}).
-7. ${INTRO_PRESERVATION_FR}
-8. ${FABRICATION_GUARD}
-9. Explique ton choix en 1 phrase dans "reason".
+
+2. HIÉRARCHIE D'INJECTION (priorité de routage pour chaque mot-clé) :
+   a. Mots-clés CORE/TRANSVERSAUX (outils généraux, méthodologies, soft skills transverses) → cibler le summary s'il existe et a de la place → target: "summary".
+   b. Mots-clés ROLE-SPECIFIC (technique, domaine précis, expertise métier) → cibler le premier bullet de l'expérience la plus pertinente → target: "experience".
+   c. Si le summary contient déjà 5+ mots-clés ATS (saturé) OU si le mot-clé est un pur skill label → router vers la section skills → target: "skills" et laisser expIndex: null.
+
+3. Choisis UN bullet point spécifique de cette expérience à réécrire (indexer par expIndex + bulletIndex) lorsque target = "experience".
+4. Réécris le bullet pour intégrer le mot-clé NATURELLEMENT — pas en liste, pas parachuté.
+5. Si un mot-clé n'a AUCUNE expérience crédible pour l'accueillir, retourne expIndex: null (l'utilisateur décidera).
+6. Un même bullet ne doit PAS recevoir 2 mots-clés d'un coup — distribue intelligemment.
+7. Verbe d'action fort en début de bullet (${ACTION_VERBS_FR}).
+8. ${INTRO_PRESERVATION_FR}
+9. ${FABRICATION_GUARD}
+10. Explique ton choix en 1 phrase dans "reason".
 
 FORMAT JSON ATTENDU :
 {
@@ -67,6 +77,7 @@ FORMAT JSON ATTENDU :
       "keyword": "Figma",
       "expIndex": 0,
       "bulletIndex": 1,
+      "target": "experience",
       "originalBullet": "Pilote les ateliers de discovery",
       "rewrittenBullet": "Pilote les ateliers de discovery et prototypes Figma pour valider les concepts",
       "reason": "L'expérience de Senior Designer mentionne déjà des ateliers de discovery, contexte naturel pour Figma."

@@ -355,6 +355,7 @@ export const autoDistributeMissingKeywords = action({
       cvData: { experience: args.cvData?.experience ?? [] },
       missingKeywords: args.missingKeywords,
       jobDescription: args.jobDescription,
+      summary: args.cvData?.personal_info?.summary,
     });
     const raw = await chatJSON(prompt);
     const parsed = KeywordDistributionSchema.safeParse(raw);

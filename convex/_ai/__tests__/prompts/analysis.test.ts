@@ -46,4 +46,24 @@ describe("buildATSAnalysisPrompt", () => {
     });
     expect(prompt).toContain("Retourne UNIQUEMENT le JSON");
   });
+
+  it("mentions seniority_match with all three enum values", () => {
+    const prompt = buildATSAnalysisPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "x",
+    });
+    expect(prompt).toContain("seniority_match");
+    expect(prompt).toContain("UNDER");
+    expect(prompt).toContain("MATCH");
+    expect(prompt).toContain("OVER");
+  });
+
+  it("mentions compensation_estimate and explains null case", () => {
+    const prompt = buildATSAnalysisPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "x",
+    });
+    expect(prompt).toContain("compensation_estimate");
+    expect(prompt).toContain("null");
+  });
 });

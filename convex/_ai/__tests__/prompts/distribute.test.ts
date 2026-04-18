@@ -20,6 +20,7 @@ const SAMPLE_CTX = {
   },
   missingKeywords: ["Figma", "Design System"],
   jobDescription: "Need a senior designer with Figma and design system experience",
+  summary: "Senior UX designer, 10y experience, design systems and research",
 };
 
 describe("buildKeywordDistributionPrompt", () => {
@@ -46,6 +47,30 @@ describe("buildKeywordDistributionPrompt", () => {
     expect(prompt).toContain(FABRICATION_GUARD);
     expect(prompt).toContain(ACTION_VERBS_FR);
     expect(prompt).toContain("Retourne UNIQUEMENT le JSON");
+  });
+
+  it("embeds the CV summary when provided", () => {
+    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
+    expect(prompt).toContain("Senior UX designer, 10y experience");
+  });
+
+  it("omits the summary block when ctx.summary is absent", () => {
+    const { summary: _omit, ...ctxWithoutSummary } = SAMPLE_CTX;
+    const prompt = buildKeywordDistributionPrompt(ctxWithoutSummary);
+    expect(prompt).not.toContain("RÉSUMÉ ACTUEL DU CV");
+  });
+
+  it("teaches the injection hierarchy (summary -> experience -> skills)", () => {
+    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
+    expect(prompt).toContain("HIÉRARCHIE D'INJECTION");
+    expect(prompt).toContain("summary");
+    expect(prompt).toContain("premier bullet");
+    expect(prompt).toContain("skills");
+  });
+
+  it("JSON example includes a target field", () => {
+    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
+    expect(prompt).toContain('"target"');
   });
 });
 
