@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-last_updated: "2026-04-11T19:50:00.000Z"
+last_updated: "2026-04-18T10:45:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -85,6 +85,7 @@ All 10 phases complete. Post-milestone work in progress:
 | 260411-mij | 2026-04-11 | Auto-extract company name from JD and pre-fill cover letter drawer (Phase A logo roadmap) | d90e5b0, e5392a0 |
 | 260411-nl2 | 2026-04-11 | ~~OpenRouter refactor~~ (reverted in 67239be — replaced by 260411-rcg) | 6a7123f..4873ded reverted |
 | 260411-rcg | 2026-04-11 | Fix Claude fallback via native @anthropic-ai/sdk Messages API + protocol discriminant | d91fe82 |
+| 260418-hce | 2026-04-18 | career-ops integration: keyword injection hierarchy + enriched ATS analysis (seniority_match, compensation_estimate, target) | 8fbea3c, 823ada7 |
 
 ## Known Issues
 
