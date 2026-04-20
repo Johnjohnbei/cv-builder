@@ -71,7 +71,7 @@ export default function EditorPage() {
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
 
   // ─── UI state ───
-  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats' | 'lettre'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -341,6 +341,18 @@ export default function EditorPage() {
               )}
             >
               ATS
+            </button>
+            <button
+              onClick={() => { setActiveTab('lettre'); coverLetter.open(); }}
+              role="tab"
+              aria-current={activeTab === 'lettre' ? 'true' : undefined}
+              aria-selected={activeTab === 'lettre'}
+              className={cn(
+                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
+                activeTab === 'lettre' ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:bg-gray-100"
+              )}
+            >
+              Lettre
             </button>
           </div>
 

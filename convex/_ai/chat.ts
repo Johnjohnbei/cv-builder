@@ -56,23 +56,19 @@ function extractAnthropicText(response: Anthropic.Message): string {
   return first && first.type === "text" ? first.text : "";
 }
 
-export async function chatJSON(prompt: string, model?: string): Promise<any> {
+export async function chatJSON(prompt: string, speed: "default" | "fast" = "default"): Promise<any> {
   return withRetry(async (provider) => {
-    const m = model || getModel("default", provider);
+    const m = getModel(speed, provider);
 
     if (provider.protocol === "anthropic") {
-      // Anthropic Messages API:
-      // - max_tokens is REQUIRED (unlike OpenAI where it is optional)
-      // - no response_format param — JSON mode is achieved via prompt engineering
-      //   (existing prompts already instruct "Retourne UNIQUEMENT le JSON")
-      // - response shape differs: content is a block array, not a .choices[].message
       const client = new Anthropic({ apiKey: provider.apiKey });
-      const response = await client.messages.create({
+      const stream = client.messages.stream({
         model: m,
-        max_tokens: 8192,
+        max_tokens: 30000,
         temperature: 0.3,
         messages: [{ role: "user", content: prompt }],
       });
+      const response = await stream.finalMessage();
       return safeParseJSON(extractAnthropicText(response));
     }
 
@@ -84,7 +80,7 @@ export async function chatJSON(prompt: string, model?: string): Promise<any> {
         model: m,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
-        max_tokens: 8192,
+        max_tokens: 30000,
         response_format: { type: "json_object" },
       });
       return safeParseJSON(response.choices[0]?.message?.content);
@@ -94,7 +90,7 @@ export async function chatJSON(prompt: string, model?: string): Promise<any> {
           model: m,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.3,
-          max_tokens: 8192,
+          max_tokens: 30000,
         });
         return safeParseJSON(response.choices[0]?.message?.content);
       }
@@ -103,18 +99,19 @@ export async function chatJSON(prompt: string, model?: string): Promise<any> {
   });
 }
 
-export async function chatText(prompt: string, model?: string): Promise<string> {
+export async function chatText(prompt: string, speed: "default" | "fast" = "default"): Promise<string> {
   return withRetry(async (provider) => {
-    const m = model || getModel("default", provider);
+    const m = getModel(speed, provider);
 
     if (provider.protocol === "anthropic") {
       const client = new Anthropic({ apiKey: provider.apiKey });
-      const response = await client.messages.create({
+      const stream = client.messages.stream({
         model: m,
-        max_tokens: 8192,
+        max_tokens: 30000,
         temperature: 0.3,
         messages: [{ role: "user", content: prompt }],
       });
+      const response = await stream.finalMessage();
       return extractAnthropicText(response);
     }
 
@@ -123,7 +120,7 @@ export async function chatText(prompt: string, model?: string): Promise<string> 
       model: m,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
-      max_tokens: 8192,
+      max_tokens: 30000,
     });
     return response.choices[0]?.message?.content || "";
   });

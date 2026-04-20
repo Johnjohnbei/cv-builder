@@ -2,7 +2,6 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { getModel } from "./_ai/providers";
 import { chatJSON, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
@@ -85,7 +84,7 @@ export const getATSAnalysis = action({
       cvData: args.cvData,
       jobDescription: args.jobDescription,
     });
-    const raw = await chatJSON(prompt, getModel("fast"));
+    const raw = await chatJSON(prompt, "fast");
     const parsed = ATSAnalysisSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("[getATSAnalysis] schema parse failed:", parsed.error.message);
@@ -171,7 +170,7 @@ export const extractJobDescriptionFromPDF = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobDescriptionFromPDFPrompt({ pdfText: args.pdfText });
-    return await chatText(prompt, getModel("fast"));
+    return await chatText(prompt, "fast");
   },
 });
 
@@ -183,7 +182,7 @@ export const extractJobKeywords = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobKeywordsPrompt({ jobDescription: args.jobDescription });
-    const raw = await chatJSON(prompt, getModel("fast"));
+    const raw = await chatJSON(prompt, "fast");
     const parsed = KeywordListSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("[extractJobKeywords] schema parse failed:", parsed.error.message);
@@ -238,7 +237,7 @@ export const generateCoverLetter = action({
       companyName: args.companyName,
       tone: args.tone,
     });
-    const raw = await chatJSON(prompt, getModel("fast"));
+    const raw = await chatJSON(prompt, "fast");
     const parsed = CoverLetterSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("[generateCoverLetter] schema parse failed:", parsed.error.message);
@@ -264,7 +263,7 @@ export const extractCompanyMeta = action({
     if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
     try {
       const prompt = buildCompanyExtractionPrompt({ jobDescription: args.jobDescription });
-      const raw = await chatJSON(prompt, getModel("fast"));
+      const raw = await chatJSON(prompt, "fast");
       const parsed = CompanyMetaSchema.safeParse(raw);
       if (!parsed.success) {
         console.warn("[extractCompanyMeta] schema parse failed:", parsed.error.message);
@@ -296,7 +295,7 @@ export const improveBulletPoint = action({
       jobDescription: args.jobDescription,
       missingKeywords: args.missingKeywords,
     });
-    const raw = await chatJSON(prompt, getModel("fast"));
+    const raw = await chatJSON(prompt, "fast");
     const parsed = BulletSuggestionsSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("[improveBulletPoint] schema parse failed:", parsed.error.message);

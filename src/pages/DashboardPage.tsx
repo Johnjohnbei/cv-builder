@@ -623,23 +623,30 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-3">
-                      <button
-                        onClick={handleOptimize}
-                        disabled={!baseCV || jobDescription.length < 50 || isGenerating}
-                        className="stitch-button-primary flex items-center space-x-2 disabled:opacity-50"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Optimisation en cours… {generatingSeconds}s</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4" />
-                            <span>OPTIMISER MON CV</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={handleOptimize}
+                          disabled={!baseCV || jobDescription.length < 50 || isGenerating}
+                          className="stitch-button-primary flex items-center space-x-2 disabled:opacity-50"
+                        >
+                          {isGenerating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Optimisation en cours… {generatingSeconds}s</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              <span>OPTIMISER MON CV</span>
+                            </>
+                          )}
+                        </button>
+                        {baseCV && !isGenerating && (() => {
+                          const size = JSON.stringify(baseCV).length;
+                          const estSeconds = size < 3000 ? 30 : size < 6000 ? 60 : size < 10000 ? 120 : size < 15000 ? 180 : 240;
+                          return <span className="text-[10px] text-gray-500 stitch-mono">~{estSeconds}s estimé</span>;
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </section>
