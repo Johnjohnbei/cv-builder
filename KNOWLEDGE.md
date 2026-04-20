@@ -13,8 +13,17 @@ The LinkedIn URL in sidebar (fs=11) may split across lines ending with `-` or `/
 ### K003 — react-dropzone file inputs are hidden
 `browser_upload_file` on the visible `input[type=file]` may not trigger react-dropzone's `onDrop`. The dropzone creates its own hidden input. For testing, dispatch a synthetic `change` event or use the app's own UI flow.
 
-### K004 — NVIDIA NIM free tier is very slow on large prompts
-`tailorCV` with 23 experiences takes ~3 minutes on NIM llama-3.1-70b free tier. The JSON payload is massive (full CV + job description in, full CV out). **TODO: switch tailorCV to Gemini 2.5 Flash (already configured) or truncate to top 8-10 experiences and pass the rest through unchanged.** This is the #1 UX pain point.
+### K004 — Gemini free tier hits 429/503 frequently; Anthropic is the reliable fallback
+`tailorCV` on a large CV (>15k JSON chars) regularly triggers Gemini 429/503. Anthropic (claude-sonnet-4-5) is the fallback. With `max_tokens: 30000` Anthropic requires streaming — use `client.messages.stream().finalMessage()`, not `client.messages.create()`, otherwise the SDK throws "Streaming is required for operations that may take longer than 10 minutes". Estimated duration displayed in Dashboard CTA: ~30s (<3k chars) to ~240s (>15k chars).
+
+### K007 — chatJSON/chatText take a speed level, not a model name
+`chatJSON(prompt, "fast")` and `chatText(prompt, "fast")` accept `"default" | "fast"`. Each provider resolves its own model via `getModel(speed, provider)`. Never pass `getModel("fast")` as a string argument — it returns the first provider's model name (e.g. `gemini-2.5-flash`) which causes a 404 on Anthropic.
+
+### K008 — Cover letter prompt must forbid markdown and section title mirroring
+The model (Gemini and Claude) tends to mirror the job description's section titles as bold headers in the letter. The prompt must explicitly forbid `**`, `*`, `#`, bullet lists, and reuse of job ad section titles. Require 3–4 paragraphs of plain prose. See `convex/_ai/prompts/coverLetter.ts`.
+
+### K009 — Cover letter tailored CV detection
+`isTailored` is computed in EditorPage by comparing `userData.lastJobDescription` (saved on Convex after `tailorCV`) with the current `jobDescription`. If they don't match, the CoverLetterDrawer shows an amber warning. Correct workflow: Dashboard → Optimize → Editor → Cover Letter.
 
 ### K005 — Access code modal is client-side only
 `REQUIRE_ACCESS_CODE` env var is not set on Convex. The modal triggers purely based on `localStorage('calibre_access_code')` being empty. `verifyAccessCode()` in ai.ts is a no-op when the env var is missing.
