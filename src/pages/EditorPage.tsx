@@ -95,6 +95,12 @@ export default function EditorPage() {
     loadedJobDescription,
   } = useCVLoader(user, userData, isGuest, jobDescription);
 
+  const isTailored = Boolean(
+    userData?.lastJobDescription &&
+    jobDescription.trim().length > 0 &&
+    userData.lastJobDescription.trim() === jobDescription.trim()
+  );
+
   // Initialize jobDescription from loaded data (dashboard → editor flow)
   const jdInitialized = useRef(false);
   useEffect(() => {
@@ -160,6 +166,7 @@ export default function EditorPage() {
   const coverLetter = useCoverLetter({
     cvData,
     jobDescription,
+    isTailored,
     cvId,
     user,
     notify,

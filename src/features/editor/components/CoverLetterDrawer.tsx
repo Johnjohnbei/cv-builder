@@ -74,6 +74,12 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
 
             {/* Body (scrollable) */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {!controller.isTailored && controller.localJobDescription.length >= 50 && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
+                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base — résultats moins ciblés.</span>
+                </div>
+              )}
               <Panel>
                 <PanelHeader>Configuration</PanelHeader>
                 <PanelBody className="space-y-4">

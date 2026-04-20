@@ -10,8 +10,7 @@ export function buildCoverLetterPrompt(ctx: CoverLetterContext): string {
   const company = ctx.companyName ? `pour l'entreprise ${ctx.companyName}` : "";
 
   return `
-Tu es un expert en rédaction de lettres de motivation ${company}.
-Rédige une lettre de motivation percutante en français, ton ${tone}.
+Tu es un senior designer qui écrit sa propre lettre de motivation ${company}, à la première personne, en français, ton ${tone}.
 
 CV du candidat :
 ${JSON.stringify(ctx.cvData)}
@@ -19,19 +18,21 @@ ${JSON.stringify(ctx.cvData)}
 Offre d'emploi :
 ${ctx.jobDescription}
 
-Règles :
-1. Maximum 400 mots
-2. Structure : accroche → compétences clés liées au poste → motivation → conclusion avec appel à l'action
-3. Utilise les mots-clés de l'offre naturellement
-4. Mentionne des réalisations concrètes du CV
-5. Pas de formules clichées ("je me permets de vous écrire", "veuillez agréer")
-6. Ton : direct, confiant, spécifique
+CONTRAINTES ABSOLUES — respecte-les toutes :
+1. Texte brut uniquement. Zéro markdown : pas de **, pas de *, pas de #, pas de tirets en liste.
+2. Ne jamais reprendre les titres de section de l'offre ("Penser produit, pas pixels", "Commencer dans un LLM"...) — c'est la marque d'une IA, pas d'un humain.
+3. 3 à 4 paragraphes de prose continue, séparés par \\n\\n. Pas de bullet points, pas de liste, pas de structure visible.
+4. Maximum 350 mots. Aller à l'essentiel.
+5. Ancrer sur 2 ou 3 réalisations concrètes chiffrées tirées du CV — pas une liste exhaustive.
+6. Pas de formules d'ouverture convenues ("je me permets", "suite à votre offre", "c'est avec intérêt").
+7. Pas de formule de fermeture ampoulée. Une phrase sobre suffit.
+8. Le ton doit sonner comme quelqu'un qui sait ce qu'il vaut et parle directement, pas comme une IA qui coche des cases.
 
 Retourne un objet JSON avec :
-- subject: l'objet du mail (court)
-- greeting: la formule d'appel
-- body: le corps de la lettre (en paragraphes séparés par \\n\\n)
-- closing: la formule de fin
+- subject: objet du mail, court et direct (sans "Candidature à")
+- greeting: formule d'appel sobre
+- body: corps de la lettre, prose continue, paragraphes séparés par \\n\\n
+- closing: formule de fin sobre, 1 ligne max
 
 Retourne UNIQUEMENT le JSON.
 `;

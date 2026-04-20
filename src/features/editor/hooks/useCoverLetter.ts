@@ -10,6 +10,7 @@ type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
 export interface UseCoverLetterDeps {
   cvData: CVData | null;
   jobDescription: string;
+  isTailored: boolean;
   cvId?: string;
   user: unknown;
   notify: Notify;
@@ -18,6 +19,7 @@ export interface UseCoverLetterDeps {
 
 export interface UseCoverLetterResult {
   isOpen: boolean; open: () => void; close: () => void;
+  isTailored: boolean;
   companyName: string; setCompanyName: (v: string) => void;
   tone: string; setTone: (v: string) => void;
   localJobDescription: string; setLocalJobDescription: (v: string) => void;
@@ -61,7 +63,7 @@ const DEFAULT_TONE = 'professionnel et engagé';
 
 /** Owns the inline cover letter drawer state for the editor. */
 export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
-  const { cvData, jobDescription, cvId, user, notify, accessCode } = deps;
+  const { cvData, jobDescription, isTailored, cvId, user, notify, accessCode } = deps;
   const generateAction = useAction(api.ai.generateCoverLetter);
   const extractAction = useAction(api.ai.extractCompanyMeta);
   const saveMutation = useMutation(api.coverLetters.save);
@@ -141,7 +143,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, [letter, cvData, companyName]);
 
   return {
-    isOpen, open, close, companyName, setCompanyName, tone, setTone,
+    isOpen, open, close, isTailored, companyName, setCompanyName, tone, setTone,
     localJobDescription, setLocalJobDescription, letter, setLetter,
     isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
   };
