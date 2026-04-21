@@ -4,7 +4,25 @@ import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
 import { getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
-import { isSkillHidden, getVisibleSkills } from '../lib/displayModes';
+import { isSkillHidden, getVisibleSkills, shouldShowKPI } from '../lib/displayModes';
+import type { PlacedBlock } from '../lib/pagination/types';
+import type { Experience } from '@/src/shared/types';
+
+/**
+ * Whether the KPI sub-block falls within the current page's slice.
+ * Prevents KPI from appearing on both the kept portion (page 1) and the
+ * overflow continuation (page 2+) when an experience block is split.
+ */
+export function isKPIInRange(exp: Experience, placed: PlacedBlock): boolean {
+  if (!shouldShowKPI(exp)) return false;
+  const { startSubBlock, endSubBlock, block } = placed;
+  if (startSubBlock === undefined || endSubBlock === undefined) return true;
+  const subBlocks = block.subBlocks;
+  if (!subBlocks) return true;
+  const kpiIdx = subBlocks.findIndex(s => s.type === 'kpi');
+  if (kpiIdx === -1) return false;
+  return kpiIdx >= startSubBlock && kpiIdx < endSubBlock;
+}
 
 /** LinkedIn brand icon — lucide-react 1.x removed brand icons */
 export function LinkedinIcon({ className }: { className?: string }) {

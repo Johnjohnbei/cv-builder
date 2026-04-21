@@ -5,8 +5,8 @@
 import { cn } from '@/src/shared/lib/cn';
 import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/colorContrast';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { renderPhoto, renderContactInfo } from '../shared';
-import { getIntro, getActionBullets, shouldShowKPI, getVisibleSkills } from '../../lib/displayModes';
+import { renderPhoto, renderContactInfo, isKPIInRange } from '../shared';
+import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
 import { getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
@@ -111,7 +111,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
           ))}
         </ul>
       )}
-      {shouldShowKPI(exp) && (
+      {isKPIInRange(exp, block) && (
         <p className="text-xs font-bold mt-2 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
           <span className="text-[10px]">📈</span> {exp.kpi}
         </p>
