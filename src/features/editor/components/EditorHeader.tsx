@@ -1,4 +1,4 @@
-import { Layout as LayoutIcon, Save, Download, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Layout as LayoutIcon, Save, Download, Loader2, ChevronDown, ChevronUp, EyeOff, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
 import { LanguageSelector } from './LanguageSelector';
@@ -20,6 +20,8 @@ interface Props {
   onLanguageChange: (lang: 'fr' | 'en') => void;
   atsMode: boolean;
   onAtsModeChange: (enabled: boolean) => void;
+  isAnonymous: boolean;
+  onToggleAnonymous: () => void;
 }
 
 export function EditorHeader({
@@ -28,6 +30,7 @@ export function EditorHeader({
   onSave, onExport, isSaving, isExporting, hasCvData,
   currentLanguage, onLanguageChange,
   atsMode, onAtsModeChange,
+  isAnonymous, onToggleAnonymous,
 }: Props) {
   return (
     <header className="stitch-header justify-between shrink-0">
@@ -86,6 +89,19 @@ export function EditorHeader({
             )}
           >
             {atsMode ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
+          <button
+            onClick={onToggleAnonymous}
+            className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded text-[9px] stitch-mono font-bold transition-colors",
+              isAnonymous ? "bg-orange-100 text-orange-700" : "hover:bg-gray-100 text-gray-400"
+            )}
+            title={isAnonymous ? "Désanonymiser le CV" : "Anonymiser le CV"}
+          >
+            {isAnonymous ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            ANON
           </button>
         </div>
       </div>

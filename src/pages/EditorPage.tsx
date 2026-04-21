@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft, Mail } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
+import { maskPersonalInfo } from '../shared/lib/anonymize';
 import { Logo } from '../shared/ui/Logo';
 import { Input } from '../shared/ui/Input';
 import { Textarea } from '../shared/ui/Textarea';
@@ -78,6 +79,7 @@ export default function EditorPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -112,8 +114,12 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
+  const renderCvData = useMemo(
+    () => (cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData),
+    [cvData, isAnonymous],
+  );
   const { pageAssignments, actualPageCount } = usePaginationFit(
-    cvData, designSettings, selectedTemplate,
+    renderCvData, designSettings, selectedTemplate,
   );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
@@ -1656,6 +1662,8 @@ export default function EditorPage() {
           onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
           onLanguageChange={setCurrentLanguage}
+          isAnonymous={isAnonymous}
+          onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
         />
 
         <div
