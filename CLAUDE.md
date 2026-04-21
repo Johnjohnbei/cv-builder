@@ -163,6 +163,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA
 - Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
 - E2E tests: `e2e/smoke.spec.ts` (pages publiques) + `e2e/ats-panel.spec.ts` (ATS panel + edge cases, via mode guest)
 - Display mode system for content optimization (experience and skills visibility control)
+- Anonymization toggle: client-side only, masks personal info at render time without touching Convex data (`src/shared/lib/anonymize.ts`)
 ## Layers
 - Purpose: Render UI, handle user interactions, manage local UI state
 - Location: `src/features/`, `src/pages/`, `src/shared/ui/`
@@ -246,6 +247,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA
 - Templates use memoized display mode computations
 - useOverflowDetection debounces resize checks to avoid excessive recalculations
 - Vite code-splitting for lazy-loaded pages (HomePage, EditorPage, etc.)
+- Anonymization toggle (`isAnonymous` state in EditorPage): `usePaginationFit` always receives real `cvData` for layout stability; `pageAssignments` are post-processed to replace header block data with masked `PersonalInfo` — keeps title, hides name/email/phone/location/linkedin/github/website/photo
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
