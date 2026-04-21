@@ -215,6 +215,26 @@ export function usePaginationFit(
     setSectionTitles({});
   }, [contentKey]);
 
+  // When cvData changes without altering estimated heights (same line count),
+  // contentKey stays identical and reconciledBlocks would serve stale data.
+  // Propagate the latest data fields while preserving measured heights.
+  useEffect(() => {
+    setReconciledBlocks(prev => {
+      if (!prev) return prev;
+      const dataById = new Map(heuristicBlocks.map(b => [b.id, b.data]));
+      let changed = false;
+      const next = prev.map(b => {
+        const newData = dataById.get(b.id);
+        if (newData !== undefined && newData !== b.data) {
+          changed = true;
+          return { ...b, data: newData };
+        }
+        return b;
+      });
+      return changed ? next : prev;
+    });
+  }, [heuristicBlocks]);
+
   /** Blocks used for allocation: reconciled if available, else heuristic */
   const activeBlocks = reconciledBlocks ?? heuristicBlocks;
 

@@ -114,13 +114,22 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const renderCvData = useMemo(
-    () => (cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData),
-    [cvData, isAnonymous],
+  const { pageAssignments: rawPageAssignments, actualPageCount } = usePaginationFit(
+    cvData, designSettings, selectedTemplate,
   );
-  const { pageAssignments, actualPageCount } = usePaginationFit(
-    renderCvData, designSettings, selectedTemplate,
-  );
+  const pageAssignments = useMemo(() => {
+    if (!isAnonymous || !cvData) return rawPageAssignments;
+    const maskedInfo = maskPersonalInfo(cvData).personal_info;
+    return rawPageAssignments.map(page => ({
+      ...page,
+      blocks: page.blocks.map(pb =>
+        pb.block.type === 'header' ? { ...pb, block: { ...pb.block, data: maskedInfo } } : pb
+      ),
+      sidebarBlocks: page.sidebarBlocks?.map(pb =>
+        pb.block.type === 'header' ? { ...pb, block: { ...pb.block, data: maskedInfo } } : pb
+      ),
+    }));
+  }, [rawPageAssignments, isAnonymous, cvData]);
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
     return idx >= 0 ? idx : 0;
