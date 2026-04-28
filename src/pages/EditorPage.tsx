@@ -18,7 +18,8 @@ import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel, CoverLetterDrawer } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
+import { detectCVLanguage, getCVLanguage } from '../lib/languageDetection';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
@@ -77,9 +78,10 @@ export default function EditorPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
-  const [currentLanguage, setCurrentLanguage] = useState<'fr' | 'en'>('fr');
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [pendingLanguage, setPendingLanguage] = useState<'fr' | 'en' | null>(null);
+  const [isRegeneratingLang, setIsRegeneratingLang] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -227,6 +229,57 @@ export default function EditorPage() {
 
   // renderCV replaced by PaginatedCV — block-based pagination engine
 
+  // ─── Language: single source of truth derived from cvData ───
+  const currentLanguage: 'fr' | 'en' = cvData ? getCVLanguage(cvData) : 'fr';
+
+  const applyLanguageOverride = (lang: 'fr' | 'en') => {
+    setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
+    setUserModified(true);
+  };
+
+  const handleLanguageChange = (lang: 'fr' | 'en') => {
+    if (!cvData || lang === currentLanguage) return;
+    const contentLang = detectCVLanguage(cvData);
+    if (contentLang !== lang) {
+      // Content is in a different language than the one user picked → ask
+      setPendingLanguage(lang);
+      return;
+    }
+    applyLanguageOverride(lang);
+  };
+
+  const handleConfirmRegenerate = async () => {
+    if (!cvData || !pendingLanguage) return;
+    setIsRegeneratingLang(true);
+    try {
+      const optimizedData = await optimizeCVAction({
+        cvData: { ...cvData, languageOverride: pendingLanguage },
+        pageLimit: designSettings.pageLimit || 1,
+        jobDescription: jobDescription || undefined,
+        accessCode: getCode(),
+      });
+      setCvData({ ...optimizedData, languageOverride: pendingLanguage, detectedLanguage: pendingLanguage });
+      setUserModified(true);
+      notify({ message: 'CV régénéré dans la nouvelle langue !', type: 'success' });
+      setPendingLanguage(null);
+    } catch (error) {
+      console.error('Error regenerating CV in new language:', error);
+      notify({ message: 'Erreur lors de la régénération du CV.', type: 'error' });
+    } finally {
+      setIsRegeneratingLang(false);
+    }
+  };
+
+  const handleSwitchLabelsOnly = () => {
+    if (!pendingLanguage) return;
+    applyLanguageOverride(pendingLanguage);
+    setPendingLanguage(null);
+  };
+
+  const handleCancelLanguageChange = () => {
+    setPendingLanguage(null);
+  };
+
   const handleOptimize = async () => {
     if (!cvData) return;
     setIsOptimizing(true);
@@ -297,6 +350,18 @@ export default function EditorPage() {
           pendingTemplate={templateSelection.pendingTemplate}
           onConfirm={templateSelection.confirmTemplateChange}
           onCancel={templateSelection.cancelTemplateChange}
+        />
+      )}
+
+      {/* Language regeneration modal */}
+      {pendingLanguage && cvData && (
+        <LanguageRegenerateModal
+          fromLang={detectCVLanguage(cvData)}
+          toLang={pendingLanguage}
+          isRegenerating={isRegeneratingLang}
+          onConfirm={handleConfirmRegenerate}
+          onSwitchOnly={handleSwitchLabelsOnly}
+          onCancel={handleCancelLanguageChange}
         />
       )}
 
@@ -1670,7 +1735,7 @@ export default function EditorPage() {
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
-          onLanguageChange={setCurrentLanguage}
+          onLanguageChange={handleLanguageChange}
           isAnonymous={isAnonymous}
           onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
         />
