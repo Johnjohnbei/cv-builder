@@ -3,6 +3,7 @@
 // Used by PaginatedCV to render each block independently.
 
 import { cn } from '@/src/shared/lib/cn';
+import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
 import { useSectionTitleClasses, getIncludedSections, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange } from '../shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../../lib/displayModes';
@@ -74,7 +75,7 @@ function SummaryBlock({ block, designSettings }: BlockRendererProps) {
   return (
     <section data-cv-section="summary">
       <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Profil</h2>
-      <p className="text-sm text-gray-600 leading-relaxed">{summary}</p>
+      <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(summary)}</p>
     </section>
   );
 }
@@ -98,7 +99,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
             </span>
           </div>
           <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
-          {intro && <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>}
+          {intro && <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>
       )}
       {bullets.length > 0 && (
@@ -106,7 +107,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
           {bullets.map((bullet, bIdx) => (
             <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-              {bullet}
+              {renderInlineMarkdown(bullet)}
             </li>
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
+import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, LinkedinIcon, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS } from './shared';
 import { getIntro, getActionBullets, shouldShowKPI, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
@@ -33,14 +34,14 @@ export function TemplateA({ cvData, designSettings, language }: TemplateProps) {
         </div>
         <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
         {intro && (
-          <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>
+          <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>
         )}
         {bullets.length > 0 && (
           <ul className="space-y-1.5 mt-1.5">
             {bullets.map((bullet, bIdx) => (
               <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
                 <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                {bullet}
+                {renderInlineMarkdown(bullet)}
               </li>
             ))}
           </ul>
@@ -67,7 +68,7 @@ export function TemplateA({ cvData, designSettings, language }: TemplateProps) {
   const summarySection = includedSections.includes('summary') && cvData.personal_info?.summary && (
     <section data-cv-section="summary">
       <h2 className={cn("text-sm border-b pb-2 mb-4", sectionTitleClasses)} style={{ color: atsMode ? '#000' : primaryColor, borderColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }}>Profil</h2>
-      <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info.summary}</p>
+      <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(cvData.personal_info.summary)}</p>
     </section>
   );
 

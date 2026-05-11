@@ -2,6 +2,7 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 import type { CVData, DesignSettings, SkillCategory } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
+import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 import { isSkillHidden, getVisibleSkills, shouldShowKPI } from '../lib/displayModes';
@@ -107,14 +108,14 @@ export function renderExperienceContent(
   return (
     <>
       {intro && (
-        <p className="text-sm text-gray-600 leading-relaxed">{intro}</p>
+        <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>
       )}
       {bullets.length > 0 && (
         <ul className="space-y-1.5 mt-1.5">
           {bullets.map((bullet, bIdx) => (
             <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
               {bulletMarker}
-              {bullet}
+              {renderInlineMarkdown(bullet)}
             </li>
           ))}
         </ul>

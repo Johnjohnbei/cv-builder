@@ -3,6 +3,7 @@
 // Used by PaginatedCV to render each block independently.
 
 import { cn } from '@/src/shared/lib/cn';
+import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
 import { renderPhoto, renderContactInfo, isKPIInRange } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
@@ -57,7 +58,7 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   return (
     <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
       <h2 className="text-gray-400 mb-2 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
-      <p className="text-sm text-gray-600 leading-relaxed italic">"{summary}"</p>
+      <p className="text-sm text-gray-600 leading-relaxed italic">"{renderInlineMarkdown(summary)}"</p>
     </section>
   );
 }
@@ -79,7 +80,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
             <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
               <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
               <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>{exp.company}</p>
-              {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{intro}</p>}
+              {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{renderInlineMarkdown(intro)}</p>}
             </div>
             <div>
               {bullets.length > 0 && (
@@ -87,7 +88,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
                   {bullets.map((bullet, bIdx) => (
                     <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
                       <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                      {bullet}
+                      {renderInlineMarkdown(bullet)}
                     </li>
                   ))}
                 </ul>
@@ -109,7 +110,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
                 {bullets.map((bullet, bIdx) => (
                   <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
                     <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                    {bullet}
+                    {renderInlineMarkdown(bullet)}
                   </li>
                 ))}
               </ul>
