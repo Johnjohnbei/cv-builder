@@ -2,7 +2,7 @@ import { Mail, Phone, MapPin, User } from 'lucide-react';
 import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
@@ -110,7 +110,10 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
                     <h3 className="font-bold text-gray-900">{exp.position}</h3>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>{formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}</span>
                   </div>
-                  <p className="text-sm font-medium text-gray-500 mb-3">{exp.company}</p>
+                  <p className="text-sm font-medium text-gray-500 mb-3">
+                    {exp.company}
+                    <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+                  </p>
                   {renderExperienceContent(
                     exp,
                     getIntro(exp),

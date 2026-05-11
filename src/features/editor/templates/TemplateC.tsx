@@ -2,7 +2,7 @@ import { Mail, Phone, MapPin, User } from 'lucide-react';
 import { LinkedinIcon } from './shared';
 import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
-import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS } from './shared';
+import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
@@ -51,7 +51,10 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
                   </div>
                   <div className="space-y-2">
                     <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
-                    <p className="text-xs font-medium" style={{ color: secondaryColor }}>{exp.company}</p>
+                    <p className="text-xs font-medium" style={{ color: secondaryColor }}>
+                      {exp.company}
+                      <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+                    </p>
                     <div className="pt-2">
                       {renderExperienceContent(
                         exp,

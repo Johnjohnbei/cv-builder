@@ -17,6 +17,7 @@ import type * as _ai_prompts_analysis from "../_ai/prompts/analysis.js";
 import type * as _ai_prompts_companyExtraction from "../_ai/prompts/companyExtraction.js";
 import type * as _ai_prompts_coverLetter from "../_ai/prompts/coverLetter.js";
 import type * as _ai_prompts_distribute from "../_ai/prompts/distribute.js";
+import type * as _ai_prompts_experienceEnrichment from "../_ai/prompts/experienceEnrichment.js";
 import type * as _ai_prompts_extract from "../_ai/prompts/extract.js";
 import type * as _ai_prompts_fragments from "../_ai/prompts/fragments.js";
 import type * as _ai_prompts_jobDescription from "../_ai/prompts/jobDescription.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/prompts/companyExtraction": typeof _ai_prompts_companyExtraction;
   "_ai/prompts/coverLetter": typeof _ai_prompts_coverLetter;
   "_ai/prompts/distribute": typeof _ai_prompts_distribute;
+  "_ai/prompts/experienceEnrichment": typeof _ai_prompts_experienceEnrichment;
   "_ai/prompts/extract": typeof _ai_prompts_extract;
   "_ai/prompts/fragments": typeof _ai_prompts_fragments;
   "_ai/prompts/jobDescription": typeof _ai_prompts_jobDescription;

@@ -120,6 +120,17 @@ export const COMPANY_BUSINESS_MODEL_OPTIONS = [
   'SaaS',
 ] as const;
 
+/** Batch enrichment of work experiences with stage + businessModel tags. */
+export const ExperienceEnrichmentSchema = z.object({
+  results: z.array(
+    z.object({
+      stage: z.string().nullable(),
+      businessModel: z.string().nullable(),
+    }).passthrough(),
+  ),
+}).passthrough();
+export type ExperienceEnrichmentParsed = z.infer<typeof ExperienceEnrichmentSchema>;
+
 export const BulletSuggestionsSchema = z.object({
   suggestions: z.array(z.string()).default([]),
 }).passthrough();

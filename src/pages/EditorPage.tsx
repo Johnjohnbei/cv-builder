@@ -20,6 +20,7 @@ import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { detectCVLanguage, getCVLanguage } from '../lib/languageDetection';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/convex/_ai/schemas';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
@@ -69,6 +70,8 @@ export default function EditorPage() {
   const storeUser = useMutation(api.users.store);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
+  const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
+  const [isEnrichingExperiences, setIsEnrichingExperiences] = useState(false);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats' | 'lettre'>('content');
@@ -276,6 +279,46 @@ export default function EditorPage() {
 
   const handleCancelLanguageChange = () => {
     setPendingLanguage(null);
+  };
+
+  const handleEnrichExperiences = async () => {
+    if (!cvData?.experience || cvData.experience.length === 0) return;
+    setIsEnrichingExperiences(true);
+    try {
+      const result = await enrichExperienceAction({
+        experiences: cvData.experience.map(exp => ({
+          company: exp.company,
+          position: exp.position,
+          intro: exp.intro,
+          description: exp.description,
+        })),
+        accessCode: getCode(),
+      });
+      // Merge: only set tags where missing (don't overwrite user edits)
+      const updatedExp = cvData.experience.map((exp, i) => {
+        const r = result.results[i];
+        if (!r) return exp;
+        return {
+          ...exp,
+          companyStage: exp.companyStage || r.stage || undefined,
+          companyBusinessModel: exp.companyBusinessModel || r.businessModel || undefined,
+        };
+      });
+      setCvData(prev => prev ? { ...prev, experience: updatedExp } : null);
+      setUserModified(true);
+      const filled = result.results.filter(r => r.stage || r.businessModel).length;
+      notify({
+        message: filled > 0
+          ? `Tags détectés pour ${filled}/${cvData.experience.length} expériences`
+          : 'Aucun tag détectable depuis les expériences actuelles',
+        type: filled > 0 ? 'success' : 'error',
+      });
+    } catch (e) {
+      console.error('Error enriching experiences:', e);
+      notify({ message: 'Erreur lors de la détection des entreprises.', type: 'error' });
+    } finally {
+      setIsEnrichingExperiences(false);
+    }
   };
 
   const handleOptimize = async () => {
@@ -661,6 +704,20 @@ export default function EditorPage() {
                   </button>
                   {expandedSection === 'experience' && (
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {/* ─── Bulk auto-detect company stage + business model ─── */}
+                      {cvData?.experience && cvData.experience.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          fullWidth
+                          loading={isEnrichingExperiences}
+                          icon={<Sparkles className="w-3 h-3" />}
+                          onClick={handleEnrichExperiences}
+                          className="border border-dashed border-gray-300 text-[10px] stitch-mono uppercase tracking-wider text-gray-500 hover:text-blue-600 hover:border-blue-300"
+                        >
+                          {isEnrichingExperiences ? 'Détection en cours…' : 'Auto-détecter stade + modèle (IA)'}
+                        </Button>
+                      )}
                       {cvData?.experience?.map((exp, idx) => (
                         <div key={idx} data-cv-block="experience" className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
                           {/* ─── Top bar: drag + mode selector + delete ─── */}
@@ -758,6 +815,7 @@ export default function EditorPage() {
                             variant="bare"
                             className="font-bold text-[11px] mb-1"
                             value={exp.position}
+                            placeholder="Intitulé du poste"
                             onChange={(e) => {
                               const newExp = [...(cvData?.experience || [])];
                               newExp[idx].position = e.target.value;
@@ -769,12 +827,46 @@ export default function EditorPage() {
                             mono={false}
                             className="text-[10px] text-blue-600"
                             value={exp.company}
+                            placeholder="Nom de l'entreprise"
                             onChange={(e) => {
                               const newExp = [...(cvData?.experience || [])];
                               newExp[idx].company = e.target.value;
                               setCvData(prev => prev ? {...prev, experience: newExp} : null);
                             }}
                           />
+                          {/* ─── Company tags (stage + business model) ─── */}
+                          <div className="grid grid-cols-2 gap-1.5 mt-1 mb-1">
+                            <select
+                              value={exp.companyStage || ''}
+                              onChange={(e) => {
+                                const newExp = [...(cvData?.experience || [])];
+                                newExp[idx] = { ...newExp[idx], companyStage: e.target.value || undefined };
+                                setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                              }}
+                              className="text-[9px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
+                              aria-label="Stade de l'entreprise"
+                            >
+                              <option value="">Stade…</option>
+                              {COMPANY_STAGE_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={exp.companyBusinessModel || ''}
+                              onChange={(e) => {
+                                const newExp = [...(cvData?.experience || [])];
+                                newExp[idx] = { ...newExp[idx], companyBusinessModel: e.target.value || undefined };
+                                setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                              }}
+                              className="text-[9px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
+                              aria-label="Modèle économique"
+                            >
+                              <option value="">Modèle…</option>
+                              {COMPANY_BUSINESS_MODEL_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </div>
                           {/* ─── Intro (short role description) ─── */}
                           <Textarea
                             inputSize="xs"

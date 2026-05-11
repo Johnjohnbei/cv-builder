@@ -25,6 +25,40 @@ export function isKPIInRange(exp: Experience, placed: PlacedBlock): boolean {
   return kpiIdx >= startSubBlock && kpiIdx < endSubBlock;
 }
 
+/**
+ * Discreet inline tags rendered next to a company name to indicate its
+ * maturity stage (Startup, Scaleup, ...) and business model (B2C, SaaS, ...).
+ * Returns null when both are absent — no extra DOM for plain CVs.
+ */
+export function CompanyTags({
+  stage,
+  businessModel,
+  atsMode,
+}: {
+  stage?: string;
+  businessModel?: string;
+  atsMode?: boolean;
+}) {
+  const tags = [stage, businessModel].filter((t): t is string => Boolean(t && t.trim()));
+  if (tags.length === 0) return null;
+  // ATS mode → plain inline text (no decorative chips that PDF parsers might choke on)
+  if (atsMode) {
+    return <span className="text-[10px] text-gray-500 ml-1.5">({tags.join(' · ')})</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1 ml-1.5 align-middle">
+      {tags.map((t, i) => (
+        <span
+          key={i}
+          className="text-[8px] uppercase tracking-wider font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-[1px] leading-tight"
+        >
+          {t}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** LinkedIn brand icon — lucide-react 1.x removed brand icons */
 export function LinkedinIcon({ className }: { className?: string }) {
   return (

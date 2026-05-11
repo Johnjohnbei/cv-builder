@@ -6,7 +6,7 @@ import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/colorContrast';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { renderPhoto, renderContactInfo, isKPIInRange } from '../shared';
+import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
 import { getSkillCategoryTitle } from '../../lib/atsRules';
@@ -98,7 +98,10 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
               {formatDateShort(exp.start_date)} — {exp.current ? 'Present' : formatDateShort(exp.end_date)}
             </span>
           </div>
-          <p className="text-xs font-semibold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: secondaryColor }}>
+            {exp.company}
+            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} />
+          </p>
           {intro && <p className="text-[11px] text-gray-500 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>
       )}

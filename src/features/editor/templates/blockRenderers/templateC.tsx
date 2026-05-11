@@ -5,7 +5,7 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { renderPhoto, renderContactInfo, isKPIInRange } from '../shared';
+import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -79,7 +79,10 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
           <div className="space-y-2">
             <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
               <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
-              <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>{exp.company}</p>
+              <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>
+                {exp.company}
+                <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} />
+              </p>
               {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{renderInlineMarkdown(intro)}</p>}
             </div>
             <div>

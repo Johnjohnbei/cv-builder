@@ -33,6 +33,10 @@ export interface Experience {
    */
   showKpi?: boolean;
   displayMode?: ExperienceDisplayMode;
+  /** Company maturity tag deduced or set by user (Startup, Scaleup, PME, etc.) */
+  companyStage?: string;
+  /** Company business model deduced or set by user (B2C, B2B, SaaS, Marketplace, etc.) */
+  companyBusinessModel?: string;
 }
 
 export interface Education {

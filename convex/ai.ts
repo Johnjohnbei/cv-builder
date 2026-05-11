@@ -14,6 +14,7 @@ import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
+import { buildExperienceEnrichmentPrompt } from "./_ai/prompts/experienceEnrichment";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
@@ -26,6 +27,7 @@ import {
   ATSAnalysisSchema,
   CoverLetterSchema,
   CompanyMetaSchema,
+  ExperienceEnrichmentSchema,
   KeywordListSchema,
   KeywordDistributionSchema,
 } from "./_ai/schemas";
@@ -285,6 +287,44 @@ export const extractCompanyMeta = action({
     } catch (e) {
       console.warn("[extractCompanyMeta] LLM call failed:", e);
       return FALLBACK;
+    }
+  },
+});
+
+/**
+ * Batch-enrich every work experience on the CV with a deduced (stage, businessModel)
+ * pair. Returns an array aligned with the input order. Each item is { stage, businessModel }
+ * with possibly-null values when the LLM is not confident.
+ */
+export const enrichExperienceMeta = action({
+  args: {
+    experiences: v.array(v.object({
+      company: v.string(),
+      position: v.string(),
+      intro: v.optional(v.string()),
+      description: v.optional(v.array(v.string())),
+    })),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+    if (args.experiences.length === 0) return { results: [] };
+    try {
+      const prompt = buildExperienceEnrichmentPrompt({ experiences: args.experiences });
+      const raw = await chatJSON(prompt, "fast");
+      const parsed = ExperienceEnrichmentSchema.safeParse(raw);
+      if (!parsed.success) {
+        console.warn("[enrichExperienceMeta] schema parse failed:", parsed.error.message);
+        return { results: args.experiences.map(() => ({ stage: null, businessModel: null })) };
+      }
+      // Pad with nulls if the LLM returned fewer items than asked
+      const results = args.experiences.map((_, i) =>
+        parsed.data.results[i] ?? { stage: null, businessModel: null },
+      );
+      return { results };
+    } catch (e) {
+      console.warn("[enrichExperienceMeta] LLM call failed:", e);
+      return { results: args.experiences.map(() => ({ stage: null, businessModel: null })) };
     }
   },
 });

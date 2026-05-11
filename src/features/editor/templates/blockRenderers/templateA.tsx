@@ -5,7 +5,7 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { useSectionTitleClasses, getIncludedSections, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange } from '../shared';
+import { useSectionTitleClasses, getIncludedSections, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -98,7 +98,10 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
               {formatDateShort(exp.start_date)} — {exp.current ? 'Présent' : formatDateShort(exp.end_date)}
             </span>
           </div>
-          <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>{exp.company}</p>
+          <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>
+            {exp.company}
+            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} />
+          </p>
           {intro && <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>
       )}
