@@ -5,9 +5,7 @@ export const TEMPLATE_ATS_COMPAT: Record<string, 'full' | 'limited'> = {
   TEMPLATE_A: 'full',     // Simple single-column layout, easy to convert
   TEMPLATE_B: 'full',     // Header-focused, adaptable
   TEMPLATE_C: 'full',     // Minimal single-column
-  TEMPLATE_D: 'limited',  // Complex decorative layout
   TEMPLATE_E: 'full',     // Elegant single-column
-  TEMPLATE_F: 'limited',  // 2-column grid layout
 };
 
 /** Default fallback template for ATS mode when current template is 'limited' (per D-07). */

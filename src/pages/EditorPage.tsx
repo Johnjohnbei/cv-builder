@@ -55,9 +55,7 @@ const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
   TEMPLATE_B: 'Modern',
   TEMPLATE_C: 'Minimal',
-  TEMPLATE_D: 'Creative',
   TEMPLATE_E: 'Elegant',
-  TEMPLATE_F: 'Sidebar',
 };
 
 export default function EditorPage() {
@@ -1246,9 +1244,7 @@ export default function EditorPage() {
                       { id: 'TEMPLATE_A', name: 'Classic', desc: 'Minimaliste & Efficace' },
                       { id: 'TEMPLATE_B', name: 'Modern', desc: 'Design & Impact' },
                       { id: 'TEMPLATE_C', name: 'Minimal', desc: 'Sérieux & Professionnel' },
-                      { id: 'TEMPLATE_D', name: 'Creative', desc: 'Audacieux & Unique' },
-                      { id: 'TEMPLATE_E', name: 'Elegant', desc: 'Haut de gamme' },
-                      { id: 'TEMPLATE_F', name: 'Sidebar', desc: 'Structure & Clarté' }
+                      { id: 'TEMPLATE_E', name: 'Elegant', desc: 'Haut de gamme' }
                     ].map((tpl) => (
                       <div 
                         key={tpl.id}
@@ -1279,9 +1275,7 @@ export default function EditorPage() {
                              tpl.id === 'TEMPLATE_A' && "bg-gray-400",
                              tpl.id === 'TEMPLATE_B' && "bg-blue-400",
                              tpl.id === 'TEMPLATE_C' && "bg-indigo-400",
-                             tpl.id === 'TEMPLATE_D' && "bg-orange-400",
-                             tpl.id === 'TEMPLATE_E' && "bg-emerald-400",
-                             tpl.id === 'TEMPLATE_F' && "bg-slate-400"
+                             tpl.id === 'TEMPLATE_E' && "bg-emerald-400"
                            )} />
                         </div>
                         <span className="text-[7px] text-gray-400 stitch-mono uppercase leading-tight">{tpl.desc}</span>

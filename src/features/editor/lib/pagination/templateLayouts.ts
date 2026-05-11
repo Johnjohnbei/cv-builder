@@ -16,8 +16,6 @@ const PAD_16 = 16.9;
 const PAD_12 = 12.7;
 /** Gap between grid columns (gap-12 = 48px ≈ 12.7mm) */
 const GAP_12 = 12.7;
-/** Large gap between grid columns (gap-16 = 64px ≈ 16.9mm) */
-const GAP_16 = 16.9;
 
 // ─── Per-Template Layouts ───
 
@@ -106,34 +104,6 @@ const TEMPLATE_C: TemplateLayout = {
 };
 
 /**
- * TemplateD — Creative (sidebar right)
- * Header: p-16 pb-8 with primary bg
- * Grid: grid-cols-[2fr_1fr] gap-16
- * Content: p-16 pt-12
- */
-const TEMPLATE_D: TemplateLayout = {
-  type: 'two-column-right',
-  page1: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    mainColumnWidthMm: (210 - 2 * PAD_16 - GAP_16) * (2 / 3),
-    sidebarWidthMm: (210 - 2 * PAD_16 - GAP_16) * (1 / 3),
-    gapMm: GAP_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  headerFullWidth: true,
-};
-
-/**
  * TemplateE — Elegant (single column, skills/edu grid)
  * Root: px-16 pt-16 pb-10
  * Skills/edu: grid-cols-2 gap-12
@@ -160,42 +130,13 @@ const TEMPLATE_E: TemplateLayout = {
   headerFullWidth: true,
 };
 
-/**
- * TemplateF — Sidebar (fixed 260px sidebar left)
- * Sidebar: 260px ≈ 68.8mm, p-12
- * Main: 1fr, p-12
- */
-const TEMPLATE_F: TemplateLayout = {
-  type: 'two-column-left',
-  page1: {
-    contentWidthMm: 210,
-    mainColumnWidthMm: 210 - 68.8,
-    sidebarWidthMm: 68.8,
-    gapMm: 0,
-    paddingTopMm: PAD_12,
-    paddingBottomMm: PAD_12,
-    paddingLeftMm: 0,
-    paddingRightMm: 0,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_12,
-    paddingTopMm: PAD_12,
-    paddingBottomMm: PAD_12,
-    paddingLeftMm: PAD_12,
-    paddingRightMm: PAD_12,
-  },
-  headerFullWidth: false,
-};
-
 // ─── Registry ───
 
 export const TEMPLATE_LAYOUTS: Record<string, TemplateLayout> = {
   TEMPLATE_A: TEMPLATE_A,
   TEMPLATE_B: TEMPLATE_B,
   TEMPLATE_C: TEMPLATE_C,
-  TEMPLATE_D: TEMPLATE_D,
   TEMPLATE_E: TEMPLATE_E,
-  TEMPLATE_F: TEMPLATE_F,
 };
 
 export function getTemplateLayout(templateId: string): TemplateLayout {

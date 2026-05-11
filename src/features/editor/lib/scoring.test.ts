@@ -243,8 +243,8 @@ describe('scoreFormat', () => {
 
   it('gives full template points for ATS-compatible template', () => {
     const full = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_A' }), 'en');
-    const limited = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_D' }), 'en');
-    expect(full.score).toBeGreaterThan(limited.score);
+    const unknown = scoreFormat(makeCVData(), makeDesign({ template: 'TEMPLATE_UNKNOWN' }), 'en');
+    expect(full.score).toBeGreaterThan(unknown.score);
   });
 
   it('gives font points for ATS-safe fonts (sans -> Arial)', () => {

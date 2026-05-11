@@ -13,11 +13,11 @@ import type { SectionKey } from './atsRules';
 import type { SkillCategoryKey } from './skillDictionary';
 
 describe('atsRules', () => {
-  it('exports template compatibility for all 6 templates', () => {
+  it('exports template compatibility for all 4 templates', () => {
     const keys = Object.keys(TEMPLATE_ATS_COMPAT);
-    expect(keys).toHaveLength(6);
+    expect(keys).toHaveLength(4);
     expect(keys).toContain('TEMPLATE_A');
-    expect(keys).toContain('TEMPLATE_F');
+    expect(keys).toContain('TEMPLATE_E');
     for (const val of Object.values(TEMPLATE_ATS_COMPAT)) {
       expect(['full', 'limited']).toContain(val);
     }

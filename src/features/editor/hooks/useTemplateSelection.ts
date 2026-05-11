@@ -8,9 +8,7 @@ export const TEMPLATE_DEFAULTS: Record<string, Partial<DesignSettings>> = {
   TEMPLATE_A: { fontFamily: 'sans', sectionTitleWeight: 'bold', sectionTitleSpacing: 'widest', sectionTitleTransform: 'uppercase' },
   TEMPLATE_B: { fontFamily: 'sans', sectionTitleWeight: 'semibold', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
   TEMPLATE_C: { fontFamily: 'serif', sectionTitleWeight: 'normal', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
-  TEMPLATE_D: { fontFamily: 'playfair', sectionTitleWeight: 'black', sectionTitleSpacing: 'tight', sectionTitleTransform: 'none' },
   TEMPLATE_E: { fontFamily: 'outfit', sectionTitleWeight: 'medium', sectionTitleSpacing: 'wide', sectionTitleTransform: 'uppercase' },
-  TEMPLATE_F: { fontFamily: 'sans', sectionTitleWeight: 'bold', sectionTitleSpacing: 'wider', sectionTitleTransform: 'uppercase' },
 };
 
 // ─── Pure helpers (exported for unit tests) ───

@@ -3,17 +3,13 @@ import type { TemplateProps } from './shared';
 import { TemplateA } from './TemplateA';
 import { TemplateB } from './TemplateB';
 import { TemplateC } from './TemplateC';
-import { TemplateD } from './TemplateD';
 import { TemplateE } from './TemplateE';
-import { TemplateF } from './TemplateF';
 
 const TEMPLATE_MAP: Record<string, React.ComponentType<TemplateProps>> = {
   TEMPLATE_A: TemplateA,
   TEMPLATE_B: TemplateB,
   TEMPLATE_C: TemplateC,
-  TEMPLATE_D: TemplateD,
   TEMPLATE_E: TemplateE,
-  TEMPLATE_F: TemplateF,
 };
 
 interface Props extends TemplateProps {
@@ -23,9 +19,9 @@ interface Props extends TemplateProps {
 /**
  * CVRenderer — memoized to skip re-renders when only sidebar UI state changes.
  * Only re-renders when cvData, designSettings, or selectedTemplate change.
+ * Falls back to TemplateA for legacy/unknown template ids (DB migration safety).
  */
 export const CVRenderer = memo(function CVRenderer({ selectedTemplate, ...templateProps }: Props) {
-  const Template = TEMPLATE_MAP[selectedTemplate];
-  if (Template) return <Template {...templateProps} />;
-  return null;
+  const Template = TEMPLATE_MAP[selectedTemplate] ?? TemplateA;
+  return <Template {...templateProps} />;
 });

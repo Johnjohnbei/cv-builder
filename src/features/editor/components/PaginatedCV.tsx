@@ -22,9 +22,9 @@ interface TemplateGridConfig {
 }
 
 // NOTE: paddings around the page are safety margins — kept symmetric (pt == pb == px)
-// so the content has equal breathing room on every side. Templates B and F use
-// per-column padding (their sidebar has its own visual treatment) so the page-level
-// padding is empty. Templates A/C/D/E use a uniform page-level p-16 (64px).
+// so the content has equal breathing room on every side. Template B uses
+// per-column padding (its sidebar has its own visual treatment) so the page-level
+// padding is empty. Templates A/C/E use a uniform page-level p-16 (64px).
 const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
   TEMPLATE_A: {
     sidebarPosition: 'right',
@@ -49,25 +49,11 @@ const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
     paddingClass: 'p-16',
     page2PaddingClass: 'p-16',
   },
-  TEMPLATE_D: {
-    sidebarPosition: 'right',
-    gridClass: 'grid-cols-[2fr_1fr] gap-16',
-    paddingClass: 'p-16',
-    page2PaddingClass: 'p-16',
-  },
   TEMPLATE_E: {
     sidebarPosition: 'right',
     gridClass: 'grid-cols-1',
     paddingClass: 'p-16',
     page2PaddingClass: 'p-16',
-  },
-  TEMPLATE_F: {
-    sidebarPosition: 'left',
-    gridClass: 'grid-cols-[260px_1fr]',
-    sidebarClassName: 'p-12 bg-gray-50',
-    mainClassName: 'p-12',
-    paddingClass: '',
-    page2PaddingClass: 'p-12',
   },
 };
 

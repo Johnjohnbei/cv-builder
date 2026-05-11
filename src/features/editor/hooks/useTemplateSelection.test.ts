@@ -11,10 +11,10 @@ const base: DesignSettings = {
 
 describe('mergeTemplateDefaults', () => {
   it('applies known template defaults + updates template id', () => {
-    const out = mergeTemplateDefaults(base, 'TEMPLATE_D');
-    expect(out.template).toBe('TEMPLATE_D');
-    expect(out.fontFamily).toBe('playfair');
-    expect(out.sectionTitleWeight).toBe('black');
+    const out = mergeTemplateDefaults(base, 'TEMPLATE_E');
+    expect(out.template).toBe('TEMPLATE_E');
+    expect(out.fontFamily).toBe('outfit');
+    expect(out.sectionTitleWeight).toBe('medium');
   });
 
   it('only updates template id for unknown template', () => {
@@ -40,12 +40,10 @@ describe('mergeTemplateDefaults', () => {
 });
 
 describe('TEMPLATE_DEFAULTS', () => {
-  it('covers all 6 templates A-F', () => {
+  it('covers all 4 active templates (A, B, C, E)', () => {
     expect(TEMPLATE_DEFAULTS.TEMPLATE_A).toBeDefined();
     expect(TEMPLATE_DEFAULTS.TEMPLATE_B).toBeDefined();
     expect(TEMPLATE_DEFAULTS.TEMPLATE_C).toBeDefined();
-    expect(TEMPLATE_DEFAULTS.TEMPLATE_D).toBeDefined();
     expect(TEMPLATE_DEFAULTS.TEMPLATE_E).toBeDefined();
-    expect(TEMPLATE_DEFAULTS.TEMPLATE_F).toBeDefined();
   });
 });

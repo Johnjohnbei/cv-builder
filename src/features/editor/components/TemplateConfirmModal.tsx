@@ -4,9 +4,7 @@ const TEMPLATE_NAMES: Record<string, string> = {
   TEMPLATE_A: 'Classic',
   TEMPLATE_B: 'Modern',
   TEMPLATE_C: 'Minimal',
-  TEMPLATE_D: 'Creative',
   TEMPLATE_E: 'Elegant',
-  TEMPLATE_F: 'Sidebar',
 };
 
 interface Props {
