@@ -3,9 +3,11 @@ export interface CoverLetterContext {
   jobDescription: string;
   companyName?: string;
   tone?: string;
+  /** Output language. Defaults to 'fr' to preserve legacy behaviour when caller omits it. */
+  language?: 'fr' | 'en';
 }
 
-export function buildCoverLetterPrompt(ctx: CoverLetterContext): string {
+function buildFrenchPrompt(ctx: CoverLetterContext): string {
   const tone = ctx.tone || "professionnel et engagé";
   const company = ctx.companyName ? `pour l'entreprise ${ctx.companyName}` : "";
 
@@ -36,4 +38,41 @@ Retourne un objet JSON avec :
 
 Retourne UNIQUEMENT le JSON.
 `;
+}
+
+function buildEnglishPrompt(ctx: CoverLetterContext): string {
+  const tone = ctx.tone || "professional and engaged";
+  const company = ctx.companyName ? `for ${ctx.companyName}` : "";
+
+  return `
+You are a senior designer writing your own cover letter ${company}, in first person, in English, ${tone} tone.
+
+Candidate's CV:
+${JSON.stringify(ctx.cvData)}
+
+Job posting:
+${ctx.jobDescription}
+
+ABSOLUTE CONSTRAINTS — respect them all:
+1. Plain text only. Zero markdown: no **, no *, no #, no dashes for lists.
+2. Never reuse section titles from the job posting — that's an AI giveaway, not human writing.
+3. 3 to 4 paragraphs of continuous prose, separated by \\n\\n. No bullet points, no lists, no visible structure.
+4. Maximum 350 words. Get to the point.
+5. Anchor on 2 or 3 concrete quantified achievements from the CV — not an exhaustive list.
+6. No conventional openings ("I am writing to apply", "I would like to express my interest", "It is with great interest").
+7. No flowery closing. One sober sentence is enough.
+8. The tone should sound like someone who knows their worth and speaks directly, not like an AI checking boxes.
+
+Return a JSON object with:
+- subject: short, direct email subject (without "Application for")
+- greeting: sober opening line
+- body: letter body, continuous prose, paragraphs separated by \\n\\n
+- closing: sober closing line, 1 line max
+
+Return ONLY the JSON.
+`;
+}
+
+export function buildCoverLetterPrompt(ctx: CoverLetterContext): string {
+  return ctx.language === 'en' ? buildEnglishPrompt(ctx) : buildFrenchPrompt(ctx);
 }

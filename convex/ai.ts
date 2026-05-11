@@ -227,6 +227,7 @@ export const generateCoverLetter = action({
     jobDescription: v.string(),
     companyName: v.optional(v.string()),
     tone: v.optional(v.string()),
+    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -236,6 +237,7 @@ export const generateCoverLetter = action({
       jobDescription: args.jobDescription,
       companyName: args.companyName,
       tone: args.tone,
+      language: args.language,
     });
     const raw = await chatJSON(prompt, "fast");
     const parsed = CoverLetterSchema.safeParse(raw);

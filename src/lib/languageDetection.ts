@@ -36,18 +36,31 @@ export function extractCVText(cvData: CVData): string {
 }
 
 /**
+ * Detects the language of an arbitrary text using franc-min.
+ * Returns 'fr' for short/empty text or when detection is undetermined.
+ */
+export function detectTextLanguage(text: string): SupportedLanguage {
+  if (text.length < MIN_TEXT_LENGTH) {
+    return 'fr';
+  }
+  const detected = franc(text, { only: ['fra', 'eng'] });
+  return ISO_TO_LANG[detected] ?? 'fr';
+}
+
+/**
+ * Detects the language of a job description.
+ * Thin semantic wrapper around detectTextLanguage so callers expressing intent.
+ */
+export function detectJobDescriptionLanguage(jobDescription: string): SupportedLanguage {
+  return detectTextLanguage(jobDescription);
+}
+
+/**
  * Detects the language of a CV using franc-min.
  * Returns 'fr' for short/empty text or when detection is undetermined.
  */
 export function detectCVLanguage(cvData: CVData): SupportedLanguage {
-  const text = extractCVText(cvData);
-
-  if (text.length < MIN_TEXT_LENGTH) {
-    return 'fr';
-  }
-
-  const detected = franc(text, { only: ['fra', 'eng'] });
-  return ISO_TO_LANG[detected] ?? 'fr';
+  return detectTextLanguage(extractCVText(cvData));
 }
 
 /**

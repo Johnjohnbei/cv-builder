@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { detectCVLanguage, getCVLanguage, extractCVText } from './languageDetection';
+import {
+  detectCVLanguage,
+  getCVLanguage,
+  extractCVText,
+  detectTextLanguage,
+  detectJobDescriptionLanguage,
+} from './languageDetection';
 import type { CVData } from '../shared/types';
 
 const EMPTY_CV: CVData = {
@@ -116,5 +122,46 @@ describe('getCVLanguage', () => {
   it('override takes precedence over detection', () => {
     const cv: CVData = { ...ENGLISH_CV, detectedLanguage: 'en', languageOverride: 'fr' };
     expect(getCVLanguage(cv)).toBe('fr');
+  });
+});
+
+describe('detectTextLanguage', () => {
+  it('returns "en" for English prose', () => {
+    expect(
+      detectTextLanguage(
+        'We are looking for a senior product designer to lead our team and deliver world-class experiences across web and mobile platforms.',
+      ),
+    ).toBe('en');
+  });
+
+  it('returns "fr" for French prose', () => {
+    expect(
+      detectTextLanguage(
+        "Nous recherchons un designer produit senior pour diriger notre equipe et livrer des experiences de qualite mondiale sur le web et mobile.",
+      ),
+    ).toBe('fr');
+  });
+
+  it('returns "fr" for short/empty text', () => {
+    expect(detectTextLanguage('')).toBe('fr');
+    expect(detectTextLanguage('short')).toBe('fr');
+  });
+});
+
+describe('detectJobDescriptionLanguage', () => {
+  it('detects English job offers', () => {
+    expect(
+      detectJobDescriptionLanguage(
+        'Senior Frontend Engineer — remote position. You will build complex web applications using React, TypeScript, and modern tooling.',
+      ),
+    ).toBe('en');
+  });
+
+  it('detects French job offers', () => {
+    expect(
+      detectJobDescriptionLanguage(
+        'Ingenieur Frontend Senior — poste en remote. Vous developperez des applications web complexes avec React, TypeScript et des outils modernes.',
+      ),
+    ).toBe('fr');
   });
 });

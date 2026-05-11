@@ -61,4 +61,44 @@ describe("buildCoverLetterPrompt", () => {
     expect(prompt).toContain("closing");
     expect(prompt).toContain("Retourne UNIQUEMENT le JSON");
   });
+
+  it("defaults to French prompt when language omitted", () => {
+    const prompt = buildCoverLetterPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "x",
+    });
+    expect(prompt).toContain("en français");
+    expect(prompt).not.toContain("in English");
+  });
+
+  it("produces English prompt when language='en'", () => {
+    const prompt = buildCoverLetterPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "Senior Designer role",
+      language: 'en',
+    });
+    expect(prompt).toContain("in English");
+    expect(prompt).toContain("Return ONLY the JSON");
+    expect(prompt).not.toContain("en français");
+  });
+
+  it("uses English company clause when language='en' + companyName", () => {
+    const prompt = buildCoverLetterPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "x",
+      companyName: "Acme Corp",
+      language: 'en',
+    });
+    expect(prompt).toContain("for Acme Corp");
+    expect(prompt).not.toContain("pour l'entreprise");
+  });
+
+  it("uses English default tone when language='en' and tone omitted", () => {
+    const prompt = buildCoverLetterPrompt({
+      cvData: SAMPLE_CV,
+      jobDescription: "x",
+      language: 'en',
+    });
+    expect(prompt).toContain("professional and engaged");
+  });
 });

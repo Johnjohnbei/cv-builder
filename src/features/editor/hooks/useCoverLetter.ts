@@ -3,6 +3,7 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
+import { detectJobDescriptionLanguage } from '@/src/lib/languageDetection';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
@@ -94,9 +95,10 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
     if (!cvData || localJobDescription.length < 50) return;
     setIsGenerating(true);
     try {
+      const language = detectJobDescriptionLanguage(localJobDescription);
       const result = await generateAction({
         cvData, jobDescription: localJobDescription,
-        companyName: companyName || undefined, tone, accessCode,
+        companyName: companyName || undefined, tone, language, accessCode,
       });
       setLetter(result);
     } catch (e) {
