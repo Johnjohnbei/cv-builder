@@ -22,6 +22,8 @@ export interface UseCoverLetterResult {
   isOpen: boolean; open: () => void; close: () => void;
   isTailored: boolean;
   companyName: string; setCompanyName: (v: string) => void;
+  companyStage: string; setCompanyStage: (v: string) => void;
+  companyBusinessModel: string; setCompanyBusinessModel: (v: string) => void;
   tone: string; setTone: (v: string) => void;
   localJobDescription: string; setLocalJobDescription: (v: string) => void;
   letter: CoverLetterData | null; setLetter: (l: CoverLetterData) => void;
@@ -71,6 +73,8 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
 
   const [isOpen, setIsOpen] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  const [companyStage, setCompanyStage] = useState('');
+  const [companyBusinessModel, setCompanyBusinessModel] = useState('');
   const [tone, setTone] = useState(DEFAULT_TONE);
   const [localJobDescription, setLocalJobDescription] = useState('');
   const [letter, setLetter] = useState<CoverLetterData | null>(null);
@@ -85,7 +89,11 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
     if (!shouldTriggerExtraction(companyName, jd)) return;
     setIsExtractingCompany(true);
     extractAction({ jobDescription: jd, accessCode })
-      .then(r => { if (r?.companyName) setCompanyName(curr => (curr.trim().length === 0 ? r.companyName! : curr)); })
+      .then(r => {
+        if (r?.companyName) setCompanyName(curr => (curr.trim().length === 0 ? r.companyName! : curr));
+        if (r?.stage) setCompanyStage(curr => (curr.trim().length === 0 ? r.stage! : curr));
+        if (r?.businessModel) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? r.businessModel! : curr));
+      })
       .catch(e => { console.warn('[useCoverLetter] extract failed:', e); })
       .finally(() => setIsExtractingCompany(false));
   }, [jobDescription, localJobDescription, companyName, accessCode, extractAction]);
@@ -98,14 +106,17 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
       const language = detectJobDescriptionLanguage(localJobDescription);
       const result = await generateAction({
         cvData, jobDescription: localJobDescription,
-        companyName: companyName || undefined, tone, language, accessCode,
+        companyName: companyName || undefined,
+        companyStage: companyStage || undefined,
+        companyBusinessModel: companyBusinessModel || undefined,
+        tone, language, accessCode,
       });
       setLetter(result);
     } catch (e) {
       console.error('Error generating cover letter:', e);
       notify({ message: 'Erreur lors de la génération. Réessayez.', type: 'error' });
     } finally { setIsGenerating(false); }
-  }, [cvData, localJobDescription, companyName, tone, accessCode, generateAction, notify]);
+  }, [cvData, localJobDescription, companyName, companyStage, companyBusinessModel, tone, accessCode, generateAction, notify]);
 
   const save = useCallback(async () => {
     if (!canSave(user, letter) || !letter) return;
@@ -145,7 +156,11 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, [letter, cvData, companyName]);
 
   return {
-    isOpen, open, close, isTailored, companyName, setCompanyName, tone, setTone,
+    isOpen, open, close, isTailored,
+    companyName, setCompanyName,
+    companyStage, setCompanyStage,
+    companyBusinessModel, setCompanyBusinessModel,
+    tone, setTone,
     localJobDescription, setLocalJobDescription, letter, setLetter,
     isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
   };

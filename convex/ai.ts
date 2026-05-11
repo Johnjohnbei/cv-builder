@@ -226,6 +226,8 @@ export const generateCoverLetter = action({
     cvData: v.any(),
     jobDescription: v.string(),
     companyName: v.optional(v.string()),
+    companyStage: v.optional(v.string()),
+    companyBusinessModel: v.optional(v.string()),
     tone: v.optional(v.string()),
     language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
@@ -236,6 +238,8 @@ export const generateCoverLetter = action({
       cvData: args.cvData,
       jobDescription: args.jobDescription,
       companyName: args.companyName,
+      companyStage: args.companyStage,
+      companyBusinessModel: args.companyBusinessModel,
       tone: args.tone,
       language: args.language,
     });
@@ -261,7 +265,7 @@ export const extractCompanyMeta = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    const FALLBACK = { companyName: null, domainGuess: null, industry: null };
+    const FALLBACK = { companyName: null, domainGuess: null, industry: null, stage: null, businessModel: null };
     if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
     try {
       const prompt = buildCompanyExtractionPrompt({ jobDescription: args.jobDescription });

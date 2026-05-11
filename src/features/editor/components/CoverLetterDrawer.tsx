@@ -6,6 +6,7 @@ import { Input } from '@/src/shared/ui/Input';
 import { Textarea } from '@/src/shared/ui/Textarea';
 import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
 import { canSave, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/convex/_ai/schemas';
 
 interface Props {
   controller: UseCoverLetterResult;
@@ -19,6 +20,9 @@ const TONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'dynamique et startup', label: 'Startup' },
   { value: 'créatif et original', label: 'Créatif' },
 ];
+
+const SUBTLE_SELECT_CLASSES =
+  "w-full text-[11px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300 focus:bg-white focus:text-gray-700 transition-colors cursor-pointer";
 
 export function CoverLetterDrawer({ controller, user, cvName }: Props) {
   const { isOpen, close, letter, setLetter } = controller;
@@ -89,6 +93,37 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
                     onChange={(e) => controller.setCompanyName(e.target.value)}
                     placeholder={controller.isExtractingCompany ? 'Détection automatique...' : 'Ex: Google, Airbus...'}
                   />
+
+                  <div className="grid grid-cols-2 gap-2 -mt-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Stade</span>
+                      <select
+                        value={controller.companyStage}
+                        onChange={(e) => controller.setCompanyStage(e.target.value)}
+                        className={SUBTLE_SELECT_CLASSES}
+                        aria-label="Stade de l'entreprise"
+                      >
+                        <option value="">— Non précisé</option>
+                        {COMPANY_STAGE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Modèle</span>
+                      <select
+                        value={controller.companyBusinessModel}
+                        onChange={(e) => controller.setCompanyBusinessModel(e.target.value)}
+                        className={SUBTLE_SELECT_CLASSES}
+                        aria-label="Modèle économique"
+                      >
+                        <option value="">— Non précisé</option>
+                        {COMPANY_BUSINESS_MODEL_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
 
                   <Textarea
                     label="Offre d'emploi"

@@ -2,18 +2,37 @@ export interface CoverLetterContext {
   cvData: unknown;
   jobDescription: string;
   companyName?: string;
+  companyStage?: string;
+  companyBusinessModel?: string;
   tone?: string;
   /** Output language. Defaults to 'fr' to preserve legacy behaviour when caller omits it. */
   language?: 'fr' | 'en';
 }
 
+function buildCompanyContextFr(ctx: CoverLetterContext): string {
+  const parts: string[] = [];
+  if (ctx.companyStage) parts.push(`stade : ${ctx.companyStage}`);
+  if (ctx.companyBusinessModel) parts.push(`modèle économique : ${ctx.companyBusinessModel}`);
+  if (parts.length === 0) return "";
+  return `\nContexte entreprise (à utiliser pour adapter le ton et les références — sans le citer littéralement) : ${parts.join(", ")}.\n`;
+}
+
+function buildCompanyContextEn(ctx: CoverLetterContext): string {
+  const parts: string[] = [];
+  if (ctx.companyStage) parts.push(`stage: ${ctx.companyStage}`);
+  if (ctx.companyBusinessModel) parts.push(`business model: ${ctx.companyBusinessModel}`);
+  if (parts.length === 0) return "";
+  return `\nCompany context (use to calibrate tone and references — do not quote verbatim): ${parts.join(", ")}.\n`;
+}
+
 function buildFrenchPrompt(ctx: CoverLetterContext): string {
   const tone = ctx.tone || "professionnel et engagé";
   const company = ctx.companyName ? `pour l'entreprise ${ctx.companyName}` : "";
+  const companyContext = buildCompanyContextFr(ctx);
 
   return `
 Tu es un senior designer qui écrit sa propre lettre de motivation ${company}, à la première personne, en français, ton ${tone}.
-
+${companyContext}
 CV du candidat :
 ${JSON.stringify(ctx.cvData)}
 
@@ -43,10 +62,11 @@ Retourne UNIQUEMENT le JSON.
 function buildEnglishPrompt(ctx: CoverLetterContext): string {
   const tone = ctx.tone || "professional and engaged";
   const company = ctx.companyName ? `for ${ctx.companyName}` : "";
+  const companyContext = buildCompanyContextEn(ctx);
 
   return `
 You are a senior designer writing your own cover letter ${company}, in first person, in English, ${tone} tone.
-
+${companyContext}
 Candidate's CV:
 ${JSON.stringify(ctx.cvData)}
 

@@ -93,8 +93,32 @@ export const CompanyMetaSchema = z.object({
   companyName: z.string().nullable(),
   domainGuess: z.string().nullable(),
   industry: z.string().nullable(),
+  stage: z.string().nullable().optional(),
+  businessModel: z.string().nullable().optional(),
 }).passthrough();
 export type CompanyMetaParsed = z.infer<typeof CompanyMetaSchema>;
+
+/** Curated suggestions surfaced in the UI dropdowns. The LLM is asked to pick one when confident. */
+export const COMPANY_STAGE_OPTIONS = [
+  'Startup',
+  'Scaleup',
+  'PME',
+  'Grande entreprise',
+  'Multinationale',
+  'Cabinet',
+  'Secteur public',
+  'Association',
+] as const;
+
+export const COMPANY_BUSINESS_MODEL_OPTIONS = [
+  'B2C',
+  'B2B',
+  'B2B2C',
+  'B2G',
+  'D2C',
+  'Marketplace',
+  'SaaS',
+] as const;
 
 export const BulletSuggestionsSchema = z.object({
   suggestions: z.array(z.string()).default([]),
