@@ -439,13 +439,6 @@ export default function DashboardPage() {
             <span>Mes CV</span>
           </button>
 
-          <a
-            href="/cover-letter"
-            className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Lettre de motivation</span>
-          </a>
           {isAdmin && (
             <button
               onClick={() => setShowAdminPanel(true)}
@@ -716,7 +709,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center text-[10px] text-gray-500 space-x-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span className="stitch-mono uppercase">Template: {{ TEMPLATE_A: 'Classic', TEMPLATE_B: 'Modern', TEMPLATE_C: 'Minimal', TEMPLATE_D: 'Creative', TEMPLATE_E: 'Elegant', TEMPLATE_F: 'Sidebar' }[cv.design?.template as string] || cv.design?.template || 'Classic'}</span>
+                          <span className="stitch-mono uppercase">Template: {{ TEMPLATE_A: 'Classic', TEMPLATE_B: 'Modern', TEMPLATE_C: 'Minimal', TEMPLATE_E: 'Elegant' }[cv.design?.template as string] || 'Classic'}</span>
                         </div>
                         <button 
                           onClick={async () => {
@@ -767,13 +760,6 @@ export default function DashboardPage() {
           <span>CV</span>
         </button>
 
-        <a
-          href="/cover-letter"
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors min-w-0 text-gray-500"
-        >
-          <FileText className="w-5 h-5" />
-          <span>Lettre</span>
-        </a>
       </nav>
 
       {/* Notifications */}
