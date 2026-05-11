@@ -65,31 +65,34 @@ function buildEnglishPrompt(ctx: CoverLetterContext): string {
   const companyContext = buildCompanyContextEn(ctx);
 
   return `
+CRITICAL: THE OUTPUT MUST BE WRITTEN ENTIRELY IN ENGLISH. The candidate's CV may contain French text — IGNORE that and produce ENGLISH OUTPUT ONLY. Every word of subject, greeting, body, closing must be in English.
+
 You are a senior designer writing your own cover letter ${company}, in first person, in English, ${tone} tone.
 ${companyContext}
-Candidate's CV:
+Candidate's CV (translate any non-English content to English in your output):
 ${JSON.stringify(ctx.cvData)}
 
 Job posting:
 ${ctx.jobDescription}
 
 ABSOLUTE CONSTRAINTS — respect them all:
-1. Plain text only. Zero markdown: no **, no *, no #, no dashes for lists.
-2. Never reuse section titles from the job posting — that's an AI giveaway, not human writing.
-3. 3 to 4 paragraphs of continuous prose, separated by \\n\\n. No bullet points, no lists, no visible structure.
-4. Maximum 350 words. Get to the point.
-5. Anchor on 2 or 3 concrete quantified achievements from the CV — not an exhaustive list.
-6. No conventional openings ("I am writing to apply", "I would like to express my interest", "It is with great interest").
-7. No flowery closing. One sober sentence is enough.
-8. The tone should sound like someone who knows their worth and speaks directly, not like an AI checking boxes.
+1. ENGLISH OUTPUT ONLY. Do not produce a single French word in the output, even if the CV is in French.
+2. Plain text only. Zero markdown: no **, no *, no #, no dashes for lists.
+3. Never reuse section titles from the job posting — that's an AI giveaway, not human writing.
+4. 3 to 4 paragraphs of continuous prose, separated by \\n\\n. No bullet points, no lists, no visible structure.
+5. Maximum 350 words. Get to the point.
+6. Anchor on 2 or 3 concrete quantified achievements from the CV — not an exhaustive list.
+7. No conventional openings ("I am writing to apply", "I would like to express my interest", "It is with great interest").
+8. No flowery closing. One sober sentence is enough.
+9. The tone should sound like someone who knows their worth and speaks directly, not like an AI checking boxes.
 
 Return a JSON object with:
-- subject: short, direct email subject (without "Application for")
-- greeting: sober opening line
-- body: letter body, continuous prose, paragraphs separated by \\n\\n
-- closing: sober closing line, 1 line max
+- subject: short, direct email subject in English (without "Application for")
+- greeting: sober opening line in English
+- body: letter body in English, continuous prose, paragraphs separated by \\n\\n
+- closing: sober closing line in English, 1 line max
 
-Return ONLY the JSON.
+Return ONLY the JSON. EVERY STRING VALUE MUST BE IN ENGLISH.
 `;
 }
 

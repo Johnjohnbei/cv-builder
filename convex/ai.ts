@@ -12,6 +12,7 @@ import {
 } from "./_ai/prompts/rewrite";
 import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
+import { detectTextLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
 import {
   buildJobDescriptionFromURLPrompt,
@@ -234,6 +235,11 @@ export const generateCoverLetter = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
+    // Server-side fallback detection: trust the client's hint when provided,
+    // otherwise detect from the job description ourselves so the prompt always
+    // matches the JD language even if the caller forgot to pass `language`.
+    const language = args.language ?? detectTextLanguage(args.jobDescription);
+    console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'}, server-detected=${detectTextLanguage(args.jobDescription)})`);
     const prompt = buildCoverLetterPrompt({
       cvData: args.cvData,
       jobDescription: args.jobDescription,
@@ -241,7 +247,7 @@ export const generateCoverLetter = action({
       companyStage: args.companyStage,
       companyBusinessModel: args.companyBusinessModel,
       tone: args.tone,
-      language: args.language,
+      language,
     });
     const raw = await chatJSON(prompt, "fast");
     const parsed = CoverLetterSchema.safeParse(raw);
