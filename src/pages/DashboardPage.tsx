@@ -705,7 +705,11 @@ export default function DashboardPage() {
                       <div className="p-4 space-y-3">
                         <div className="flex items-center text-[10px] text-gray-500 space-x-2">
                           <Calendar className="w-3 h-3" />
-                          <span>Sauvegardé le {new Date(cv.createdAt).toLocaleDateString()}</span>
+                          <span>
+                            Sauvegardé le {new Date(cv.createdAt).toLocaleDateString('fr-FR')}
+                            {' à '}
+                            {new Date(cv.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
                         <div className="flex items-center text-[10px] text-gray-500 space-x-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
