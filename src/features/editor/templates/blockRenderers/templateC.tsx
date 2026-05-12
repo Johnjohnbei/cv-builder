@@ -200,7 +200,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
         {languages.map((lang, idx) => (
           <div key={idx} className="text-center">
             <p className="text-xs font-bold text-gray-900 uppercase">{lang.name}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{normalizeProficiency(lang.proficiency)}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{normalizeProficiency(lang.proficiency, language)}</p>
           </div>
         ))}
       </div>

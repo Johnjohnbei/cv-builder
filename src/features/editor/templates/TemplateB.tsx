@@ -5,7 +5,7 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../lib/formatting';
-import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
+import { getSectionTitle, getShortSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 
 export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
@@ -41,7 +41,7 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
 
           {includedSections.includes('summary') && cvData.personal_info?.summary && (
             <section data-cv-section="summary" className="mb-12">
-              <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Profil</h2>
+              <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getShortSectionTitle('summary', language)}</h2>
               <p className="text-[11px] leading-relaxed opacity-90">{cvData.personal_info?.summary}</p>
             </section>
           )}
@@ -49,19 +49,19 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
           <div className="space-y-6">
             {includedSections.includes('personal') && (
               <section data-cv-section="contact">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Contact</h2>
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getShortSectionTitle('contact', language)}</h2>
                 {renderContactInfo(cvData, atsMode, "flex-col space-y-3 text-[11px] opacity-90")}
               </section>
             )}
 
             {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
               <section data-cv-section="languages">
-                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>Langues</h2>
+                <h2 className={cn("opacity-60 mb-4", sectionTitleClasses)} style={{ fontSize: '10px' }}>{getShortSectionTitle('languages', language)}</h2>
                 <div className="space-y-2">
                   {cvData.languages?.map((lang, idx) => (
                     <div key={idx} className="flex justify-between items-center text-[11px]">
                       <span className="opacity-90">{lang.name}</span>
-                      <span className="opacity-60 text-[9px] uppercase tracking-wider">{normalizeProficiency(lang.proficiency)}</span>
+                      <span className="opacity-60 text-[9px] uppercase tracking-wider">{normalizeProficiency(lang.proficiency, language)}</span>
                     </div>
                   ))}
                 </div>
@@ -100,7 +100,7 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
           <section data-cv-section="experience">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
               {!atsMode && <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />}
-              Expérience
+              {getShortSectionTitle('experience', language)}
             </h2>
             <div className="space-y-8">
               {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
@@ -131,7 +131,7 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
           <section data-cv-section="education">
             <h2 className={cn("text-gray-900 flex items-center gap-3 mb-8", sectionTitleClasses)} style={{ fontSize: '1.125rem' }}>
               {!atsMode && <span className="w-8 h-1 rounded-full" style={{ backgroundColor: secondaryColor }} />}
-              Formation
+              {getShortSectionTitle('education', language)}
             </h2>
             <div className="space-y-6">
               {cvData.education?.map((edu, idx) => (

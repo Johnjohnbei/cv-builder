@@ -5,7 +5,7 @@ import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../lib/formatting';
-import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
+import { getSectionTitle, getShortSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 
 export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
@@ -40,7 +40,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
         {includedSections.includes('summary') && cvData.personal_info?.summary && (
           <section data-cv-section="summary">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Profil</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getShortSectionTitle('summary', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">{cvData.personal_info?.summary}</p>
@@ -50,7 +50,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
         {includedSections.includes('experience') && (
           <section data-cv-section="experience">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Expérience</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getShortSectionTitle('experience', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
             </div>
             <div className="space-y-8">
@@ -107,7 +107,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
           {includedSections.includes('education') && (
             <section data-cv-section="education">
               <div className="flex items-center gap-4 mb-6">
-                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Formation</h2>
+                <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getShortSectionTitle('education', language)}</h2>
                 <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
               </div>
               <div className="space-y-4">
@@ -125,14 +125,14 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
         {includedSections.includes('languages') && (cvData.languages?.length || 0) > 0 && (
           <section data-cv-section="languages">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>Langues</h2>
+              <h2 className={cn(sectionTitleClasses)} style={{ color: primaryColor, fontSize: '0.75rem' }}>{getShortSectionTitle('languages', language)}</h2>
               <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
             </div>
             <div className="flex flex-wrap gap-x-12 gap-y-4">
               {cvData.languages?.map((lang, idx) => (
                 <div key={idx} className="flex flex-col">
                   <span className="text-sm font-bold text-gray-900">{lang.name}</span>
-                  <span className="text-[10px] font-bold uppercase opacity-40">{normalizeProficiency(lang.proficiency)}</span>
+                  <span className="text-[10px] font-bold uppercase opacity-40">{normalizeProficiency(lang.proficiency, language)}</span>
                 </div>
               ))}
             </div>

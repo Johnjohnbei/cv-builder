@@ -88,20 +88,30 @@ export function formatDateShort(date?: string, language: DateLanguage = 'fr'): s
 
 // --- Language proficiency normalization ---
 
-const PROFICIENCY_MAP: Record<string, string> = {
-  'native or bilingual': 'Natif / Bilingue',
-  'native or bilingual proficiency': 'Natif / Bilingue',
-  'full professional': 'Courant (C1)',
-  'full professional proficiency': 'Courant (C1)',
-  'professional working': 'Professionnel (B2)',
-  'professional working proficiency': 'Professionnel (B2)',
-  'limited working': 'Intermédiaire (B1)',
-  'limited working proficiency': 'Intermédiaire (B1)',
-  'elementary': 'Débutant (A2)',
-  'elementary proficiency': 'Débutant (A2)',
+const PROFICIENCY_MAP: Record<string, { fr: string; en: string }> = {
+  'native or bilingual':            { fr: 'Natif / Bilingue',     en: 'Native / Bilingual' },
+  'native or bilingual proficiency':{ fr: 'Natif / Bilingue',     en: 'Native / Bilingual' },
+  'native':                         { fr: 'Natif',                 en: 'Native' },
+  'bilingue':                       { fr: 'Bilingue',              en: 'Bilingual' },
+  'natif':                          { fr: 'Natif',                 en: 'Native' },
+  'full professional':              { fr: 'Courant (C1)',          en: 'Fluent (C1)' },
+  'full professional proficiency':  { fr: 'Courant (C1)',          en: 'Fluent (C1)' },
+  'courant':                        { fr: 'Courant',               en: 'Fluent' },
+  'professional working':           { fr: 'Professionnel (B2)',    en: 'Professional (B2)' },
+  'professional working proficiency':{ fr: 'Professionnel (B2)',   en: 'Professional (B2)' },
+  'professionnel':                  { fr: 'Professionnel',         en: 'Professional' },
+  'limited working':                { fr: 'Intermédiaire (B1)',    en: 'Intermediate (B1)' },
+  'limited working proficiency':    { fr: 'Intermédiaire (B1)',    en: 'Intermediate (B1)' },
+  'intermédiaire':                  { fr: 'Intermédiaire',         en: 'Intermediate' },
+  'intermediaire':                  { fr: 'Intermédiaire',         en: 'Intermediate' },
+  'elementary':                     { fr: 'Débutant (A2)',         en: 'Elementary (A2)' },
+  'elementary proficiency':         { fr: 'Débutant (A2)',         en: 'Elementary (A2)' },
+  'débutant':                       { fr: 'Débutant',              en: 'Elementary' },
+  'debutant':                       { fr: 'Débutant',              en: 'Elementary' },
 };
 
-/** Normalize language proficiency to French labels */
-export function normalizeProficiency(proficiency: string): string {
-  return PROFICIENCY_MAP[proficiency.toLowerCase().trim()] || proficiency;
+/** Normalize language proficiency to localized labels (FR by default). */
+export function normalizeProficiency(proficiency: string, language: DateLanguage = 'fr'): string {
+  const entry = PROFICIENCY_MAP[proficiency.toLowerCase().trim()];
+  return entry ? entry[language] : proficiency;
 }

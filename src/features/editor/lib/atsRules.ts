@@ -39,6 +39,40 @@ export function getSectionTitle(key: SectionKey, language: 'fr' | 'en'): string 
   return SECTION_NAMES[language][key];
 }
 
+// --- Short / display-friendly section titles ---
+// SECTION_NAMES targets ATS parsers (uses formal "Experience professionnelle" /
+// "Professional Summary"). For visual templates that want shorter headers
+// ("Profil", "Expérience"), use SHORT_SECTION_NAMES.
+
+export const SHORT_SECTION_NAMES = {
+  fr: {
+    experience: 'Expérience',
+    education: 'Formation',
+    skills: 'Compétences',
+    languages: 'Langues',
+    contact: 'Contact',
+    summary: 'Profil',
+  },
+  en: {
+    experience: 'Experience',
+    education: 'Education',
+    skills: 'Skills',
+    languages: 'Languages',
+    contact: 'Contact',
+    summary: 'Profile',
+  },
+} as const;
+
+/** Returns the short display title for a given section key and language. */
+export function getShortSectionTitle(key: SectionKey, language: 'fr' | 'en'): string {
+  return SHORT_SECTION_NAMES[language][key];
+}
+
+/** Returns the multi-page continuation marker — " (suite)" in FR, " (cont.)" in EN. */
+export function getContinuationMarker(language: 'fr' | 'en'): string {
+  return language === 'en' ? ' (cont.)' : ' (suite)';
+}
+
 // --- Skill Category Names (bilingual) ---
 
 import type { SkillCategoryKey } from './skillDictionary';

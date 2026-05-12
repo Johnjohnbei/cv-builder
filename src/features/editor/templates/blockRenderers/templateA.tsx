@@ -8,7 +8,7 @@ import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../li
 import { useSectionTitleClasses, getIncludedSections, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
-import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
+import { getSectionTitle, getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
 
@@ -68,13 +68,13 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   );
 }
 
-function SummaryBlock({ block, designSettings }: BlockRendererProps) {
+function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   const summary = block.block.data as string;
-  const sectionStyle = getSectionTitleStyle({ block, designSettings, language: 'fr' });
+  const sectionStyle = getSectionTitleStyle({ block, designSettings, language });
 
   return (
     <section data-cv-section="summary">
-      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Profil</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>{getShortSectionTitle('summary', language)}</h2>
       <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(summary)}</p>
     </section>
   );
@@ -175,7 +175,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Formation</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>{getShortSectionTitle('education', language)}</h2>
       <div className="space-y-4">
         {educations.map((edu, idx) => (
           <div key={idx} className="space-y-1" data-cv-block="education">
@@ -194,12 +194,12 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>Langues</h2>
+      <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>{getShortSectionTitle('languages', language)}</h2>
       <div className="space-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center">
             <span className="text-xs font-medium text-gray-700">{lang.name}</span>
-            <span className="text-[10px] text-gray-500 font-mono uppercase tracking-tighter">{normalizeProficiency(lang.proficiency)}</span>
+            <span className="text-[10px] text-gray-500 font-mono uppercase tracking-tighter">{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}
       </div>

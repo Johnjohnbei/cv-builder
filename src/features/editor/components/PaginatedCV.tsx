@@ -4,7 +4,7 @@ import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { CVPage } from './CVPage';
 import { getFontClass } from '../templates/shared';
-import { getSectionTitle } from '../lib/atsRules';
+import { getSectionTitle, getContinuationMarker } from '../lib/atsRules';
 import { getContrastTextColor } from '@/src/shared/lib/colorContrast';
 
 /** Per-template grid layout config for CVPage */
@@ -91,13 +91,13 @@ interface Props {
  * following sibling. Keeping mb-4 would create a double gap when title and
  * block become separate live-measurable siblings.
  */
-function SectionTitle({ title, color, isContinuation }: { title: string; color: string; isContinuation: boolean }) {
+function SectionTitle({ title, color, isContinuation, language }: { title: string; color: string; isContinuation: boolean; language: SupportedLanguage }) {
   return (
     <h2
       className="text-sm font-bold uppercase tracking-wider border-b pb-2"
       style={{ color, borderColor: `${color}20` }}
     >
-      {title}{isContinuation ? ' (suite)' : ''}
+      {title}{isContinuation ? getContinuationMarker(language) : ''}
     </h2>
   );
 }
@@ -176,6 +176,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
                                   title={getSectionTitle('skills', language)}
                                   color={sidebarTitleColor}
                                   isContinuation={false}
+                                  language={language}
                                 />
                               </div>
                             )}
@@ -198,6 +199,7 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
                         title={getSectionTitle('experience', language)}
                         color={designSettings.atsMode ? '#000' : primaryColor}
                         isContinuation={isContinuation}
+                        language={language}
                       />
                     </div>
                   )}

@@ -8,7 +8,7 @@ import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../li
 import { useSectionTitleClasses, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
-import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
+import { getSectionTitle, getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
 
@@ -71,14 +71,14 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   );
 }
 
-function SummaryBlock({ block, designSettings }: BlockRendererProps) {
+function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   const summary = block.block.data as string;
   const { primaryColor } = designSettings;
   const atsMode = designSettings.atsMode;
 
   return (
     <section data-cv-section="summary">
-      {getSectionHeader('Profil', primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('summary', language), primaryColor, atsMode)}
       <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(summary)}</p>
     </section>
   );
@@ -181,7 +181,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      {getSectionHeader('Formation', primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('education', language), primaryColor, atsMode)}
       <div className="space-y-4">
         {educations.map((edu, idx) => (
           <div key={idx} data-cv-block="education">
@@ -201,12 +201,12 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      {getSectionHeader('Langues', primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('languages', language), primaryColor, atsMode)}
       <div className="flex flex-wrap gap-x-12 gap-y-4">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">{lang.name}</span>
-            <span className="text-[10px] font-bold uppercase opacity-60">{normalizeProficiency(lang.proficiency)}</span>
+            <span className="text-[10px] font-bold uppercase opacity-60">{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}
       </div>

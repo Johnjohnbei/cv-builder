@@ -9,7 +9,7 @@ import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../li
 import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
-import { getSkillCategoryTitle } from '../../lib/atsRules';
+import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
 
@@ -66,7 +66,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   );
 }
 
-function SummaryBlock({ block, designSettings }: BlockRendererProps) {
+function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   const summary = block.block.data as string;
   const { secondaryColor } = designSettings;
 
@@ -74,7 +74,7 @@ function SummaryBlock({ block, designSettings }: BlockRendererProps) {
     <section data-cv-section="summary" className="mb-8">
       <div className="flex items-center gap-3 mb-4">
         <span className="w-6 h-0.5 rounded-full" style={{ backgroundColor: secondaryColor }} />
-        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-900">Profil</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-900">{getShortSectionTitle('summary', language)}</h2>
       </div>
       <p className="text-[11px] leading-relaxed text-gray-600">{renderInlineMarkdown(summary)}</p>
     </section>
@@ -170,7 +170,7 @@ function SkillCategoryBlock({ block, designSettings, language, isPage2Plus }: Bl
   );
 }
 
-function EducationBlock({ block, designSettings, isPage2Plus }: BlockRendererProps) {
+function EducationBlock({ block, designSettings, language, isPage2Plus }: BlockRendererProps) {
   const educations = block.block.data as Education[];
   const { primaryColor } = designSettings;
   const onSidebar = !isPage2Plus;
@@ -179,7 +179,7 @@ function EducationBlock({ block, designSettings, isPage2Plus }: BlockRendererPro
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      <h2 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 mb-3 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>Formation</h2>
+      <h2 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 mb-3 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>{getShortSectionTitle('education', language)}</h2>
       <div className="space-y-3">
         {educations.map((edu, idx) => (
           <div key={idx} className="space-y-0.5" data-cv-block="education">
@@ -193,7 +193,7 @@ function EducationBlock({ block, designSettings, isPage2Plus }: BlockRendererPro
   );
 }
 
-function LanguagesBlock({ block, designSettings, isPage2Plus }: BlockRendererProps) {
+function LanguagesBlock({ block, designSettings, language, isPage2Plus }: BlockRendererProps) {
   const languages = block.block.data as Language[];
   const { primaryColor } = designSettings;
   const onSidebar = !isPage2Plus;
@@ -202,12 +202,12 @@ function LanguagesBlock({ block, designSettings, isPage2Plus }: BlockRendererPro
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      <h2 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 mb-3 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>Langues</h2>
+      <h2 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 mb-3 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>{getShortSectionTitle('languages', language)}</h2>
       <div className="space-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex justify-between items-center">
             <span className="text-[11px] font-medium" style={{ color: textColor }}>{lang.name}</span>
-            <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: mutedColor, backgroundColor: onSidebar ? 'rgba(255,255,255,0.1)' : '#f3f4f6' }}>{normalizeProficiency(lang.proficiency)}</span>
+            <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: mutedColor, backgroundColor: onSidebar ? 'rgba(255,255,255,0.1)' : '#f3f4f6' }}>{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}
       </div>
