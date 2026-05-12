@@ -446,6 +446,7 @@ export default function EditorPage() {
       
       // Update state with optimized data
       setCvData(optimizedData);
+      setUserModified(true);
       notify({ message: 'CV optimisé avec succès !', type: 'success' });
 
       // Save automatically — persist to the user's working draft so a refresh

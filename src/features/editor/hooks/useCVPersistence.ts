@@ -28,7 +28,7 @@ export interface UseCVPersistenceResult {
  * the editor is hydrated from a previously-saved cvs record, and they break
  * the createMyCV / updateLastGeneratedCV mutations on the second save.
  */
-export function stripPersistenceArtifacts<T extends Record<string, unknown>>(obj: T): T {
+export function stripPersistenceArtifacts<T extends object>(obj: T): T {
   const {
     _id, _creationTime, userId, createdAt,
     ...clean

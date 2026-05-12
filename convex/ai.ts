@@ -98,7 +98,11 @@ export const tailorCV = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.baseData || {};
+    // Strip _translations: the cache is bound to the current content; once we
+    // rewrite, it's obsolete. Drop it explicitly so the LLM doesn't see it
+    // (saves tokens) and the return doesn't carry stale translations.
+    const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.baseData || {};
+    void _staleCache;
     const prompt = buildAdaptPrompt({
       mode: "tailor",
       cvData: contentOnly,
@@ -251,7 +255,10 @@ export const optimizeCVForPage = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
+    // Same as tailorCV: drop _translations so the LLM doesn't see the stale
+    // cache and we don't return a translation that no longer matches content.
+    const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.cvData || {};
+    void _staleCache;
     const prompt = buildAdaptPrompt({
       mode: "optimize",
       cvData: contentOnly,
@@ -395,8 +402,9 @@ export const translateCV = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
     // Strip the meta-fields the LLM doesn't need to see (design + language hints
-    // are re-attached client-side after the translation returns).
-    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
+    // + the cache itself — the client rebuilds _translations after the call).
+    const { design, detectedLanguage, languageOverride, _translations: _existingCache, ...contentOnly } = args.cvData || {};
+    void _existingCache;
     const prompt = buildTranslatePrompt({
       cvData: contentOnly,
       targetLanguage: args.targetLanguage,

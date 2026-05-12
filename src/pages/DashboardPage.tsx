@@ -8,6 +8,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CVData, DesignSettings } from '../shared/types';
+import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
 
 /**
  * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: we
@@ -720,8 +721,7 @@ export default function DashboardPage() {
                             // Strip Convex system fields + table-level metadata before
                             // promoting an archived CV to the working draft, otherwise
                             // the next save will reject the contaminated document.
-                            const { _id, _creationTime, userId, createdAt, ...cleanCv } = cv as Record<string, unknown> & typeof cv;
-                            void _id; void _creationTime; void userId; void createdAt;
+                            const cleanCv = stripPersistenceArtifacts(cv);
                             if (user) {
                               await storeUser();
                               await updateLastCV({ cvData: cleanCv });
