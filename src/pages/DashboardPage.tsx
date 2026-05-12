@@ -412,7 +412,7 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Sidebar */}
-      <aside className="stitch-sidebar dashboard-sidebar flex-col">
+      <aside className="stitch-sidebar dashboard-sidebar flex-col w-[320px] shrink-0">
         <div className="stitch-header">
           <Logo size="sm" />
         </div>

@@ -53,13 +53,13 @@ body {
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  width: 320px;
-  flex-shrink: 0;
+  /* width is controlled by Tailwind utilities on the <aside> element so the
+     editor's open/closed states can collapse the layout to zero. The dashboard
+     sidebar (default state) gets its 320px width from the JSX class. */
 }
 
 @media (max-width: 768px) {
   .stitch-sidebar {
-    width: 100%;
     height: auto;
     max-height: none;
     border-right: none;
