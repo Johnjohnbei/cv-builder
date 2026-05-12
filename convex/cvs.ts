@@ -24,6 +24,11 @@ export const createMyCV = mutation({
     skills: v.array(v.any()),
     languages: v.array(v.any()),
     design: v.optional(v.any()),
+    // Language metadata + translation cache — preserved across saves so user
+    // can keep FR/EN versions and instant-toggle after reopen.
+    detectedLanguage: v.optional(v.string()),
+    languageOverride: v.optional(v.string()),
+    _translations: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();

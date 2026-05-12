@@ -65,6 +65,11 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
           skills: persisted.skills,
           languages: persisted.languages,
           design: persisted.design,
+          // Persist language state + translation cache so reopening the CV
+          // preserves the user's working language and any cached translations.
+          detectedLanguage: persisted.detectedLanguage,
+          languageOverride: persisted.languageOverride,
+          _translations: persisted._translations,
         });
       } else if (isGuest) {
         localStorage.setItem(GUEST_LAST_OPTIMIZED_KEY, JSON.stringify(persisted));

@@ -73,6 +73,10 @@ export default defineSchema({
     jobDescription: v.optional(v.string()),
     detectedLanguage: v.optional(v.string()),
     languageOverride: v.optional(v.string()),
+    // Per-language snapshot cache so a user can toggle FR↔EN instantly after
+    // a save. Stored as `v.any()` because the inner shape mirrors CVData
+    // content fields which can evolve.
+    _translations: v.optional(v.any()),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 
