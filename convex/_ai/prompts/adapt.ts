@@ -7,6 +7,7 @@ import {
   INTRO_PRESERVATION_EN,
   LANGUAGE_OUTPUT_INSTRUCTION,
 } from "./fragments";
+import { detectTextLanguage } from "../languageDetection";
 
 export interface AdaptContext {
   mode: "tailor" | "optimize";
@@ -17,15 +18,22 @@ export interface AdaptContext {
   languageOverride?: "fr" | "en";
 }
 
+/**
+ * Decide output language for the adapt prompt.
+ *
+ * Priority order — what the user actually expects when they paste a job description:
+ * 1. JD present → output language MUST match the JD language (you're applying to
+ *    that company, your CV needs to match — even if your CV was previously in FR).
+ *    Uses franc-min for robust detection (not 5-keyword heuristic).
+ * 2. No JD → fall back to the CV's own language signal (languageOverride, then
+ *    detectedLanguage, default FR).
+ */
 function detectIsEnglish(ctx: AdaptContext): boolean {
-  const lang = ctx.languageOverride || ctx.detectedLanguage || "fr";
-  if (lang === "en") return true;
-  if (ctx.jobDescription) {
-    return /\b(experience|skills|education|responsibilities|requirements)\b/i.test(
-      ctx.jobDescription.slice(0, 500)
-    );
+  if (ctx.jobDescription && ctx.jobDescription.trim().length >= 20) {
+    return detectTextLanguage(ctx.jobDescription) === "en";
   }
-  return false;
+  const lang = ctx.languageOverride || ctx.detectedLanguage || "fr";
+  return lang === "en";
 }
 
 export function buildAdaptPrompt(ctx: AdaptContext): string {
