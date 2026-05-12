@@ -4,7 +4,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 
@@ -59,7 +59,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
                   {!atsMode && <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
                   <div className="flex justify-between items-baseline gap-4 mb-2">
                     <h3 className="font-bold text-gray-900">{exp.position}</h3>
-                    <span className="text-[10px] font-bold opacity-50 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</span>
+                    <span className="text-[10px] font-bold opacity-50 shrink-0 whitespace-nowrap">{formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}</span>
                   </div>
                   <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>
                     {exp.company}

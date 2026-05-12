@@ -7,7 +7,7 @@ import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
 import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -63,7 +63,7 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   );
 }
 
-function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
+function ExperienceBlock({ block, designSettings, language }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor } = designSettings;
   const { intro, bullets } = getSlicedBullets(exp, block);
@@ -74,7 +74,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
       {!isOverflow ? (
         <>
           <div className="text-[10px] font-mono text-gray-500 pt-1">
-            {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
+            {formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}
           </div>
           <div className="space-y-2">
             <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">

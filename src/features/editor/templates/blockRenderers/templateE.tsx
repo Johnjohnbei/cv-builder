@@ -7,7 +7,7 @@ import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
 import { useSectionTitleClasses, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -99,8 +99,8 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
           <div className="flex justify-between items-start gap-4 mb-2">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
             <div className="text-[10px] font-bold opacity-70 shrink-0 text-right leading-tight">
-              <div>{formatDateShort(exp.start_date)}</div>
-              <div>{exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}</div>
+              <div>{formatDateShort(exp.start_date, language)}</div>
+              <div>{exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}</div>
             </div>
           </div>
           <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>

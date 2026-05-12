@@ -4,7 +4,7 @@ import { cn } from '@/src/shared/lib/cn';
 import type { TemplateProps } from './shared';
 import { useSectionTitleClasses, getFontClass, getIncludedSections, renderPhoto, renderExperienceContent, getAtsFontStyle, renderContactInfo, atsSimplifyClasses, renderSkillsATS, CompanyTags } from './shared';
 import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../lib/formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../lib/atsRules';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 
@@ -47,7 +47,7 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
               {cvData.experience?.filter(e => (e.displayMode || "normal") !== "hidden").map((exp, idx) => (
                 <div key={idx} data-cv-block="experience" className="grid grid-cols-[120px_1fr] gap-8">
                   <div className="text-[10px] font-mono text-gray-400 pt-1">
-                    {formatDateShort(exp.start_date)} — {exp.current ? 'PRESENT' : formatDateShort(exp.end_date)}
+                    {formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}
                   </div>
                   <div className="space-y-2">
                     <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>

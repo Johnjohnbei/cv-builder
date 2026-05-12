@@ -8,7 +8,7 @@ import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/co
 import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
 import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
 import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
-import { formatDateShort, normalizeProficiency } from '../../lib/formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -81,7 +81,7 @@ function SummaryBlock({ block, designSettings }: BlockRendererProps) {
   );
 }
 
-function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
+function ExperienceBlock({ block, designSettings, language }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor, atsMode } = designSettings;
   const { intro, bullets } = getSlicedBullets(exp, block);
@@ -95,7 +95,7 @@ function ExperienceBlock({ block, designSettings }: BlockRendererProps) {
           <div className="flex justify-between items-baseline gap-4 mb-1">
             <h3 className="font-bold text-gray-900 text-sm">{exp.position}</h3>
             <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase shrink-0 whitespace-nowrap" style={{ color: secondaryColor, backgroundColor: `${secondaryColor}10` }}>
-              {formatDateShort(exp.start_date)} — {exp.current ? 'Present' : formatDateShort(exp.end_date)}
+              {formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language) : formatDateShort(exp.end_date, language)}
             </span>
           </div>
           <p className="text-xs font-semibold mb-2" style={{ color: secondaryColor }}>
