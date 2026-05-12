@@ -68,6 +68,7 @@ export default function EditorPage() {
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const storeUser = useMutation(api.users.store);
+  const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
   const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
@@ -268,7 +269,7 @@ export default function EditorPage() {
     // no LLM call, no network round-trip.
     const cached = cvData._translations?.[pendingLanguage];
     if (cached) {
-      setCvData({
+      const updated = {
         ...cvData,
         ...cached,
         _translations: {
@@ -277,8 +278,17 @@ export default function EditorPage() {
         },
         detectedLanguage: pendingLanguage,
         languageOverride: pendingLanguage,
-      });
+      };
+      setCvData(updated);
       setUserModified(true);
+      // Persist the language flip to the user's working draft so a refresh
+      // restores the same view (cache included).
+      if (user) {
+        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+          .catch(e => console.warn('[handleConfirmRegenerate fast-path] persist failed:', e));
+      } else if (isGuest) {
+        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+      }
       notify({
         message: pendingLanguage === 'en'
           ? 'Bascule vers l\'anglais (depuis le cache, instantané)'
@@ -305,7 +315,7 @@ export default function EditorPage() {
         skills: translatedData.skills,
         languages: translatedData.languages,
       };
-      setCvData({
+      const updated = {
         ...translatedData,
         _translations: {
           ...cvData._translations,
@@ -314,8 +324,17 @@ export default function EditorPage() {
         },
         detectedLanguage: pendingLanguage,
         languageOverride: pendingLanguage,
-      });
+      };
+      setCvData(updated);
       setUserModified(true);
+      // Persist the new translation + cache to the working draft so a refresh
+      // doesn't lose the work. Optimistic: don't block UI on the mutation.
+      if (user) {
+        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+          .catch(e => console.warn('[handleConfirmRegenerate slow-path] persist failed:', e));
+      } else if (isGuest) {
+        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+      }
       notify({ message: 'CV traduit ! Tu pourras désormais basculer entre les langues instantanément.', type: 'success' });
       setPendingLanguage(null);
     } catch (error) {
@@ -359,8 +378,16 @@ export default function EditorPage() {
           companyBusinessModel: exp.companyBusinessModel || r.businessModel || undefined,
         };
       });
-      setCvData(prev => prev ? { ...prev, experience: updatedExp } : null);
+      const updated = { ...cvData, experience: updatedExp };
+      setCvData(updated);
       setUserModified(true);
+      // Persist new tags to the working draft so a refresh keeps them.
+      if (user) {
+        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+          .catch(e => console.warn('[handleEnrichExperiences] persist failed:', e));
+      } else if (isGuest) {
+        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+      }
       const filled = result.results.filter(r => r.stage || r.businessModel).length;
       notify({
         message: filled > 0
@@ -391,10 +418,14 @@ export default function EditorPage() {
       // Update state with optimized data
       setCvData(optimizedData);
       notify({ message: 'CV optimisé avec succès !', type: 'success' });
-      
-      // Save automatically
+
+      // Save automatically — persist to the user's working draft so a refresh
+      // restores the optimized CV (was previously only storeUser, which doesn't
+      // write cvData).
       if (user) {
         await storeUser();
+        updateLastCV({ cvData: optimizedData, jobDescription: jobDescription || undefined })
+          .catch(e => console.warn('[handleOptimize] persist failed:', e));
       } else if (isGuest) {
         localStorage.setItem('guest_last_optimized', JSON.stringify(optimizedData));
       }

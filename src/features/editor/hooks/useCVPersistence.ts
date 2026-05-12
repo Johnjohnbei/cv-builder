@@ -48,6 +48,7 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
   const { cvData, designSettings, selectedTemplate, user, isGuest, notify } = deps;
   const storeUser = useMutation(api.users.store);
   const createCV = useMutation(api.cvs.createMyCV);
+  const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
   const [isSaving, setIsSaving] = useState(false);
 
   const saveDraft = useCallback(async () => {
@@ -58,6 +59,11 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
 
       if (user) {
         await storeUser();
+        // Two writes :
+        // 1) Archive snapshot in `cvs` table — visible in dashboard list
+        // 2) Sync the working draft `users.lastGeneratedCV` so a refresh
+        //    of the editor restores the current state (not just the last
+        //    optimize from the dashboard).
         await createCV({
           personal_info: persisted.personal_info,
           experience: persisted.experience,
@@ -65,12 +71,11 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
           skills: persisted.skills,
           languages: persisted.languages,
           design: persisted.design,
-          // Persist language state + translation cache so reopening the CV
-          // preserves the user's working language and any cached translations.
           detectedLanguage: persisted.detectedLanguage,
           languageOverride: persisted.languageOverride,
           _translations: persisted._translations,
         });
+        await updateLastCV({ cvData: persisted });
       } else if (isGuest) {
         localStorage.setItem(GUEST_LAST_OPTIMIZED_KEY, JSON.stringify(persisted));
         const existing = JSON.parse(localStorage.getItem(GUEST_CVS_KEY) || '[]');
@@ -89,7 +94,7 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
     } finally {
       setIsSaving(false);
     }
-  }, [cvData, designSettings, selectedTemplate, user, isGuest, storeUser, createCV, notify]);
+  }, [cvData, designSettings, selectedTemplate, user, isGuest, storeUser, createCV, updateLastCV, notify]);
 
   return { isSaving, saveDraft };
 }
