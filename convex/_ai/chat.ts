@@ -25,16 +25,28 @@ export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Pr
   const providers = getProviders();
   let lastError: any;
 
-  for (const provider of providers) {
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
+    const isLastProvider = i === providers.length - 1;
+
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         return await fn(provider);
       } catch (e: any) {
         lastError = e;
         const status = e?.status || e?.message?.match(/(\d{3}) status/)?.[1];
-        if ((status == 503 || status == 429) && attempt === 0) {
-          console.log(`AI provider ${provider.baseURL} returned ${status}, retrying...`);
-          await new Promise((r) => setTimeout(r, 2000));
+        // Fail-fast on 503 (service unavailable): the next provider is usually
+        // more useful than retrying a hung provider. Only retry on 429 (rate
+        // limit) — a short backoff often suffices and there's no point burning
+        // tokens on the fallback if the current provider just needs a breather.
+        // On the LAST provider we retry once on 503 too (no fallback available).
+        const shouldRetry = attempt === 0 && (
+          status == 429 ||
+          (status == 503 && isLastProvider)
+        );
+        if (shouldRetry) {
+          console.log(`AI provider ${provider.baseURL} returned ${status}, retrying once...`);
+          await new Promise((r) => setTimeout(r, 1500));
           continue;
         }
         console.log(`AI provider ${provider.baseURL} failed (${status}), trying next provider...`);
