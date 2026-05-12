@@ -27,8 +27,14 @@ const sizeText: Record<InputSize, string> = {
 const defaultVariantBase =
   'border border-[var(--border-color)] rounded bg-white focus:outline-none focus:border-[var(--google-blue)] focus:ring-1 focus:ring-[var(--google-blue)] placeholder:text-gray-400';
 
+// Bare variant: looks like plain text but is editable. Hover + focus states
+// surface a subtle background so users discover it's an input. cursor-text
+// always shows the caret cursor on hover.
 const bareVariantBase =
-  'bg-transparent border-0 p-0 focus:outline-none placeholder:text-gray-400';
+  'bg-transparent border border-transparent rounded px-1 -mx-1 cursor-text ' +
+  'hover:bg-gray-50 hover:border-gray-200 ' +
+  'focus:outline-none focus:bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-200 ' +
+  'placeholder:text-gray-400 placeholder:italic transition-colors';
 
 export const Input = forwardRef<HTMLInputElement, Props>(
   (
