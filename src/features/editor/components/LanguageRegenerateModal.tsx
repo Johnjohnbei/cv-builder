@@ -27,11 +27,12 @@ export function LanguageRegenerateModal({
         <p className="text-sm text-gray-600 mb-2 leading-relaxed">
           Votre CV est actuellement rédigé en{' '}
           <span className="font-bold text-gray-900">{LANG_LABEL[fromLang]}</span>.
-          Voulez-vous le régénérer entièrement en{' '}
+          Voulez-vous le traduire en{' '}
           <span className="font-bold text-gray-900">{LANG_LABEL[toLang]}</span> ?
         </p>
         <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-          La régénération réécrit tous les bullets, le résumé et les compétences avec l'IA.
+          La traduction conserve <strong>exactement la même structure</strong> : même nombre de bullets,
+          mêmes KPIs, même ordre des expériences. Seuls les textes sont traduits.
           Vous pouvez aussi ne changer que les libellés (Experience / Expérience…) sans toucher au contenu.
         </p>
         <div className="flex flex-col gap-2">
@@ -43,10 +44,10 @@ export function LanguageRegenerateModal({
             {isRegenerating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Régénération en cours…
+                Traduction en cours…
               </>
             ) : (
-              <>Régénérer tout le contenu en {LANG_LABEL[toLang]}</>
+              <>Traduire le contenu en {LANG_LABEL[toLang]}</>
             )}
           </button>
           <button

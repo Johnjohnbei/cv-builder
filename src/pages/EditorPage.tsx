@@ -71,6 +71,7 @@ export default function EditorPage() {
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
   const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
+  const translateCVAction = useAction(api.ai.translateCV);
   const [isEnrichingExperiences, setIsEnrichingExperiences] = useState(false);
 
   // ─── UI state ───
@@ -253,19 +254,22 @@ export default function EditorPage() {
     if (!cvData || !pendingLanguage) return;
     setIsRegeneratingLang(true);
     try {
-      const optimizedData = await optimizeCVAction({
-        cvData: { ...cvData, languageOverride: pendingLanguage },
-        pageLimit: designSettings.pageLimit || 1,
-        jobDescription: jobDescription || undefined,
+      // Pure 1:1 translation. Keeps same number of bullets, same KPIs, same
+      // order — preserves the layout the user spent time tuning. If they
+      // want a full rewrite tailored for a JD, that's a separate flow
+      // (Optimize button on the main editor).
+      const translatedData = await translateCVAction({
+        cvData,
+        targetLanguage: pendingLanguage,
         accessCode: getCode(),
       });
-      setCvData({ ...optimizedData, languageOverride: pendingLanguage, detectedLanguage: pendingLanguage });
+      setCvData({ ...translatedData, languageOverride: pendingLanguage, detectedLanguage: pendingLanguage });
       setUserModified(true);
-      notify({ message: 'CV régénéré dans la nouvelle langue !', type: 'success' });
+      notify({ message: 'CV traduit ! Structure et contenu identiques, langue mise à jour.', type: 'success' });
       setPendingLanguage(null);
     } catch (error) {
-      console.error('Error regenerating CV in new language:', error);
-      notify({ message: 'Erreur lors de la régénération du CV.', type: 'error' });
+      console.error('Error translating CV:', error);
+      notify({ message: 'Erreur lors de la traduction du CV.', type: 'error' });
     } finally {
       setIsRegeneratingLang(false);
     }

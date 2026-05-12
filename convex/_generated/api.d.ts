@@ -22,6 +22,7 @@ import type * as _ai_prompts_extract from "../_ai/prompts/extract.js";
 import type * as _ai_prompts_fragments from "../_ai/prompts/fragments.js";
 import type * as _ai_prompts_jobDescription from "../_ai/prompts/jobDescription.js";
 import type * as _ai_prompts_rewrite from "../_ai/prompts/rewrite.js";
+import type * as _ai_prompts_translate from "../_ai/prompts/translate.js";
 import type * as _ai_providers from "../_ai/providers.js";
 import type * as _ai_schemas from "../_ai/schemas.js";
 import type * as accessCodes from "../accessCodes.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/prompts/fragments": typeof _ai_prompts_fragments;
   "_ai/prompts/jobDescription": typeof _ai_prompts_jobDescription;
   "_ai/prompts/rewrite": typeof _ai_prompts_rewrite;
+  "_ai/prompts/translate": typeof _ai_prompts_translate;
   "_ai/providers": typeof _ai_providers;
   "_ai/schemas": typeof _ai_schemas;
   accessCodes: typeof accessCodes;

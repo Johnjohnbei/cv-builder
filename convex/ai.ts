@@ -15,6 +15,7 @@ import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
 import { buildExperienceEnrichmentPrompt } from "./_ai/prompts/experienceEnrichment";
+import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
@@ -326,6 +327,38 @@ export const enrichExperienceMeta = action({
       console.warn("[enrichExperienceMeta] LLM call failed:", e);
       return { results: args.experiences.map(() => ({ stage: null, businessModel: null })) };
     }
+  },
+});
+
+/**
+ * Pure 1:1 translation of a CV to a target language. PRESERVES structure
+ * exactly — same number of bullets, same KPIs, same order. Distinct from
+ * optimizeCVForPage which rewrites content. Use this when the user wants
+ * "same CV, different language", not "regenerated for this language".
+ */
+export const translateCV = action({
+  args: {
+    cvData: v.any(),
+    targetLanguage: v.union(v.literal('fr'), v.literal('en')),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await verifyAccessCode(ctx, args.accessCode);
+    // Strip the meta-fields the LLM doesn't need to see (design + language hints
+    // are re-attached client-side after the translation returns).
+    const { design, detectedLanguage, languageOverride, ...contentOnly } = args.cvData || {};
+    const prompt = buildTranslatePrompt({
+      cvData: contentOnly,
+      targetLanguage: args.targetLanguage,
+    });
+    const raw = await chatJSON(prompt);
+    const normalized = normalizeCVData(raw);
+    return {
+      ...normalized,
+      ...(design && { design }),
+      detectedLanguage: args.targetLanguage,
+      languageOverride: args.targetLanguage,
+    };
   },
 });
 
