@@ -33,6 +33,10 @@ export function LanguageRegenerateModal({
         <p className="text-xs text-gray-500 mb-6 leading-relaxed">
           La traduction conserve <strong>exactement la même structure</strong> : même nombre de bullets,
           mêmes KPIs, même ordre des expériences. Seuls les textes sont traduits.
+          <br /><br />
+          <strong>Les deux versions sont conservées</strong> — la prochaine bascule sera instantanée,
+          sans nouvel appel IA.
+          <br />
           Vous pouvez aussi ne changer que les libellés (Experience / Expérience…) sans toucher au contenu.
         </p>
         <div className="flex flex-col gap-2">

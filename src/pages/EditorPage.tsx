@@ -252,20 +252,71 @@ export default function EditorPage() {
 
   const handleConfirmRegenerate = async () => {
     if (!cvData || !pendingLanguage) return;
+    const currentLang = getCVLanguage(cvData);
+
+    // Snapshot of the current view content. Will be cached under the current
+    // language so the user can toggle back later without re-translating.
+    const currentSnapshot = {
+      personal_info: cvData.personal_info,
+      experience: cvData.experience,
+      education: cvData.education,
+      skills: cvData.skills,
+      languages: cvData.languages,
+    };
+
+    // FAST PATH: target language is already in cache → just swap content,
+    // no LLM call, no network round-trip.
+    const cached = cvData._translations?.[pendingLanguage];
+    if (cached) {
+      setCvData({
+        ...cvData,
+        ...cached,
+        _translations: {
+          ...cvData._translations,
+          [currentLang]: currentSnapshot,
+        },
+        detectedLanguage: pendingLanguage,
+        languageOverride: pendingLanguage,
+      });
+      setUserModified(true);
+      notify({
+        message: pendingLanguage === 'en'
+          ? 'Bascule vers l\'anglais (depuis le cache, instantané)'
+          : 'Bascule vers le français (depuis le cache, instantané)',
+        type: 'success',
+      });
+      setPendingLanguage(null);
+      return;
+    }
+
+    // SLOW PATH: first time translating to this language → call LLM, cache
+    // both directions so the next toggle is free.
     setIsRegeneratingLang(true);
     try {
-      // Pure 1:1 translation. Keeps same number of bullets, same KPIs, same
-      // order — preserves the layout the user spent time tuning. If they
-      // want a full rewrite tailored for a JD, that's a separate flow
-      // (Optimize button on the main editor).
       const translatedData = await translateCVAction({
         cvData,
         targetLanguage: pendingLanguage,
         accessCode: getCode(),
       });
-      setCvData({ ...translatedData, languageOverride: pendingLanguage, detectedLanguage: pendingLanguage });
+      const translatedSnapshot = {
+        personal_info: translatedData.personal_info,
+        experience: translatedData.experience,
+        education: translatedData.education,
+        skills: translatedData.skills,
+        languages: translatedData.languages,
+      };
+      setCvData({
+        ...translatedData,
+        _translations: {
+          ...cvData._translations,
+          [currentLang]: currentSnapshot,
+          [pendingLanguage]: translatedSnapshot,
+        },
+        detectedLanguage: pendingLanguage,
+        languageOverride: pendingLanguage,
+      });
       setUserModified(true);
-      notify({ message: 'CV traduit ! Structure et contenu identiques, langue mise à jour.', type: 'success' });
+      notify({ message: 'CV traduit ! Tu pourras désormais basculer entre les langues instantanément.', type: 'success' });
       setPendingLanguage(null);
     } catch (error) {
       console.error('Error translating CV:', error);

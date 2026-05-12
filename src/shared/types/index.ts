@@ -77,6 +77,16 @@ export interface DesignSettings {
   atsMode?: boolean;
 }
 
+/** Subset of CVData that is language-specific. Stored in `_translations` so a
+ *  language switch is a free toggle on subsequent passes (no LLM round-trip). */
+export interface TranslatableContent {
+  personal_info: PersonalInfo;
+  experience: Experience[];
+  education: Education[];
+  skills: SkillCategory[];
+  languages: Language[];
+}
+
 export interface CVData {
   personal_info: PersonalInfo;
   experience: Experience[];
@@ -86,6 +96,10 @@ export interface CVData {
   design?: DesignSettings;
   detectedLanguage?: 'fr' | 'en';
   languageOverride?: 'fr' | 'en';
+  /** Per-language snapshot cache. Populated lazily the first time the user
+   *  switches to that language. Reading: just swap content. Writing: only
+   *  on translate flow. May go stale if user edits content; that's accepted. */
+  _translations?: Partial<Record<'fr' | 'en', TranslatableContent>>;
 }
 
 /** @deprecated Use ATSScoreResult instead. Will be removed in a future version. */
