@@ -100,7 +100,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
           </div>
           <p className="text-xs font-semibold mb-2" style={{ color: secondaryColor }}>
             {exp.company}
-            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} />
+            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} language={language} />
           </p>
           {intro && <p className="text-[11px] text-gray-500 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>

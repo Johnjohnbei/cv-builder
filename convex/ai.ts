@@ -49,6 +49,47 @@ export const extractCVDataFromPDF = action({
   },
 });
 
+/**
+ * Auto-enrich experiences that lack companyStage / companyBusinessModel tags
+ * after a tailor or optimize call. Single batched LLM round-trip on fast model.
+ * Never overwrites user-set values; skips entirely if all experiences are
+ * already enriched.
+ */
+async function autoEnrichExperiences(experiences: any[]): Promise<any[]> {
+  if (!Array.isArray(experiences) || experiences.length === 0) return experiences;
+  const needsEnrichment = experiences.some(e => !e?.companyStage || !e?.companyBusinessModel);
+  if (!needsEnrichment) return experiences;
+  try {
+    const prompt = buildExperienceEnrichmentPrompt({
+      experiences: experiences.map(e => ({
+        company: e?.company ?? '',
+        position: e?.position ?? '',
+        intro: e?.intro,
+        description: e?.description,
+      })),
+    });
+    const raw = await chatJSON(prompt, "fast");
+    const parsed = ExperienceEnrichmentSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.warn("[autoEnrichExperiences] schema parse failed:", parsed.error.message);
+      return experiences;
+    }
+    return experiences.map((e, i) => {
+      const r = parsed.data.results[i];
+      if (!r) return e;
+      return {
+        ...e,
+        // Merge only — never overwrite existing user-set values
+        companyStage: e?.companyStage || r.stage || undefined,
+        companyBusinessModel: e?.companyBusinessModel || r.businessModel || undefined,
+      };
+    });
+  } catch (err) {
+    console.warn("[autoEnrichExperiences] LLM call failed:", err);
+    return experiences;
+  }
+}
+
 export const tailorCV = action({
   args: {
     baseData: v.any(),
@@ -67,8 +108,13 @@ export const tailorCV = action({
     });
     const raw = await chatJSON(prompt);
     const normalized = normalizeCVData(raw);
+    // Auto-fill company stage + business model for each experience that lacks
+    // them. One extra fast LLM call per optimization — cheap UX win so the
+    // user doesn't have to click a second button.
+    const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     return {
       ...normalized,
+      experience: enrichedExperience,
       ...(design && { design }),
       ...(detectedLanguage && { detectedLanguage }),
       ...(languageOverride && { languageOverride }),
@@ -216,8 +262,12 @@ export const optimizeCVForPage = action({
     });
     const raw = await chatJSON(prompt);
     const normalized = normalizeCVData(raw);
+    // Same auto-enrichment as tailorCV — fill missing company tags via one
+    // batched fast LLM call. Skipped automatically when nothing missing.
+    const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     return {
       ...normalized,
+      experience: enrichedExperience,
       ...(design && { design }),
       ...(detectedLanguage && { detectedLanguage }),
       ...(languageOverride && { languageOverride }),

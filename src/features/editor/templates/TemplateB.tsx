@@ -112,7 +112,7 @@ export function TemplateB({ cvData, designSettings, language }: TemplateProps) {
                   </div>
                   <p className="text-sm font-medium text-gray-500 mb-3">
                     {exp.company}
-                    <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+                    <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} language={language} />
                   </p>
                   {renderExperienceContent(
                     exp,

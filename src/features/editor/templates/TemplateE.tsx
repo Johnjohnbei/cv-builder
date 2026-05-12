@@ -63,7 +63,7 @@ export function TemplateE({ cvData, designSettings, language }: TemplateProps) {
                   </div>
                   <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>
                     {exp.company}
-                    <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+                    <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} language={language} />
                   </p>
                   {renderExperienceContent(
                     exp,

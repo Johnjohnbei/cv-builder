@@ -53,7 +53,7 @@ export function TemplateC({ cvData, designSettings, language }: TemplateProps) {
                     <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
                     <p className="text-xs font-medium" style={{ color: secondaryColor }}>
                       {exp.company}
-                      <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+                      <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} language={language} />
                     </p>
                     <div className="pt-2">
                       {renderExperienceContent(

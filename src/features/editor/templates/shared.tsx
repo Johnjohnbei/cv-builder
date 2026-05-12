@@ -4,6 +4,7 @@ import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getSkillCategoryTitle } from '../lib/atsRules';
+import { getLocalizedStage } from '@/convex/_ai/schemas';
 import type { SkillCategoryKey } from '../lib/skillDictionary';
 import { isSkillHidden, getVisibleSkills, shouldShowKPI } from '../lib/displayModes';
 import type { PlacedBlock } from '../lib/pagination/types';
@@ -29,17 +30,23 @@ export function isKPIInRange(exp: Experience, placed: PlacedBlock): boolean {
  * Discreet inline tags rendered next to a company name to indicate its
  * maturity stage (Startup, Scaleup, ...) and business model (B2C, SaaS, ...).
  * Returns null when both are absent — no extra DOM for plain CVs.
+ *
+ * Stage is translated programmatically via getLocalizedStage (FR ↔ EN).
+ * Business models are international shorthand (B2C, SaaS…) — no translation.
  */
 export function CompanyTags({
   stage,
   businessModel,
   atsMode,
+  language = 'fr',
 }: {
   stage?: string;
   businessModel?: string;
   atsMode?: boolean;
+  language?: SupportedLanguage;
 }) {
-  const tags = [stage, businessModel].filter((t): t is string => Boolean(t && t.trim()));
+  const localizedStage = getLocalizedStage(stage, language);
+  const tags = [localizedStage, businessModel].filter((t): t is string => Boolean(t && t.trim()));
   if (tags.length === 0) return null;
   // ATS mode → plain inline text (no decorative chips that PDF parsers might choke on)
   if (atsMode) {

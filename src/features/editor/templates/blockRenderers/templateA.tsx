@@ -100,7 +100,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
           </div>
           <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>
             {exp.company}
-            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} />
+            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} language={language} />
           </p>
           {intro && <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>

@@ -34,7 +34,7 @@ export function TemplateA({ cvData, designSettings, language }: TemplateProps) {
         </div>
         <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>
           {exp.company}
-          <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} />
+          <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={atsMode} language={language} />
         </p>
         {intro && (
           <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>
