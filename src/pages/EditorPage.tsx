@@ -14,6 +14,7 @@ import { api } from "@/convex/_generated/api";
 import { DISPLAY_MODES, SKILL_DISPLAY_MODES } from '../features/editor/lib/displayModes';
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, type RewriteKey } from '../features/editor/hooks';
+import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
@@ -89,6 +90,9 @@ export default function EditorPage() {
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  // Debounce handle for the working-draft auto-save (declared early so the
+  // effect that drives it can find it).
+  const autoSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Custom hooks ───
   const { notification, notify, clearNotification } = useAutoNotification();
@@ -214,6 +218,31 @@ export default function EditorPage() {
 
   // Recompute zoom when tab or data changes
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
+
+  // ─── Auto-save to working draft (debounced) ───
+  // Persists displayMode toggles, text edits, template changes, and any other
+  // mutation of cvData / designSettings / selectedTemplate to
+  // users.lastGeneratedCV after 1.5s of idle. Major actions (translate,
+  // optimize, enrich, save-draft) call updateLastCV synchronously and rely
+  // on this effect to cover the long tail of low-level edits.
+  //
+  // Guarded by `userModified` so the initial hydration doesn't trigger a
+  // write back to itself.
+  useEffect(() => {
+    if (!user || !cvData || !userModified) return;
+    if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
+    autoSaveDebounceRef.current = setTimeout(() => {
+      const merged = stripPersistenceArtifacts({
+        ...cvData,
+        design: { ...designSettings, template: selectedTemplate },
+      });
+      updateLastCV({ cvData: merged, jobDescription: jobDescription || undefined })
+        .catch((e) => console.warn('[auto-save] failed:', e));
+    }, 1500);
+    return () => {
+      if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
+    };
+  }, [cvData, designSettings, selectedTemplate, jobDescription, user, userModified, updateLastCV]);
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
