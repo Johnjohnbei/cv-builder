@@ -23,14 +23,30 @@ export interface UseCVPersistenceResult {
 // ─── Pure helpers (exported for unit tests) ───
 
 /**
+ * Strip Convex system fields (_id, _creationTime) and our table-level fields
+ * (userId, createdAt) from a CV payload before re-saving. These leak in when
+ * the editor is hydrated from a previously-saved cvs record, and they break
+ * the createMyCV / updateLastGeneratedCV mutations on the second save.
+ */
+export function stripPersistenceArtifacts<T extends Record<string, unknown>>(obj: T): T {
+  const {
+    _id, _creationTime, userId, createdAt,
+    ...clean
+  } = obj as T & { _id?: unknown; _creationTime?: unknown; userId?: unknown; createdAt?: unknown };
+  // mark vars as intentionally unused
+  void _id; void _creationTime; void userId; void createdAt;
+  return clean as T;
+}
+
+/**
  * Merge design + selectedTemplate into a persisted CV payload shape.
  * Matches the shape expected by Convex `cvs.createMyCV` and guest localStorage.
  */
 export function buildPersistedCV(cvData: CVData, designSettings: DesignSettings, selectedTemplate: string): CVData {
-  return {
+  return stripPersistenceArtifacts({
     ...cvData,
     design: { ...designSettings, template: selectedTemplate },
-  };
+  });
 }
 
 /** Append a CV to the guest list, capped to keep localStorage small. */

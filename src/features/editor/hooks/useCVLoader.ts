@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { autoAssignModes, extractKeywords } from '../lib/scoring';
+import { stripPersistenceArtifacts } from './useCVPersistence';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -41,10 +42,13 @@ export function useCVLoader(
     if (user && userData) {
       dataLoaded.current = true;
       if (userData.lastGeneratedCV) {
-        setCvData(userData.lastGeneratedCV);
-        if (userData.lastGeneratedCV.design) {
-          setDesignSettings(userData.lastGeneratedCV.design);
-          setSelectedTemplate(userData.lastGeneratedCV.design.template);
+        // Strip Convex / table-level fields that leak in from previously-saved
+        // cvs records — keeping them would break the next save mutation.
+        const clean = stripPersistenceArtifacts(userData.lastGeneratedCV) as CVData;
+        setCvData(clean);
+        if (clean.design) {
+          setDesignSettings(clean.design);
+          setSelectedTemplate(clean.design.template);
         }
       }
       if (userData.lastJobDescription) {
@@ -55,7 +59,7 @@ export function useCVLoader(
       dataLoaded.current = true;
       const stored = localStorage.getItem('guest_last_optimized');
       if (stored) {
-        const data = JSON.parse(stored);
+        const data = stripPersistenceArtifacts(JSON.parse(stored)) as CVData;
         setCvData(data);
         if (data.design) {
           setDesignSettings(data.design);

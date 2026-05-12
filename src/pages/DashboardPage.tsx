@@ -717,12 +717,17 @@ export default function DashboardPage() {
                         </div>
                         <button 
                           onClick={async () => {
+                            // Strip Convex system fields + table-level metadata before
+                            // promoting an archived CV to the working draft, otherwise
+                            // the next save will reject the contaminated document.
+                            const { _id, _creationTime, userId, createdAt, ...cleanCv } = cv as Record<string, unknown> & typeof cv;
+                            void _id; void _creationTime; void userId; void createdAt;
                             if (user) {
                               await storeUser();
-                              await updateLastCV({ cvData: cv });
+                              await updateLastCV({ cvData: cleanCv });
                               navigate('/editor');
                             } else if (isGuest) {
-                              localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
+                              localStorage.setItem('guest_last_optimized', JSON.stringify(cleanCv));
                               navigate('/editor');
                             }
                           }}
