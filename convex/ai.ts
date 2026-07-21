@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { chatJSON, chatText } from "./_ai/chat";
+import { chatJSON, chatJSONSchema, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildAdaptPrompt } from "./_ai/prompts/adapt";
@@ -68,14 +68,9 @@ async function autoEnrichExperiences(experiences: any[]): Promise<any[]> {
         description: e?.description,
       })),
     });
-    const raw = await chatJSON(prompt, "fast");
-    const parsed = ExperienceEnrichmentSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.warn("[autoEnrichExperiences] schema parse failed:", parsed.error.message);
-      return experiences;
-    }
+    const data = await chatJSONSchema(prompt, ExperienceEnrichmentSchema, "fast");
     return experiences.map((e, i) => {
-      const r = parsed.data.results[i];
+      const r = data.results[i];
       if (!r) return e;
       return {
         ...e,
@@ -138,13 +133,7 @@ export const getATSAnalysis = action({
       cvData: args.cvData,
       jobDescription: args.jobDescription,
     });
-    const raw = await chatJSON(prompt, "fast");
-    const parsed = ATSAnalysisSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[getATSAnalysis] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné une analyse invalide. Veuillez réessayer.");
-    }
-    return parsed.data;
+    return await chatJSONSchema(prompt, ATSAnalysisSchema, "fast");
   },
 });
 
@@ -158,6 +147,8 @@ export const extractJobDescriptionFromURL = action({
 
     // Step 1: Try Jina Reader first — renders JS (handles SPAs like WTTJ, LinkedIn),
     // expands accordions, returns clean markdown. Free, no API key needed.
+    // Anonymous tier is heavily rate-limited (429/402 are routine from cloud
+    // IPs) and can hang — hard timeout, then fall through to direct fetch.
     let pageText = "";
     try {
       const jinaResponse = await fetch(`https://r.jina.ai/${args.url}`, {
@@ -165,12 +156,15 @@ export const extractJobDescriptionFromURL = action({
           Accept: "text/plain",
           "X-Return-Format": "text",
         },
+        signal: AbortSignal.timeout(20_000),
       });
       if (jinaResponse.ok) {
         pageText = (await jinaResponse.text()).substring(0, 15000);
+      } else {
+        console.warn(`[extractJobDescriptionFromURL] Jina returned ${jinaResponse.status}, falling back to direct fetch`);
       }
-    } catch (e) {
-      // Jina failed, try direct fetch
+    } catch (e: any) {
+      console.warn(`[extractJobDescriptionFromURL] Jina failed (${e?.name === "TimeoutError" ? "timeout" : e?.message?.slice(0, 100)}), falling back to direct fetch`);
     }
 
     // Step 2: Fallback to direct fetch if Jina failed (faster, works for simple static sites)
@@ -183,6 +177,7 @@ export const extractJobDescriptionFromURL = action({
             Accept: "text/html,application/xhtml+xml",
             "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
           },
+          signal: AbortSignal.timeout(15_000),
         });
         const html = await response.text();
 
@@ -236,13 +231,8 @@ export const extractJobKeywords = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobKeywordsPrompt({ jobDescription: args.jobDescription });
-    const raw = await chatJSON(prompt, "fast");
-    const parsed = KeywordListSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[extractJobKeywords] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
-    }
-    return { keywords: parsed.data.keywords };
+    const data = await chatJSONSchema(prompt, KeywordListSchema, "fast");
+    return { keywords: data.keywords };
   },
 });
 
@@ -308,17 +298,12 @@ export const generateCoverLetter = action({
       tone: args.tone,
       language,
     });
-    const raw = await chatJSON(prompt, "fast");
-    const parsed = CoverLetterSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[generateCoverLetter] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné une lettre invalide. Veuillez réessayer.");
-    }
+    const data = await chatJSONSchema(prompt, CoverLetterSchema, "fast");
     return {
-      subject: parsed.data.subject,
-      greeting: parsed.data.greeting,
-      body: parsed.data.body,
-      closing: parsed.data.closing,
+      subject: data.subject,
+      greeting: data.greeting,
+      body: data.body,
+      closing: data.closing,
     };
   },
 });
@@ -334,13 +319,7 @@ export const extractCompanyMeta = action({
     if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
     try {
       const prompt = buildCompanyExtractionPrompt({ jobDescription: args.jobDescription });
-      const raw = await chatJSON(prompt, "fast");
-      const parsed = CompanyMetaSchema.safeParse(raw);
-      if (!parsed.success) {
-        console.warn("[extractCompanyMeta] schema parse failed:", parsed.error.message);
-        return FALLBACK;
-      }
-      return parsed.data;
+      return await chatJSONSchema(prompt, CompanyMetaSchema, "fast");
     } catch (e) {
       console.warn("[extractCompanyMeta] LLM call failed:", e);
       return FALLBACK;
@@ -368,15 +347,10 @@ export const enrichExperienceMeta = action({
     if (args.experiences.length === 0) return { results: [] };
     try {
       const prompt = buildExperienceEnrichmentPrompt({ experiences: args.experiences });
-      const raw = await chatJSON(prompt, "fast");
-      const parsed = ExperienceEnrichmentSchema.safeParse(raw);
-      if (!parsed.success) {
-        console.warn("[enrichExperienceMeta] schema parse failed:", parsed.error.message);
-        return { results: args.experiences.map(() => ({ stage: null, businessModel: null })) };
-      }
+      const data = await chatJSONSchema(prompt, ExperienceEnrichmentSchema, "fast");
       // Pad with nulls if the LLM returned fewer items than asked
       const results = args.experiences.map((_, i) =>
-        parsed.data.results[i] ?? { stage: null, businessModel: null },
+        data.results[i] ?? { stage: null, businessModel: null },
       );
       return { results };
     } catch (e) {
@@ -437,13 +411,7 @@ export const improveBulletPoint = action({
       jobDescription: args.jobDescription,
       missingKeywords: args.missingKeywords,
     });
-    const raw = await chatJSON(prompt, "fast");
-    const parsed = BulletSuggestionsSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[improveBulletPoint] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
-    }
-    return parsed.data;
+    return await chatJSONSchema(prompt, BulletSuggestionsSchema, "fast");
   },
 });
 
@@ -473,13 +441,7 @@ export const rewriteBulletsForJob = action({
       jobDescription: args.jobDescription,
       missingKeywords: args.missingKeywords,
     });
-    const raw = await chatJSON(prompt);
-    const parsed = BulletRewriteSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[rewriteBulletsForJob] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
-    }
-    return parsed.data;
+    return await chatJSONSchema(prompt, BulletRewriteSchema);
   },
 });
 
@@ -498,12 +460,7 @@ export const autoDistributeMissingKeywords = action({
       jobDescription: args.jobDescription,
       summary: args.cvData?.personal_info?.summary,
     });
-    const raw = await chatJSON(prompt);
-    const parsed = KeywordDistributionSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("[autoDistributeMissingKeywords] schema parse failed:", parsed.error.message);
-      throw new Error("L'IA a retourné un format invalide. Veuillez réessayer.");
-    }
-    return { assignments: parsed.data.assignments };
+    const data = await chatJSONSchema(prompt, KeywordDistributionSchema);
+    return { assignments: data.assignments };
   },
 });
