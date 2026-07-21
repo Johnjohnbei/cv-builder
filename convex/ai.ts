@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { chatJSON, chatJSONSchema, chatText } from "./_ai/chat";
+import { chatJSONSchema, chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildAdaptPrompt } from "./_ai/prompts/adapt";
@@ -44,8 +44,7 @@ export const extractCVDataFromPDF = action({
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildExtractPrompt({ pdfText: args.pdfText });
-    const raw = await chatJSON(prompt);
-    return normalizeCVData(raw);
+    return await chatJSONThen(prompt, normalizeCVData);
   },
 });
 
@@ -105,8 +104,7 @@ export const tailorCV = action({
       detectedLanguage,
       languageOverride,
     });
-    const raw = await chatJSON(prompt);
-    const normalized = normalizeCVData(raw);
+    const normalized = await chatJSONThen(prompt, normalizeCVData);
     const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     // Return the language actually used by the prompt so the UI toggle and
     // section labels match the generated content (JD-first, then user override).
@@ -257,8 +255,7 @@ export const optimizeCVForPage = action({
       detectedLanguage,
       languageOverride,
     });
-    const raw = await chatJSON(prompt);
-    const normalized = normalizeCVData(raw);
+    const normalized = await chatJSONThen(prompt, normalizeCVData);
     const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
@@ -382,8 +379,7 @@ export const translateCV = action({
       cvData: contentOnly,
       targetLanguage: args.targetLanguage,
     });
-    const raw = await chatJSON(prompt);
-    const normalized = normalizeCVData(raw);
+    const normalized = await chatJSONThen(prompt, normalizeCVData);
     return {
       ...normalized,
       ...(design && { design }),

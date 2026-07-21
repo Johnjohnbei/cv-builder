@@ -201,8 +201,23 @@ async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default
 
 // ─── Public API ─────────────────────────────────────────────────────
 
-export async function chatJSON(prompt: string, speed: "default" | "fast" = "default"): Promise<any> {
-  return withRetry((provider) => rawChatJSON(provider, prompt, speed));
+/**
+ * chatJSON + an arbitrary transform (validator/normalizer) run INSIDE the retry
+ * loop. If `transform` throws — e.g. normalizeCVData rejecting a malformed CV
+ * via CVDataSchema — that counts as a provider failure and we fall through to
+ * the next provider instead of surfacing the error on the first bad response.
+ * Use this (not a chat call followed by an out-of-loop normalize) whenever the
+ * shape must be validated, so validation shares the same fallback as the call.
+ */
+export async function chatJSONThen<T>(
+  prompt: string,
+  transform: (raw: any) => T,
+  speed: "default" | "fast" = "default"
+): Promise<T> {
+  return withRetry(async (provider) => {
+    const raw = await rawChatJSON(provider, prompt, speed);
+    return transform(raw);
+  });
 }
 
 /**
