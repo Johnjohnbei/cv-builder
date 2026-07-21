@@ -19,7 +19,7 @@ export default function HomePage() {
                 className="inline-flex items-center space-x-2 px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] rounded-full text-[10px] font-mono font-bold mb-6"
               >
                 <Sparkles className="w-3 h-3" />
-                <span>Propulsé par NVIDIA NIM</span>
+                <span>Propulsé par l'IA</span>
               </motion.div>
 
               <motion.h1
@@ -160,7 +160,7 @@ export default function HomePage() {
       <footer className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="font-mono text-[10px] text-gray-400 uppercase tracking-[0.2em]">
-            Calibre © 2026 — Propulsé par NVIDIA NIM
+            Calibre © 2026 · Propulsé par l'IA
           </p>
         </div>
       </footer>
