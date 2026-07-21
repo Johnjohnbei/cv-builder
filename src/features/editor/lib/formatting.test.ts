@@ -72,10 +72,26 @@ describe('getCurrentLabel', () => {
 // ─── normalizeProficiency ───
 
 describe('normalizeProficiency', () => {
-  it('normalizes English LinkedIn proficiencies', () => {
+  it('normalizes English LinkedIn proficiencies to FR by default', () => {
     expect(normalizeProficiency('Native or Bilingual Proficiency')).toBe('Natif / Bilingue');
     expect(normalizeProficiency('Full Professional Proficiency')).toBe('Courant (C1)');
     expect(normalizeProficiency('Elementary Proficiency')).toBe('Débutant (A2)');
+  });
+
+  it('localizes the SAME raw source value to EN (no mix on an English CV)', () => {
+    // This is the core fix: a raw LinkedIn value localizes both ways. Before,
+    // the backend froze it to French so an English CV showed "Courant (C1)".
+    expect(normalizeProficiency('Full Professional Proficiency', 'en')).toBe('Fluent (C1)');
+    expect(normalizeProficiency('Native or Bilingual Proficiency', 'en')).toBe('Native / Bilingual');
+    expect(normalizeProficiency('Elementary Proficiency', 'en')).toBe('Elementary (A2)');
+  });
+
+  it('migration aliases: already-frozen French values still localize to EN', () => {
+    // Old CVs stored "Courant (C1)" etc. The toggle must still flip them.
+    expect(normalizeProficiency('Courant (C1)', 'en')).toBe('Fluent (C1)');
+    expect(normalizeProficiency('Natif / Bilingue', 'en')).toBe('Native / Bilingual');
+    expect(normalizeProficiency('Professionnel (B2)', 'en')).toBe('Professional (B2)');
+    expect(normalizeProficiency('Courant (C1)', 'fr')).toBe('Courant (C1)');
   });
 
   it('passes through already-French proficiencies', () => {

@@ -269,15 +269,53 @@ export default function EditorPage() {
     setUserModified(true);
   };
 
+  // Instant swap to a language we already have cached (no LLM, no modal).
+  // Snapshots the current view under its own language first, so toggling back
+  // is also instant and preserves in-view edits.
+  const applyCachedLanguage = (target: 'fr' | 'en') => {
+    if (!cvData) return;
+    const cached = cvData._translations?.[target];
+    if (!cached) return;
+    const currentLang = getCVLanguage(cvData);
+    const currentSnapshot = {
+      personal_info: cvData.personal_info,
+      experience: cvData.experience,
+      education: cvData.education,
+      skills: cvData.skills,
+      languages: cvData.languages,
+    };
+    const updated = {
+      ...cvData,
+      ...cached,
+      _translations: { ...cvData._translations, [currentLang]: currentSnapshot },
+      detectedLanguage: target,
+      languageOverride: target,
+    };
+    setCvData(updated);
+    setUserModified(true);
+    if (user) {
+      updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+        .catch(e => console.warn('[applyCachedLanguage] persist failed:', e));
+    } else if (isGuest) {
+      localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+    }
+    notify({
+      message: target === 'en' ? 'Version anglaise (instantané)' : 'Version française (instantané)',
+      type: 'success',
+    });
+  };
+
   const handleLanguageChange = (lang: 'fr' | 'en') => {
     if (!cvData || lang === currentLanguage) return;
-    const contentLang = detectCVLanguage(cvData);
-    if (contentLang !== lang) {
-      // Content is in a different language than the one user picked → ask
-      setPendingLanguage(lang);
+    // Cache hit → instant swap. We NEVER re-detect the content language with
+    // franc to decide the flag is "already right": on mixed content franc lies
+    // and the old code flipped the flag without translating, freezing the mix.
+    if (cvData._translations?.[lang]) {
+      applyCachedLanguage(lang);
       return;
     }
-    applyLanguageOverride(lang);
+    // No cached version → confirm a real translation (LLM call).
+    setPendingLanguage(lang);
   };
 
   const handleConfirmRegenerate = async () => {
@@ -294,36 +332,10 @@ export default function EditorPage() {
       languages: cvData.languages,
     };
 
-    // FAST PATH: target language is already in cache → just swap content,
-    // no LLM call, no network round-trip.
-    const cached = cvData._translations?.[pendingLanguage];
-    if (cached) {
-      const updated = {
-        ...cvData,
-        ...cached,
-        _translations: {
-          ...cvData._translations,
-          [currentLang]: currentSnapshot,
-        },
-        detectedLanguage: pendingLanguage,
-        languageOverride: pendingLanguage,
-      };
-      setCvData(updated);
-      setUserModified(true);
-      // Persist the language flip to the user's working draft so a refresh
-      // restores the same view (cache included).
-      if (user) {
-        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
-          .catch(e => console.warn('[handleConfirmRegenerate fast-path] persist failed:', e));
-      } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
-      }
-      notify({
-        message: pendingLanguage === 'en'
-          ? 'Bascule vers l\'anglais (depuis le cache, instantané)'
-          : 'Bascule vers le français (depuis le cache, instantané)',
-        type: 'success',
-      });
+    // Defensive: if a cache appeared meanwhile, swap instantly instead of
+    // burning an LLM call (handleLanguageChange normally catches this first).
+    if (cvData._translations?.[pendingLanguage]) {
+      applyCachedLanguage(pendingLanguage);
       setPendingLanguage(null);
       return;
     }

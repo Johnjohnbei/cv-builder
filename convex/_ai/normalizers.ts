@@ -7,24 +7,17 @@ import type {
   ExperienceDisplayMode,
 } from "../../src/shared/types";
 
-// ─── Proficiency mapping (was ai.ts:302-313) ─────────────────────
-export const PROFICIENCY_MAP: Record<string, string> = {
-  "native or bilingual": "Natif / Bilingue",
-  "native or bilingual proficiency": "Natif / Bilingue",
-  "full professional": "Courant (C1)",
-  "full professional proficiency": "Courant (C1)",
-  "professional working": "Professionnel (B2)",
-  "professional working proficiency": "Professionnel (B2)",
-  "limited working": "Intermédiaire (B1)",
-  "limited working proficiency": "Intermédiaire (B1)",
-  elementary: "Débutant (A2)",
-  "elementary proficiency": "Débutant (A2)",
-};
-
+// ─── Proficiency: store RAW, localize at render ──────────────────
+// The backend must NOT freeze proficiency to a localized string. It used to
+// map to French ("Courant (C1)"), which then rendered French even on an
+// English CV, AND survived translateCV (re-frozen after translation). The
+// bilingual owner is the render-side normalizeProficiency in
+// src/features/editor/lib/formatting.ts — it localizes FR↔EN from the raw
+// source value (LinkedIn "Full professional", "Native or bilingual", …). So
+// here we only trim: keep the raw value, let the render localize it.
 export function normalizeProficiency(raw: string | undefined): string {
   if (!raw || typeof raw !== "string") return "";
-  const key = raw.toLowerCase().trim();
-  return PROFICIENCY_MAP[key] ?? raw;
+  return raw.trim();
 }
 
 // ─── Title coercion ──────────────────────────────────────────────

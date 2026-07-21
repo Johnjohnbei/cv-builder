@@ -108,6 +108,16 @@ const PROFICIENCY_MAP: Record<string, { fr: string; en: string }> = {
   'elementary proficiency':         { fr: 'Débutant (A2)',         en: 'Elementary (A2)' },
   'débutant':                       { fr: 'Débutant',              en: 'Elementary' },
   'debutant':                       { fr: 'Débutant',              en: 'Elementary' },
+  // Migration aliases: CVs generated before the backend stopped freezing
+  // proficiency to French carry these localized-with-suffix values. Map them
+  // so the toggle still localizes them correctly instead of showing French in EN.
+  'natif / bilingue':               { fr: 'Natif / Bilingue',      en: 'Native / Bilingual' },
+  'courant (c1)':                   { fr: 'Courant (C1)',          en: 'Fluent (C1)' },
+  'professionnel (b2)':             { fr: 'Professionnel (B2)',    en: 'Professional (B2)' },
+  'intermédiaire (b1)':             { fr: 'Intermédiaire (B1)',    en: 'Intermediate (B1)' },
+  'intermediaire (b1)':             { fr: 'Intermédiaire (B1)',    en: 'Intermediate (B1)' },
+  'débutant (a2)':                  { fr: 'Débutant (A2)',         en: 'Elementary (A2)' },
+  'debutant (a2)':                  { fr: 'Débutant (A2)',         en: 'Elementary (A2)' },
 };
 
 /** Normalize language proficiency to localized labels (FR by default). */

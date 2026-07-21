@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, Experience } from '@/src/shared/types';
+import { getCVLanguage } from '@/src/lib/languageDetection';
 
 // ─── Types ───
 
@@ -123,6 +124,9 @@ export function useBulletOptimization(
   deps: UseBulletOptimizationDeps,
 ): UseBulletOptimizationResult {
   const { cvData, setCvData, jobDescription, missingKeywords, notify, accessCode } = deps;
+  // Output language for AI rewrites: follow the CV's own language so we never
+  // inject French bullets into an English CV (or vice-versa).
+  const language = cvData ? getCVLanguage(cvData) : 'fr';
   const rewriteBulletsAction = useAction(api.ai.rewriteBulletsForJob);
   const improveBulletAction = useAction(api.ai.improveBulletPoint);
 
@@ -143,6 +147,7 @@ export function useBulletOptimization(
         bullets,
         jobDescription,
         missingKeywords,
+        language,
         accessCode,
       });
       const next = new Map<RewriteKey, BulletRewriteEntry>();
@@ -162,7 +167,7 @@ export function useBulletOptimization(
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, jobDescription, missingKeywords, rewriteBulletsAction, accessCode, notify]);
+  }, [cvData, jobDescription, missingKeywords, language, rewriteBulletsAction, accessCode, notify]);
 
   const acceptRewrite = useCallback(
     (key: RewriteKey) => {
@@ -203,6 +208,7 @@ export function useBulletOptimization(
           company: exp.company,
           jobDescription,
           missingKeywords: [keyword],
+          language,
           accessCode,
         });
 
@@ -228,7 +234,7 @@ export function useBulletOptimization(
         setIntegratingKeyword(null);
       }
     },
-    [cvData, jobDescription, improveBulletAction, accessCode, notify],
+    [cvData, jobDescription, language, improveBulletAction, accessCode, notify],
   );
 
   const requestSuggestions = useCallback(
@@ -242,6 +248,7 @@ export function useBulletOptimization(
           company: exp.company,
           jobDescription: jobDescription || undefined,
           missingKeywords,
+          language,
           accessCode,
         });
         setBulletSuggestions({ key, suggestions: result.suggestions ?? [] });
@@ -251,7 +258,7 @@ export function useBulletOptimization(
         setImprovingBulletKey(null);
       }
     },
-    [improveBulletAction, jobDescription, missingKeywords, accessCode],
+    [improveBulletAction, jobDescription, missingKeywords, language, accessCode],
   );
 
   const pickSuggestion = useCallback(

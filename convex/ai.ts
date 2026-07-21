@@ -396,6 +396,7 @@ export const improveBulletPoint = action({
     company: v.string(),
     jobDescription: v.optional(v.string()),
     missingKeywords: v.optional(v.array(v.string())),
+    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -406,6 +407,7 @@ export const improveBulletPoint = action({
       company: args.company,
       jobDescription: args.jobDescription,
       missingKeywords: args.missingKeywords,
+      language: args.language,
     });
     return await chatJSONSchema(prompt, BulletSuggestionsSchema, "fast");
   },
@@ -423,6 +425,7 @@ export const rewriteBulletsForJob = action({
     ),
     jobDescription: v.string(),
     missingKeywords: v.array(v.string()),
+    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -436,6 +439,7 @@ export const rewriteBulletsForJob = action({
       })),
       jobDescription: args.jobDescription,
       missingKeywords: args.missingKeywords,
+      language: args.language,
     });
     return await chatJSONSchema(prompt, BulletRewriteSchema);
   },
@@ -446,6 +450,7 @@ export const autoDistributeMissingKeywords = action({
     cvData: v.any(),
     missingKeywords: v.array(v.string()),
     jobDescription: v.string(),
+    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -455,6 +460,7 @@ export const autoDistributeMissingKeywords = action({
       missingKeywords: args.missingKeywords,
       jobDescription: args.jobDescription,
       summary: args.cvData?.personal_info?.summary,
+      language: args.language,
     });
     const data = await chatJSONSchema(prompt, KeywordDistributionSchema);
     return { assignments: data.assignments };

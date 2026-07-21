@@ -26,6 +26,7 @@ import { extractTextFromPDF } from '../lib/pdfTextExtract';
 import { parseLinkedInPDF } from '../lib/linkedinParser';
 import { useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { detectCVLanguage } from '../lib/languageDetection';
+import { attachBilingualCache } from '../lib/bilingual';
 
 
 
@@ -109,6 +110,7 @@ export default function DashboardPage() {
 
   const extractCVDataFromPDF = useAction(api.ai.extractCVDataFromPDF);
   const tailorCV = useAction(api.ai.tailorCV);
+  const translateCVAction = useAction(api.ai.translateCV);
   const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
   const verifyCode = useQuery(api.accessCodes.verify, accessCode ? { code: accessCode } : "skip");
@@ -243,13 +245,17 @@ export default function DashboardPage() {
     
     try {
       const optimizedData = await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() });
-      
+      // Eager bilingual: produce the other language now so the editor toggle is
+      // instant and never shows a half-translated mix. Degrades gracefully to
+      // the original single language if the translation call fails.
+      const bilingualData = await attachBilingualCache(optimizedData, translateCVAction, getCode());
+
       if (user) {
         await storeUser();
-        await updateLastCV({ cvData: optimizedData, jobDescription });
+        await updateLastCV({ cvData: bilingualData, jobDescription });
         navigate('/editor');
       } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(optimizedData));
+        localStorage.setItem('guest_last_optimized', JSON.stringify(bilingualData));
         localStorage.setItem('guest_last_jd', jobDescription);
         navigate('/editor');
       }

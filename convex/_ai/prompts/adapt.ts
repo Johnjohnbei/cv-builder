@@ -2,10 +2,11 @@ import {
   FABRICATION_GUARD,
   ACTION_VERBS_FR,
   ACTION_VERBS_EN,
-  KPI_RULES_FR,
+  KPI_RULES,
   INTRO_PRESERVATION_FR,
   INTRO_PRESERVATION_EN,
   LANGUAGE_OUTPUT_INSTRUCTION,
+  LANGUAGE_LOCK,
 } from "./fragments";
 import { resolveAdaptLanguage } from "../languageDetection";
 
@@ -23,6 +24,8 @@ export function buildAdaptPrompt(ctx: AdaptContext): string {
   const outputLang = LANGUAGE_OUTPUT_INSTRUCTION(isEn);
   const verbs = isEn ? ACTION_VERBS_EN : ACTION_VERBS_FR;
   const intro = isEn ? INTRO_PRESERVATION_EN : INTRO_PRESERVATION_FR;
+  const kpiRules = KPI_RULES(isEn);
+  const languageLock = LANGUAGE_LOCK(isEn);
   const cvJson = JSON.stringify(ctx.cvData);
 
   if (ctx.mode === "tailor") {
@@ -54,13 +57,15 @@ RULES:
 9. Each experience MUST have a non-empty "kpi" field and a valid "displayMode" ("hidden"|"compact"|"normal"|"extended"). Default to "normal" when unsure.
 10. ${FABRICATION_GUARD}
 
-${KPI_RULES_FR}
+${kpiRules}
 
 CV:
 ${cvJson}
 
 JOB DESCRIPTION:
 ${jd}
+
+${languageLock}
 
 Return ONLY the optimized CV JSON.`;
   }
@@ -102,7 +107,7 @@ Chaque expérience a un champ "displayMode" qui contrôle la place qu'elle prend
 - "normal" : Le poste + entreprise + 2 bullet points d'actions clés (une ligne chacun). Le mode par défaut.
 - "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés. Pour les postes les plus importants.
 
-${KPI_RULES_FR}
+${kpiRules}
 
 ${intro}
 
@@ -133,6 +138,8 @@ ${intro}
 Pour ${pageLimit} page(s) A4, un bon équilibre est :
 - 1 page : max 1 extended + 1-2 normal + le reste compact
 - 2 pages : max 2-3 extended + 2-3 normal + le reste compact
+
+${languageLock}
 
 Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode ET kpi.`;
 }

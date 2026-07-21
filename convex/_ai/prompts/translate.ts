@@ -39,7 +39,7 @@ You MUST translate the following text values to ${targetLang}. If you leave any 
 - For EACH skill category in skills[]:
   • category label (e.g. "Compétences techniques" → "Technical Skills")
   • items are usually tech names (React, Figma) — keep as-is
-- For EACH language in languages[]: language name + proficiency level
+- For EACH language in languages[]: translate the language NAME only (e.g. "Anglais" → "English")
 
 ═══ DO NOT TRANSLATE ═══
 
@@ -49,6 +49,7 @@ You MUST translate the following text values to ${targetLang}. If you leave any 
 - Dates ("Mai 2026", "May 2024", "2021-09") — these are localized at render time, leave the input format
 - IDs, displayMode values, booleans, null values
 - companyStage / companyBusinessModel — these are enum values from a fixed list, leave as-is
+- languages[].proficiency — leave the RAW value untouched (e.g. "Full professional", "Native or bilingual"). It is localized at render time by the app, exactly like dates. Translating it breaks that localization.
 
 ═══ STYLE ═══
 

@@ -1,4 +1,4 @@
-import { FABRICATION_GUARD, ACTION_VERBS_FR, INTRO_PRESERVATION_FR } from "./fragments";
+import { FABRICATION_GUARD, ACTION_VERBS_FR, ACTION_VERBS_EN, INTRO_PRESERVATION_FR, INTRO_PRESERVATION_EN, LANGUAGE_LOCK } from "./fragments";
 
 export interface DistributeContext {
   cvData: {
@@ -13,6 +13,7 @@ export interface DistributeContext {
   missingKeywords: string[];
   jobDescription: string;
   summary?: string;
+  language?: "fr" | "en";
 }
 
 /**
@@ -34,6 +35,9 @@ function summarizeExperiences(experiences: DistributeContext["cvData"]["experien
 }
 
 export function buildKeywordDistributionPrompt(ctx: DistributeContext): string {
+  const isEn = ctx.language === "en";
+  const verbs = isEn ? ACTION_VERBS_EN : ACTION_VERBS_FR;
+  const introRule = isEn ? INTRO_PRESERVATION_EN : INTRO_PRESERVATION_FR;
   const expSummary = summarizeExperiences(ctx.cvData.experience);
   const keywordsList = ctx.missingKeywords.map((k) => `- ${k}`).join("\n");
   const summaryBlock = ctx.summary
@@ -65,10 +69,11 @@ RÈGLES DE DISTRIBUTION :
 4. Réécris le bullet pour intégrer le mot-clé NATURELLEMENT — pas en liste, pas parachuté.
 5. Si un mot-clé n'a AUCUNE expérience crédible pour l'accueillir, retourne expIndex: null (l'utilisateur décidera).
 6. Un même bullet ne doit PAS recevoir 2 mots-clés d'un coup — distribue intelligemment.
-7. Verbe d'action fort en début de bullet (${ACTION_VERBS_FR}).
-8. ${INTRO_PRESERVATION_FR}
+7. Verbe d'action fort en début de bullet (${verbs}).
+8. ${introRule}
 9. ${FABRICATION_GUARD}
 10. Explique ton choix en 1 phrase dans "reason".
+11. Le "rewrittenBullet" DOIT être dans la langue de sortie du CV (voir verrou ci-dessous). Le "reason" peut rester en français (interne, non affiché sur le CV).
 
 FORMAT JSON ATTENDU :
 {
@@ -84,6 +89,8 @@ FORMAT JSON ATTENDU :
     }
   ]
 }
+
+${LANGUAGE_LOCK(isEn)}
 
 Retourne UNIQUEMENT le JSON.`;
 }

@@ -63,6 +63,50 @@ describe("buildAdaptPrompt — tailor mode", () => {
   });
 });
 
+describe("buildAdaptPrompt — language purity (anti-mix)", () => {
+  it("EN mode uses English KPI examples, not French ones", () => {
+    const prompt = buildAdaptPrompt({
+      mode: "tailor",
+      cvData: SAMPLE_CV,
+      jobDescription: "Senior Product Manager, requirements and stakeholders",
+      languageOverride: "en",
+    });
+    expect(prompt).toContain("Led a team of 8 designers");
+    expect(prompt).not.toContain("Équipe de 8 designers encadrée");
+  });
+
+  it("FR mode keeps French KPI examples", () => {
+    const prompt = buildAdaptPrompt({
+      mode: "tailor",
+      cvData: SAMPLE_CV,
+      jobDescription: "Poste de chef de produit à Paris",
+      languageOverride: "fr",
+    });
+    expect(prompt).toContain("Équipe de 8 designers encadrée");
+  });
+
+  it("EN mode includes the anti-mix language lock", () => {
+    const prompt = buildAdaptPrompt({
+      mode: "optimize",
+      cvData: SAMPLE_CV,
+      pageLimit: 2,
+      languageOverride: "en",
+    });
+    expect(prompt).toContain("LANGUAGE LOCK");
+    expect(prompt).toContain("100% ENGLISH");
+  });
+
+  it("FR mode includes the French language lock", () => {
+    const prompt = buildAdaptPrompt({
+      mode: "optimize",
+      cvData: SAMPLE_CV,
+      pageLimit: 2,
+      languageOverride: "fr",
+    });
+    expect(prompt).toContain("VERROU DE LANGUE");
+  });
+});
+
 describe("buildAdaptPrompt — optimize mode", () => {
   it("includes pageLimit in the constraint block", () => {
     const prompt = buildAdaptPrompt({

@@ -5,7 +5,6 @@ import {
   normalizeSkills,
   normalizeProficiency,
   normalizeTitle,
-  PROFICIENCY_MAP,
 } from "../normalizers";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -13,16 +12,18 @@ import cvLegacy from "./fixtures/cv-legacy-no-kpi.json";
 import cvMalformed from "./fixtures/cv-malformed.json";
 
 describe("normalizeProficiency", () => {
-  it("maps LinkedIn full professional to Courant (C1)", () => {
-    expect(normalizeProficiency("Full Professional Proficiency")).toBe("Courant (C1)");
+  // The backend no longer freezes proficiency to a localized string — it keeps
+  // the RAW value so the render-side owner (formatting.ts) can localize FR↔EN.
+  it("keeps the raw LinkedIn value (localization happens at render)", () => {
+    expect(normalizeProficiency("Full Professional Proficiency")).toBe("Full Professional Proficiency");
   });
-  it("maps Native or bilingual to Natif / Bilingue", () => {
-    expect(normalizeProficiency("native or bilingual")).toBe("Natif / Bilingue");
+  it("keeps 'native or bilingual' raw", () => {
+    expect(normalizeProficiency("native or bilingual")).toBe("native or bilingual");
   });
-  it("maps elementary proficiency to Débutant (A2)", () => {
-    expect(normalizeProficiency("Elementary Proficiency")).toBe("Débutant (A2)");
+  it("trims surrounding whitespace", () => {
+    expect(normalizeProficiency("  Elementary  ")).toBe("Elementary");
   });
-  it("passes through unknown proficiencies unchanged", () => {
+  it("passes through arbitrary proficiencies unchanged", () => {
     expect(normalizeProficiency("Natif")).toBe("Natif");
   });
   it("returns empty string for undefined", () => {
@@ -203,8 +204,8 @@ describe("normalizeCVData (top-level)", () => {
     expect(result.experience[0].kpi).toBe("35% growth");
     // Skill item coercion
     expect(result.skills[0].items).toContain("React");
-    // Language proficiency mapped
-    expect(result.languages[0].proficiency).toBe("Courant (C1)");
+    // Language proficiency kept RAW (localized at render, not frozen to French)
+    expect(result.languages[0].proficiency).toBe("full professional proficiency");
   });
 
   it("handles legacy fixture without kpi/displayMode (defaults applied)", () => {
@@ -224,11 +225,5 @@ describe("normalizeCVData (top-level)", () => {
     expect(result.experience).toEqual([]);
     expect(result.skills).toEqual([]);
     expect(result.languages).toEqual([]);
-  });
-});
-
-describe("PROFICIENCY_MAP", () => {
-  it("contains at least 10 entries", () => {
-    expect(Object.keys(PROFICIENCY_MAP).length).toBeGreaterThanOrEqual(10);
   });
 });

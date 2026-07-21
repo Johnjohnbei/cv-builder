@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
+import { getCVLanguage } from '@/src/lib/languageDetection';
 
 // ─── Types ───
 
@@ -88,6 +89,7 @@ export function useKeywordDistribution(
   deps: UseKeywordDistributionDeps,
 ): UseKeywordDistributionResult {
   const { cvData, setCvData, jobDescription, missingKeywords, notify, accessCode } = deps;
+  const language = cvData ? getCVLanguage(cvData) : 'fr';
   const distributeAction = useAction(api.ai.autoDistributeMissingKeywords);
   const [proposals, setProposals] = useState<DistributionProposal[]>([]);
   const [isDistributing, setIsDistributing] = useState(false);
@@ -100,6 +102,7 @@ export function useKeywordDistribution(
         cvData: stripNonContent(cvData),
         missingKeywords,
         jobDescription,
+        language,
         accessCode,
       });
       const mapped: DistributionProposal[] = data.assignments.map((a) => {
@@ -128,7 +131,7 @@ export function useKeywordDistribution(
     } finally {
       setIsDistributing(false);
     }
-  }, [cvData, jobDescription, missingKeywords, distributeAction, notify, accessCode]);
+  }, [cvData, jobDescription, missingKeywords, language, distributeAction, notify, accessCode]);
 
   const acceptOne = useCallback(
     (keyword: string) => {
