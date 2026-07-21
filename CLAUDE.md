@@ -3,14 +3,14 @@
 
 **Calibre — CV Builder avec IA**
 
-Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA NIM / Gemini). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 6 templates professionnels, et de l'optimiser pour des offres d'emploi spécifiques. Le projet entre dans une phase de conformité ATS complète pour maximiser les chances des candidats face aux systèmes de tri automatisés.
+Application web de création et d'optimisation de CV propulsée par l'IA (Gemini primary / Claude fallback). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 6 templates professionnels, et de l'optimiser pour des offres d'emploi spécifiques. Le projet entre dans une phase de conformité ATS complète pour maximiser les chances des candidats face aux systèmes de tri automatisés.
 
 **Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels — un CV non lu par un ATS est un CV perdu.
 
 ### Constraints
 
 - **Tech stack**: React 18 + Vite + Convex + Clerk — stack existante, pas de migration
-- **IA Provider**: NVIDIA NIM — conserver le provider actuel, améliorer les prompts
+- **IA Provider**: Gemini 2.5 Flash (primary, gratuit) → Claude (fallback fiable). Bascule immédiate sur échec du non-dernier provider ; seul le dernier retente (retry-after aware). `maxRetries: 0` sur les 2 SDKs — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif.
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
 - **PDF Export**: window.print() pour l'instant — explorer des alternatives si possible
@@ -44,7 +44,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (NVIDIA
 - `convex/react-clerk` 1.34.1 - Convex + Clerk integration layer
 - `openai` 6.33.0 - OpenAI SDK for API calls (used server-side via actions)
 - `@google/genai` 1.48.0 - Google Generative AI (Gemini) client
-- Multi-provider support: NVIDIA NIM (primary), Gemini (fallback)
+- Multi-provider support: Gemini (primary), Claude/Anthropic (fallback)
 - `pdfjs-dist` 5.6.205 - Client-side PDF text extraction
 - `docx` 9.6.1 - Word document (.docx) generation for exports
 - `file-saver` 2.0.5 - Browser file download API wrapper

@@ -30,3 +30,9 @@ The model (Gemini and Claude) tends to mirror the job description's section titl
 
 ### K006 — ATS analysis removed from dashboard, planned for editor
 The `getATSAnalysis` action still exists in `convex/ai.ts` but has no UI. Plan: run it automatically after optimization completes, display results in a sidebar panel on the editor page.
+
+### K010 — SDK internal retries were the hidden slowness; withRetry owns all retry logic (2026-07-21)
+Both the OpenAI and Anthropic SDKs default to 2 internal retries with exponential backoff. A Gemini 429 burned ~30-60s inside the SDK before our fallback loop even saw the error — this was the main "spinner infini" cause. Fix: `maxRetries: 0` on both clients + per-call timeouts (Gemini 90s, Claude 300s). Policy in `convex/_ai/chat.ts`: non-last provider = zero retry, immediate fall-through; last provider = 1 retry, retry-after aware (capped 20s). Never re-add SDK-level retries.
+
+### K011 — Zod validation lives INSIDE the retry loop via chatJSONSchema
+`chatJSONSchema(prompt, schema, speed)` validates the schema inside `withRetry`: a schema-invalid response counts as a provider failure and falls through to the next provider instead of surfacing "format invalide, réessayez". All 9 schema-validated actions in `convex/ai.ts` use it. Don't reintroduce the old `chatJSON` + `safeParse` + throw pattern at call-sites.

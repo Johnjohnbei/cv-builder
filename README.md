@@ -1,13 +1,13 @@
 # Calibre — CV Builder avec IA
 
-Application web de création et d'optimisation de CV, propulsée par l'IA (NVIDIA NIM / Gemini).
+Application web de création et d'optimisation de CV, propulsée par l'IA (Gemini / Claude).
 
 ## 🚀 Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS v4
 - **Backend** : Convex (serverless, temps réel)
 - **Auth** : Clerk (Google OAuth + mode invité)
-- **IA** : NVIDIA NIM llama-3.1-70b (primary) / Google Gemini (fallback)
+- **IA** : Google Gemini 2.5 Flash (primary, gratuit) / Anthropic Claude (fallback fiable) — bascule immédiate au moindre 429/503
 - **PDF parsing** : pdfjs-dist (client-side, zero API)
 - **PDF export** : Natif navigateur (window.print)
 - **Deploy** : Vercel + Convex Cloud
@@ -67,7 +67,7 @@ src/
     DashboardPage.tsx       ← Import, optimisation, admin
   shared/types/             ← Types TypeScript
 convex/
-  ai.ts                   ← Fonctions IA (NVIDIA NIM / Gemini)
+  ai.ts                   ← Fonctions IA (Gemini / Claude)
   accessCodes.ts          ← Gestion des codes d'accès
   schema.ts               ← Schéma de la base de données
 ```
@@ -122,8 +122,8 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 
 **Convex (via dashboard)** :
 ```
-NVIDIA_API_KEY=...          # Primary AI provider
-GEMINI_API_KEY=...          # Fallback AI provider
+GEMINI_API_KEY=...          # Primary AI provider (gratuit, instable)
+ANTHROPIC_API_KEY=...       # Fallback AI provider (fiable)
 CLERK_JWT_ISSUER_DOMAIN=...
 ```
 
