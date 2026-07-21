@@ -12,7 +12,7 @@ import {
 } from "./_ai/prompts/rewrite";
 import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
-import { detectTextLanguage } from "./_ai/languageDetection";
+import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
 import { buildExperienceEnrichmentPrompt } from "./_ai/prompts/experienceEnrichment";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
@@ -112,15 +112,15 @@ export const tailorCV = action({
     });
     const raw = await chatJSON(prompt);
     const normalized = normalizeCVData(raw);
-    // Auto-fill company stage + business model for each experience that lacks
-    // them. One extra fast LLM call per optimization — cheap UX win so the
-    // user doesn't have to click a second button.
     const enrichedExperience = await autoEnrichExperiences(normalized.experience);
+    // Return the language actually used by the prompt so the UI toggle and
+    // section labels match the generated content (JD-first, then user override).
+    const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
       ...normalized,
       experience: enrichedExperience,
       ...(design && { design }),
-      ...(detectedLanguage && { detectedLanguage }),
+      detectedLanguage: effectiveLanguage,
       ...(languageOverride && { languageOverride }),
     };
   },
@@ -269,14 +269,13 @@ export const optimizeCVForPage = action({
     });
     const raw = await chatJSON(prompt);
     const normalized = normalizeCVData(raw);
-    // Same auto-enrichment as tailorCV — fill missing company tags via one
-    // batched fast LLM call. Skipped automatically when nothing missing.
     const enrichedExperience = await autoEnrichExperiences(normalized.experience);
+    const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
       ...normalized,
       experience: enrichedExperience,
       ...(design && { design }),
-      ...(detectedLanguage && { detectedLanguage }),
+      detectedLanguage: effectiveLanguage,
       ...(languageOverride && { languageOverride }),
     };
   },
