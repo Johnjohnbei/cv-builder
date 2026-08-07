@@ -46,7 +46,7 @@ export const OptimizePanel = memo(function OptimizePanel({
           onChange={(e) => onJobDescriptionChange(e.target.value)}
           placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
           rows={2}
-          className="border-blue-200 rounded-lg text-[11px] focus:border-blue-400 focus:ring-blue-400"
+          className="border-blue-200 rounded-lg focus:border-blue-400 focus:ring-blue-400"
         />
       )}
 

@@ -157,12 +157,12 @@ export const ExperienceSection = memo(function ExperienceSection({
 
               {/* Hidden mode: show only title, collapse everything else */}
               {(exp.displayMode || 'normal') === 'hidden' ? (
-                <p className="text-[11px] text-gray-600 italic line-through">{exp.position} — {exp.company}</p>
+                <p className="text-[11px] text-gray-600 italic line-through">{exp.position} · {exp.company}</p>
               ) : (
               <>
               <Input
                 variant="bare"
-                className="font-bold text-[11px] mb-1"
+                className="font-bold mb-1"
                 value={exp.position}
                 placeholder="Intitulé du poste"
                 onChange={(e) => {
@@ -174,7 +174,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="text-[11px] text-blue-600"
+                className="text-blue-600"
                 value={exp.company}
                 placeholder="Nom de l'entreprise"
                 onChange={(e) => {
@@ -220,7 +220,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <Textarea
                 inputSize="xs"
                 mono={false}
-                className="mt-1 text-[11px] focus:border-blue-600"
+                className="mt-1 focus:border-blue-600"
                 rows={2}
                 value={exp.intro || ''}
                 placeholder="Description courte du rôle (1-2 lignes, optionnel)"
@@ -234,7 +234,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <Input
                   inputSize="xs"
-                  className="text-[11px] focus:border-blue-600"
+                  className="focus:border-blue-600"
                   value={exp.start_date}
                   placeholder="Début"
                   onChange={(e) => {
@@ -245,7 +245,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                 />
                 <Input
                   inputSize="xs"
-                  className="text-[11px] focus:border-blue-600 disabled:opacity-40"
+                  className="focus:border-blue-600 disabled:opacity-40"
                   value={exp.end_date || ''}
                   placeholder="Fin"
                   disabled={exp.current}
@@ -277,7 +277,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                 <Input
                   inputSize="xs"
                   mono={false}
-                  className="flex-1 min-w-0 text-[11px] border-emerald-200 focus:border-emerald-500"
+                  className="flex-1 min-w-0 border-emerald-200 focus:border-emerald-500"
                   value={exp.kpi || ''}
                   placeholder="Ex: +35% de CA, 12 personnes managées..."
                   onChange={(e) => {
@@ -318,7 +318,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                         <Input
                           inputSize="xs"
                           mono={false}
-                          className="flex-1 text-[11px] focus:border-blue-600"
+                          className="flex-1 focus:border-blue-600"
                           value={bullet}
                           onChange={(e) => {
                             const newExp = [...(experience || [])];
@@ -407,7 +407,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                   <Input
                     inputSize="xs"
                     mono={false}
-                    className="text-[11px] border-amber-200 focus:border-amber-500"
+                    className="border-amber-200 focus:border-amber-500"
                     value={exp.description?.[0] || ''}
                     placeholder="Description synthétique du poste..."
                     onChange={(e) => {

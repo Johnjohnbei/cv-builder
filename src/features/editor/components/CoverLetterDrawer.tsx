@@ -177,28 +177,28 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
 
                   <div className="grid grid-cols-2 gap-2 -mt-2">
                     <label className="flex flex-col gap-1">
-                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Stade</span>
+                      <span className="text-[11px] font-mono text-gray-600 uppercase tracking-wider">Stade</span>
                       <select
                         value={controller.companyStage}
                         onChange={(e) => controller.setCompanyStage(e.target.value)}
                         className={SUBTLE_SELECT_CLASSES}
                         aria-label="Stade de l'entreprise"
                       >
-                        <option value="">— Non précisé</option>
+                        <option value="">Non précisé</option>
                         {COMPANY_STAGE_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
                       </select>
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Modèle</span>
+                      <span className="text-[11px] font-mono text-gray-600 uppercase tracking-wider">Modèle</span>
                       <select
                         value={controller.companyBusinessModel}
                         onChange={(e) => controller.setCompanyBusinessModel(e.target.value)}
                         className={SUBTLE_SELECT_CLASSES}
                         aria-label="Modèle économique"
                       >
-                        <option value="">— Non précisé</option>
+                        <option value="">Non précisé</option>
                         {COMPANY_BUSINESS_MODEL_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
@@ -215,7 +215,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   />
                   {controller.jdOutOfSync && (
                     <div className="flex items-center justify-between gap-2 -mt-2">
-                      <span className="text-[10px] text-gray-400 font-mono">
+                      <span className="text-[11px] text-gray-600 font-mono">
                         L'offre de l'éditeur a changé depuis vos modifications.
                       </span>
                       <Button
@@ -230,7 +230,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   )}
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider block">Ton</label>
+                    <label className="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Ton</label>
                     <div className="grid grid-cols-2 gap-2">
                       {TONE_OPTIONS.map((t) => {
                         const active = controller.tone === t.value;
@@ -264,7 +264,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   >
                     Générer la lettre
                   </Button>
-                  <p className="text-[10px] text-gray-500 text-center">Rédigée par l'IA à partir de votre CV et de l'offre (environ 30 secondes).</p>
+                  <p className="text-[11px] text-gray-500 text-center">Rédigée par l'IA à partir de votre CV et de l'offre (environ 30 secondes).</p>
                 </PanelBody>
               </Panel>
 
@@ -274,7 +274,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   {!letter ? (
                     <div className="py-12 text-center">
                       <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                      <p className="text-xs text-gray-400">Générez pour voir l'aperçu</p>
+                      <p className="text-xs text-gray-600">Générez pour voir l'aperçu</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -303,7 +303,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                         rows={2}
                       />
                       {cvName && (
-                        <p className="text-[10px] font-mono text-gray-400 italic">
+                        <p className="text-[11px] font-mono text-gray-600 italic">
                           Signature: {cvName}
                         </p>
                       )}
@@ -367,7 +367,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                     Sauvegarder
                   </Button>
                   {!user && (
-                    <span className="text-[9px] text-gray-400 font-mono">
+                    <span className="text-[11px] text-gray-600 font-mono">
                       Connectez-vous pour sauvegarder
                     </span>
                   )}

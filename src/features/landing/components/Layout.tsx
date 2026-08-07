@@ -59,7 +59,7 @@ export default function Layout({ children }: LayoutProps) {
 
       <footer className="bg-white border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm text-gray-500">© 2026 Calibre — L'IA au service de votre carrière.</p>
+          <p className="text-sm text-gray-500">© 2026 Calibre · L'IA au service de votre carrière.</p>
         </div>
       </footer>
     </div>

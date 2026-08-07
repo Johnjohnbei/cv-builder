@@ -225,7 +225,7 @@ export function useBulletOptimization(
             return next;
           });
           notify({
-            message: `"${keyword}" intégré dans ${exp.position} — vérifiez la suggestion`,
+            message: `"${keyword}" intégré dans ${exp.position} : vérifiez la suggestion`,
             type: 'success',
           });
         }

@@ -1,24 +1,22 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Download, Loader2, X } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
-import { cn } from '../shared/lib/cn';
+import { Loader2 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { maskPersonalInfo } from '../shared/lib/anonymize';
 import { getUserErrorMessage } from '../shared/lib/convexError';
-import { Logo } from '../shared/ui/Logo';
-import { Button } from '../shared/ui/Button';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, EditorHeader, ATSPanel, DistributionProposalsPanel, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
+import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { EditorPreview } from '../features/editor/components/EditorPreview';
-import { OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection, SkillsSection, EducationSection, LanguagesSection, DesignTab } from '../features/editor/components/sections';
+import { EditorSidebar } from '../features/editor/components/EditorSidebar';
 import { detectCVLanguage } from '../lib/languageDetection';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
+import { readCachedKeywords, writeCachedKeywords } from '../features/editor/lib/aiKeywordCache';
 
 export default function EditorPage() {
   useDocumentTitle('Éditeur');
@@ -28,17 +26,12 @@ export default function EditorPage() {
   const { id: cvId } = useParams<{ id: string }>();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
-  const storeUser = useMutation(api.users.store);
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
-  const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
-  const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
-  const [isEnrichingExperiences, setIsEnrichingExperiences] = useState(false);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
@@ -171,21 +164,19 @@ export default function EditorPage() {
     accessCode: getCode(),
   });
   const currentLanguage = language.currentLanguage;
+  const ai = useEditorAI({
+    cvData, setCvData, setUserModified, designSettings,
+    jobDescription, user, isGuest, notify, accessCode: getCode(),
+  });
   const { isAutoSaving, lastAutoSaveAt } = useAutoSaveDraft({
     cvData, designSettings, selectedTemplate, jobDescription,
     user, isGuest, userModified, updateLastCV,
   });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
-  const aiBusy = isOptimizing || language.isRegenerating || isEnrichingExperiences
+  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching
     || bullets.isOptimizing || keywordDistribution.isDistributing || coverLetter.isGenerating;
-  const optimizeSeconds = useSecondsCounter(isOptimizing);
-  // Same size-based estimate as the dashboard optimize flow
-  const optimizeEstimate = useMemo(() => {
-    if (!cvData) return 30;
-    const size = JSON.stringify(cvData).length;
-    return size < 3000 ? 30 : size < 6000 ? 60 : size < 10000 ? 120 : size < 15000 ? 180 : 240;
-  }, [cvData]);
+  const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
 
   // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
   const prevJDRef = useRef(jobDescription);
@@ -194,17 +185,27 @@ export default function EditorPage() {
     const isNowFilled = jobDescription.trim().length > 0;
     if (wasEmpty && isNowFilled) {
       setActiveTab('ats');
-      // Extract real keywords via AI. Cancelled if the JD changes again or the
-      // page unmounts, so a stale response can't overwrite a fresher one.
+      prevJDRef.current = jobDescription;
+
+      // Same job description as last time: reuse the cached keywords instead
+      // of spending another LLM call on an input that has not changed.
+      const cached = readCachedKeywords(jobDescription);
+      if (cached) {
+        setAiKeywords(cached);
+        return;
+      }
+
+      // Cancelled if the JD changes again or the page unmounts, so a stale
+      // response can't overwrite a fresher one.
       let cancelled = false;
       extractKeywordsAction({ jobDescription, accessCode: getCode() })
         .then(data => {
           if (!cancelled && data.keywords && Array.isArray(data.keywords)) {
             setAiKeywords(data.keywords);
+            writeCachedKeywords(jobDescription, data.keywords);
           }
         })
         .catch(() => {}); // Fallback to NLP extraction silently
-      prevJDRef.current = jobDescription;
       return () => { cancelled = true; };
     }
     prevJDRef.current = jobDescription;
@@ -236,98 +237,16 @@ export default function EditorPage() {
     setExpandedSection(prev => (prev === section ? null : section));
   }, []);
   // Stable per-section toggles so memo() on the section components holds
-  const togglePersonal = useCallback(() => toggleSection('personal'), [toggleSection]);
-  const toggleSummary = useCallback(() => toggleSection('summary'), [toggleSection]);
-  const toggleExperience = useCallback(() => toggleSection('experience'), [toggleSection]);
-  const toggleSkills = useCallback(() => toggleSection('skills'), [toggleSection]);
-  const toggleEducation = useCallback(() => toggleSection('education'), [toggleSection]);
-  const toggleLanguages = useCallback(() => toggleSection('languages'), [toggleSection]);
+  const toggles = useMemo(() => ({
+    personal: () => toggleSection('personal'),
+    summary: () => toggleSection('summary'),
+    experience: () => toggleSection('experience'),
+    skills: () => toggleSection('skills'),
+    education: () => toggleSection('education'),
+    languages: () => toggleSection('languages'),
+  }), [toggleSection]);
 
   // renderCV replaced by PaginatedCV — block-based pagination engine
-
-  const handleEnrichExperiences = async () => {
-    if (!cvData?.experience || cvData.experience.length === 0) return;
-    setIsEnrichingExperiences(true);
-    try {
-      const result = await enrichExperienceAction({
-        experiences: cvData.experience.map(exp => ({
-          company: exp.company,
-          position: exp.position,
-          intro: exp.intro,
-          description: exp.description,
-        })),
-        accessCode: getCode(),
-      });
-      // Merge: only set tags where missing (don't overwrite user edits)
-      const updatedExp = cvData.experience.map((exp, i) => {
-        const r = result.results[i];
-        if (!r) return exp;
-        return {
-          ...exp,
-          companyStage: exp.companyStage || r.stage || undefined,
-          companyBusinessModel: exp.companyBusinessModel || r.businessModel || undefined,
-        };
-      });
-      const updated = { ...cvData, experience: updatedExp };
-      setCvData(updated);
-      setUserModified(true);
-      // Persist new tags to the working draft so a refresh keeps them.
-      if (user) {
-        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
-          .catch(e => console.warn('[handleEnrichExperiences] persist failed:', e));
-      } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
-      }
-      const filled = result.results.filter(r => r.stage || r.businessModel).length;
-      notify({
-        message: filled > 0
-          ? `Tags détectés pour ${filled}/${cvData.experience.length} expériences`
-          : 'Aucun tag détectable depuis les expériences actuelles',
-        type: filled > 0 ? 'success' : 'error',
-      });
-    } catch (e) {
-      console.error('Error enriching experiences:', e);
-      notify({ message: getUserErrorMessage(e, 'Erreur lors de la détection des entreprises.'), type: 'error' });
-    } finally {
-      setIsEnrichingExperiences(false);
-    }
-  };
-
-  const handleOptimize = async () => {
-    if (!cvData) return;
-    setIsOptimizing(true);
-    
-    try {
-      const optimizedData = await optimizeCVAction({
-        cvData,
-        pageLimit: designSettings.pageLimit || 1,
-        jobDescription: jobDescription || undefined,
-        accessCode: getCode(),
-      });
-      
-      // Update state with optimized data
-      setCvData(optimizedData);
-      setUserModified(true);
-      notify({ message: 'CV optimisé avec succès !', type: 'success' });
-
-      // Save automatically — persist to the user's working draft so a refresh
-      // restores the optimized CV (was previously only storeUser, which doesn't
-      // write cvData).
-      if (user) {
-        await storeUser();
-        updateLastCV({ cvData: optimizedData, jobDescription: jobDescription || undefined })
-          .catch(e => console.warn('[handleOptimize] persist failed:', e));
-      } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(optimizedData));
-      }
-      
-    } catch (error) {
-      console.error('Error optimizing CV:', error);
-      notify({ message: getUserErrorMessage(error, 'Erreur lors de l\'optimisation du CV.'), type: 'error' });
-    } finally {
-      setIsOptimizing(false);
-    }
-  };
 
   const handleAutoAssign = useCallback(() => {
     if (!cvData) return;
@@ -409,213 +328,45 @@ export default function EditorPage() {
         />
       )}
 
-      {/* Sidebar Navigation (Stitch Style) */}
-      {/* Mobile overlay backdrop */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      <aside className={cn(
-        "stitch-sidebar h-screen max-h-screen overflow-hidden shrink-0 transition-all duration-300 z-50",
-        "fixed md:relative inset-y-0 left-0",
-        isSidebarOpen ? "w-[320px] max-w-[85vw] translate-x-0" : "w-0 -translate-x-full md:w-0"
-      )}>
-        <div className="stitch-header shrink-0 justify-between">
-          <Link to="/dashboard">
-            <Logo size="sm" />
-          </Link>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-            aria-label="Fermer la sidebar"
-          >
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
-        
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="flex border-b border-[#DADCE0] shrink-0" role="tablist">
-            <button
-              onClick={() => setActiveTab('content')}
-              role="tab"
-              aria-current={activeTab === 'content' ? 'true' : undefined}
-              aria-selected={activeTab === 'content'}
-              className={cn(
-                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
-                activeTab === 'content' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              Contenu
-            </button>
-            <button
-              onClick={() => setActiveTab('design')}
-              role="tab"
-              aria-current={activeTab === 'design' ? 'true' : undefined}
-              aria-selected={activeTab === 'design'}
-              className={cn(
-                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
-                activeTab === 'design' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              Design
-            </button>
-            <button
-              onClick={() => setActiveTab('ats')}
-              role="tab"
-              aria-current={activeTab === 'ats' ? 'true' : undefined}
-              aria-selected={activeTab === 'ats'}
-              className={cn(
-                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
-                activeTab === 'ats' ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              ATS
-            </button>
-            {/* Not a tab: opens the cover letter drawer. Keeping it in activeTab
-                left an empty tabpanel behind once the drawer was closed. */}
-            <button
-              onClick={() => coverLetter.open()}
-              aria-haspopup="dialog"
-              aria-expanded={coverLetter.isOpen}
-              className={cn(
-                "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
-                coverLetter.isOpen ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              Lettre
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin" role="tabpanel">
-            {activeTab === 'content' ? (
-              <div className="space-y-3">
-                <OptimizePanel
-                  jobDescription={jobDescription}
-                  onJobDescriptionChange={setJobDescription}
-                  actualPageCount={actualPageCount}
-                  hasCvData={!!cvData}
-                  onAutoAssign={handleAutoAssign}
-                  aiBusy={aiBusy}
-                  isOptimizing={isOptimizing}
-                  optimizeSeconds={optimizeSeconds}
-                  optimizeEstimate={optimizeEstimate}
-                  onOptimize={handleOptimize}
-                />
-
-                <PersonalInfoSection
-                  personalInfo={cvData?.personal_info}
-                  setCvData={setCvData}
-                  expanded={expandedSection === 'personal'}
-                  onToggle={togglePersonal}
-                  setUserModified={setUserModified}
-                  notify={notify}
-                />
-
-                <SummarySection
-                  summary={cvData?.personal_info?.summary}
-                  setCvData={setCvData}
-                  expanded={expandedSection === 'summary'}
-                  onToggle={toggleSummary}
-                />
-
-                <ExperienceSection
-                  experience={cvData?.experience}
-                  setCvData={setCvData}
-                  setUserModified={setUserModified}
-                  hasJobDescription={Boolean(jobDescription)}
-                  experienceScores={experienceScores}
-                  weakBullets={weakBullets}
-                  expanded={expandedSection === 'experience'}
-                  onToggle={toggleExperience}
-                  aiBusy={aiBusy}
-                  isEnrichingExperiences={isEnrichingExperiences}
-                  onEnrich={handleEnrichExperiences}
-                  bullets={bullets}
-                />
-
-                <SkillsSection
-                  skills={cvData?.skills}
-                  setCvData={setCvData}
-                  expanded={expandedSection === 'skills'}
-                  onToggle={toggleSkills}
-                />
-
-                <EducationSection
-                  education={cvData?.education}
-                  setCvData={setCvData}
-                  expanded={expandedSection === 'education'}
-                  onToggle={toggleEducation}
-                />
-
-                <LanguagesSection
-                  languages={cvData?.languages}
-                  setCvData={setCvData}
-                  expanded={expandedSection === 'languages'}
-                  onToggle={toggleLanguages}
-                />
-              </div>
-            ) : activeTab === 'design' ? (
-              <DesignTab
-                designSettings={designSettings}
-                setDesignSettings={setDesignSettings}
-                selectedTemplate={selectedTemplate}
-                onRequestTemplateChange={templateSelection.requestTemplateChange}
-                actualPageCount={actualPageCount}
-                onPreviewPDF={pdfExport.previewPDF}
-                onDownloadPDF={pdfExport.downloadPDF}
-                isExporting={pdfExport.isExporting}
-                onExportDocx={handleExportDocx}
-                isExportingDocx={isExportingDocx}
-                onOpenCoverLetter={coverLetter.open}
-              />
-            ) : activeTab === 'ats' ? (
-              <ATSPanel
-                score={atsScore}
-                keywords={atsKeywords}
-                hasJobDescription={hasJobDescription}
-                onAddSkill={handleAddSkill}
-                onIntegrateKeyword={bullets.integrateKeyword}
-                onToggleAtsMode={() => templateSelection.setAtsMode(!designSettings.atsMode)}
-                onOptimizeBullets={bullets.optimize}
-                isOptimizing={bullets.isOptimizing}
-                aiBusy={aiBusy}
-                isAtsMode={designSettings.atsMode}
-                integratingKeyword={bullets.integratingKeyword}
-                onAutoDistribute={keywordDistribution.distribute}
-                isDistributing={keywordDistribution.isDistributing}
-                pendingProposalsCount={keywordDistribution.proposals.length}
-                proposalsSlot={
-                  keywordDistribution.proposals.length > 0 ? (
-                    <DistributionProposalsPanel
-                      proposals={keywordDistribution.proposals}
-                      onAcceptOne={keywordDistribution.acceptOne}
-                      onRejectOne={keywordDistribution.rejectOne}
-                      onAcceptAll={keywordDistribution.acceptAll}
-                      onRejectAll={keywordDistribution.rejectAll}
-                    />
-                  ) : undefined
-                }
-              />
-            ) : null}
-          </div>
-        </div>
-
-        {/* Single export CTA: saving lives in the header (auto-save + version) */}
-        <div className="p-4 border-t border-[#DADCE0] bg-white">
-          <Button
-            variant="primary"
-            fullWidth
-            className="py-2 text-[11px] normal-case tracking-normal font-medium"
-            icon={pdfExport.isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-            disabled={pdfExport.isExporting || !cvData}
-            onClick={pdfExport.downloadPDF}
-          >
-            Exporter en PDF
-          </Button>
-        </div>
-      </aside>
+      <EditorSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        cvData={cvData}
+        setCvData={setCvData}
+        setUserModified={setUserModified}
+        designSettings={designSettings}
+        setDesignSettings={setDesignSettings}
+        selectedTemplate={selectedTemplate}
+        jobDescription={jobDescription}
+        onJobDescriptionChange={setJobDescription}
+        actualPageCount={actualPageCount}
+        expandedSection={expandedSection}
+        toggles={toggles}
+        aiBusy={aiBusy}
+        isOptimizing={ai.isOptimizing}
+        optimizeSeconds={optimizeSeconds}
+        optimizeEstimate={ai.optimizeEstimate}
+        onOptimize={ai.optimize}
+        onAutoAssign={handleAutoAssign}
+        isEnriching={ai.isEnriching}
+        onEnrich={ai.enrichExperiences}
+        experienceScores={experienceScores}
+        weakBullets={weakBullets}
+        atsScore={atsScore}
+        atsKeywords={atsKeywords}
+        hasJobDescription={hasJobDescription}
+        onAddSkill={handleAddSkill}
+        onExportDocx={handleExportDocx}
+        isExportingDocx={isExportingDocx}
+        bullets={bullets}
+        keywordDistribution={keywordDistribution}
+        pdfExport={pdfExport}
+        templateSelection={templateSelection}
+        coverLetter={coverLetter}
+        notify={notify}
+      />
 
       {/* Main Preview Area (Stitch Style) */}
       <main className="flex-1 flex flex-col overflow-hidden bg-[#F1F3F4] min-h-0 relative">

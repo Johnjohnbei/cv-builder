@@ -34,7 +34,7 @@ export function LanguageRegenerateModal({
           La traduction conserve <strong>exactement la même structure</strong> : même nombre de bullets,
           mêmes KPIs, même ordre des expériences. Seuls les textes sont traduits.
           <br /><br />
-          <strong>Les deux versions sont conservées</strong> — la prochaine bascule sera instantanée,
+          <strong>Les deux versions sont conservées</strong> : la prochaine bascule sera instantanée,
           sans nouvel appel IA.
           <br />
           Vous pouvez aussi ne changer que les libellés (Experience / Expérience…) sans toucher au contenu.

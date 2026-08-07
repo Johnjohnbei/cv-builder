@@ -100,7 +100,7 @@ export function useTemplateSelection(
             template: ATS_FALLBACK_TEMPLATE,
           }));
           notify({
-            message: 'Template incompatible ATS — basculé vers Classic',
+            message: 'Template incompatible ATS : basculé vers Classic',
             type: 'success',
           });
         } else {
@@ -119,7 +119,7 @@ export function useTemplateSelection(
           setDesignSettings(prev => ({ ...prev, atsMode: false }));
         }
         notify({
-          message: 'Mode ATS désactivé — le CV ne sera plus optimisé ATS',
+          message: 'Mode ATS désactivé : le CV ne sera plus optimisé ATS',
           type: 'error',
         });
       }

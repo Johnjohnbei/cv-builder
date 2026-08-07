@@ -73,7 +73,7 @@ export const SkillsSection = memo(function SkillsSection({
               <>
               <Input
                 variant="bare"
-                className="font-bold text-[11px] uppercase"
+                className="font-bold uppercase"
                 value={cat.category}
                 placeholder="NOM_CATEGORIE"
                 onChange={(e) => {
@@ -100,7 +100,7 @@ export const SkillsSection = memo(function SkillsSection({
                 inputSize="xs"
                 type="text"
                 placeholder="Ajouter compétence..."
-                className="text-[11px] focus:border-blue-600"
+                className="focus:border-blue-600"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = (e.target as HTMLInputElement).value;

@@ -52,7 +52,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
       {!isOverflow ? (
         <>
           <div className="text-[10px] font-mono text-gray-500 pt-1">
-            {formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}
+            {formatDateShort(exp.start_date, language)} – {exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}
           </div>
           <div className="space-y-2">
             <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">

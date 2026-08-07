@@ -16,7 +16,7 @@ export function Toggle({ label, checked, onChange, className }: Props) {
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        'w-full px-3 py-2 rounded border text-[9px] font-mono transition-colors flex items-center justify-between',
+        'w-full px-3 py-2 rounded border text-[11px] font-mono transition-colors flex items-center justify-between',
         checked
           ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold'
           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50',

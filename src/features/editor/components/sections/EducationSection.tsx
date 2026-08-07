@@ -43,7 +43,7 @@ export const EducationSection = memo(function EducationSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="font-bold text-[11px]"
+                className="font-bold"
                 value={edu.degree}
                 placeholder="Diplôme"
                 onChange={(e) => {
@@ -55,7 +55,7 @@ export const EducationSection = memo(function EducationSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="text-[11px] text-blue-600"
+                className="text-blue-600"
                 value={edu.school}
                 placeholder="École"
                 onChange={(e) => {
@@ -67,7 +67,7 @@ export const EducationSection = memo(function EducationSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="text-[11px] text-gray-600"
+                className="text-gray-600"
                 value={edu.end_date}
                 placeholder="Année"
                 onChange={(e) => {

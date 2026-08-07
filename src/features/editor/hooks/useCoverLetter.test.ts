@@ -5,6 +5,7 @@ import {
   canSave,
   shouldTriggerExtraction,
   parseStoredLetter,
+  parseStoredContext,
   findLatestSavedForCv,
   COVER_LETTER_STORAGE_KEY,
   type CoverLetterData,
@@ -160,6 +161,63 @@ describe('parseStoredLetter', () => {
 
   it('uses the expected localStorage key', () => {
     expect(COVER_LETTER_STORAGE_KEY).toBe('guest_last_cover_letter');
+  });
+});
+
+describe('parseStoredContext', () => {
+  const CONTEXT = {
+    letter: SAMPLE,
+    companyName: 'Acme Corp',
+    companyStage: 'Scale-up',
+    companyBusinessModel: 'SaaS B2B',
+    jobDescription: 'A'.repeat(80),
+  };
+
+  it('parses the full context', () => {
+    expect(parseStoredContext(JSON.stringify(CONTEXT))).toEqual(CONTEXT);
+  });
+
+  it('reads a legacy bare-letter value without company metadata', () => {
+    expect(parseStoredContext(JSON.stringify(SAMPLE))).toEqual({
+      letter: SAMPLE,
+      companyName: undefined,
+      companyStage: undefined,
+      companyBusinessModel: undefined,
+      jobDescription: undefined,
+    });
+  });
+
+  it('accepts a context without any letter (company seeded alone)', () => {
+    const ctx = parseStoredContext(JSON.stringify({ companyName: 'Acme Corp' }));
+    expect(ctx?.letter).toBeNull();
+    expect(ctx?.companyName).toBe('Acme Corp');
+  });
+
+  it('ignores metadata that is missing, empty or not a string', () => {
+    const ctx = parseStoredContext(JSON.stringify({
+      letter: SAMPLE, companyName: '', companyStage: 42, companyBusinessModel: null,
+    }));
+    expect(ctx).toEqual({
+      letter: SAMPLE,
+      companyName: undefined,
+      companyStage: undefined,
+      companyBusinessModel: undefined,
+      jobDescription: undefined,
+    });
+  });
+
+  it('keeps the metadata when the nested letter is malformed', () => {
+    const ctx = parseStoredContext(JSON.stringify({ letter: { subject: 12 }, companyName: 'Acme' }));
+    expect(ctx?.letter).toBeNull();
+    expect(ctx?.companyName).toBe('Acme');
+  });
+
+  it('returns null for null/empty/malformed/non-object input', () => {
+    expect(parseStoredContext(null)).toBeNull();
+    expect(parseStoredContext('')).toBeNull();
+    expect(parseStoredContext('{not json')).toBeNull();
+    expect(parseStoredContext('"a string"')).toBeNull();
+    expect(parseStoredContext('null')).toBeNull();
   });
 });
 

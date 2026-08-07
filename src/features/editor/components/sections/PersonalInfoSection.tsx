@@ -46,14 +46,12 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="Email"
               type="email"
-              className="text-[11px]"
               value={personalInfo?.email || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, email: e.target.value}} : null)}
             />
             <Input
               label="Téléphone"
               type="text"
-              className="text-[11px]"
               value={personalInfo?.phone || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, phone: e.target.value}} : null)}
             />
@@ -62,7 +60,6 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="Localisation"
               type="text"
-              className="text-[11px]"
               placeholder="Ex: Paris, France"
               value={personalInfo?.location || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, location: e.target.value}} : null)}
@@ -70,7 +67,6 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="LinkedIn URL"
               type="text"
-              className="text-[11px]"
               value={personalInfo?.linkedin || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, linkedin: e.target.value}} : null)}
             />
@@ -80,7 +76,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <div className="flex gap-2">
               <Input
                 type="text"
-                className="text-[11px] flex-1"
+                className="flex-1"
                 placeholder="https://..."
                 value={personalInfo?.photo_url || ''}
                 onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: e.target.value}} : null)}

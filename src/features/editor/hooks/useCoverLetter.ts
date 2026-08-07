@@ -74,26 +74,56 @@ export function shouldTriggerExtraction(companyName: string, jobDescription: str
   return companyName.trim().length === 0 && jobDescription.trim().length >= 50;
 }
 
-/** localStorage mirror of the current letter (survives drawer close, guest or signed in). */
+/** localStorage mirror of the drawer context (survives drawer close, guest or signed in). */
 export const COVER_LETTER_STORAGE_KEY = 'guest_last_cover_letter';
+
+/** Drawer context mirrored to localStorage: the letter plus the company metadata already known. */
+export interface StoredCoverLetterContext {
+  letter: CoverLetterData | null;
+  companyName?: string;
+  companyStage?: string;
+  companyBusinessModel?: string;
+  jobDescription?: string;
+}
+
+const asText = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.length > 0 ? v : undefined;
+
+function parseLetterShape(v: unknown): CoverLetterData | null {
+  if (v === null || typeof v !== 'object') return null;
+  const p = v as Record<string, unknown>;
+  if (
+    typeof p.subject === 'string' && typeof p.greeting === 'string' &&
+    typeof p.body === 'string' && typeof p.closing === 'string'
+  ) {
+    return { subject: p.subject, greeting: p.greeting, body: p.body, closing: p.closing };
+  }
+  return null;
+}
+
+/**
+ * Parse the mirrored drawer context. Returns null only when nothing usable is stored.
+ * Backward compatible: a legacy value holding the bare letter fields at the top level is
+ * read as a context whose letter is that value and whose metadata is absent.
+ */
+export function parseStoredContext(raw: string | null): StoredCoverLetterContext | null {
+  if (!raw) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+  if (parsed === null || typeof parsed !== 'object') return null;
+  const p = parsed as Record<string, unknown>;
+  return {
+    letter: parseLetterShape(p) ?? parseLetterShape(p.letter),
+    companyName: asText(p.companyName),
+    companyStage: asText(p.companyStage),
+    companyBusinessModel: asText(p.companyBusinessModel),
+    jobDescription: asText(p.jobDescription),
+  };
+}
 
 /** Parse a mirrored letter from localStorage. Returns null on any invalid shape. */
 export function parseStoredLetter(raw: string | null): CoverLetterData | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== 'object') return null;
-    const p = parsed as Record<string, unknown>;
-    if (
-      typeof p.subject === 'string' && typeof p.greeting === 'string' &&
-      typeof p.body === 'string' && typeof p.closing === 'string'
-    ) {
-      return { subject: p.subject, greeting: p.greeting, body: p.body, closing: p.closing };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return parseStoredContext(raw)?.letter ?? null;
 }
 
 /** Most recent saved letter for a given cvId (input list is ordered most-recent first). */
@@ -131,13 +161,18 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const extractedJDRef = useRef<string | null>(null);
   const extractInFlightRef = useRef(false);
 
-  // ─── Mirror the letter to localStorage on every change (guest AND signed in) ───
+  // ─── Mirror letter + company context to localStorage (guest AND signed in) ───
+  // Gated on isOpen: before the first open() the state is still empty and would
+  // overwrite the stored context that open() is about to restore.
   useEffect(() => {
-    if (!letter) return;
+    if (!isOpen) return;
     try {
-      localStorage.setItem(COVER_LETTER_STORAGE_KEY, JSON.stringify(letter));
+      localStorage.setItem(COVER_LETTER_STORAGE_KEY, JSON.stringify({
+        letter, companyName, companyStage, companyBusinessModel,
+        jobDescription: localJobDescription,
+      }));
     } catch { /* storage unavailable: mirror is best-effort */ }
-  }, [letter]);
+  }, [isOpen, letter, companyName, companyStage, companyBusinessModel, localJobDescription]);
 
   // ─── Resync the drawer JD when the editor JD changes and the user hasn't typed in it ───
   const prevPropJDRef = useRef(jobDescription);
@@ -163,17 +198,27 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const isTailoredForLocalJD = isTailored && localJobDescription.trim() === jobDescription.trim();
 
   const open = useCallback(() => {
-    const jd = localJobDescription.length > 0 ? localJobDescription : jobDescription;
-    setLocalJobDescriptionRaw(prev => (prev.length > 0 ? prev : jobDescription));
-    // Restore the last letter from localStorage so closing the drawer never loses work
-    if (!letter) {
-      try {
-        const restored = parseStoredLetter(localStorage.getItem(COVER_LETTER_STORAGE_KEY));
-        if (restored) setLetterRaw(restored);
-      } catch { /* storage unavailable */ }
+    // Restore the whole drawer context so closing never loses work, and so an
+    // already known company never triggers a second extraction.
+    let stored: StoredCoverLetterContext | null = null;
+    try { stored = parseStoredContext(localStorage.getItem(COVER_LETTER_STORAGE_KEY)); }
+    catch { /* storage unavailable */ }
+
+    const jd = localJobDescription.length > 0 ? localJobDescription
+      : (jobDescription.length > 0 ? jobDescription : stored?.jobDescription ?? '');
+    setLocalJobDescriptionRaw(prev => (prev.length > 0 ? prev : jd));
+
+    const company = companyName.trim().length === 0 && stored?.companyName
+      ? stored.companyName : companyName;
+    if (stored) {
+      if (!letter && stored.letter) setLetterRaw(stored.letter);
+      if (company !== companyName) setCompanyName(company);
+      const { companyStage: stage, companyBusinessModel: model } = stored;
+      if (stage) setCompanyStage(curr => (curr.trim().length === 0 ? stage : curr));
+      if (model) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? model : curr));
     }
     setIsOpen(true);
-    if (!shouldTriggerExtraction(companyName, jd)) return;
+    if (!shouldTriggerExtraction(company, jd)) return;
     // Skip if the same JD was already extracted, or a call is already running
     if (extractInFlightRef.current || extractedJDRef.current === jd) return;
     extractInFlightRef.current = true;

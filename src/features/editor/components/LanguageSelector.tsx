@@ -10,17 +10,17 @@ export function LanguageSelector({ value, onChange }: Props) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[9px] stitch-mono text-gray-400 uppercase">Lang:</span>
+      <span className="text-[11px] stitch-mono text-gray-600 uppercase">Lang:</span>
       <div className="flex items-center gap-1">
         {langs.map((lang) => (
           <button
             key={lang}
             onClick={() => onChange(lang)}
             className={cn(
-              'text-[10px] stitch-mono font-bold px-1.5 py-0.5 rounded transition-colors',
+              'text-[11px] stitch-mono font-bold px-1.5 py-0.5 rounded transition-colors',
               value === lang
                 ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                : 'text-gray-600 hover:text-gray-600 hover:bg-gray-50'
             )}
           >
             {lang.toUpperCase()}

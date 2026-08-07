@@ -71,8 +71,11 @@ function getMode(exp: Experience): ExperienceDisplayMode {
 }
 
 /** All available display modes for experiences */
+// Colors double as active-button background (white text on top) and as the
+// mode label color, so each must clear WCAG AA both ways. 'hidden' takes
+// gray-600 rather than gray-500 to stay distinct from 'normal'.
 export const DISPLAY_MODES: { value: ExperienceDisplayMode; label: string; icon: string; color: string }[] = [
-  { value: 'hidden', label: 'Masqué', icon: '⊘', color: '#9ca3af' },
+  { value: 'hidden', label: 'Masqué', icon: '⊘', color: '#4b5563' },
   { value: 'compact', label: 'Compact', icon: '▪', color: '#f59e0b' },
   { value: 'normal', label: 'Normal', icon: '▪▪', color: '#6b7280' },
   { value: 'extended', label: 'Étendu', icon: '▪▪▪', color: '#10b981' },
@@ -97,7 +100,7 @@ export function getVisibleSkills(cat: SkillCategory): string[] {
 }
 
 export const SKILL_DISPLAY_MODES: { value: SkillDisplayMode; label: string; icon: string; color: string }[] = [
-  { value: 'hidden', label: 'Masqué', icon: '⊘', color: '#9ca3af' },
+  { value: 'hidden', label: 'Masqué', icon: '⊘', color: '#4b5563' },
   { value: 'compact', label: 'Top 3', icon: '▪', color: '#f59e0b' },
   { value: 'normal', label: 'Tout', icon: '▪▪', color: '#6b7280' },
 ];

@@ -71,6 +71,9 @@ export const MOCK_CV = {
   ],
 };
 
+/** Entreprise pré-renseignée dans le contexte du drawer lettre (évite toute extraction IA en e2e). */
+export const MOCK_COMPANY_NAME = 'Acme Corp';
+
 export const MOCK_JOB_DESCRIPTION = `
 Nous recherchons un(e) Product Designer Senior pour rejoindre notre équipe Produit.
 

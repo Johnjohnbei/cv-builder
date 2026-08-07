@@ -78,12 +78,12 @@ export const DesignTab = memo(function DesignTab({
               )}
             >
               <div className="flex items-center justify-between">
-                <span className={cn("text-[9px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
+                <span className={cn("text-[11px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
                 <div className="flex items-center gap-1">
                   {TEMPLATE_ATS_COMPAT[tpl.id] === 'full' ? (
-                    <span className="text-[8px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-700" title="Bien lu par les robots de tri des candidatures (ATS)">ATS</span>
+                    <span className="text-[10px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-800" title="Bien lu par les robots de tri des candidatures (ATS)">ATS</span>
                   ) : (
-                    <span className="text-[8px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-600" title="Mise en page graphique : peut être moins bien lue par les robots de tri (score ATS réduit)">DESIGN</span>
+                    <span className="text-[10px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-700" title="Mise en page graphique : peut être moins bien lue par les robots de tri (score ATS réduit)">DESIGN</span>
                   )}
                   {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                 </div>
@@ -91,7 +91,7 @@ export const DesignTab = memo(function DesignTab({
               <div className="h-16 bg-white border border-gray-100 rounded overflow-hidden">
                 <TemplateThumbnail templateId={tpl.id} primaryColor={designSettings.primaryColor} />
               </div>
-              <span className="text-[10px] text-gray-500 uppercase leading-tight">{tpl.desc}</span>
+              <span className="text-[11px] text-gray-500 uppercase leading-tight">{tpl.desc}</span>
             </div>
           ))}
         </div>
@@ -109,7 +109,7 @@ export const DesignTab = memo(function DesignTab({
                 secondaryColor: theme.s,
                 fontFamily: theme.f,
               }))}
-              className="p-2 border border-gray-200 rounded text-[9px] stitch-mono hover:bg-gray-50 transition-all text-left flex flex-col gap-1"
+              className="p-2 border border-gray-200 rounded text-[11px] stitch-mono hover:bg-gray-50 transition-all text-left flex flex-col gap-1"
             >
               <span className="font-bold">{theme.name}</span>
               <div className="flex gap-1">
@@ -125,7 +125,7 @@ export const DesignTab = memo(function DesignTab({
         <div className="stitch-panel-header">Couleurs</div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Presets</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Presets</label>
             <div className="flex flex-wrap gap-2">
               {[
                 { p: '#1A73E8', s: '#5F6368' }, // Google
@@ -148,7 +148,7 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Primary Color</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Primary Color</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -158,14 +158,14 @@ export const DesignTab = memo(function DesignTab({
               />
               <Input
                 type="text"
-                className="text-[10px] py-1"
+                className="py-1"
                 value={designSettings.primaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
               />
             </div>
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Secondary Color</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Secondary Color</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -175,7 +175,7 @@ export const DesignTab = memo(function DesignTab({
               />
               <Input
                 type="text"
-                className="text-[10px] py-1"
+                className="py-1"
                 value={designSettings.secondaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
               />
@@ -192,7 +192,7 @@ export const DesignTab = memo(function DesignTab({
               key={font.id}
               onClick={() => setDesignSettings(prev => ({ ...prev, fontFamily: font.id }))}
               className={cn(
-                "w-full text-left px-3 py-2 rounded border text-[10px] stitch-mono transition-colors",
+                "w-full text-left px-3 py-2 rounded border text-[11px] stitch-mono transition-colors",
                 designSettings.fontFamily === font.id
                   ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -208,14 +208,14 @@ export const DesignTab = memo(function DesignTab({
         <div className="stitch-panel-header">Titres de sections</div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Font Weight</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Font Weight</label>
             <div className="grid grid-cols-2 gap-2">
               {TITLE_WEIGHTS.map((weight) => (
                 <button
                   key={weight}
                   onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleWeight: weight }))}
                   className={cn(
-                    "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
+                    "px-2 py-1 rounded border text-[11px] stitch-mono transition-colors capitalize",
                     designSettings.sectionTitleWeight === weight
                       ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
                       : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -227,14 +227,14 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Transform</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Transform</label>
             <div className="grid grid-cols-3 gap-2">
               {TITLE_TRANSFORMS.map((transform) => (
                 <button
                   key={transform}
                   onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleTransform: transform }))}
                   className={cn(
-                    "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
+                    "px-2 py-1 rounded border text-[11px] stitch-mono transition-colors capitalize",
                     designSettings.sectionTitleTransform === transform
                       ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
                       : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -246,14 +246,14 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Spacing</label>
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Spacing</label>
             <div className="grid grid-cols-3 gap-2">
               {TITLE_SPACINGS.map((spacing) => (
                 <button
                   key={spacing}
                   onClick={() => setDesignSettings(prev => ({ ...prev, sectionTitleSpacing: spacing }))}
                   className={cn(
-                    "px-2 py-1 rounded border text-[9px] stitch-mono transition-colors capitalize",
+                    "px-2 py-1 rounded border text-[11px] stitch-mono transition-colors capitalize",
                     designSettings.sectionTitleSpacing === spacing
                       ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
                       : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -265,15 +265,15 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Pages & Options</label>
-            <div className="px-3 py-2 rounded border border-gray-200 bg-gray-50 text-[10px] stitch-mono text-gray-600">
+            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Pages & Options</label>
+            <div className="px-3 py-2 rounded border border-gray-200 bg-gray-50 text-[11px] stitch-mono text-gray-600">
               {actualPageCount} page{actualPageCount > 1 ? 's' : ''} {actualPageCount > 2 && <span className="text-amber-600 ml-1">(les recruteurs preferent 1-2 pages)</span>}
             </div>
             <div className="mt-3">
               <button
                 onClick={() => setDesignSettings(prev => ({ ...prev, showPhoto: !prev.showPhoto }))}
                 className={cn(
-                  "w-full px-2 py-2 rounded border text-[9px] stitch-mono transition-colors flex items-center justify-between",
+                  "w-full px-2 py-2 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between",
                   designSettings.showPhoto
                     ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
                     : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -319,10 +319,10 @@ export const DesignTab = memo(function DesignTab({
                   setDesignSettings(prev => ({ ...prev, includedSections: updated }));
                 }}
                 className={cn(
-                  "w-full px-3 py-2 rounded border text-[10px] stitch-mono transition-colors flex items-center justify-between",
+                  "w-full px-3 py-2 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between",
                   included
                     ? "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
-                    : "bg-gray-100 border-gray-200 text-gray-400 line-through"
+                    : "bg-gray-100 border-gray-200 text-gray-600 line-through"
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export const DesignTab = memo(function DesignTab({
               </button>
             );
           })}
-          <p className="text-[9px] text-gray-400 mt-2 italic">Les sections cachées ne sont pas supprimées — elles sont juste masquées du PDF.</p>
+          <p className="text-[11px] text-gray-600 mt-2 italic">Les sections cachées ne sont pas supprimées : elles sont juste masquées du PDF.</p>
         </div>
       </section>
 
@@ -350,7 +350,7 @@ export const DesignTab = memo(function DesignTab({
         <div className="p-4 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[9px] stitch-mono text-gray-500 uppercase block">Format</label>
+              <label className="text-[11px] stitch-mono text-gray-500 uppercase block">Format</label>
               <Select
                 inputSize="sm"
                 className="focus:border-blue-500"
@@ -364,7 +364,7 @@ export const DesignTab = memo(function DesignTab({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] stitch-mono text-gray-500 uppercase block">Orientation</label>
+              <label className="text-[11px] stitch-mono text-gray-500 uppercase block">Orientation</label>
               <Select
                 inputSize="sm"
                 className="focus:border-blue-500"
@@ -390,7 +390,7 @@ export const DesignTab = memo(function DesignTab({
           <Button
             variant="secondary"
             fullWidth
-            className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
             icon={<Eye className="w-4 h-4" />}
             onClick={onPreviewPDF}
           >
@@ -400,7 +400,7 @@ export const DesignTab = memo(function DesignTab({
           <Button
             variant="primary"
             fullWidth
-            className="rounded-lg py-3 px-4 text-[10px] tracking-widest shadow-md"
+            className="rounded-lg py-3 px-4 text-[11px] tracking-widest shadow-md"
             icon={isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             disabled={isExporting}
             onClick={onDownloadPDF}
@@ -411,7 +411,7 @@ export const DesignTab = memo(function DesignTab({
           <Button
             variant="secondary"
             fullWidth
-            className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
             icon={isExportingDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             disabled={isExportingDocx}
             onClick={onExportDocx}
@@ -422,7 +422,7 @@ export const DesignTab = memo(function DesignTab({
           <Button
             variant="secondary"
             fullWidth
-            className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
             icon={<Mail className="w-4 h-4" />}
             onClick={onOpenCoverLetter}
           >

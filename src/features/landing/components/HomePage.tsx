@@ -17,7 +17,7 @@ export default function HomePage() {
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="inline-flex items-center space-x-2 px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] rounded-full text-[10px] font-mono font-bold mb-6"
+                className="inline-flex items-center space-x-2 px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] rounded-full text-[11px] font-mono font-bold mb-6"
               >
                 <Sparkles className="w-3 h-3" />
                 <span>Propulsé par l'IA</span>
@@ -72,7 +72,7 @@ export default function HomePage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="mt-4 text-xs text-gray-400"
+                className="mt-4 text-xs text-gray-600"
               >
                 Bêta privée : les fonctions IA nécessitent un code d'accès.
               </motion.p>
@@ -97,7 +97,7 @@ export default function HomePage() {
                 <div className="p-6 space-y-4">
                   <div className="flex items-center space-x-4 border-b border-[#DADCE0] pb-4">
                     <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                      <FileText className="text-gray-400 w-6 h-6" />
+                      <FileText className="text-gray-600 w-6 h-6" />
                     </div>
                     <div>
                       <div className="h-4 w-32 bg-gray-200 rounded mb-2" />
@@ -112,7 +112,7 @@ export default function HomePage() {
                   <div className="pt-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-16 bg-green-100 rounded" />
-                      <span className="text-[9px] font-mono text-green-600 font-bold">ATS: 94%</span>
+                      <span className="text-[11px] font-mono text-green-600 font-bold">ATS: 94%</span>
                     </div>
                     <div className="h-8 w-24 bg-[#1A73E8] rounded" />
                   </div>
@@ -131,7 +131,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-[#DADCE0]">
             {[
-              { icon: <Zap className="text-[#1A73E8] w-5 h-5" />, num: '01', title: 'Import intelligent', desc: 'Importez votre CV en PDF. L\'IA extrait chaque section — expériences, compétences, formations — en quelques secondes.' },
+              { icon: <Zap className="text-[#1A73E8] w-5 h-5" />, num: '01', title: 'Import intelligent', desc: 'Importez votre CV en PDF. L\'IA extrait chaque section (expériences, compétences, formations) en quelques secondes.' },
               { icon: <Sparkles className="text-[#1A73E8] w-5 h-5" />, num: '02', title: 'Adaptation IA', desc: 'Collez une offre d\'emploi. L\'IA réécrit votre CV avec les bons mots-clés et des résultats quantifiables.' },
               { icon: <ShieldCheck className="text-[#1A73E8] w-5 h-5" />, num: '03', title: 'Score ATS', desc: 'Obtenez un score de compatibilité ATS, les mots-clés manquants et des conseils d\'amélioration personnalisés.' },
             ].map((f, i) => (
@@ -173,7 +173,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="font-mono text-[10px] text-gray-400 uppercase tracking-[0.2em]">
+          <p className="font-mono text-[11px] text-gray-600 uppercase tracking-[0.2em]">
             Calibre © 2026 · Propulsé par l'IA
           </p>
         </div>

@@ -44,7 +44,7 @@ export const LanguagesSection = memo(function LanguagesSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="font-bold text-[11px]"
+                className="font-bold"
                 value={lang.name}
                 placeholder="Langue"
                 onChange={(e) => {
@@ -56,7 +56,7 @@ export const LanguagesSection = memo(function LanguagesSection({
               <Select
                 variant="bare"
                 mono={false}
-                className="text-[11px] text-blue-600"
+                className="text-blue-600"
                 value={lang.proficiency}
                 onChange={(e) => {
                   const newLang = [...(languages || [])];

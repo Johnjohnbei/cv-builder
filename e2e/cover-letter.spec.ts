@@ -1,17 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { MOCK_CV, MOCK_JOB_DESCRIPTION } from './fixtures/mock-cv';
+import { MOCK_CV, MOCK_JOB_DESCRIPTION, MOCK_COMPANY_NAME } from './fixtures/mock-cv';
 
 // Helper: inject guest session + CV data before navigating to editor
 // (même pattern que e2e/ats-panel.spec.ts)
 async function setupGuestEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.evaluate(({ cv, jd }) => {
+  await page.evaluate(({ cv, jd, company }) => {
     sessionStorage.setItem('guest_access', 'true');
     localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
     localStorage.setItem('guest_last_jd', jd);
-    // Pas de lettre restaurée : chaque test part d'un drawer vierge
-    localStorage.removeItem('guest_last_cover_letter');
-  }, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION });
+    // Contexte pré-seedé sans lettre : le drawer reste vierge côté contenu, mais
+    // l'entreprise est déjà connue donc aucune extraction IA ne part à l'ouverture.
+    localStorage.setItem('guest_last_cover_letter', JSON.stringify({
+      companyName: company,
+      jobDescription: jd,
+    }));
+  }, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION, company: MOCK_COMPANY_NAME });
   await page.goto('/editor');
   await page.waitForLoadState('networkidle');
 }
@@ -31,8 +35,33 @@ const drawerJD = (dialog: ReturnType<import('@playwright/test').Page['locator']>
   dialog.getByPlaceholder(/Collez l'offre d'emploi/);
 
 test.describe('Lettre de motivation — drawer (mode guest)', () => {
+  // Garde d'hermétisme : le contexte entreprise étant pré-seedé, aucune extraction IA
+  // ne doit partir. Les actions Convex transitent par WebSocket (page.route ne les voit
+  // pas), d'où l'écoute des frames envoyées.
+  const extractCalls: string[] = [];
+
   test.beforeEach(async ({ page }) => {
+    extractCalls.length = 0;
+    page.on('websocket', (ws) => {
+      ws.on('framesent', (frame) => {
+        if (typeof frame.payload === 'string' && frame.payload.includes('ai:extractCompanyMeta')) {
+          extractCalls.push(frame.payload.slice(0, 120));
+        }
+      });
+    });
     await setupGuestEditor(page);
+  });
+
+  test.afterEach(() => {
+    expect(extractCalls, "aucune extraction d'entreprise ne doit partir").toEqual([]);
+  });
+
+  test("le contexte entreprise persisté est restauré à l'ouverture", async ({ page }) => {
+    const dialog = await openDrawer(page);
+    // Non-régression persistance : le nom seedé est relu depuis localStorage,
+    // donc aucune extraction automatique n'est déclenchée.
+    await expect(dialog.getByLabel("Nom de l'entreprise")).toHaveValue(MOCK_COMPANY_NAME);
+    await expect(dialog.getByPlaceholder('Détection automatique...')).toHaveCount(0);
   });
 
   test('le bouton Lettre ouvre le drawer (role dialog, aria-modal)', async ({ page }) => {

@@ -20,9 +20,12 @@ const sizePadding: Record<SelectSize, string> = {
   md: 'px-3 py-2',
 };
 
+// 11px is the project readability floor for any informative text.
+// xs and sm therefore share it on purpose: both keys stay because consumers
+// pass them, and they may diverge again if the floor ever moves.
 const sizeText: Record<SelectSize, string> = {
-  xs: 'text-[9px]',
-  sm: 'text-[10px]',
+  xs: 'text-[11px]',
+  sm: 'text-[11px]',
   md: 'text-xs',
 };
 
@@ -81,7 +84,7 @@ export const Select = forwardRef<HTMLSelectElement, Props>(
       <div className={cn('space-y-1', containerClassName)}>
         <label
           htmlFor={inputId}
-          className="text-[9px] font-mono text-gray-500 uppercase block tracking-wider"
+          className="text-[11px] font-mono text-gray-500 uppercase block tracking-wider"
         >
           {label}
         </label>

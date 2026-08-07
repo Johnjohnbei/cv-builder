@@ -36,7 +36,7 @@ export function Dropzone({ onDrop, accept, loading, label = 'Déposer un fichier
         <Spinner className="w-5 h-5 mx-auto text-blue-600" />
       ) : (
         <>
-          <Upload className={cn('mx-auto text-gray-400 mb-2', compact ? 'w-4 h-4' : 'w-6 h-6')} />
+          <Upload className={cn('mx-auto text-gray-600 mb-2', compact ? 'w-4 h-4' : 'w-6 h-6')} />
           <p className="text-xs font-medium text-gray-600">{label}</p>
         </>
       )}

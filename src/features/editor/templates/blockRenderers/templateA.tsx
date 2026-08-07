@@ -71,7 +71,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
           <div className="flex justify-between items-baseline gap-4 mb-1">
             <h3 className="font-bold text-gray-900 min-w-0">{exp.position}</h3>
             <span className="text-xs text-gray-500 font-mono shrink-0 whitespace-nowrap">
-              {formatDateShort(exp.start_date, language)} — {exp.current ? getCurrentLabel(language) : formatDateShort(exp.end_date, language)}
+              {formatDateShort(exp.start_date, language)} – {exp.current ? getCurrentLabel(language) : formatDateShort(exp.end_date, language)}
             </span>
           </div>
           <p className="text-sm font-bold mb-2" style={{ color: secondaryColor }}>
