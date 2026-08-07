@@ -184,10 +184,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Location: `src/features/editor/lib/` (scoring.ts, displayModes.ts)
 - Contains: Relevance scoring, keyword extraction, display mode assignment, date formatting
 - Depends on: CV data types, job description
-- Used by: EditorPage, CVRenderer, templates
+- Used by: EditorPage, blockRenderers
 - Purpose: Render CV content in different visual layouts
-- Location: `src/features/editor/templates/`
-- Contains: Template components (TemplateA-F), shared utilities (shared.tsx), CVRenderer dispatcher
+- Location: `src/features/editor/templates/blockRenderers/` (templateA/B/C/E), shared utilities in `src/features/editor/templates/shared.tsx`
+- Contains: Per-block renderers per template, consumed by PaginatedCV (block-based pagination). Monolithic Template components and CVRenderer removed 2026-08-07 (commit 86d4cab)
 - Depends on: Design settings, display mode computations, CV data structure
 - Used by: EditorPage preview rendering, PDF export
 - Purpose: Shared functions, type definitions, UI utilities
@@ -212,8 +212,8 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Examples: `DesignSettings` in types, persisted on cvData.design
 - Pattern: Passed to template components as prop, uses Tailwind dynamic color classes
 - Purpose: Registry pattern for dynamic template selection
-- Examples: `TEMPLATE_MAP` in `src/features/editor/templates/CVRenderer.tsx`
-- Pattern: Record<string, React.ComponentType<TemplateProps>> dispatches to correct renderer
+- Examples: `getBlockRenderers()` in `src/features/editor/templates/blockRenderers/index.ts`, `TEMPLATE_LAYOUTS` in `src/features/editor/lib/pagination/templateLayouts.ts`
+- Pattern: templateId resolves to a BlockRendererMap (per-block renderers) + a TemplateLayout (dimensions), consumed by PaginatedCV/allocatePages
 - Purpose: Support multiple AI providers without client code changes
 - Examples: `getProvider()` in `convex/ai.ts` returns AIProvider interface
 - Pattern: OpenAI-compatible API used by all providers, single getClient() function
@@ -243,7 +243,6 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Clerk provider wraps app in main.tsx
 - useAuth hook checks isSignedIn + isLoaded before rendering protected content
 - sessionStorage flag for guest access mode (temporary CVs in localStorage)
-- CVRenderer wrapped with memo() to skip re-renders when only sidebar UI state changes
 - Templates use memoized display mode computations
 - useOverflowDetection debounces resize checks to avoid excessive recalculations
 - Vite code-splitting for lazy-loaded pages (HomePage, EditorPage, etc.)
