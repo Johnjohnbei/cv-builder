@@ -1,12 +1,13 @@
 // ─── Block Builder ───
 // Converts CVData into measurable ContentBlock descriptors.
-// Heights are estimated via text-length heuristics, calibrated against real DOM measurements.
+// Heights are text-length heuristics for the FIRST paint only —
+// usePaginationFit replaces them with real DOM measurements right after.
 
 import type { CVData } from '@/src/shared/types';
 import type { ContentBlock, SubBlock } from './types';
 import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro } from '../displayModes';
 
-// ─── Constants (calibrated with 20% safety margin over measured values) ───
+// ─── Constants ───
 
 const CHARS_PER_LINE_NARROW = 60;
 const CHARS_PER_LINE_WIDE = 90;
@@ -19,16 +20,7 @@ function estimateTextHeight(text: string, charsPerLine: number): number {
 }
 
 /**
- * Safety multiplier for initial heuristic pass (before DOM measurement).
- * Kept at 1.0 since usePaginationFit replaces these with real DOM heights.
- */
-function safe(px: number): number {
-  return Math.ceil(px);
-}
-
-/**
  * Build ContentBlock descriptors from CVData with estimated heights.
- * All heights include a 30% safety margin to prevent clipping.
  */
 export function buildBlocks(cvData: CVData): ContentBlock[] {
   const blocks: ContentBlock[] = [];
@@ -39,8 +31,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'header',
       type: 'header',
-      heightPx: safe(100 + titleLines * 24 + 30),
-      fullWidthHeightPx: safe(100 + titleLines * 24 + 20),
+      heightPx: Math.ceil(100 + titleLines * 24 + 30),
+      fullWidthHeightPx: Math.ceil(100 + titleLines * 24 + 20),
       splittable: false,
       data: cvData.personal_info,
     });
@@ -49,12 +41,11 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   // Summary
   if (cvData.personal_info?.summary) {
     const textH = estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_NARROW);
-    const h = SECTION_TITLE_H + textH + 16;
     blocks.push({
       id: 'summary',
       type: 'summary',
-      heightPx: safe(h),
-      fullWidthHeightPx: safe(SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_WIDE) + 16),
+      heightPx: Math.ceil(SECTION_TITLE_H + textH + 16),
+      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_WIDE) + 16),
       splittable: false,
       data: cvData.personal_info.summary,
     });
@@ -98,15 +89,18 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: `exp-${idx}`,
       type: 'experience',
-      heightPx: safe(totalH),
-      fullWidthHeightPx: safe(totalHFull),
+      heightPx: Math.ceil(totalH),
+      fullWidthHeightPx: Math.ceil(totalHFull),
       splittable: bullets.length >= 2,
       subBlocks,
       data: exp,
     });
   });
 
-  // Skill categories (one block per visible category)
+  // Skill categories (one block per visible category).
+  // Not splittable: rendered as flex-wrap chips whose real row count depends on
+  // text width, so mid-category splits can't be modeled reliably. Categories
+  // are small — moving one whole to the next page costs at most one row.
   cvData.skills?.filter(cat => !isSkillHidden(cat)).forEach((cat, idx) => {
     const items = getVisibleSkills(cat);
     const titleH = 24;
@@ -115,22 +109,12 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     const rowsNarrow = Math.ceil(items.length / 2);
     const rowsWide = Math.ceil(items.length / 5);
 
-    const subBlocks = [
-      { id: `skill-${idx}-title`, heightPx: titleH, type: 'skill-title' as const },
-      ...Array.from({ length: rowsNarrow }, (_, rIdx) => ({
-        id: `skill-${idx}-row-${rIdx}`,
-        heightPx: rowH,
-        type: 'skill-row' as const,
-      })),
-    ];
-
     blocks.push({
       id: `skill-${idx}`,
       type: 'skill-category',
-      heightPx: safe(titleH + rowsNarrow * rowH + 8),
-      fullWidthHeightPx: safe(titleH + rowsWide * rowH + 8),
-      splittable: items.length >= 6,
-      subBlocks,
+      heightPx: Math.ceil(titleH + rowsNarrow * rowH + 8),
+      fullWidthHeightPx: Math.ceil(titleH + rowsWide * rowH + 8),
+      splittable: false,
       data: cat,
     });
   });
@@ -140,8 +124,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: safe(SECTION_TITLE_H + cvData.education.length * 55),
-      fullWidthHeightPx: safe(SECTION_TITLE_H + cvData.education.length * 40),
+      heightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 55),
+      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 40),
       splittable: false,
       data: cvData.education,
     });
@@ -152,8 +136,8 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     blocks.push({
       id: 'languages',
       type: 'languages',
-      heightPx: safe(SECTION_TITLE_H + cvData.languages.length * 26),
-      fullWidthHeightPx: safe(SECTION_TITLE_H + cvData.languages.length * 26),
+      heightPx: Math.ceil(SECTION_TITLE_H + cvData.languages.length * 26),
+      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + cvData.languages.length * 26),
       splittable: false,
       data: cvData.languages,
     });

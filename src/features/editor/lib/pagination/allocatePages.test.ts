@@ -50,9 +50,6 @@ const singleColLayout: TemplateLayout = {
 
 // ─── Helpers ───
 
-/** A4 usable height ≈ (297 - 16.9 - 10.6) * 3.7795 ≈ 1018px */
-const PAGE_USABLE_PX = Math.round((297 - 16.9 - 10.6) * 3.7795);
-
 function block(id: string, type: ContentBlock['type'], heightPx: number, splittable = false): ContentBlock {
   return {
     id,
@@ -95,7 +92,7 @@ describe('allocatePages', () => {
       block('skills', 'skill-category', 200),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 1);
+    const pages = allocatePages(blocks, twoColLayout);
 
     expect(pages).toHaveLength(1);
     expect(pages[0].layoutMode).toBe('two-column');
@@ -113,7 +110,7 @@ describe('allocatePages', () => {
       block('skills', 'skill-category', 200),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 2);
+    const pages = allocatePages(blocks, twoColLayout);
 
     expect(pages.length).toBeGreaterThanOrEqual(2);
     expect(pages[0].layoutMode).toBe('two-column');
@@ -131,7 +128,7 @@ describe('allocatePages', () => {
       block('edu', 'education', 150),
     ];
 
-    const pages = allocatePages(blocks, singleColLayout, 2);
+    const pages = allocatePages(blocks, singleColLayout);
 
     expect(pages[0].layoutMode).toBe('full-width');
     // All blocks should be placed sequentially
@@ -146,13 +143,12 @@ describe('allocatePages', () => {
       expBlock('exp-0', 300),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 3);
+    const pages = allocatePages(blocks, twoColLayout);
 
-    // Even with pageLimit=3, should only produce 1 page if content fits
     expect(pages).toHaveLength(1);
   });
 
-  it('adds pages beyond pageLimit rather than truncating', () => {
+  it('adds as many pages as the content needs (never truncates)', () => {
     // Create enough content to fill 3+ pages
     const blocks = [
       block('header', 'header', 200),
@@ -161,9 +157,8 @@ describe('allocatePages', () => {
       block('skills', 'skill-category', 200),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 2);
+    const pages = allocatePages(blocks, twoColLayout);
 
-    // Should have more than 2 pages since content overflows
     expect(pages.length).toBeGreaterThan(2);
     // All experiences should be placed somewhere
     const allExpBlocks = pages.flatMap(p => p.blocks).filter(pb => pb.block.type === 'experience');
@@ -179,7 +174,7 @@ describe('allocatePages', () => {
       block('edu', 'education', 150),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 2);
+    const pages = allocatePages(blocks, twoColLayout);
 
     // Only page 1 should have sidebar
     expect(pages[0].sidebarBlocks?.length).toBeGreaterThan(0);
@@ -194,9 +189,40 @@ describe('allocatePages', () => {
       block('skills', 'skill-category', 200),
     ];
 
-    const pages = allocatePages(blocks, twoColLayout, 1);
+    const pages = allocatePages(blocks, twoColLayout);
 
     expect(pages).toHaveLength(1);
     expect(pages[0].sidebarBlocks?.length).toBe(1);
+  });
+
+  it('splits experiences into slices with ABSOLUTE sub-block indices (no duplicated bullets)', () => {
+    // One huge experience that cannot fit on a single page
+    const blocks = [
+      block('header', 'header', 200),
+      expBlock('exp-0', 2400, 20), // 20 bullets of ~116px
+    ];
+
+    const pages = allocatePages(blocks, twoColLayout);
+
+    const slices = pages
+      .flatMap(p => p.blocks)
+      .filter(pb => pb.block.id === 'exp-0');
+
+    expect(slices.length).toBeGreaterThanOrEqual(2);
+
+    // Every slice references the SAME source block (no synthetic copies)
+    for (const s of slices) {
+      expect(s.block.subBlocks?.length).toBe(21); // header + 20 bullets, full array preserved
+    }
+
+    // Slices tile the sub-block range contiguously without overlap
+    const ranges = slices
+      .map(s => [s.startSubBlock ?? 0, s.endSubBlock ?? s.block.subBlocks!.length] as const)
+      .sort((a, b) => a[0] - b[0]);
+    expect(ranges[0][0]).toBe(0);
+    expect(ranges[ranges.length - 1][1]).toBe(21);
+    for (let i = 1; i < ranges.length; i++) {
+      expect(ranges[i][0]).toBe(ranges[i - 1][1]); // contiguous, no duplication
+    }
   });
 });

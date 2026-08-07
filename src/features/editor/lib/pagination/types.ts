@@ -6,7 +6,7 @@ import type { Experience, SkillCategory, Education, Language, PersonalInfo } fro
 
 export type BlockType = 'header' | 'summary' | 'experience' | 'skill-category' | 'education' | 'languages';
 
-export type SubBlockType = 'exp-header' | 'bullet' | 'kpi' | 'skill-title' | 'skill-row';
+export type SubBlockType = 'exp-header' | 'bullet' | 'kpi';
 
 export interface SubBlock {
   id: string;
@@ -28,7 +28,7 @@ export interface ContentBlock {
   fullWidthHeightPx: number;
   /** Can this block be split across pages? */
   splittable: boolean;
-  /** Sub-blocks for split calculation (bullets, skill items) */
+  /** Sub-blocks for split calculation (experience header + bullets) */
   subBlocks?: SubBlock[];
   /** Reference to the source data */
   data: Experience | SkillCategory | Education[] | Language[] | PersonalInfo | string;
@@ -40,9 +40,9 @@ export type LayoutMode = 'two-column' | 'full-width';
 
 export interface PlacedBlock {
   block: ContentBlock;
-  /** For split blocks: start sub-block index (inclusive) */
+  /** For split blocks: start sub-block index (inclusive, ABSOLUTE into block.subBlocks) */
   startSubBlock?: number;
-  /** For split blocks: end sub-block index (exclusive) */
+  /** For split blocks: end sub-block index (exclusive, ABSOLUTE into block.subBlocks) */
   endSubBlock?: number;
 }
 
@@ -79,7 +79,7 @@ export interface TemplateLayout {
   page1: Page1Dimensions;
   /** Pages 2+ are full-width with accent color */
   page2Plus: PageDimensions;
-  /** Header spans full width above grid (true for A/D/C/E, false for B/F where header is in sidebar) */
+  /** Header spans full width above grid (true for A/C/E, false for B where header is in sidebar) */
   headerFullWidth: boolean;
 }
 

@@ -1,5 +1,8 @@
 // ─── Page Allocation Algorithm ───
 // Pure function: distributes measured blocks across pages.
+// Overflow travels as PlacedBlock slices with ABSOLUTE sub-block indices —
+// the same block object flows through every page, so live DOM measurements
+// (keyed by block id) always reconcile back to the source block.
 
 import type {
   ContentBlock,
@@ -21,6 +24,14 @@ function mmToPx(mm: number): number {
 
 function getUsableHeight(paddingTopMm: number, paddingBottomMm: number): number {
   return mmToPx(A4_HEIGHT_MM - paddingTopMm - paddingBottomMm);
+}
+
+/** Height of a placed block in the requested width context. Slices always sum their sub-blocks. */
+function placedHeight(pb: PlacedBlock, useFullWidth: boolean): number {
+  if (pb.startSubBlock === undefined || pb.endSubBlock === undefined || !pb.block.subBlocks) {
+    return useFullWidth ? pb.block.fullWidthHeightPx : pb.block.heightPx;
+  }
+  return getPlacedBlockHeight(pb);
 }
 
 // ─── Options ───
@@ -69,14 +80,13 @@ function classifyBlocks(blocks: ContentBlock[]): ClassifiedBlocks {
  *
  * - Page 1: two-column for sidebar templates (header + summary + experiences in main,
  *   skills/edu/languages in sidebar). Single-column templates put everything sequentially.
- * - Pages 2+: full-width, experiences only (with accent color border).
- * - Blocks that don't fit are split at bullet/item level when possible.
- * - Never truncates: adds pages if content exceeds pageLimit.
+ * - Pages 2+: full-width (with accent color border).
+ * - Blocks that don't fit are split at bullet level when possible.
+ * - Never truncates: adds as many pages as the content needs.
  */
 export function allocatePages(
   blocks: ContentBlock[],
   layout: TemplateLayout,
-  _pageLimit: number,
   options: AllocateOptions = {},
 ): PageAssignment[] {
   const { header, summary, experiences, sidebarBlocks } = classifyBlocks(blocks);
@@ -88,7 +98,7 @@ export function allocatePages(
   return allocateSingleColumn(header, summary, experiences, sidebarBlocks, layout, options);
 }
 
-// ─── Two-Column Layout (Templates A, B, D, F) ───
+// ─── Two-Column Layout (Templates A, B) ───
 
 function allocateTwoColumn(
   header: ContentBlock | null,
@@ -108,7 +118,7 @@ function allocateTwoColumn(
   const page1Main: PlacedBlock[] = [];
   const page1Sidebar: PlacedBlock[] = [];
 
-  // Header (spans full width above grid, or is in sidebar for B/F)
+  // Header (spans full width above grid, or is in sidebar for B)
   if (header) {
     if (layout.headerFullWidth) {
       page1Main.push({ block: header });
@@ -124,7 +134,7 @@ function allocateTwoColumn(
 
   // Sidebar: fill with skills/education/languages
   // Blocks that don't fit flow to page 2+ as full-width content
-  const sidebarOverflow: ContentBlock[] = [];
+  const sidebarOverflow: PlacedBlock[] = [];
   const headerSidebarH = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
   let sidebarUsed = headerSidebarH;
   // Reserve space for the "COMPÉTENCES" section title injected by PaginatedCV
@@ -137,7 +147,7 @@ function allocateTwoColumn(
       page1Sidebar.push({ block: sb });
       sidebarUsed += sb.heightPx + MEASUREMENT_SAFETY_PX;
     } else {
-      sidebarOverflow.push(sb);
+      sidebarOverflow.push({ block: sb });
     }
   }
 
@@ -172,6 +182,8 @@ function allocateTwoColumn(
 }
 
 // ─── Single-Column Layout (Templates C, E) ───
+// Every page renders at the same full width, so heightPx is the single source
+// of truth (usePaginationFit keeps heightPx === fullWidthHeightPx here).
 
 function allocateSingleColumn(
   header: ContentBlock | null,
@@ -215,20 +227,20 @@ function allocateSingleColumn(
 
 /**
  * Fill a column with blocks until no more fit.
- * Returns the overflow (blocks that didn't fit, including split remainders).
+ * Returns the overflow as PlacedBlock slices (whole blocks or split remainders).
  */
 function fillColumn(
   blocks: ContentBlock[],
   availablePx: number,
   placed: PlacedBlock[],
-): ContentBlock[] {
+): PlacedBlock[] {
   let usedPx = placed.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-  const overflow: ContentBlock[] = [];
+  const overflow: PlacedBlock[] = [];
   let overflowStarted = false;
 
   for (const block of blocks) {
     if (overflowStarted) {
-      overflow.push(block);
+      overflow.push({ block });
       continue;
     }
 
@@ -246,15 +258,14 @@ function fillColumn(
       const split = splitBlock(block, remaining);
       if (split) {
         placed.push(split.kept);
-        // Create a synthetic block for the overflow portion
-        overflow.push(createOverflowBlock(split.overflow));
+        overflow.push(split.overflow);
         overflowStarted = true;
         continue;
       }
     }
 
     // Can't fit or split — overflow the entire block
-    overflow.push(block);
+    overflow.push({ block });
     overflowStarted = true;
   }
 
@@ -262,10 +273,11 @@ function fillColumn(
 }
 
 /**
- * Allocate overflow blocks across additional pages.
+ * Allocate overflow slices across additional pages.
+ * A slice that doesn't fit is split again (from its own start offset).
  */
 function allocateOverflowPages(
-  overflow: ContentBlock[],
+  overflow: PlacedBlock[],
   pageHeightPx: number,
   pages: PageAssignment[],
   useFullWidthHeight: boolean,
@@ -274,37 +286,31 @@ function allocateOverflowPages(
 
   while (remaining.length > 0) {
     const pageBlocks: PlacedBlock[] = [];
-    const nextOverflow: ContentBlock[] = [];
+    const nextOverflow: PlacedBlock[] = [];
     let usedPx = 0;
     let overflowStarted = false;
 
-    for (const block of remaining) {
+    for (const pb of remaining) {
       if (overflowStarted) {
-        nextOverflow.push(block);
+        nextOverflow.push(pb);
         continue;
       }
 
-      const height = useFullWidthHeight ? block.fullWidthHeightPx : block.heightPx;
+      const height = placedHeight(pb, useFullWidthHeight);
       const space = pageHeightPx - usedPx;
 
       if (height + MEASUREMENT_SAFETY_PX <= space) {
-        // Mark overflow blocks as continuations so renderers skip the header
-        if (block.id.endsWith('-overflow') && block.subBlocks) {
-          const firstSubIdx = block.subBlocks.findIndex(s => s.type !== 'exp-header' && s.type !== 'skill-title');
-          pageBlocks.push({ block, startSubBlock: Math.max(firstSubIdx, 1), endSubBlock: block.subBlocks.length });
-        } else {
-          pageBlocks.push({ block });
-        }
+        pageBlocks.push(pb);
         usedPx += height + MEASUREMENT_SAFETY_PX;
         continue;
       }
 
-      // Try split
-      if (block.splittable) {
-        const split = splitBlock(block, space);
+      // Try split (from the slice's own start offset)
+      if (pb.block.splittable) {
+        const split = splitBlock(pb.block, space, pb.startSubBlock ?? 0);
         if (split) {
           pageBlocks.push(split.kept);
-          nextOverflow.push(createOverflowBlock(split.overflow));
+          nextOverflow.push(split.overflow);
           overflowStarted = true;
           continue;
         }
@@ -312,13 +318,13 @@ function allocateOverflowPages(
 
       // If no blocks placed yet on this page, force-place to avoid infinite loop
       if (pageBlocks.length === 0) {
-        pageBlocks.push({ block });
+        pageBlocks.push(pb);
         usedPx += height;
         overflowStarted = true;
         continue;
       }
 
-      nextOverflow.push(block);
+      nextOverflow.push(pb);
       overflowStarted = true;
     }
 
@@ -333,29 +339,4 @@ function allocateOverflowPages(
 
     remaining = nextOverflow;
   }
-}
-
-// ─── Utilities ───
-
-/**
- * Create a synthetic ContentBlock from a split overflow PlacedBlock.
- * This represents the "remaining" portion of a split block.
- */
-function createOverflowBlock(placed: PlacedBlock): ContentBlock {
-  const { block, startSubBlock, endSubBlock } = placed;
-
-  if (startSubBlock === undefined || endSubBlock === undefined || !block.subBlocks) {
-    return block;
-  }
-
-  const overflowSubs = block.subBlocks.slice(startSubBlock, endSubBlock);
-  const overflowHeight = overflowSubs.reduce((sum, s) => sum + s.heightPx, 0) + MEASUREMENT_SAFETY_PX;
-
-  return {
-    ...block,
-    id: `${block.id}-overflow`,
-    heightPx: overflowHeight,
-    fullWidthHeightPx: overflowHeight, // approximate — will be re-measured if needed
-    subBlocks: overflowSubs,
-  };
 }

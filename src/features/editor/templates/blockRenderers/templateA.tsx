@@ -4,11 +4,11 @@
 
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
-import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { useSectionTitleClasses, getIncludedSections, renderPhoto, renderContactInfo, renderSkillsATS, isKPIInRange, CompanyTags } from '../shared';
-import { getIntro, getActionBullets, isHidden, isSkillHidden, getVisibleSkills } from '../../lib/displayModes';
+import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
+import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBullets } from '../shared';
+import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
-import { getSectionTitle, getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
+import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
 
@@ -21,29 +21,6 @@ function getSectionTitleStyle(props: BlockRendererProps) {
     color: atsMode ? '#000' : designSettings.primaryColor,
     borderColor: atsMode ? '#e5e7eb' : `${designSettings.primaryColor}20`,
   };
-}
-
-/** Get the bullet slice for a split experience block */
-function getSlicedBullets(exp: Experience, placed: PlacedBlock): { intro: string | null; bullets: string[] } {
-  const intro = getIntro(exp);
-  const allBullets = getActionBullets(exp);
-
-  if (placed.startSubBlock === undefined || placed.endSubBlock === undefined) {
-    return { intro, bullets: allBullets };
-  }
-
-  // Sub-blocks: [0] = exp-header (intro), [1..n] = bullets
-  const isOverflowPart = placed.startSubBlock > 0;
-  if (isOverflowPart) {
-    // This is the continuation — no intro, bullets from startSubBlock-1
-    const bulletStart = placed.startSubBlock - 1; // -1 because sub-block 0 is exp-header
-    const bulletEnd = placed.endSubBlock - 1;
-    return { intro: null, bullets: allBullets.slice(bulletStart, bulletEnd) };
-  }
-
-  // This is the first part — intro + bullets up to endSubBlock-1
-  const bulletEnd = placed.endSubBlock - 1;
-  return { intro, bullets: allBullets.slice(0, bulletEnd) };
 }
 
 // ─── Block Renderers ───
@@ -83,9 +60,8 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
 function ExperienceBlock({ block, designSettings, language, isPage2Plus }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor } = designSettings;
-  const { intro, bullets } = getSlicedBullets(exp, block);
+  const { intro, bullets, bulletOffset } = getSlicedBullets(exp, block);
   const isOverflow = (block.startSubBlock ?? 0) > 0;
-  const sectionStyle = getSectionTitleStyle({ block, designSettings, language });
 
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
@@ -108,7 +84,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
       {bullets.length > 0 && (
         <ul className="space-y-1.5 mt-1.5">
           {bullets.map((bullet, bIdx) => (
-            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
+            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
               {renderInlineMarkdown(bullet)}
             </li>
@@ -126,41 +102,19 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
 
 function SkillCategoryBlock({ block, designSettings, language }: BlockRendererProps) {
   const cat = block.block.data as SkillCategory;
-  const { secondaryColor, atsMode } = designSettings;
-  const sectionStyle = getSectionTitleStyle({ block, designSettings, language });
+  const { secondaryColor } = designSettings;
   const visibleSkills = getVisibleSkills(cat);
 
   if (visibleSkills.length === 0) return null;
 
-  // Handle slice for split skill categories
-  let displaySkills = visibleSkills;
-  if (block.startSubBlock !== undefined && block.endSubBlock !== undefined && block.block.subBlocks) {
-    const isOverflow = block.startSubBlock > 0;
-    if (isOverflow) {
-      // Skip title sub-block count
-      const titleCount = block.block.subBlocks.filter(s => s.type === 'skill-title').length;
-      const itemStart = block.startSubBlock - titleCount;
-      const itemEnd = block.endSubBlock - titleCount;
-      displaySkills = visibleSkills.slice(itemStart, itemEnd);
-    } else {
-      const titleCount = block.block.subBlocks.filter(s => s.type === 'skill-title').length;
-      const itemEnd = block.endSubBlock - titleCount;
-      displaySkills = visibleSkills.slice(0, itemEnd);
-    }
-  }
-
-  const isOverflow = (block.startSubBlock ?? 0) > 0;
-
   return (
     <div className="space-y-2" data-measure-id={block.block.id}>
-      {!isOverflow && (
-        <h3 className="text-[10px] font-bold uppercase tracking-wider" data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title" style={{ color: secondaryColor }}>
-          {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
-        </h3>
-      )}
+      <h3 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: secondaryColor }}>
+        {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
+      </h3>
       <div className="flex flex-wrap gap-2">
-        {displaySkills.map((skill, i) => (
-          <span key={skill} className="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded uppercase tracking-wider" data-sub-id={`${block.block.id}-item-${i}`} data-sub-type="skill-row">
+        {visibleSkills.map((skill) => (
+          <span key={skill} className="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded uppercase tracking-wider">
             {skill}
           </span>
         ))}

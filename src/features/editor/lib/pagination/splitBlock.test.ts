@@ -25,26 +25,6 @@ function makeExpBlock(bulletCount: number, bulletHeight = 24): ContentBlock {
   };
 }
 
-function makeSkillBlock(itemCount: number, itemHeight = 20): ContentBlock {
-  const subs: SubBlock[] = [
-    { id: 'title', heightPx: 30, type: 'skill-title' },
-    ...Array.from({ length: itemCount }, (_, i) => ({
-      id: `item-${i}`,
-      heightPx: itemHeight,
-      type: 'skill-row' as const,
-    })),
-  ];
-  return {
-    id: 'skill-0',
-    type: 'skill-category',
-    heightPx: subs.reduce((s, b) => s + b.heightPx, 0),
-    fullWidthHeightPx: subs.reduce((s, b) => s + b.heightPx, 0),
-    splittable: true,
-    subBlocks: subs,
-    data: {} as never,
-  };
-}
-
 // ─── Experience Split Tests ───
 
 describe('splitBlock — experience', () => {
@@ -86,44 +66,52 @@ describe('splitBlock — experience', () => {
     expect(splitBlock(block, 100)).toBeNull();
   });
 
+  it('returns null for skill-category blocks (not splittable anymore)', () => {
+    const block: ContentBlock = {
+      id: 'skill-0',
+      type: 'skill-category',
+      heightPx: 200,
+      fullWidthHeightPx: 200,
+      splittable: false,
+      data: {} as never,
+    };
+    expect(splitBlock(block, 100)).toBeNull();
+  });
+
   it('returns null when experience has fewer than 2 bullets', () => {
     const block = makeExpBlock(1, 24);
     const result = splitBlock(block, 200);
     expect(result).toBeNull();
   });
 
-  it('keeps all bullets if all fit', () => {
+  it('returns null when everything fits (nothing to overflow)', () => {
     const block = makeExpBlock(3, 24);
-    // header(80)+safety + 3*(bullet(24)+safety) — generous space for all
     const result = splitBlock(block, 80 + MEASUREMENT_SAFETY_PX + 3 * (24 + MEASUREMENT_SAFETY_PX) + 10);
-    expect(result).not.toBeNull();
-    expect(result!.kept.endSubBlock).toBe(4); // header + 3 bullets (all)
+    expect(result).toBeNull();
   });
 });
 
-// ─── Skill Category Split Tests ───
+// ─── Continuation Slice Split (startFrom > 0) ───
 
-describe('splitBlock — skill-category', () => {
-  it('splits keeping title + 2 items', () => {
-    const block = makeSkillBlock(5, 20);
-    // titleH = 30 + safety. Each item check: usedPx + item + safety <= remaining
-    // Enough for 2 items but not 3
-    const space = 30 + MEASUREMENT_SAFETY_PX + 20 + 20 + MEASUREMENT_SAFETY_PX + 1;
-    const result = splitBlock(block, space);
+describe('splitBlock — continuation slice', () => {
+  it('splits a continuation slice with absolute indices and no header requirement', () => {
+    const block = makeExpBlock(6, 24);
+    // Continuation starts at sub-block 3 (bullets 2..5 remain).
+    // Space for 2 bullets only.
+    const space = MEASUREMENT_SAFETY_PX + 24 + 24 + MEASUREMENT_SAFETY_PX + 1;
+    const result = splitBlock(block, space, 3);
     expect(result).not.toBeNull();
-    expect(result!.kept.endSubBlock).toBe(3); // title + 2 items
-    expect(result!.overflow.startSubBlock).toBe(3);
+    expect(result!.kept.startSubBlock).toBe(3);
+    expect(result!.kept.endSubBlock).toBe(5); // 2 bullets kept
+    expect(result!.overflow.startSubBlock).toBe(5);
+    expect(result!.overflow.endSubBlock).toBe(7); // 2 remaining bullets
   });
 
-  it('returns null when fewer than 2 items fit', () => {
-    const block = makeSkillBlock(5, 20);
-    const result = splitBlock(block, 55); // only title + 1 item
+  it('returns null when the continuation has fewer than 2 remaining bullets', () => {
+    const block = makeExpBlock(3, 24);
+    // Continuation starts at the last bullet
+    const result = splitBlock(block, 500, 3);
     expect(result).toBeNull();
-  });
-
-  it('returns null when fewer than 2 items total', () => {
-    const block = makeSkillBlock(1, 20);
-    expect(splitBlock(block, 200)).toBeNull();
   });
 });
 

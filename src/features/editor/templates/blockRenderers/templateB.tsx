@@ -5,35 +5,13 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/colorContrast';
-import type { BlockRendererMap, BlockRendererProps, PlacedBlock } from '../../lib/pagination/types';
-import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags } from '../shared';
-import { getIntro, getActionBullets, getVisibleSkills } from '../../lib/displayModes';
+import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
+import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets } from '../shared';
+import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
-
-// ─── Helpers ───
-
-/** Get the bullet slice for a split experience block */
-function getSlicedBullets(exp: Experience, placed: PlacedBlock): { intro: string | null; bullets: string[] } {
-  const intro = getIntro(exp);
-  const allBullets = getActionBullets(exp);
-
-  if (placed.startSubBlock === undefined || placed.endSubBlock === undefined) {
-    return { intro, bullets: allBullets };
-  }
-
-  const isOverflowPart = placed.startSubBlock > 0;
-  if (isOverflowPart) {
-    const bulletStart = placed.startSubBlock - 1;
-    const bulletEnd = placed.endSubBlock - 1;
-    return { intro: null, bullets: allBullets.slice(bulletStart, bulletEnd) };
-  }
-
-  const bulletEnd = placed.endSubBlock - 1;
-  return { intro, bullets: allBullets.slice(0, bulletEnd) };
-}
 
 // ─── Block Renderers ───
 
@@ -84,7 +62,7 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
 function ExperienceBlock({ block, designSettings, language }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor, atsMode } = designSettings;
-  const { intro, bullets } = getSlicedBullets(exp, block);
+  const { intro, bullets, bulletOffset } = getSlicedBullets(exp, block);
   const isOverflow = (block.startSubBlock ?? 0) > 0;
 
   return (
@@ -108,7 +86,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
       {bullets.length > 0 && (
         <ul className="space-y-1.5 mt-2">
           {bullets.map((bullet, bIdx) => (
-            <li key={bIdx} className="text-[11px] text-gray-600 leading-relaxed flex gap-2" data-sub-id={`${block.block.id}-bullet-${bIdx}`} data-sub-type="bullet">
+            <li key={bIdx} className="text-[11px] text-gray-600 leading-relaxed flex gap-2" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-[6px] w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
               {renderInlineMarkdown(bullet)}
             </li>
@@ -134,34 +112,14 @@ function SkillCategoryBlock({ block, designSettings, language, isPage2Plus }: Bl
 
   if (visibleSkills.length === 0) return null;
 
-  // Handle slice for split skill categories
-  let displaySkills = visibleSkills;
-  if (block.startSubBlock !== undefined && block.endSubBlock !== undefined && block.block.subBlocks) {
-    const isOverflow = block.startSubBlock > 0;
-    if (isOverflow) {
-      const titleCount = block.block.subBlocks.filter(s => s.type === 'skill-title').length;
-      const itemStart = block.startSubBlock - titleCount;
-      const itemEnd = block.endSubBlock - titleCount;
-      displaySkills = visibleSkills.slice(itemStart, itemEnd);
-    } else {
-      const titleCount = block.block.subBlocks.filter(s => s.type === 'skill-title').length;
-      const itemEnd = block.endSubBlock - titleCount;
-      displaySkills = visibleSkills.slice(0, itemEnd);
-    }
-  }
-
-  const isOverflow = (block.startSubBlock ?? 0) > 0;
-
   return (
     <div className="space-y-2" data-measure-id={block.block.id}>
-      {!isOverflow && (
-        <h3 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }} data-sub-id={`${block.block.id}-title`} data-sub-type="skill-title">
-          {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
-        </h3>
-      )}
+      <h3 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>
+        {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
+      </h3>
       <div className="flex flex-wrap gap-1.5">
-        {displaySkills.map((skill, i) => (
-          <span key={skill} className="px-2 py-0.5 text-[9px] font-medium rounded" style={{ backgroundColor: onSidebar ? 'rgba(255,255,255,0.12)' : '#f3f4f6', color: textColor }} data-sub-id={`${block.block.id}-item-${i}`} data-sub-type="skill-row">
+        {visibleSkills.map((skill) => (
+          <span key={skill} className="px-2 py-0.5 text-[9px] font-medium rounded" style={{ backgroundColor: onSidebar ? 'rgba(255,255,255,0.12)' : '#f3f4f6', color: textColor }}>
             {skill}
           </span>
         ))}

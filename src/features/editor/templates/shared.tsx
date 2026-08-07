@@ -1,14 +1,43 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
-import type { CVData, DesignSettings, SkillCategory } from '@/src/shared/types';
+import type { CVData } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
-import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
-import { getSkillCategoryTitle } from '../lib/atsRules';
 import { getLocalizedStage } from '@/convex/_ai/schemas';
-import type { SkillCategoryKey } from '../lib/skillDictionary';
-import { isSkillHidden, getVisibleSkills, shouldShowKPI } from '../lib/displayModes';
+import { shouldShowKPI, getIntro, getActionBullets } from '../lib/displayModes';
 import type { PlacedBlock } from '../lib/pagination/types';
 import type { Experience } from '@/src/shared/types';
+
+/**
+ * Bullet slice for a (possibly split) experience block.
+ *
+ * Sub-block indices are ABSOLUTE into block.subBlocks: [0] = exp-header,
+ * [1..n] = bullets, optional kpi last. `bulletOffset` is the absolute index of
+ * the first rendered bullet — renderers must use it when tagging bullets with
+ * data-sub-id so live DOM measurements map back to the right sub-block.
+ */
+export function getSlicedBullets(
+  exp: Experience,
+  placed: PlacedBlock,
+): { intro: string | null; bullets: string[]; bulletOffset: number } {
+  const intro = getIntro(exp);
+  const allBullets = getActionBullets(exp);
+
+  if (placed.startSubBlock === undefined || placed.endSubBlock === undefined) {
+    return { intro, bullets: allBullets, bulletOffset: 0 };
+  }
+
+  const isOverflowPart = placed.startSubBlock > 0;
+  if (isOverflowPart) {
+    // Continuation — no intro, bullets resume mid-list (-1 skips exp-header)
+    const bulletStart = placed.startSubBlock - 1;
+    const bulletEnd = placed.endSubBlock - 1;
+    return { intro: null, bullets: allBullets.slice(bulletStart, bulletEnd), bulletOffset: bulletStart };
+  }
+
+  // First part — intro + bullets up to endSubBlock-1
+  const bulletEnd = placed.endSubBlock - 1;
+  return { intro, bullets: allBullets.slice(0, bulletEnd), bulletOffset: 0 };
+}
 
 /**
  * Whether the KPI sub-block falls within the current page's slice.
@@ -77,30 +106,6 @@ export function LinkedinIcon({ className }: { className?: string }) {
   );
 }
 
-export interface TemplateProps {
-  cvData: CVData;
-  designSettings: DesignSettings;
-  language: SupportedLanguage;
-}
-
-export function useSectionTitleClasses(settings: DesignSettings) {
-  return cn(
-    settings.sectionTitleWeight === 'normal' && "font-normal",
-    settings.sectionTitleWeight === 'medium' && "font-medium",
-    settings.sectionTitleWeight === 'semibold' && "font-semibold",
-    settings.sectionTitleWeight === 'bold' && "font-bold",
-    settings.sectionTitleWeight === 'black' && "font-black",
-    settings.sectionTitleTransform === 'none' && "normal-case",
-    settings.sectionTitleTransform === 'uppercase' && "uppercase",
-    settings.sectionTitleTransform === 'capitalize' && "capitalize",
-    settings.sectionTitleSpacing === 'tight' && "tracking-tight",
-    settings.sectionTitleSpacing === 'normal' && "tracking-normal",
-    settings.sectionTitleSpacing === 'wide' && "tracking-wide",
-    settings.sectionTitleSpacing === 'wider' && "tracking-wider",
-    settings.sectionTitleSpacing === 'widest' && "tracking-widest",
-  );
-}
-
 export function getFontClass(fontFamily: string) {
   switch (fontFamily) {
     case 'serif': return 'font-serif';
@@ -109,10 +114,6 @@ export function getFontClass(fontFamily: string) {
     case 'outfit': return 'font-outfit';
     default: return 'font-sans';
   }
-}
-
-export function getIncludedSections(settings: DesignSettings) {
-  return settings.includedSections ?? ['personal', 'summary', 'experience', 'education', 'skills', 'languages'];
 }
 
 export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-24 h-24 rounded-full object-cover") {
@@ -128,57 +129,6 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
       />
     </div>
   );
-}
-
-/**
- * Render experience content: intro + action bullets + KPI.
- * 
- * compact: intro paragraph only
- * normal: intro + 2 action bullets
- * extended: intro + 4 action bullets + KPI
- */
-export function renderExperienceContent(
-  exp: import('@/src/shared/types').Experience,
-  intro: string | null,
-  bullets: string[],
-  bulletMarker: React.ReactNode,
-  kpiColor: string,
-) {
-  const mode = exp.displayMode || 'normal';
-  
-  return (
-    <>
-      {intro && (
-        <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>
-      )}
-      {bullets.length > 0 && (
-        <ul className="space-y-1.5 mt-1.5">
-          {bullets.map((bullet, bIdx) => (
-            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3">
-              {bulletMarker}
-              {renderInlineMarkdown(bullet)}
-            </li>
-          ))}
-        </ul>
-      )}
-      {mode === 'extended' && exp.kpi && (
-        <p className="text-xs font-bold mt-2 flex items-center gap-1.5" style={{ color: kpiColor }}>
-          <span className="text-[10px]">📈</span> {exp.kpi}
-        </p>
-      )}
-    </>
-  );
-}
-
-// Keep old name as alias for backward compat during migration
-export const renderExperienceBullets = renderExperienceContent;
-
-// ─── ATS Mode Helpers ───
-
-/** Returns inline style to force ATS-safe font when atsMode is active */
-export function getAtsFontStyle(atsMode?: boolean): React.CSSProperties | undefined {
-  if (!atsMode) return undefined;
-  return { fontFamily: 'Arial, Helvetica, sans-serif' };
 }
 
 /**
@@ -218,27 +168,3 @@ export function renderContactInfo(
   );
 }
 
-/** Renders skills as plain text for ATS parsers: "Category: skill1, skill2, skill3" per line. */
-export function renderSkillsATS(skills: SkillCategory[], language: SupportedLanguage) {
-  return (
-    <div className="space-y-1">
-      {skills.filter(cat => !isSkillHidden(cat)).map((cat, idx) => {
-        const visibleItems = getVisibleSkills(cat);
-        if (visibleItems.length === 0) return null;
-        const title = getSkillCategoryTitle(cat.category as SkillCategoryKey, language);
-        return (
-          <p key={idx} className="text-sm">
-            <span className="font-semibold">{title}:</span>{' '}
-            {visibleItems.join(', ')}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Returns simplified Tailwind classes when atsMode is active */
-export function atsSimplifyClasses(atsMode?: boolean): string {
-  if (!atsMode) return '';
-  return 'border-gray-300 bg-white';
-}
