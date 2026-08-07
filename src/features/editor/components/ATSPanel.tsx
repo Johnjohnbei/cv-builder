@@ -13,6 +13,8 @@ interface ATSPanelProps {
   onRequestAIAnalysis?: () => void;
   onOptimizeBullets?: () => void;
   isOptimizing?: boolean;
+  /** True while ANY AI action runs (here or elsewhere): siblings are disabled */
+  aiBusy?: boolean;
   isAtsMode?: boolean;
   integratingKeyword?: string | null;
   /** Optional click handler for the auto-distribute CTA. Hides the CTA when undefined. */
@@ -69,6 +71,7 @@ export function ATSPanel({
   onRequestAIAnalysis,
   onOptimizeBullets,
   isOptimizing,
+  aiBusy = false,
   isAtsMode,
   integratingKeyword,
   onAutoDistribute,
@@ -143,6 +146,7 @@ export function ATSPanel({
               variant="secondary"
               size="sm"
               loading={isDistributing}
+              disabled={aiBusy && !isDistributing}
               onClick={onAutoDistribute}
               aria-label={`Répartir automatiquement les ${keywords.keywords.filter(kw => !kw.found).length} mots-clés manquants dans les expériences`}
               className="w-full mt-2"
@@ -227,7 +231,7 @@ export function ATSPanel({
       <Button
         variant="primary"
         size="sm"
-        disabled={!hasJobDescription || isOptimizing}
+        disabled={!hasJobDescription || isOptimizing || aiBusy}
         onClick={() => onOptimizeBullets?.()}
         title={!hasJobDescription ? "Importez une offre d'emploi" : undefined}
         className="w-full"

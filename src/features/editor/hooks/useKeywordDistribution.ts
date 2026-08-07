@@ -3,6 +3,7 @@ import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 
 // ─── Types ───
 
@@ -123,9 +124,9 @@ export function useKeywordDistribution(
         message: `${mapped.length} proposition(s) générée(s)`,
         type: 'success',
       });
-    } catch {
+    } catch (e) {
       notify({
-        message: 'Erreur lors de la distribution automatique',
+        message: getUserErrorMessage(e, 'Erreur lors de la distribution automatique'),
         type: 'error',
       });
     } finally {

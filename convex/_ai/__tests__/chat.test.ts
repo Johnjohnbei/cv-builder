@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { withRetry, isRetryable, retryDelayMs, safeParseJSON } from "../chat";
+import { ConvexError } from "convex/values";
+import { withRetry, isRetryable, retryDelayMs, safeParseJSON, userError } from "../chat";
+
+/** Read the user-facing payload off a thrown error (ConvexError.data). */
+const dataOf = (e: unknown) => (e instanceof ConvexError ? (e.data as { userMessage?: string; code?: string }) : {});
 
 const ENV_KEYS = ["GEMINI_API_KEY", "ANTHROPIC_API_KEY"] as const;
 const savedEnv: Record<string, string | undefined> = {};
@@ -84,7 +88,7 @@ describe("withRetry", () => {
   it("falls through on schema/parse errors too (no status)", async () => {
     const fn = vi
       .fn()
-      .mockRejectedValueOnce(new Error("L'IA a retourné une réponse invalide. Veuillez réessayer."))
+      .mockRejectedValueOnce(userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT"))
       .mockResolvedValueOnce("fallback-ok");
     await expect(withRetry(fn)).resolves.toBe("fallback-ok");
     expect(fn).toHaveBeenCalledTimes(2);
@@ -110,22 +114,37 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("throws a clear French message when all providers fail with SDK errors", async () => {
+  it("throws a ConvexError with a clear French message when all providers fail with SDK errors", async () => {
     const fn = vi.fn().mockRejectedValue(Object.assign(new Error("ECONNRESET"), { status: 503 }));
     vi.useFakeTimers();
-    const promise = withRetry(fn).catch((e: Error) => e);
+    const promise = withRetry(fn).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(30_000);
-    const err = (await promise) as Error;
-    expect(err.message).toContain("momentanément indisponibles");
+    const err = await promise;
+    expect(err).toBeInstanceOf(ConvexError);
+    expect(dataOf(err).userMessage).toContain("momentanément indisponibles");
+    expect(dataOf(err).userMessage).toContain("Réessayez"); // vouvoiement
+    expect(dataOf(err).code).toBe("AI_UNAVAILABLE");
   });
 
-  it("preserves user-facing L'IA messages when all providers fail", async () => {
-    const fn = vi.fn().mockRejectedValue(new Error("L'IA a retourné une réponse vide. Veuillez réessayer."));
+  it("preserves user-facing ConvexError messages across retries when all providers fail", async () => {
+    const fn = vi.fn().mockRejectedValue(userError("L'IA a retourné une réponse vide. Veuillez réessayer.", "AI_EMPTY_OUTPUT"));
     vi.useFakeTimers();
-    const promise = withRetry(fn).catch((e: Error) => e);
+    const promise = withRetry(fn).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(30_000);
-    const err = (await promise) as Error;
-    expect(err.message).toContain("L'IA a retourné");
+    const err = await promise;
+    expect(err).toBeInstanceOf(ConvexError);
+    expect(dataOf(err).userMessage).toContain("L'IA a retourné");
+    expect(dataOf(err).code).toBe("AI_EMPTY_OUTPUT");
+  });
+
+  it("converts legacy user-facing plain Errors (normalizers) to ConvexError at the boundary", async () => {
+    const fn = vi.fn().mockRejectedValue(new Error("L'IA a retourné un CV invalide. Veuillez réessayer."));
+    vi.useFakeTimers();
+    const promise = withRetry(fn).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(30_000);
+    const err = await promise;
+    expect(err).toBeInstanceOf(ConvexError);
+    expect(dataOf(err).userMessage).toContain("CV invalide");
   });
 });
 
@@ -139,12 +158,21 @@ describe("safeParseJSON", () => {
     expect(safeParseJSON('```\n{"a":1}\n```')).toEqual({ a: 1 });
   });
 
-  it("throws a French error on empty response", () => {
-    expect(() => safeParseJSON("")).toThrow(/réponse vide/);
-    expect(() => safeParseJSON(null)).toThrow(/réponse vide/);
+  it("throws a French ConvexError on empty response", () => {
+    for (const input of ["", null]) {
+      let caught: unknown;
+      try { safeParseJSON(input); } catch (e) { caught = e; }
+      expect(caught).toBeInstanceOf(ConvexError);
+      expect(dataOf(caught).userMessage).toMatch(/réponse vide/);
+      expect(dataOf(caught).code).toBe("AI_EMPTY_OUTPUT");
+    }
   });
 
-  it("throws a French error on invalid JSON", () => {
-    expect(() => safeParseJSON("not json at all")).toThrow(/réponse invalide/);
+  it("throws a French ConvexError on invalid JSON", () => {
+    let caught: unknown;
+    try { safeParseJSON("not json at all"); } catch (e) { caught = e; }
+    expect(caught).toBeInstanceOf(ConvexError);
+    expect(dataOf(caught).userMessage).toMatch(/réponse invalide/);
+    expect(dataOf(caught).code).toBe("AI_INVALID_OUTPUT");
   });
 });

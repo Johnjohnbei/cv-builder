@@ -1,7 +1,7 @@
 "use node";
 
 import { action } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { chatJSONSchema, chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
@@ -199,9 +199,11 @@ export const extractJobDescriptionFromURL = action({
     }
 
     if (!pageText || pageText.length < 50) {
-      throw new Error(
-        "Impossible d'extraire le contenu de cette URL. Essayez de copier-coller le texte de l'offre manuellement."
-      );
+      throw new ConvexError({
+        userMessage:
+          "Impossible d'extraire le contenu de cette URL. Essayez de copier-coller le texte de l'offre manuellement.",
+        code: "URL_EXTRACT_FAILED",
+      });
     }
 
     const prompt = buildJobDescriptionFromURLPrompt({ url: args.url, pageText });

@@ -67,6 +67,15 @@ export default function HomePage() {
                   <span>Essayer sans compte</span>
                 </button>
               </motion.div>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="mt-4 text-xs text-gray-400"
+              >
+                Bêta privée : les fonctions IA nécessitent un code d'accès.
+              </motion.p>
             </div>
 
             {/* Preview card */}
@@ -145,7 +154,7 @@ export default function HomePage() {
             {[
               { icon: <PenTool className="w-5 h-5" />, title: 'Lettre de motivation', desc: 'Générée par l\'IA, alignée sur votre CV et l\'offre ciblée.' },
               { icon: <Download className="w-5 h-5" />, title: 'Export PDF & DOCX', desc: 'Téléchargez dans le format demandé par le recruteur.' },
-              { icon: <FileText className="w-5 h-5" />, title: '6 templates pro', desc: 'Du classique au créatif, personnalisables couleurs et typographie.' },
+              { icon: <FileText className="w-5 h-5" />, title: '4 templates pro', desc: 'Du classique au créatif, personnalisables couleurs et typographie.' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-blue-50 rounded flex items-center justify-center text-blue-600 shrink-0">

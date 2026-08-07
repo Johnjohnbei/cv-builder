@@ -25,6 +25,17 @@ export function useMediaQuery(query: string): boolean {
   return matches;
 }
 
+/** Seconds elapsed while `active` is true (resets to 0 when it turns false). */
+export function useSecondsCounter(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) { setSeconds(0); return; }
+    const interval = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [active]);
+  return seconds;
+}
+
 export function useAutoNotification() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 

@@ -4,6 +4,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
 import { detectJobDescriptionLanguage } from '@/src/lib/languageDetection';
+import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
@@ -219,7 +220,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
       setIsDirty(false);
     } catch (e) {
       console.error('Error generating cover letter:', e);
-      notify({ message: 'Erreur lors de la génération. Réessayez.', type: 'error' });
+      notify({ message: getUserErrorMessage(e, 'Erreur lors de la génération. Réessayez.'), type: 'error' });
     } finally { setIsGenerating(false); }
   }, [cvData, localJobDescription, companyName, companyStage, companyBusinessModel, tone, accessCode, generateAction, notify, isDirty, letter]);
 

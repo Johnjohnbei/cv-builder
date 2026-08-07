@@ -3,6 +3,7 @@ import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, Experience } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 
 // ─── Types ───
 
@@ -162,8 +163,8 @@ export function useBulletOptimization(
       }
       setPendingRewrites(next);
       notify({ message: `${next.size} bullet(s) optimisé(s)`, type: 'success' });
-    } catch {
-      notify({ message: "Erreur lors de l'optimisation", type: 'error' });
+    } catch (e) {
+      notify({ message: getUserErrorMessage(e, "Erreur lors de l'optimisation"), type: 'error' });
     } finally {
       setIsOptimizing(false);
     }
@@ -228,8 +229,8 @@ export function useBulletOptimization(
             type: 'success',
           });
         }
-      } catch {
-        notify({ message: `Erreur lors de l'intégration de "${keyword}"`, type: 'error' });
+      } catch (e) {
+        notify({ message: getUserErrorMessage(e, `Erreur lors de l'intégration de "${keyword}"`), type: 'error' });
       } finally {
         setIntegratingKeyword(null);
       }

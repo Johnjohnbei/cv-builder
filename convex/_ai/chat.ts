@@ -2,8 +2,33 @@
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { ConvexError } from "convex/values";
 import type { ZodType } from "zod";
 import { getProviders, getModel, type AIProvider } from "./providers";
+
+// ─── User-facing errors ─────────────────────────────────────────────
+// Convex redacts plain Error messages in prod; ConvexError.data survives to the
+// client. Every user-facing throw goes through userError() so the French
+// message + a stable code reach the UI (read via getUserErrorMessage).
+
+export type AIErrorCode = "AI_UNAVAILABLE" | "AI_EMPTY_OUTPUT" | "AI_INVALID_OUTPUT";
+
+export function userError(userMessage: string, code: AIErrorCode): ConvexError<{ userMessage: string; code: AIErrorCode }> {
+  return new ConvexError({ userMessage, code });
+}
+
+/** A ConvexError carrying userMessage, or a legacy plain Error with a French
+ *  user-facing message (e.g. normalizers.ts) converted at the boundary so the
+ *  text survives Convex prod redaction. Null when not user-facing. */
+function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: AIErrorCode }> | null {
+  if (e instanceof ConvexError && typeof (e.data as any)?.userMessage === "string") {
+    return e as ConvexError<{ userMessage: string; code: AIErrorCode }>;
+  }
+  if (e instanceof Error && e.message.startsWith("L'IA a retourné")) {
+    return userError(e.message, "AI_INVALID_OUTPUT");
+  }
+  return null;
+}
 
 // ─── Reliability policy ─────────────────────────────────────────────
 // The chain is Gemini (free, flaky — 429/503 are routine, see K004) then
@@ -23,7 +48,7 @@ const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
 
 const ALL_PROVIDERS_FAILED_MSG =
-  "Les services IA sont momentanément indisponibles. Réessaie dans une minute.";
+  "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
 
 function providerName(p: AIProvider): string {
   return p.protocol === "anthropic" ? "claude" : "gemini";
@@ -55,7 +80,7 @@ export function retryDelayMs(e: any): number {
 }
 
 export function safeParseJSON(text: string | undefined | null, _fallback: any = {}): any {
-  if (!text) throw new Error("L'IA a retourné une réponse vide. Veuillez réessayer.");
+  if (!text) throw userError("L'IA a retourné une réponse vide. Veuillez réessayer.", "AI_EMPTY_OUTPUT");
 
   // Sometimes the model wraps JSON in ```json ... ``` markdown blocks
   let cleaned = text.trim();
@@ -67,7 +92,7 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
     return JSON.parse(cleaned);
   } catch (e) {
     console.error("Failed to parse AI response as JSON:", text.slice(0, 300));
-    throw new Error("L'IA a retourné une réponse invalide. Veuillez réessayer.");
+    throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
   }
 }
 
@@ -106,10 +131,9 @@ export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Pr
   }
 
   console.error("[ai] all providers failed:", lastError);
-  // Surface the already-French user-facing messages (empty/invalid response),
+  // Surface the already-French user-facing errors (empty/invalid response),
   // hide raw SDK errors behind a clear generic one.
-  const isUserFacing = typeof lastError?.message === "string" && lastError.message.startsWith("L'IA a retourné");
-  throw isUserFacing ? lastError : new Error(ALL_PROVIDERS_FAILED_MSG);
+  throw toUserFacing(lastError) ?? userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
 }
 
 // ─── Anthropic response extraction ─────────────────────────────────
@@ -236,7 +260,7 @@ export async function chatJSONSchema<T>(
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       console.warn(`[ai] ${providerName(provider)} JSON failed schema validation:`, parsed.error.message.slice(0, 300));
-      throw new Error("L'IA a retourné une réponse invalide. Veuillez réessayer.");
+      throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
     }
     return parsed.data;
   });

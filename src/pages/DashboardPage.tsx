@@ -3,9 +3,10 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Plus, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
+import { getUserErrorMessage } from '../shared/lib/convexError';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CVData, DesignSettings } from '../shared/types';
 import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
@@ -58,12 +59,15 @@ export default function DashboardPage() {
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
-  const { accessCode, saveCode: setAccessCode, getCode } = useAccessCode();
+  const { accessCode, saveCode, getCode } = useAccessCode();
   const [accessEmail, setAccessEmail] = useState('');
   const [showAccessCodePrompt, setShowAccessCodePrompt] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [accessError, setAccessError] = useState('');
   const [requestSent, setRequestSent] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const convex = useConvex();
 
   const requireAccessCode = (action: () => void) => {
     // Admin bypasses access code
@@ -73,6 +77,7 @@ export default function DashboardPage() {
       action();
     } else {
       setPendingAction(() => action);
+      setCodeInput('');
       setAccessError('');
       setRequestSent(false);
       setShowAccessCodePrompt(true);
@@ -80,16 +85,28 @@ export default function DashboardPage() {
   };
 
   const confirmAccessCode = async () => {
-    if (!accessCode) return;
-    // The verifyCode query runs reactively — check its result
-    // For immediate check, we trust the input and save; if the code is invalid, 
-    // the next page load will show the error via the reactive query
-    setAccessCode(accessCode);
-    setShowAccessCodePrompt(false);
-    setAccessError('');
-    if (pendingAction) {
-      pendingAction();
-      setPendingAction(null);
+    const code = codeInput.trim();
+    if (!code || isVerifyingCode) return;
+    setIsVerifyingCode(true);
+    try {
+      // Verify against Convex BEFORE saving: an invalid code must fail here,
+      // in the modal, not later inside an AI action with a generic error.
+      const result = await convex.query(api.accessCodes.verify, { code });
+      if (!result.valid) {
+        setAccessError('Code invalide ou expiré');
+        return;
+      }
+      saveCode(code);
+      setShowAccessCodePrompt(false);
+      setAccessError('');
+      if (pendingAction) {
+        pendingAction();
+        setPendingAction(null);
+      }
+    } catch {
+      setAccessError('Vérification impossible. Vérifiez votre connexion et réessayez.');
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -116,7 +133,6 @@ export default function DashboardPage() {
   const translateCVAction = useAction(api.ai.translateCV);
   const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
-  const verifyCode = useQuery(api.accessCodes.verify, accessCode ? { code: accessCode } : "skip");
   const requestAccessMutation = useMutation(api.accessCodes.requestAccess);
   const generateCodeMutation = useMutation(api.accessCodes.generate);
   const adminCodes = useQuery(api.accessCodes.list, isAdmin ? undefined : "skip");
@@ -186,7 +202,7 @@ export default function DashboardPage() {
         console.error('Extraction error:', error);
         const msg = error?.message === 'PDF_NO_TEXT'
           ? 'Ce PDF semble être une image scannée. Veuillez utiliser un PDF généré depuis Word, Google Docs ou LinkedIn.'
-          : 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.';
+          : getUserErrorMessage(error, 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.');
         setNotification({ message: msg, type: 'error' });
       } finally {
         setIsUploading(false);
@@ -213,7 +229,7 @@ export default function DashboardPage() {
       console.error('Job extraction error:', error);
       const msg = error?.message === 'PDF_NO_TEXT'
         ? 'Ce PDF semble être une image scannée. Veuillez copier-coller le texte manuellement.'
-        : 'Erreur lors de l\'extraction de la fiche de poste.';
+        : getUserErrorMessage(error, 'Erreur lors de l\'extraction de la fiche de poste.');
       setNotification({ message: msg, type: 'error' });
     } finally {
       setIsExtractingJob(false);
@@ -238,7 +254,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Crawl error:', error);
-      setNotification({ message: 'Erreur lors de la récupération de l\'offre via URL. Les sites protégés (comme LinkedIn) peuvent bloquer cette fonctionnalité.', type: 'error' });
+      setNotification({ message: getUserErrorMessage(error, 'Erreur lors de la récupération de l\'offre via URL. Les sites protégés (comme LinkedIn) peuvent bloquer cette fonctionnalité.'), type: 'error' });
     } finally {
       setIsCrawling(false);
     }
@@ -266,7 +282,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Optimization error:', error);
-      setNotification({ message: 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.', type: 'error' });
+      setNotification({ message: getUserErrorMessage(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.'), type: 'error' });
     } finally {
       setIsGenerating(false);
     }
@@ -291,28 +307,35 @@ export default function DashboardPage() {
             
             <input
               type="text"
-              value={accessCode}
-              onChange={(e) => { setAccessCode(e.target.value); setAccessError(''); }}
+              value={codeInput}
+              onChange={(e) => { setCodeInput(e.target.value); setAccessError(''); }}
               placeholder="Entrez votre code d'accès..."
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-              onKeyDown={(e) => e.key === 'Enter' && accessCode && confirmAccessCode()}
+              onKeyDown={(e) => e.key === 'Enter' && codeInput.trim() && confirmAccessCode()}
               autoFocus
             />
             {accessError && <p className="text-xs text-red-500 mb-2">{accessError}</p>}
-            
+
             <div className="flex gap-3 mb-6">
-              <button 
-                onClick={() => { setShowAccessCodePrompt(false); setPendingAction(null); }} 
+              <button
+                onClick={() => { setShowAccessCodePrompt(false); setPendingAction(null); }}
                 className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 Annuler
               </button>
-              <button 
-                onClick={confirmAccessCode} 
-                disabled={!accessCode}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40"
+              <button
+                onClick={confirmAccessCode}
+                disabled={!codeInput.trim() || isVerifyingCode}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
-                Valider
+                {isVerifyingCode ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Vérification…</span>
+                  </>
+                ) : (
+                  'Valider'
+                )}
               </button>
             </div>
 
@@ -581,6 +604,11 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-gray-500 pt-1">
                       Votre CV sera adapté à l'offre pour passer les ATS, les logiciels qui trient les candidatures avant qu'un recruteur ne les lise.
                     </p>
+                    {!isAdmin && !accessCode && (
+                      <p className="text-[11px] text-gray-400">
+                        Bêta privée : un code d'accès vous sera demandé pour les fonctions IA.
+                      </p>
+                    )}
                   </div>
                 </section>
               </div>
@@ -745,6 +773,25 @@ export default function DashboardPage() {
                             // promoting an archived CV to the working draft, otherwise
                             // the next save will reject the contaminated document.
                             const cleanCv = stripPersistenceArtifacts(cv);
+                            // Opening a saved CV overwrites the current working draft
+                            // (users.lastGeneratedCV or guest_last_optimized): warn first
+                            // if a different draft already exists.
+                            let currentDraft: unknown = null;
+                            if (user) {
+                              currentDraft = convexUser?.lastGeneratedCV ?? null;
+                            } else if (isGuest) {
+                              try {
+                                const stored = localStorage.getItem('guest_last_optimized');
+                                currentDraft = stored ? JSON.parse(stored) : null;
+                              } catch { currentDraft = null; }
+                            }
+                            if (
+                              currentDraft &&
+                              JSON.stringify(stripPersistenceArtifacts(currentDraft as CVData)) !== JSON.stringify(cleanCv) &&
+                              !window.confirm('Ouvrir ce CV remplacera votre brouillon en cours. Continuer ?')
+                            ) {
+                              return;
+                            }
                             if (user) {
                               await storeUser();
                               await updateLastCV({ cvData: cleanCv });

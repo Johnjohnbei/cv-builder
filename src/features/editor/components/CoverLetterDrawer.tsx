@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, FileText, Sparkles, Copy, Download, Save, RotateCcw } from 'lucide-react';
 import { useQuery } from 'convex/react';
@@ -31,6 +31,13 @@ const TONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 const SUBTLE_SELECT_CLASSES =
   "w-full text-[11px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300 focus:bg-white focus:text-gray-700 transition-colors cursor-pointer";
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const isEditableField = (el: Element | null): el is HTMLElement =>
+  el instanceof HTMLElement &&
+  (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+
 export function CoverLetterDrawer({ controller, user, cvName, personalInfo, language = 'fr' }: Props) {
   const { isOpen, close, letter, setLetter } = controller;
 
@@ -38,14 +45,53 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
   const savedLetters = useQuery(api.coverLetters.list, user ? {} : 'skip');
   const savedForThisCv = findLatestSavedForCv(savedLetters, controller.cvId);
 
-  // ─── Escape-to-close ───
+  // ─── A11y: initial focus, focus trap, two-step Escape, focus restore ───
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    const getFocusable = (): HTMLElement[] =>
+      Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
+
+    // Remember the opener, then move focus inside (first focusable = close button)
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    getFocusable()[0]?.focus();
+
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        // Two-step: first Escape from a field blurs it, next Escape closes
+        if (isEditableField(document.activeElement)) {
+          document.activeElement.blur();
+        } else {
+          close();
+        }
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const inside = active instanceof HTMLElement && Boolean(drawerRef.current?.contains(active));
+      if (e.shiftKey) {
+        if (!inside || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      previousFocusRef.current?.focus();
+    };
   }, [isOpen, close]);
 
   const updateLetterField = (field: keyof CoverLetterData, value: string) =>
@@ -75,6 +121,10 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
           onClick={close}
         >
           <motion.div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Lettre de motivation"
             className="fixed top-0 right-0 h-full w-full max-w-xl bg-[#F8F9FA] shadow-2xl flex flex-col"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
