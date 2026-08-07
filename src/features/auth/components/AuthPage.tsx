@@ -9,6 +9,11 @@ export default function AuthPage() {
   useDocumentTitle('Connexion');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guest CVs live in localStorage, but the guest flag lives in sessionStorage:
+  // returning visitors think their work is gone. Read once on mount.
+  const [hasGuestCVs] = useState(
+    () => Boolean(localStorage.getItem('guest_last_optimized') || localStorage.getItem('guest_cvs')),
+  );
   const navigate = useNavigate();
   const { signIn, isLoaded } = useSignIn();
   const { isSignedIn } = useAuth();
@@ -73,8 +78,8 @@ export default function AuthPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-[#DADCE0]" />
               </div>
-              <div className="relative flex justify-center text-[10px] font-mono">
-                <span className="px-2 bg-white text-gray-400 uppercase">ou</span>
+              <div className="relative flex justify-center text-[11px] font-mono">
+                <span className="px-2 bg-white text-gray-600 uppercase">ou</span>
               </div>
             </div>
 
@@ -88,10 +93,16 @@ export default function AuthPage() {
               <User className="w-4 h-4" />
               <span>Mode invité</span>
             </button>
+
+            {hasGuestCVs && (
+              <p className="text-[11px] text-gray-600 text-center leading-snug">
+                Vos CV enregistrés sur cet appareil sont toujours là : repassez en mode invité pour les retrouver.
+              </p>
+            )}
           </div>
         </div>
         <div className="px-8 py-3 bg-[#F8F9FA] border-t border-[#DADCE0]">
-          <p className="font-mono text-[9px] text-gray-400 text-center">
+          <p className="font-mono text-[11px] text-gray-600 text-center">
             Données sécurisées · Hébergement Europe
           </p>
         </div>

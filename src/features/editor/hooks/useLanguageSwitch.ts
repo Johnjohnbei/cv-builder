@@ -1,0 +1,184 @@
+import { useState } from 'react';
+import { useAction } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { CVData } from '@/src/shared/types';
+import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+
+type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
+
+export interface UseLanguageSwitchDeps {
+  cvData: CVData | null;
+  setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
+  setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
+  user: unknown;
+  isGuest: boolean;
+  jobDescription: string;
+  updateLastCV: (args: { cvData: CVData; jobDescription?: string }) => Promise<unknown>;
+  notify: Notify;
+  accessCode?: string;
+}
+
+export interface UseLanguageSwitchResult {
+  /** Single source of truth for the displayed language, derived from cvData. */
+  currentLanguage: 'fr' | 'en';
+  /** Language awaiting confirmation in the regenerate modal (null = no modal). */
+  pendingLanguage: 'fr' | 'en' | null;
+  isRegenerating: boolean;
+  handleLanguageChange: (lang: 'fr' | 'en') => void;
+  handleConfirmRegenerate: () => Promise<void>;
+  handleSwitchLabelsOnly: () => void;
+  handleCancelLanguageChange: () => void;
+}
+
+/**
+ * Snapshot of the translatable content. The photo is excluded: it is
+ * identical in both languages and its base64 payload would otherwise be
+ * duplicated per cached language in every auto-save (Convex doc cap ~1 MiB).
+ */
+const contentSnapshot = (d: CVData) => ({
+  personal_info: { ...d.personal_info, photo_url: undefined },
+  experience: d.experience,
+  education: d.education,
+  skills: d.skills,
+  languages: d.languages,
+});
+
+/** Owns the FR/EN switch: cache-hit instant swap, LLM translation, labels-only override. */
+export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitchResult {
+  const { cvData, setCvData, setUserModified, user, isGuest, jobDescription, updateLastCV, notify, accessCode } = deps;
+  const translateCVAction = useAction(api.ai.translateCV);
+
+  const [pendingLanguage, setPendingLanguage] = useState<'fr' | 'en' | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // ─── Language: single source of truth derived from cvData ───
+  const currentLanguage: 'fr' | 'en' = cvData ? getCVLanguage(cvData) : 'fr';
+
+  /** Optimistic persistence of the working draft (account) / mirror (guest). */
+  const persist = (updated: CVData, label: string) => {
+    if (user) {
+      updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+        .catch(e => console.warn(`[${label}] persist failed:`, e));
+    } else if (isGuest) {
+      localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+    }
+  };
+
+  const applyLanguageOverride = (lang: 'fr' | 'en') => {
+    setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
+    setUserModified(true);
+  };
+
+  // Instant swap to a language we already have cached (no LLM, no modal).
+  // Snapshots the current view under its own language first, so toggling back
+  // is also instant and preserves in-view edits.
+  const applyCachedLanguage = (target: 'fr' | 'en') => {
+    if (!cvData) return;
+    const cached = cvData._translations?.[target];
+    if (!cached) return;
+    const currentLang = getCVLanguage(cvData);
+    const updated = {
+      ...cvData,
+      ...cached,
+      // The cached snapshot has no photo: carry the current one over
+      personal_info: { ...cached.personal_info, photo_url: cvData.personal_info.photo_url },
+      _translations: { ...cvData._translations, [currentLang]: contentSnapshot(cvData) },
+      detectedLanguage: target,
+      languageOverride: target,
+    };
+    setCvData(updated);
+    setUserModified(true);
+    persist(updated, 'applyCachedLanguage');
+    notify({
+      message: target === 'en' ? 'Version anglaise (instantané)' : 'Version française (instantané)',
+      type: 'success',
+    });
+  };
+
+  const handleLanguageChange = (lang: 'fr' | 'en') => {
+    if (!cvData || lang === currentLanguage) return;
+    // Cache hit → instant swap. We NEVER re-detect the content language with
+    // franc to decide the flag is "already right": on mixed content franc lies
+    // and the old code flipped the flag without translating, freezing the mix.
+    if (cvData._translations?.[lang]) {
+      applyCachedLanguage(lang);
+      return;
+    }
+    // No cached version → confirm a real translation (LLM call).
+    setPendingLanguage(lang);
+  };
+
+  const handleConfirmRegenerate = async () => {
+    if (!cvData || !pendingLanguage) return;
+    const currentLang = getCVLanguage(cvData);
+
+    // Snapshot of the current view content (photo excluded, cf. contentSnapshot).
+    // Cached under the current language so toggling back is free.
+    const currentSnapshot = contentSnapshot(cvData);
+
+    // Defensive: if a cache appeared meanwhile, swap instantly instead of
+    // burning an LLM call (handleLanguageChange normally catches this first).
+    if (cvData._translations?.[pendingLanguage]) {
+      applyCachedLanguage(pendingLanguage);
+      setPendingLanguage(null);
+      return;
+    }
+
+    // SLOW PATH: first time translating to this language → call LLM, cache
+    // both directions so the next toggle is free.
+    setIsRegenerating(true);
+    try {
+      const translatedData = await translateCVAction({
+        cvData,
+        targetLanguage: pendingLanguage,
+        accessCode,
+      });
+      const translatedSnapshot = contentSnapshot(translatedData);
+      const updated = {
+        ...translatedData,
+        // Keep the current photo whatever the LLM returned for it
+        personal_info: { ...translatedData.personal_info, photo_url: cvData.personal_info.photo_url },
+        _translations: {
+          ...cvData._translations,
+          [currentLang]: currentSnapshot,
+          [pendingLanguage]: translatedSnapshot,
+        },
+        detectedLanguage: pendingLanguage,
+        languageOverride: pendingLanguage,
+      };
+      setCvData(updated);
+      setUserModified(true);
+      // Persist the new translation + cache to the working draft so a refresh
+      // doesn't lose the work. Optimistic: don't block UI on the mutation.
+      persist(updated, 'handleConfirmRegenerate slow-path');
+      notify({ message: 'CV traduit ! Vous pouvez désormais basculer entre les langues instantanément.', type: 'success' });
+      setPendingLanguage(null);
+    } catch (error) {
+      console.error('Error translating CV:', error);
+      notify({ message: getUserErrorMessage(error, 'Erreur lors de la traduction du CV.'), type: 'error' });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleSwitchLabelsOnly = () => {
+    if (!pendingLanguage) return;
+    applyLanguageOverride(pendingLanguage);
+    setPendingLanguage(null);
+  };
+
+  const handleCancelLanguageChange = () => {
+    setPendingLanguage(null);
+  };
+
+  return {
+    currentLanguage,
+    pendingLanguage,
+    isRegenerating,
+    handleLanguageChange,
+    handleConfirmRegenerate,
+    handleSwitchLabelsOnly,
+    handleCancelLanguageChange,
+  };
+}

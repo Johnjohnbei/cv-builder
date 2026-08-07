@@ -13,7 +13,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - **IA Provider**: Gemini 2.5 Flash (primary, gratuit) → Claude (fallback fiable). Bascule immédiate sur échec du non-dernier provider ; seul le dernier retente (retry-after aware). `maxRetries: 0` sur les 2 SDKs — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif.
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
-- **PDF Export**: window.print() pour l'instant — explorer des alternatives si possible
+- **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer)
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->

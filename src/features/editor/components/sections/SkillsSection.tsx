@@ -44,9 +44,9 @@ export const SkillsSection = memo(function SkillsSection({
                       }}
                       title={mode.label}
                       className={cn(
-                        "px-1.5 py-0.5 text-[7px] stitch-mono transition-colors",
+                        "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
                         (cat.displayMode || 'normal') === mode.value
-                          ? "text-white" : "text-gray-400 hover:bg-gray-100"
+                          ? "text-white" : "text-gray-600 hover:bg-gray-100"
                       )}
                       style={(cat.displayMode || 'normal') === mode.value ? { backgroundColor: mode.color } : undefined}
                     >
@@ -59,7 +59,7 @@ export const SkillsSection = memo(function SkillsSection({
                     if (!window.confirm(`Supprimer la catégorie « ${cat.category} » et toutes ses compétences ?`)) return;
                     setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null);
                   }}
-                  className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                   title="Supprimer cette catégorie"
                   aria-label="Supprimer cette catégorie"
                 >
@@ -68,12 +68,12 @@ export const SkillsSection = memo(function SkillsSection({
               </div>
 
               {(cat.displayMode || 'normal') === 'hidden' ? (
-                <p className="text-[9px] text-gray-400 italic line-through">{cat.category}</p>
+                <p className="text-[11px] text-gray-600 italic line-through">{cat.category}</p>
               ) : (
               <>
               <Input
                 variant="bare"
-                className="font-bold text-[10px] uppercase"
+                className="font-bold text-[11px] uppercase"
                 value={cat.category}
                 placeholder="NOM_CATEGORIE"
                 onChange={(e) => {
@@ -84,7 +84,7 @@ export const SkillsSection = memo(function SkillsSection({
               />
               <div className="flex flex-wrap gap-2">
                 {cat.items?.map((skill, skillIdx) => (
-                  <div key={skillIdx} className="flex items-center gap-1 px-2 py-0.5 bg-white text-gray-600 text-[9px] stitch-mono rounded border border-gray-200">
+                  <div key={skillIdx} className="flex items-center gap-1 px-2 py-0.5 bg-white text-gray-600 text-[11px] stitch-mono rounded border border-gray-200">
                     <span>{typeof skill === 'string' ? skill : JSON.stringify(skill)}</span>
                     <button onClick={() => {
                       const newSkills = [...(skills || [])];
@@ -100,7 +100,7 @@ export const SkillsSection = memo(function SkillsSection({
                 inputSize="xs"
                 type="text"
                 placeholder="Ajouter compétence..."
-                className="focus:border-blue-600"
+                className="text-[11px] focus:border-blue-600"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = (e.target as HTMLInputElement).value;
@@ -119,7 +119,7 @@ export const SkillsSection = memo(function SkillsSection({
           ))}
           <button
             onClick={() => setCvData(prev => prev ? {...prev, skills: [...prev.skills, { category: 'Nouvelle Catégorie', items: [] }]} : null)}
-            className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une catégorie
           </button>

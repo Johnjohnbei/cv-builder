@@ -57,7 +57,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               disabled={aiBusy && !isEnrichingExperiences}
               icon={<Sparkles className="w-3 h-3" />}
               onClick={onEnrich}
-              className="border border-dashed border-gray-300 text-[10px] stitch-mono uppercase tracking-wider text-gray-500 hover:text-blue-600 hover:border-blue-300"
+              className="border border-dashed border-gray-300 text-[11px] stitch-mono uppercase tracking-wider text-gray-600 hover:text-blue-600 hover:border-blue-300"
             >
               {isEnrichingExperiences ? 'Détection en cours…' : 'Auto-détecter stade + modèle (IA)'}
             </Button>
@@ -76,7 +76,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                       setCvData(prev => prev ? {...prev, experience: newExp} : null);
                       setUserModified(true);
                     }}
-                    className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition-colors"
+                    className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
                     title="Monter"
                   >
                     <ChevronUp className="w-3 h-3" />
@@ -88,16 +88,16 @@ export const ExperienceSection = memo(function ExperienceSection({
                       [newExp[idx], newExp[idx + 1]] = [newExp[idx + 1], newExp[idx]];
                       setCvData(prev => prev ? {...prev, experience: newExp} : null);
                     }}
-                    className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition-colors"
+                    className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
                     title="Descendre"
                   >
                     <ChevronDown className="w-3 h-3" />
                   </button>
-                  <span className="text-[8px] stitch-mono text-gray-400 uppercase ml-1">#{idx + 1}</span>
+                  <span className="text-[11px] stitch-mono text-gray-600 uppercase ml-1">#{idx + 1}</span>
                   {hasJobDescription && (() => {
                     const s = experienceScores[idx] ?? 0;
                     return (
-                      <span className="text-[7px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
+                      <span className="text-[10px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
                         backgroundColor: s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2',
                         color: s >= 70 ? '#166534' : s >= 40 ? '#854d0e' : '#991b1b',
                       }}>
@@ -120,10 +120,10 @@ export const ExperienceSection = memo(function ExperienceSection({
                       }}
                       title={mode.label}
                       className={cn(
-                        "px-1.5 py-0.5 text-[7px] stitch-mono transition-colors",
+                        "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
                         (exp.displayMode || 'normal') === mode.value
                           ? "text-white"
-                          : "text-gray-400 hover:bg-gray-100"
+                          : "text-gray-600 hover:bg-gray-100"
                       )}
                       style={(exp.displayMode || 'normal') === mode.value ? { backgroundColor: mode.color } : undefined}
                     >
@@ -137,7 +137,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                     if (!window.confirm(`Supprimer l'expérience « ${exp.position || exp.company} » ? Cette action est définitive.`)) return;
                     setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null);
                   }}
-                  className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                   title="Supprimer cette expérience"
                   aria-label="Supprimer cette expérience"
                 >
@@ -149,7 +149,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               {(() => {
                 const currentMode = DISPLAY_MODES.find(m => m.value === (exp.displayMode || 'normal'))!;
                 return (
-                  <div className="text-[7px] stitch-mono uppercase tracking-widest mb-1.5" style={{ color: currentMode.color }}>
+                  <div className="text-[11px] stitch-mono uppercase tracking-widest mb-1.5" style={{ color: currentMode.color }}>
                     {currentMode.label}
                   </div>
                 );
@@ -157,7 +157,7 @@ export const ExperienceSection = memo(function ExperienceSection({
 
               {/* Hidden mode: show only title, collapse everything else */}
               {(exp.displayMode || 'normal') === 'hidden' ? (
-                <p className="text-[10px] text-gray-400 italic line-through">{exp.position} — {exp.company}</p>
+                <p className="text-[11px] text-gray-600 italic line-through">{exp.position} — {exp.company}</p>
               ) : (
               <>
               <Input
@@ -174,7 +174,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <Input
                 variant="bare"
                 mono={false}
-                className="text-[10px] text-blue-600"
+                className="text-[11px] text-blue-600"
                 value={exp.company}
                 placeholder="Nom de l'entreprise"
                 onChange={(e) => {
@@ -192,7 +192,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                     newExp[idx] = { ...newExp[idx], companyStage: e.target.value || undefined };
                     setCvData(prev => prev ? {...prev, experience: newExp} : null);
                   }}
-                  className="text-[9px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
+                  className="text-[11px] font-mono text-gray-600 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
                   aria-label="Stade de l'entreprise"
                 >
                   <option value="">Stade…</option>
@@ -207,7 +207,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                     newExp[idx] = { ...newExp[idx], companyBusinessModel: e.target.value || undefined };
                     setCvData(prev => prev ? {...prev, experience: newExp} : null);
                   }}
-                  className="text-[9px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
+                  className="text-[11px] font-mono text-gray-600 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
                   aria-label="Modèle économique"
                 >
                   <option value="">Modèle…</option>
@@ -220,7 +220,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <Textarea
                 inputSize="xs"
                 mono={false}
-                className="mt-1 focus:border-blue-600"
+                className="mt-1 text-[11px] focus:border-blue-600"
                 rows={2}
                 value={exp.intro || ''}
                 placeholder="Description courte du rôle (1-2 lignes, optionnel)"
@@ -234,7 +234,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               <div className="grid grid-cols-3 gap-2 mt-1">
                 <Input
                   inputSize="xs"
-                  className="focus:border-blue-600"
+                  className="text-[11px] focus:border-blue-600"
                   value={exp.start_date}
                   placeholder="Début"
                   onChange={(e) => {
@@ -245,7 +245,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                 />
                 <Input
                   inputSize="xs"
-                  className="focus:border-blue-600 disabled:opacity-40"
+                  className="text-[11px] focus:border-blue-600 disabled:opacity-40"
                   value={exp.end_date || ''}
                   placeholder="Fin"
                   disabled={exp.current}
@@ -255,7 +255,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                     setCvData(prev => prev ? {...prev, experience: newExp} : null);
                   }}
                 />
-                <label className="flex items-center gap-1 text-[8px] font-mono text-gray-500 cursor-pointer">
+                <label className="flex items-center gap-1 text-[11px] font-mono text-gray-600 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={exp.current}
@@ -273,11 +273,11 @@ export const ExperienceSection = memo(function ExperienceSection({
 
               {/* ─── KPI field (single row: label + input + visibility toggle) ─── */}
               <div className="mt-2 flex items-center gap-2">
-                <label className="text-[7px] stitch-mono text-emerald-600 uppercase shrink-0">KPI</label>
+                <label className="text-[11px] stitch-mono text-emerald-700 uppercase shrink-0">KPI</label>
                 <Input
                   inputSize="xs"
                   mono={false}
-                  className="flex-1 min-w-0 border-emerald-200 focus:border-emerald-500"
+                  className="flex-1 min-w-0 text-[11px] border-emerald-200 focus:border-emerald-500"
                   value={exp.kpi || ''}
                   placeholder="Ex: +35% de CA, 12 personnes managées..."
                   onChange={(e) => {
@@ -287,7 +287,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                   }}
                 />
                 <label
-                  className="flex items-center gap-1 text-[8px] font-mono text-gray-500 cursor-pointer shrink-0"
+                  className="flex items-center gap-1 text-[11px] font-mono text-gray-600 cursor-pointer shrink-0"
                   title="Par défaut le KPI ne s'affiche qu'en mode Étendu. Coche pour forcer l'affichage quel que soit le mode."
                 >
                   <input
@@ -318,7 +318,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                         <Input
                           inputSize="xs"
                           mono={false}
-                          className="flex-1 focus:border-blue-600"
+                          className="flex-1 text-[11px] focus:border-blue-600"
                           value={bullet}
                           onChange={(e) => {
                             const newExp = [...(experience || [])];
@@ -340,7 +340,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                           title="Améliorer avec l'IA"
                           disabled={bullets.improvingBulletKey === (bulletKey as RewriteKey)}
                           onClick={() => bullets.requestSuggestions(bulletKey as RewriteKey, bullet, exp)}
-                          className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                          className="p-1 text-gray-600 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
                         >
                           {bullets.improvingBulletKey === (bulletKey as RewriteKey)
                             ? <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-500" />
@@ -352,26 +352,26 @@ export const ExperienceSection = memo(function ExperienceSection({
                             newExp[idx].description = newExp[idx].description.filter((_, i) => i !== bIdx);
                             setCvData(prev => prev ? {...prev, experience: newExp} : null);
                           }}
-                          className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-2 h-2" />
                         </button>
                       </div>
                       {bullets.bulletSuggestions?.key === (bulletKey as RewriteKey) && (
                         <div className="ml-2 p-2 bg-blue-50 border border-blue-100 rounded space-y-1 animate-in fade-in duration-200">
-                          <p className="text-[8px] font-mono text-blue-500 uppercase tracking-wider mb-1">Suggestions IA</p>
+                          <p className="text-[11px] font-mono text-blue-700 uppercase tracking-wider mb-1">Suggestions IA</p>
                           {bullets.bulletSuggestions.suggestions.map((sug, sIdx) => (
                             <button
                               key={sIdx}
                               onClick={() => bullets.pickSuggestion(bulletKey as RewriteKey, sug)}
-                              className="w-full text-left px-2 py-1 text-[9px] text-gray-700 hover:bg-blue-100 rounded transition-colors"
+                              className="w-full text-left px-2 py-1 text-[11px] text-gray-700 hover:bg-blue-100 rounded transition-colors"
                             >
                               {sug}
                             </button>
                           ))}
                           <button
                             onClick={bullets.dismissSuggestions}
-                            className="text-[8px] font-mono text-gray-400 hover:text-gray-600 mt-1"
+                            className="text-[11px] font-mono text-gray-600 hover:text-gray-900 mt-1"
                           >
                             Fermer
                           </button>
@@ -394,7 +394,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                     newExp[idx].description = [...(newExp[idx].description || []), 'Nouvelle responsabilité...'];
                     setCvData(prev => prev ? {...prev, experience: newExp} : null);
                   }}
-                  className="text-[8px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-[11px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
                 >
                   <Plus className="w-2 h-2" /> Ajouter un point
                 </button>
@@ -407,7 +407,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                   <Input
                     inputSize="xs"
                     mono={false}
-                    className="border-amber-200 focus:border-amber-500"
+                    className="text-[11px] border-amber-200 focus:border-amber-500"
                     value={exp.description?.[0] || ''}
                     placeholder="Description synthétique du poste..."
                     onChange={(e) => {
@@ -428,7 +428,7 @@ export const ExperienceSection = memo(function ExperienceSection({
           ))}
           <button
             onClick={() => setCvData(prev => prev ? {...prev, experience: [...prev.experience, { company: 'Nouvelle Entreprise', position: 'Nouveau Poste', start_date: '2024', current: true, description: [] }]} : null)}
-            className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une expérience
           </button>

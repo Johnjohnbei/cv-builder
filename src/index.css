@@ -248,15 +248,45 @@ body {
     visibility: hidden !important;
   }
 
-  /* Visibility inherits — hide body hides the whole tree except the CV subtree */
+  /* Visibility inherits — hide body hides the whole tree except the CV subtree.
+     Kept as the fallback for browsers without :has() support. */
   [data-cv-root],
   [data-cv-root] * {
     visibility: visible !important;
   }
+
+  /*
+   * Direct Ctrl+P on the live editor (the export buttons use their own
+   * document: serverless endpoint or print iframe, both unaffected here).
+   *
+   * The app shell is `h-screen overflow-hidden` with a `relative` scrolling
+   * preview container: left alone it clips the CV to one page and still
+   * occupies a full viewport of height, printing a trailing blank sheet.
+   * So along the CV's ancestor chain we drop fixed heights, scrolling and
+   * positioning, and remove the siblings (sidebar, header) entirely rather
+   * than merely hiding them, since `visibility: hidden` keeps their space.
+   */
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body :has([data-cv-root]) {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  :has([data-cv-root]) > *:not([data-cv-root]):not(:has([data-cv-root])) {
+    display: none !important;
+  }
+
   [data-cv-root] {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 210mm !important;

@@ -129,30 +129,49 @@ function stemPhrase(s: string): string {
 }
 
 /**
+ * The three views of a haystack needed by fuzzy matching.
+ * Built once per section instead of once per (keyword, section) pair:
+ * normalizing and stemming a whole CV section is the expensive part, and it
+ * does not depend on the keyword being tested.
+ */
+export interface PreparedText {
+  raw: string;
+  normalized: string;
+  stemmed: string;
+}
+
+export function prepareText(text: string): PreparedText {
+  const normalized = normalizeForMatch(text);
+  return { raw: text, normalized, stemmed: stemPhrase(normalized) };
+}
+
+/** Fuzzy match against an already-prepared haystack. */
+function matchPrepared(keyword: string, text: PreparedText): boolean {
+  // Fast path: exact match
+  if (matchKeyword(keyword, text.raw)) return true;
+
+  const nk = normalizeForMatch(keyword);
+  if (nk.length === 0) return false;
+
+  // Accent-stripped exact match
+  if (matchKeyword(nk, text.normalized)) return true;
+
+  // Stem the keyword and compare token-by-token
+  const tokens = stemPhrase(nk).split(/\s+/).filter(t => t.length >= 3);
+  if (tokens.length === 0) return false;
+
+  for (const tok of tokens) {
+    if (!matchKeyword(tok, text.stemmed)) return false;
+  }
+  return true;
+}
+
+/**
  * Fuzzy keyword match — tolerates plural, accents, and common FR/EN suffixes.
  * Multi-word keywords use AND semantics: every token must appear (after stemming).
  */
 export function matchKeywordFuzzy(keyword: string, text: string): boolean {
-  // Fast path: exact match
-  if (matchKeyword(keyword, text)) return true;
-
-  const nk = normalizeForMatch(keyword);
-  const nt = normalizeForMatch(text);
-  if (nk.length === 0) return false;
-
-  // Accent-stripped exact match
-  if (matchKeyword(nk, nt)) return true;
-
-  // Stem both sides and compare token-by-token
-  const stemmedKeyword = stemPhrase(nk);
-  const stemmedText = stemPhrase(nt);
-  const tokens = stemmedKeyword.split(/\s+/).filter(t => t.length >= 3);
-  if (tokens.length === 0) return false;
-
-  for (const tok of tokens) {
-    if (!matchKeyword(tok, stemmedText)) return false;
-  }
-  return true;
+  return matchPrepared(keyword, prepareText(text));
 }
 
 // ─── Main analysis ───
@@ -202,9 +221,15 @@ export function computeKeywordAnalysis(
     }
   }
 
-  // Build per-section text maps
+  // Build per-section text maps, normalized + stemmed ONCE (not per keyword)
   const sections = buildSectionTextMap(cvData);
   const sectionKeys: (keyof SectionTextMap)[] = ['summary', 'experience', 'skills', 'education'];
+  const prepared = {
+    summary: prepareText(sections.summary),
+    experience: prepareText(sections.experience),
+    skills: prepareText(sections.skills),
+    education: prepareText(sections.education),
+  } as Record<keyof SectionTextMap, PreparedText>;
 
   // Match each keyword against each section
   let matchedCount = 0;
@@ -212,7 +237,7 @@ export function computeKeywordAnalysis(
     const locations: string[] = [];
 
     for (const section of sectionKeys) {
-      if (matchKeywordFuzzy(kw, sections[section])) {
+      if (matchPrepared(kw, prepared[section])) {
         locations.push(section);
       }
     }

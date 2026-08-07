@@ -46,7 +46,7 @@ function SubScoreBar({ label, value }: { label: string; value: number | null }) 
       <div className="flex items-center gap-2">
         <span className="w-20 text-[11px] font-mono text-gray-500 shrink-0">{label}</span>
         <div className="flex-1 h-2 rounded bg-gray-200 border border-dashed border-gray-300" />
-        <span className="text-[11px] font-mono text-gray-400 w-8 text-right">N/A</span>
+        <span className="text-[11px] font-mono text-gray-600 w-8 text-right">N/A</span>
       </div>
     );
   }
@@ -82,7 +82,7 @@ export function ATSPanel({
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
   if (!score) {
-    return <div className="p-4 text-center text-gray-400 text-xs font-mono">Chargement de l'analyse ATS...</div>;
+    return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
   const visibleSuggestions = showAllSuggestions ? score.suggestions : score.suggestions.slice(0, 5);
 
@@ -120,7 +120,7 @@ export function ATSPanel({
             <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
               Mots-cles
             </span>
-            <span className="text-[10px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+            <span className="text-[11px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
               {keywords.matchedCount}/{keywords.totalCount}
             </span>
           </div>
@@ -129,11 +129,11 @@ export function ATSPanel({
             {keywords.keywords.filter(kw => kw.found).map(kw => (
               <span
                 key={kw.keyword}
-                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
               >
                 {kw.keyword}
                 {kw.locations.length > 0 && (
-                  <span className="text-green-600 text-[8px]">({formatLocations(kw.locations)})</span>
+                  <span className="text-green-700 text-[10px]">({formatLocations(kw.locations)})</span>
                 )}
               </span>
             ))}
@@ -163,7 +163,7 @@ export function ATSPanel({
           {/* Missing keywords with contextual actions */}
           {keywords.keywords.some(kw => !kw.found) && (
             <div className="flex flex-col gap-1.5 mt-2">
-              <span className="text-[10px] font-mono text-red-600">
+              <span className="text-[11px] font-mono text-red-600">
                 Manquants ({keywords.keywords.filter(kw => !kw.found).length})
               </span>
               {keywords.keywords.filter(kw => !kw.found).map(kw => {
@@ -172,22 +172,22 @@ export function ATSPanel({
                 return (
                   <div key={kw.keyword} className="flex items-center gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
                     <span className="font-semibold text-red-800 shrink-0">{kw.keyword}</span>
-                    <span className="text-gray-400 mx-1">→</span>
+                    <span className="text-gray-600 mx-1">→</span>
                     {p?.type === 'experience' && onIntegrateKeyword && p.expIndex != null ? (
                       <button
                         onClick={() => onIntegrateKeyword(kw.keyword, p.expIndex!)}
                         disabled={isIntegrating}
-                        className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline truncate max-w-[180px] disabled:opacity-50"
+                        className="text-[11px] text-blue-700 hover:text-blue-900 hover:underline truncate max-w-[180px] disabled:opacity-50"
                         title={`Intégrer dans : ${p.label}`}
                       >
                         {isIntegrating ? '...' : `Intégrer dans ${p.label}`}
                       </button>
                     ) : p?.type === 'summary' ? (
-                      <span className="text-[10px] text-gray-500 italic">Résumé professionnel</span>
+                      <span className="text-[11px] text-gray-600 italic">Résumé professionnel</span>
                     ) : onAddSkill ? (
                       <button
                         onClick={() => onAddSkill(kw.keyword)}
-                        className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline"
+                        className="text-[11px] text-blue-700 hover:text-blue-900 hover:underline"
                       >
                         Ajouter aux compétences
                       </button>
@@ -209,7 +209,7 @@ export function ATSPanel({
           <ul className="flex flex-col gap-1.5">
             {visibleSuggestions.map((s, i) => (
               <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
-                <span className="shrink-0 text-gray-400">•</span>
+                <span className="shrink-0 text-gray-600">•</span>
                 <span className="flex-1">{s}</span>
                 {renderSuggestionAction(s, onAddSkill, onToggleAtsMode, isAtsMode)}
               </li>
@@ -218,7 +218,7 @@ export function ATSPanel({
           {score.suggestions.length > 5 && (
             <button
               onClick={() => setShowAllSuggestions(v => !v)}
-              className="text-[10px] font-mono text-blue-600 hover:underline self-start"
+              className="text-[11px] font-mono text-blue-600 hover:underline self-start"
               aria-label={showAllSuggestions ? 'Réduire les suggestions' : `Voir toutes les suggestions (${score.suggestions.length})`}
             >
               {showAllSuggestions ? 'Reduire' : `Voir tout (${score.suggestions.length})`}
@@ -255,7 +255,7 @@ function renderSuggestionAction(
     const skill = match?.[1] ?? '';
     if (skill) {
       return (
-        <button onClick={() => onAddSkill(skill)} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0" aria-label={`Ajouter la compétence ${skill}`}>
+        <button onClick={() => onAddSkill(skill)} className="text-[11px] font-mono text-blue-600 hover:underline shrink-0" aria-label={`Ajouter la compétence ${skill}`}>
           Ajouter
         </button>
       );
@@ -263,7 +263,7 @@ function renderSuggestionAction(
   }
   if (lower.includes('ats') && !isAtsMode && onToggleAtsMode) {
     return (
-      <button onClick={onToggleAtsMode} className="text-[10px] font-mono text-blue-600 hover:underline shrink-0" aria-label="Activer le mode ATS">
+      <button onClick={onToggleAtsMode} className="text-[11px] font-mono text-blue-600 hover:underline shrink-0" aria-label="Activer le mode ATS">
         Activer
       </button>
     );

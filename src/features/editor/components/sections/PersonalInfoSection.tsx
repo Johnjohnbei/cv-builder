@@ -46,14 +46,14 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="Email"
               type="email"
-              className="text-[10px]"
+              className="text-[11px]"
               value={personalInfo?.email || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, email: e.target.value}} : null)}
             />
             <Input
               label="Téléphone"
               type="text"
-              className="text-[10px]"
+              className="text-[11px]"
               value={personalInfo?.phone || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, phone: e.target.value}} : null)}
             />
@@ -62,7 +62,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="Localisation"
               type="text"
-              className="text-[10px]"
+              className="text-[11px]"
               placeholder="Ex: Paris, France"
               value={personalInfo?.location || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, location: e.target.value}} : null)}
@@ -70,22 +70,22 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <Input
               label="LinkedIn URL"
               type="text"
-              className="text-[10px]"
+              className="text-[11px]"
               value={personalInfo?.linkedin || ''}
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, linkedin: e.target.value}} : null)}
             />
           </div>
           <div>
-            <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-1">Photo de profil (URL ou Upload)</label>
+            <label className="text-[11px] stitch-mono text-gray-600 uppercase block mb-1">Photo de profil (URL ou Upload)</label>
             <div className="flex gap-2">
               <Input
                 type="text"
-                className="text-[10px] flex-1"
+                className="text-[11px] flex-1"
                 placeholder="https://..."
                 value={personalInfo?.photo_url || ''}
                 onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: e.target.value}} : null)}
               />
-              <label className="px-3 py-1 bg-gray-100 border border-gray-200 rounded text-[9px] stitch-mono cursor-pointer hover:bg-gray-200 transition-colors flex items-center">
+              <label className="px-3 py-1 bg-gray-100 border border-gray-200 rounded text-[11px] stitch-mono cursor-pointer hover:bg-gray-200 transition-colors flex items-center">
                 UPLOAD
                 <input
                   type="file"
@@ -117,7 +117,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
               {personalInfo?.photo_url && (
                 <button
                   onClick={() => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: ''}} : null)}
-                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  className="p-1 text-gray-600 hover:text-red-500 transition-colors"
                   title="Supprimer la photo"
                 >
                   <X className="w-4 h-4" />

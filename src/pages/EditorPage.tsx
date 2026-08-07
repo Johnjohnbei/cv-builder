@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Download, Loader2, FileText, X, ArrowLeft } from 'lucide-react';
+import { Download, Loader2, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
 import { maskPersonalInfo } from '../shared/lib/anonymize';
@@ -10,15 +10,14 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter } from '../features/editor/hooks';
-import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
-import { PaginatedCV } from '../features/editor/components/PaginatedCV';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, EditorHeader, ATSPanel, DistributionProposalsPanel, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
+import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection, SkillsSection, EducationSection, LanguagesSection, DesignTab } from '../features/editor/components/sections';
-import { detectCVLanguage, getCVLanguage } from '../lib/languageDetection';
+import { detectCVLanguage } from '../lib/languageDetection';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 
 export default function EditorPage() {
@@ -34,7 +33,6 @@ export default function EditorPage() {
   const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
   const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
   const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
-  const translateCVAction = useAction(api.ai.translateCV);
   const [isEnrichingExperiences, setIsEnrichingExperiences] = useState(false);
 
   // ─── UI state ───
@@ -45,17 +43,11 @@ export default function EditorPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [pendingLanguage, setPendingLanguage] = useState<'fr' | 'en' | null>(null);
-  const [isRegeneratingLang, setIsRegeneratingLang] = useState(false);
+  const [isExportingDocx, setIsExportingDocx] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
-  // Debounce handle for the working-draft auto-save (declared early so the
-  // effect that drives it can find it).
-  const autoSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
 
   // ─── Custom hooks ───
   const { notification, notify, clearNotification } = useAutoNotification();
@@ -109,49 +101,12 @@ export default function EditorPage() {
 
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
-  // Stable references so memo(PaginatedCV) can skip re-renders while the user
+  // Stable reference so memo(EditorPreview) can skip re-renders while the user
   // types in the sidebar (JD textarea, panel toggles...).
   const templateStyle = useMemo(() => ({
     '--primary': designSettings.primaryColor,
     '--secondary': designSettings.secondaryColor,
   } as React.CSSProperties), [designSettings.primaryColor, designSettings.secondaryColor]);
-
-  const renderPageWrapper = useCallback((cvPage: React.ReactNode, pageIndex: number, totalPages: number) => (
-    <div
-      className="cv-page-slot"
-      style={{ marginBottom: pageIndex < totalPages - 1 ? '24px' : 0 }}
-    >
-      {/* Page label for pages 2+ — hidden in print */}
-      {pageIndex > 0 && (
-        <div className="cv-page-label flex items-center justify-center mb-2">
-          <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {pageIndex + 1}</span>
-        </div>
-      )}
-      {/* Scaled frame: fixed outer box + transform-scaled inner at true 210×297mm */}
-      <div
-        className="cv-page-frame relative shrink-0 overflow-hidden"
-        style={{
-          width: `${210 * (zoom / 100)}mm`,
-          height: `${297 * (zoom / 100)}mm`,
-        }}
-      >
-        <div
-          className="cv-page-scale bg-white shadow-2xl border border-[#DADCE0]"
-          style={{
-            transform: `scale(${zoom / 100})`,
-            transformOrigin: 'top left',
-            width: '210mm',
-            height: '297mm',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-          }}
-        >
-          {cvPage}
-        </div>
-      </div>
-    </div>
-  ), [zoom]);
 
   const missingKeywordsList = useMemo(
     () => atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
@@ -204,9 +159,25 @@ export default function EditorPage() {
     notify,
     accessCode: getCode(),
   });
+  const language = useLanguageSwitch({
+    cvData,
+    setCvData,
+    setUserModified,
+    user,
+    isGuest,
+    jobDescription,
+    updateLastCV,
+    notify,
+    accessCode: getCode(),
+  });
+  const currentLanguage = language.currentLanguage;
+  const { isAutoSaving, lastAutoSaveAt } = useAutoSaveDraft({
+    cvData, designSettings, selectedTemplate, jobDescription,
+    user, isGuest, userModified, updateLastCV,
+  });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
-  const aiBusy = isOptimizing || isRegeneratingLang || isEnrichingExperiences
+  const aiBusy = isOptimizing || language.isRegenerating || isEnrichingExperiences
     || bullets.isOptimizing || keywordDistribution.isDistributing || coverLetter.isGenerating;
   const optimizeSeconds = useSecondsCounter(isOptimizing);
   // Same size-based estimate as the dashboard optimize flow
@@ -245,40 +216,6 @@ export default function EditorPage() {
   // pagination reconcile.
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [isSidebarOpen, activeTab]);
 
-  // ─── Auto-save to working draft (debounced) ───
-  // Persists displayMode toggles, text edits, template changes, and any other
-  // mutation of cvData / designSettings / selectedTemplate to
-  // users.lastGeneratedCV after 1.5s of idle. Major actions (translate,
-  // optimize, enrich, save-draft) call updateLastCV synchronously and rely
-  // on this effect to cover the long tail of low-level edits.
-  //
-  // Guarded by `userModified` so the initial hydration doesn't trigger a
-  // write back to itself.
-  useEffect(() => {
-    if ((!user && !isGuest) || !cvData || !userModified) return;
-    if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
-    autoSaveDebounceRef.current = setTimeout(() => {
-      const merged = stripPersistenceArtifacts({
-        ...cvData,
-        design: { ...designSettings, template: selectedTemplate },
-      });
-      if (user) {
-        setIsAutoSaving(true);
-        updateLastCV({ cvData: merged, jobDescription: jobDescription || undefined })
-          .then(() => setLastAutoSaveAt(new Date()))
-          .catch((e) => console.warn('[auto-save] failed:', e))
-          .finally(() => setIsAutoSaving(false));
-      } else {
-        // Guest: mirror to localStorage so a refresh doesn't lose edits
-        localStorage.setItem('guest_last_optimized', JSON.stringify(merged));
-        setLastAutoSaveAt(new Date());
-      }
-    }, 1500);
-    return () => {
-      if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
-    };
-  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, userModified, updateLastCV]);
-
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
 
@@ -307,137 +244,6 @@ export default function EditorPage() {
   const toggleLanguages = useCallback(() => toggleSection('languages'), [toggleSection]);
 
   // renderCV replaced by PaginatedCV — block-based pagination engine
-
-  // ─── Language: single source of truth derived from cvData ───
-  const currentLanguage: 'fr' | 'en' = cvData ? getCVLanguage(cvData) : 'fr';
-
-  const applyLanguageOverride = (lang: 'fr' | 'en') => {
-    setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
-    setUserModified(true);
-  };
-
-  // Snapshot of the translatable content. The photo is excluded: it is
-  // identical in both languages and its base64 payload would otherwise be
-  // duplicated per cached language in every auto-save (Convex doc cap ~1 MiB).
-  const contentSnapshot = (d: NonNullable<typeof cvData>) => ({
-    personal_info: { ...d.personal_info, photo_url: undefined },
-    experience: d.experience,
-    education: d.education,
-    skills: d.skills,
-    languages: d.languages,
-  });
-
-  // Instant swap to a language we already have cached (no LLM, no modal).
-  // Snapshots the current view under its own language first, so toggling back
-  // is also instant and preserves in-view edits.
-  const applyCachedLanguage = (target: 'fr' | 'en') => {
-    if (!cvData) return;
-    const cached = cvData._translations?.[target];
-    if (!cached) return;
-    const currentLang = getCVLanguage(cvData);
-    const updated = {
-      ...cvData,
-      ...cached,
-      // The cached snapshot has no photo: carry the current one over
-      personal_info: { ...cached.personal_info, photo_url: cvData.personal_info.photo_url },
-      _translations: { ...cvData._translations, [currentLang]: contentSnapshot(cvData) },
-      detectedLanguage: target,
-      languageOverride: target,
-    };
-    setCvData(updated);
-    setUserModified(true);
-    if (user) {
-      updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
-        .catch(e => console.warn('[applyCachedLanguage] persist failed:', e));
-    } else if (isGuest) {
-      localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
-    }
-    notify({
-      message: target === 'en' ? 'Version anglaise (instantané)' : 'Version française (instantané)',
-      type: 'success',
-    });
-  };
-
-  const handleLanguageChange = (lang: 'fr' | 'en') => {
-    if (!cvData || lang === currentLanguage) return;
-    // Cache hit → instant swap. We NEVER re-detect the content language with
-    // franc to decide the flag is "already right": on mixed content franc lies
-    // and the old code flipped the flag without translating, freezing the mix.
-    if (cvData._translations?.[lang]) {
-      applyCachedLanguage(lang);
-      return;
-    }
-    // No cached version → confirm a real translation (LLM call).
-    setPendingLanguage(lang);
-  };
-
-  const handleConfirmRegenerate = async () => {
-    if (!cvData || !pendingLanguage) return;
-    const currentLang = getCVLanguage(cvData);
-
-    // Snapshot of the current view content (photo excluded, cf. contentSnapshot).
-    // Cached under the current language so toggling back is free.
-    const currentSnapshot = contentSnapshot(cvData);
-
-    // Defensive: if a cache appeared meanwhile, swap instantly instead of
-    // burning an LLM call (handleLanguageChange normally catches this first).
-    if (cvData._translations?.[pendingLanguage]) {
-      applyCachedLanguage(pendingLanguage);
-      setPendingLanguage(null);
-      return;
-    }
-
-    // SLOW PATH: first time translating to this language → call LLM, cache
-    // both directions so the next toggle is free.
-    setIsRegeneratingLang(true);
-    try {
-      const translatedData = await translateCVAction({
-        cvData,
-        targetLanguage: pendingLanguage,
-        accessCode: getCode(),
-      });
-      const translatedSnapshot = contentSnapshot(translatedData);
-      const updated = {
-        ...translatedData,
-        // Keep the current photo whatever the LLM returned for it
-        personal_info: { ...translatedData.personal_info, photo_url: cvData.personal_info.photo_url },
-        _translations: {
-          ...cvData._translations,
-          [currentLang]: currentSnapshot,
-          [pendingLanguage]: translatedSnapshot,
-        },
-        detectedLanguage: pendingLanguage,
-        languageOverride: pendingLanguage,
-      };
-      setCvData(updated);
-      setUserModified(true);
-      // Persist the new translation + cache to the working draft so a refresh
-      // doesn't lose the work. Optimistic: don't block UI on the mutation.
-      if (user) {
-        updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
-          .catch(e => console.warn('[handleConfirmRegenerate slow-path] persist failed:', e));
-      } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
-      }
-      notify({ message: 'CV traduit ! Vous pouvez désormais basculer entre les langues instantanément.', type: 'success' });
-      setPendingLanguage(null);
-    } catch (error) {
-      console.error('Error translating CV:', error);
-      notify({ message: getUserErrorMessage(error, 'Erreur lors de la traduction du CV.'), type: 'error' });
-    } finally {
-      setIsRegeneratingLang(false);
-    }
-  };
-
-  const handleSwitchLabelsOnly = () => {
-    if (!pendingLanguage) return;
-    applyLanguageOverride(pendingLanguage);
-    setPendingLanguage(null);
-  };
-
-  const handleCancelLanguageChange = () => {
-    setPendingLanguage(null);
-  };
 
   const handleEnrichExperiences = async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;
@@ -533,7 +339,8 @@ export default function EditorPage() {
   }, [cvData, jobKeywords, setCvData, setUserModified]);
 
   const handleExportDocx = useCallback(async () => {
-    if (!cvData) return;
+    if (!cvData || isExportingDocx) return;
+    setIsExportingDocx(true);
     try {
       const { exportToDocx } = await import('../shared/lib/export-docx');
       // Same language and same anonymization state as the preview
@@ -543,8 +350,10 @@ export default function EditorPage() {
     } catch (e) {
       console.error('Error exporting DOCX:', e);
       notify({ message: 'Erreur lors de l\'export Word.', type: 'error' });
+    } finally {
+      setIsExportingDocx(false);
     }
-  }, [cvData, isAnonymous, currentLanguage, notify]);
+  }, [cvData, isAnonymous, currentLanguage, notify, isExportingDocx]);
 
   if (isLoading) {
     return (
@@ -589,14 +398,14 @@ export default function EditorPage() {
       )}
 
       {/* Language regeneration modal */}
-      {pendingLanguage && cvData && (
+      {language.pendingLanguage && cvData && (
         <LanguageRegenerateModal
           fromLang={detectCVLanguage(cvData)}
-          toLang={pendingLanguage}
-          isRegenerating={isRegeneratingLang}
-          onConfirm={handleConfirmRegenerate}
-          onSwitchOnly={handleSwitchLabelsOnly}
-          onCancel={handleCancelLanguageChange}
+          toLang={language.pendingLanguage}
+          isRegenerating={language.isRegenerating}
+          onConfirm={language.handleConfirmRegenerate}
+          onSwitchOnly={language.handleSwitchLabelsOnly}
+          onCancel={language.handleCancelLanguageChange}
         />
       )}
 
@@ -758,6 +567,7 @@ export default function EditorPage() {
                 onDownloadPDF={pdfExport.downloadPDF}
                 isExporting={pdfExport.isExporting}
                 onExportDocx={handleExportDocx}
+                isExportingDocx={isExportingDocx}
                 onOpenCoverLetter={coverLetter.open}
               />
             ) : activeTab === 'ats' ? (
@@ -827,54 +637,24 @@ export default function EditorPage() {
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
-          onLanguageChange={handleLanguageChange}
+          onLanguageChange={language.handleLanguageChange}
           isAnonymous={isAnonymous}
           onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
         />
 
-        <div
+        <EditorPreview
           ref={previewContainerRef}
-          className="flex-1 overflow-auto p-4 sm:p-8 lg:p-12 flex flex-col items-center min-h-0 relative scroll-smooth bg-[#F1F3F4]"
-        >
-          {cvData && pageAssignments.length > 0 ? (
-            /* Single-tree preview — one PaginatedCV, preview chrome injected via renderPageWrapper.
-               In print mode, the wrapper visuals are neutralized by @media print rules. */
-            <div ref={cvRef} data-cv-root className="flex flex-col items-center" style={{ marginBottom: '100px' }}>
-              <PaginatedCV
-                pageAssignments={pageAssignments}
-                designSettings={designSettings}
-                language={currentLanguage}
-                blockRenderers={blockRenderers}
-                selectedTemplate={selectedTemplate}
-                templateStyle={templateStyle}
-                firstExperiencePage={firstExperiencePage}
-                renderPageWrapper={renderPageWrapper}
-              />
-            </div>
-          ) : (
-            /* Empty state */
-            <div
-              style={{
-                width: `${210 * (zoom / 100)}mm`,
-                height: `${297 * (zoom / 100)}mm`,
-              }}
-              className="relative shrink-0 shadow-2xl border border-[#DADCE0] bg-white flex items-center justify-center"
-            >
-              <div className="text-center max-w-sm p-8">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-sm font-bold text-gray-700 mb-2">Aucun CV chargé</h3>
-                <p className="text-xs text-gray-500 mb-6">Importez un CV depuis le dashboard ou créez-en un nouveau pour commencer l'édition.</p>
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Retour au dashboard
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
+          cvRootRef={cvRef}
+          hasCvData={!!cvData}
+          pageAssignments={pageAssignments}
+          designSettings={designSettings}
+          language={currentLanguage}
+          blockRenderers={blockRenderers}
+          selectedTemplate={selectedTemplate}
+          templateStyle={templateStyle}
+          firstExperiencePage={firstExperiencePage}
+          zoom={zoom}
+        />
       </main>
 
       {/* PDF generation overlay */}

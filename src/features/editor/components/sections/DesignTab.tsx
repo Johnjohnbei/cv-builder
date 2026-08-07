@@ -45,12 +45,14 @@ interface Props {
   onDownloadPDF: () => void;
   isExporting: boolean;
   onExportDocx: () => void;
+  isExportingDocx: boolean;
   onOpenCoverLetter: () => void;
 }
 
 export const DesignTab = memo(function DesignTab({
   designSettings, setDesignSettings, selectedTemplate, onRequestTemplateChange,
-  actualPageCount, onPreviewPDF, onDownloadPDF, isExporting, onExportDocx, onOpenCoverLetter,
+  actualPageCount, onPreviewPDF, onDownloadPDF, isExporting, onExportDocx, isExportingDocx,
+  onOpenCoverLetter,
 }: Props) {
   return (
     <div className="space-y-6">
@@ -410,10 +412,11 @@ export const DesignTab = memo(function DesignTab({
             variant="secondary"
             fullWidth
             className="rounded-lg py-3 px-4 text-[10px] tracking-widest border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-            icon={<Download className="w-4 h-4" />}
+            icon={isExportingDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            disabled={isExportingDocx}
             onClick={onExportDocx}
           >
-            Télécharger en Word (.docx)
+            {isExportingDocx ? 'Export en cours...' : 'Télécharger en Word (.docx)'}
           </Button>
 
           <Button

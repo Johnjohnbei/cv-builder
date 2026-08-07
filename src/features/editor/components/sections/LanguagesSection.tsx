@@ -35,7 +35,7 @@ export const LanguagesSection = memo(function LanguagesSection({
                   if (!window.confirm(`Supprimer la langue « ${lang.name} » ?`)) return;
                   setCvData(prev => prev ? {...prev, languages: prev.languages.filter((_, i) => i !== idx)} : null);
                 }}
-                className="absolute -top-2 -right-2 p-1 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm z-10"
+                className="absolute -top-2 -right-2 p-1 bg-white border border-gray-200 rounded-full text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm z-10"
                 title="Supprimer cette langue"
                 aria-label="Supprimer cette langue"
               >
@@ -56,7 +56,7 @@ export const LanguagesSection = memo(function LanguagesSection({
               <Select
                 variant="bare"
                 mono={false}
-                className="text-[10px] text-blue-600"
+                className="text-[11px] text-blue-600"
                 value={lang.proficiency}
                 onChange={(e) => {
                   const newLang = [...(languages || [])];
@@ -74,7 +74,7 @@ export const LanguagesSection = memo(function LanguagesSection({
           ))}
           <button
             onClick={() => setCvData(prev => prev ? {...prev, languages: [...prev.languages, { name: 'Nouvelle Langue', proficiency: 'Courant' }]} : null)}
-            className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une langue
           </button>

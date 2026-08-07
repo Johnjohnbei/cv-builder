@@ -29,15 +29,15 @@ export const OptimizePanel = memo(function OptimizePanel({
           <span className="text-[11px] font-bold uppercase tracking-widest">Adapter à l'offre</span>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-[10px] text-gray-500 uppercase">Pages :</label>
+          <label className="text-[11px] text-gray-600 uppercase">Pages :</label>
           <span className="text-[11px] stitch-mono font-bold text-blue-600">{actualPageCount}</span>
         </div>
       </div>
 
       {/* Job description display */}
       {jobDescription ? (
-        <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[9px] stitch-mono text-gray-600 max-h-16 overflow-y-auto">
-          <span className="font-bold text-gray-500 uppercase text-[8px]">Offre importée</span>
+        <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[11px] stitch-mono text-gray-600 max-h-16 overflow-y-auto">
+          <span className="font-bold text-gray-600 uppercase text-[11px]">Offre importée</span>
           <p className="mt-1 line-clamp-3">{jobDescription.slice(0, 300)}{jobDescription.length > 300 ? '...' : ''}</p>
         </div>
       ) : (
@@ -46,7 +46,7 @@ export const OptimizePanel = memo(function OptimizePanel({
           onChange={(e) => onJobDescriptionChange(e.target.value)}
           placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
           rows={2}
-          className="border-blue-200 rounded-lg text-[9px] focus:border-blue-400 focus:ring-blue-400"
+          className="border-blue-200 rounded-lg text-[11px] focus:border-blue-400 focus:ring-blue-400"
         />
       )}
 
@@ -54,20 +54,20 @@ export const OptimizePanel = memo(function OptimizePanel({
       <Button
         variant="primary"
         fullWidth
-        className="rounded-lg py-2 px-4 text-[9px] tracking-widest"
+        className="rounded-lg py-2 px-4 text-[11px] tracking-widest"
         icon={<Zap className="w-3.5 h-3.5" />}
         disabled={!hasCvData}
         onClick={onAutoAssign}
       >
         Réorganiser selon l'offre
       </Button>
-      <p className="text-[10px] text-gray-500 -mt-1">Instantané : met en avant vos expériences les plus pertinentes, sans réécrire le texte.</p>
+      <p className="text-[11px] text-gray-600 -mt-1">Instantané : met en avant vos expériences les plus pertinentes, sans réécrire le texte.</p>
 
       {/* AI content optimization button */}
       <Button
         variant="secondary"
         fullWidth
-        className="rounded-lg py-2 px-4 text-[10px] normal-case tracking-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+        className="rounded-lg py-2 px-4 text-[11px] normal-case tracking-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
         icon={isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
         loading={false}
         disabled={aiBusy}
@@ -75,7 +75,7 @@ export const OptimizePanel = memo(function OptimizePanel({
       >
         {isOptimizing ? `Réécriture en cours... ${optimizeSeconds}s / ~${optimizeEstimate}s` : 'Réécrire le contenu avec l\'IA'}
       </Button>
-      <p className="text-[10px] text-gray-500 -mt-1">
+      <p className="text-[11px] text-gray-600 -mt-1">
         {isOptimizing
           ? 'Vous pouvez continuer à naviguer, le CV se mettra à jour tout seul.'
           : `Réécrit vos textes pour coller à l'offre (~${optimizeEstimate}s, remplace le contenu actuel).`}

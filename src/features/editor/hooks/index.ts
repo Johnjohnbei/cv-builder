@@ -11,3 +11,5 @@ export { usePDFExport } from './usePDFExport';
 export { useTemplateSelection } from './useTemplateSelection';
 export { useCoverLetter } from './useCoverLetter';
 export type { CoverLetterData } from './useCoverLetter';
+export { useLanguageSwitch } from './useLanguageSwitch';
+export { useAutoSaveDraft } from './useAutoSaveDraft';
