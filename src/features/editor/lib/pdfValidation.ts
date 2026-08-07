@@ -102,7 +102,13 @@ export function validateCVTextExtractability(
     };
   }
 
-  const ratio = renderedTokens.length / expectedTokens.length;
+  // Real coverage: share of expected tokens actually present in the render.
+  // A pure count ratio scored 100% on wrong-language or garbage output, and
+  // the render's extra tokens (dates, section titles) pushed it above 1.
+  const renderedSet = new Set(renderedTokens.map(t => t.toLowerCase()));
+  const expectedUnique = [...new Set(expectedTokens.map(t => t.toLowerCase()))];
+  const matched = expectedUnique.filter(t => renderedSet.has(t)).length;
+  const ratio = matched / expectedUnique.length;
 
   if (ratio >= EXTRACTABILITY_THRESHOLD) {
     return { valid: true, ratio };

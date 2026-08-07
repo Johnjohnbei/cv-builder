@@ -31,7 +31,8 @@
       "Skill(gsd-discuss-phase)",
       "Skill(gsd-plan-phase)",
       "Skill(gsd-execute-phase)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Skill(gsd-add-phase)"
     ]
   }
 }

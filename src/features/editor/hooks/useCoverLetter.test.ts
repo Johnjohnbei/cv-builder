@@ -4,6 +4,9 @@ import {
   buildFilename,
   canSave,
   shouldTriggerExtraction,
+  parseStoredLetter,
+  findLatestSavedForCv,
+  COVER_LETTER_STORAGE_KEY,
   type CoverLetterData,
 } from './useCoverLetter';
 
@@ -122,5 +125,67 @@ describe('shouldTriggerExtraction', () => {
 
   it('returns false when companyName has content (even with long JD)', () => {
     expect(shouldTriggerExtraction('Acme', 'A'.repeat(1000))).toBe(false);
+  });
+});
+
+describe('parseStoredLetter', () => {
+  it('parses a valid mirrored letter', () => {
+    expect(parseStoredLetter(JSON.stringify(SAMPLE))).toEqual(SAMPLE);
+  });
+
+  it('returns null for null/empty input', () => {
+    expect(parseStoredLetter(null)).toBeNull();
+    expect(parseStoredLetter('')).toBeNull();
+  });
+
+  it('returns null for malformed JSON', () => {
+    expect(parseStoredLetter('{not json')).toBeNull();
+  });
+
+  it('returns null for non-object JSON', () => {
+    expect(parseStoredLetter('"a string"')).toBeNull();
+    expect(parseStoredLetter('42')).toBeNull();
+    expect(parseStoredLetter('null')).toBeNull();
+  });
+
+  it('returns null when a field is missing or not a string', () => {
+    expect(parseStoredLetter(JSON.stringify({ ...SAMPLE, body: undefined }))).toBeNull();
+    expect(parseStoredLetter(JSON.stringify({ ...SAMPLE, subject: 12 }))).toBeNull();
+  });
+
+  it('strips unknown extra fields', () => {
+    const stored = JSON.stringify({ ...SAMPLE, extra: 'ignored' });
+    expect(parseStoredLetter(stored)).toEqual(SAMPLE);
+  });
+
+  it('uses the expected localStorage key', () => {
+    expect(COVER_LETTER_STORAGE_KEY).toBe('guest_last_cover_letter');
+  });
+});
+
+describe('findLatestSavedForCv', () => {
+  const letters = [
+    { cvId: 'cv2', subject: 'newest cv2' },
+    { cvId: 'cv1', subject: 'newest cv1' },
+    { cvId: 'cv1', subject: 'older cv1' },
+    { subject: 'no cvId' },
+  ];
+
+  it('returns the first (most recent) letter matching the cvId', () => {
+    expect(findLatestSavedForCv(letters, 'cv1')?.subject).toBe('newest cv1');
+    expect(findLatestSavedForCv(letters, 'cv2')?.subject).toBe('newest cv2');
+  });
+
+  it('returns null when no letter matches', () => {
+    expect(findLatestSavedForCv(letters, 'cv999')).toBeNull();
+  });
+
+  it('returns null when cvId is undefined (never matches letters without cvId)', () => {
+    expect(findLatestSavedForCv(letters, undefined)).toBeNull();
+  });
+
+  it('returns null when list is undefined or empty', () => {
+    expect(findLatestSavedForCv(undefined, 'cv1')).toBeNull();
+    expect(findLatestSavedForCv([], 'cv1')).toBeNull();
   });
 });

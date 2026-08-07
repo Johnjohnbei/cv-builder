@@ -98,10 +98,24 @@ describe("Ancillary schemas", () => {
   });
 
   it("CoverLetterSchema parses letter fields", () => {
+    const body = "B".repeat(200);
     const result = CoverLetterSchema.parse({
-      subject: "s", greeting: "g", body: "b", closing: "c",
+      subject: "s", greeting: "g", body, closing: "c",
     });
-    expect(result.body).toBe("b");
+    expect(result.body).toBe(body);
+  });
+
+  it("CoverLetterSchema rejects empty subject/greeting/closing", () => {
+    const body = "B".repeat(200);
+    expect(() => CoverLetterSchema.parse({ subject: "", greeting: "g", body, closing: "c" })).toThrow();
+    expect(() => CoverLetterSchema.parse({ subject: "s", greeting: "", body, closing: "c" })).toThrow();
+    expect(() => CoverLetterSchema.parse({ subject: "s", greeting: "g", body, closing: "" })).toThrow();
+  });
+
+  it("CoverLetterSchema rejects a near-empty body (< 150 chars)", () => {
+    expect(() =>
+      CoverLetterSchema.parse({ subject: "s", greeting: "g", body: "too short", closing: "c" }),
+    ).toThrow();
   });
 
   it("BulletSuggestionsSchema parses 3 suggestions", () => {

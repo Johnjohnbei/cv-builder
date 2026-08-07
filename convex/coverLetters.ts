@@ -29,6 +29,22 @@ export const save = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
 
+    // Upsert by (userId, cvId): re-saving the letter for the same CV updates
+    // it in place instead of piling up near-duplicates.
+    const existing = await ctx.db
+      .query("coverLetters")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("cvId"), args.cvId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        ...args,
+        createdAt: new Date().toISOString(),
+      });
+      return existing._id;
+    }
+
     return await ctx.db.insert("coverLetters", {
       ...args,
       userId: identity.subject,

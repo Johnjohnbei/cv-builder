@@ -1,14 +1,34 @@
-import { franc } from 'franc-min';
 import type { CVData } from '../shared/types';
 
 export type SupportedLanguage = 'fr' | 'en';
 
-const ISO_TO_LANG: Record<string, SupportedLanguage> = {
-  fra: 'fr',
-  eng: 'en',
-};
-
 const MIN_TEXT_LENGTH = 20;
+
+// Stop-word scoring needs SEPARATE per-language lists; the shared
+// src/shared/lib/stopWords.ts set merges FR+EN into one undifferentiated Set
+// (built for keyword filtering), so it cannot score FR vs EN. These local
+// lists keep only high-frequency function words that are unambiguous between
+// the two languages (no 'car', 'son', 'as', 'on', 'an': they exist in both).
+const FR_STOP_WORDS = new Set([
+  'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'et', 'en', 'est', 'sont',
+  'être', 'avoir', 'ne', 'pas', 'plus', 'dans', 'pour', 'avec', 'sur', 'par',
+  'au', 'aux', 'ce', 'cet', 'cette', 'ces', 'qui', 'que', 'dont', 'où',
+  'nous', 'vous', 'ils', 'elle', 'elles', 'votre', 'notre', 'vos', 'nos',
+  'leur', 'leurs', 'sa', 'ses', 'mais', 'donc', 'chez', 'sans', 'sous',
+  'vers', 'entre', 'depuis', 'avant', 'après', 'ainsi', 'aussi', 'tout',
+  'tous', 'toute', 'toutes', 'comme', 'très', 'bien', 'été', 'fait', 'faire',
+  'afin', 'était', 'étaient', 'ont', 'avez', 'avons', 'sera', 'seront',
+]);
+
+const EN_STOP_WORDS = new Set([
+  'the', 'and', 'of', 'to', 'in', 'is', 'are', 'was', 'were', 'be', 'been',
+  'for', 'with', 'that', 'this', 'these', 'those', 'will', 'would', 'can',
+  'could', 'should', 'have', 'has', 'had', 'not', 'but', 'from', 'they',
+  'their', 'them', 'you', 'your', 'we', 'our', 'us', 'it', 'its', 'at', 'by',
+  'or', 'if', 'all', 'more', 'most', 'other', 'into', 'over', 'about', 'than',
+  'then', 'also', 'when', 'which', 'who', 'what', 'how', 'there', 'here',
+  'each', 'both', 'may', 'must', 'do', 'does', 'did', 'while', 'through',
+]);
 
 /**
  * Extracts concatenated text from CV data for language detection.
@@ -36,15 +56,24 @@ export function extractCVText(cvData: CVData): string {
 }
 
 /**
- * Detects the language of an arbitrary text using franc-min.
- * Returns 'fr' for short/empty text or when detection is undetermined.
+ * Detects the language of an arbitrary text by counting FR vs EN stop words.
+ * Majority wins; ties, short text (< 20 chars), and texts without any stop
+ * word fall back to 'fr' (product default). Technical EN jargon inside French
+ * prose does not flip the result: jargon words are not stop words.
  */
 export function detectTextLanguage(text: string): SupportedLanguage {
   if (text.length < MIN_TEXT_LENGTH) {
     return 'fr';
   }
-  const detected = franc(text, { only: ['fra', 'eng'] });
-  return ISO_TO_LANG[detected] ?? 'fr';
+  const tokens = text.toLowerCase().match(/\p{L}+/gu) ?? [];
+  let fr = 0;
+  let en = 0;
+  for (const token of tokens) {
+    if (token.length < 2) continue;
+    if (FR_STOP_WORDS.has(token)) fr++;
+    else if (EN_STOP_WORDS.has(token)) en++;
+  }
+  return en > fr ? 'en' : 'fr';
 }
 
 /**
@@ -56,7 +85,7 @@ export function detectJobDescriptionLanguage(jobDescription: string): SupportedL
 }
 
 /**
- * Detects the language of a CV using franc-min.
+ * Detects the language of a CV from its concatenated text.
  * Returns 'fr' for short/empty text or when detection is undetermined.
  */
 export function detectCVLanguage(cvData: CVData): SupportedLanguage {

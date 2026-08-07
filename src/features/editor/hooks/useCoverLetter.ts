@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -21,12 +21,23 @@ export interface UseCoverLetterDeps {
 export interface UseCoverLetterResult {
   isOpen: boolean; open: () => void; close: () => void;
   isTailored: boolean;
+  /** True only when the CV was tailored AND the drawer's JD is still the JD it was tailored for. */
+  isTailoredForLocalJD: boolean;
+  cvId?: string;
   companyName: string; setCompanyName: (v: string) => void;
   companyStage: string; setCompanyStage: (v: string) => void;
   companyBusinessModel: string; setCompanyBusinessModel: (v: string) => void;
   tone: string; setTone: (v: string) => void;
   localJobDescription: string; setLocalJobDescription: (v: string) => void;
-  letter: CoverLetterData | null; setLetter: (l: CoverLetterData) => void;
+  /** True when the user edited the drawer JD and the editor's JD has since diverged. */
+  jdOutOfSync: boolean;
+  /** Replace the drawer JD with the editor's current JD. */
+  syncJobDescription: () => void;
+  letter: CoverLetterData | null;
+  /** Programmatic load (restore, reload saved). Does NOT mark manual edits. */
+  setLetter: (l: CoverLetterData) => void;
+  /** Manual field edit from the UI. Marks the letter as dirty. */
+  updateLetterField: (field: keyof CoverLetterData, value: string) => void;
   isGenerating: boolean; isSaving: boolean; isExtractingCompany: boolean;
   generate: () => Promise<void>; save: () => Promise<void>;
   copy: () => void; download: () => void;
@@ -42,7 +53,7 @@ export function buildCoverLetterText(letter: CoverLetterData, name?: string): st
 }
 
 const slug = (s: string): string =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /** Build a download filename for the cover letter. */
@@ -62,6 +73,37 @@ export function shouldTriggerExtraction(companyName: string, jobDescription: str
   return companyName.trim().length === 0 && jobDescription.trim().length >= 50;
 }
 
+/** localStorage mirror of the current letter (survives drawer close, guest or signed in). */
+export const COVER_LETTER_STORAGE_KEY = 'guest_last_cover_letter';
+
+/** Parse a mirrored letter from localStorage. Returns null on any invalid shape. */
+export function parseStoredLetter(raw: string | null): CoverLetterData | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object') return null;
+    const p = parsed as Record<string, unknown>;
+    if (
+      typeof p.subject === 'string' && typeof p.greeting === 'string' &&
+      typeof p.body === 'string' && typeof p.closing === 'string'
+    ) {
+      return { subject: p.subject, greeting: p.greeting, body: p.body, closing: p.closing };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Most recent saved letter for a given cvId (input list is ordered most-recent first). */
+export function findLatestSavedForCv<T extends { cvId?: string }>(
+  letters: readonly T[] | undefined,
+  cvId: string | undefined,
+): T | null {
+  if (!letters || !cvId) return null;
+  return letters.find((l) => l.cvId === cvId) ?? null;
+}
+
 const DEFAULT_TONE = 'professionnel et engagé';
 
 /** Owns the inline cover letter drawer state for the editor. */
@@ -76,31 +118,93 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const [companyStage, setCompanyStage] = useState('');
   const [companyBusinessModel, setCompanyBusinessModel] = useState('');
   const [tone, setTone] = useState(DEFAULT_TONE);
-  const [localJobDescription, setLocalJobDescription] = useState('');
-  const [letter, setLetter] = useState<CoverLetterData | null>(null);
+  const [localJobDescription, setLocalJobDescriptionRaw] = useState('');
+  const [userEditedJD, setUserEditedJD] = useState(false);
+  const [letter, setLetterRaw] = useState<CoverLetterData | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExtractingCompany, setIsExtractingCompany] = useState(false);
 
+  // ─── Company extraction guards: remember the JD already extracted + in-flight flag ───
+  const extractedJDRef = useRef<string | null>(null);
+  const extractInFlightRef = useRef(false);
+
+  // ─── Mirror the letter to localStorage on every change (guest AND signed in) ───
+  useEffect(() => {
+    if (!letter) return;
+    try {
+      localStorage.setItem(COVER_LETTER_STORAGE_KEY, JSON.stringify(letter));
+    } catch { /* storage unavailable: mirror is best-effort */ }
+  }, [letter]);
+
+  // ─── Resync the drawer JD when the editor JD changes and the user hasn't typed in it ───
+  const prevPropJDRef = useRef(jobDescription);
+  useEffect(() => {
+    if (jobDescription === prevPropJDRef.current) return;
+    prevPropJDRef.current = jobDescription;
+    if (!userEditedJD) setLocalJobDescriptionRaw(jobDescription);
+  }, [jobDescription, userEditedJD]);
+
+  const setLocalJobDescription = useCallback((v: string) => {
+    setUserEditedJD(true);
+    setLocalJobDescriptionRaw(v);
+  }, []);
+
+  const jdOutOfSync =
+    userEditedJD && jobDescription.trim().length > 0 && jobDescription !== localJobDescription;
+
+  const syncJobDescription = useCallback(() => {
+    setLocalJobDescriptionRaw(jobDescription);
+    setUserEditedJD(false);
+  }, [jobDescription]);
+
+  const isTailoredForLocalJD = isTailored && localJobDescription.trim() === jobDescription.trim();
+
   const open = useCallback(() => {
     const jd = localJobDescription.length > 0 ? localJobDescription : jobDescription;
-    setLocalJobDescription(prev => (prev.length > 0 ? prev : jobDescription));
+    setLocalJobDescriptionRaw(prev => (prev.length > 0 ? prev : jobDescription));
+    // Restore the last letter from localStorage so closing the drawer never loses work
+    if (!letter) {
+      try {
+        const restored = parseStoredLetter(localStorage.getItem(COVER_LETTER_STORAGE_KEY));
+        if (restored) setLetterRaw(restored);
+      } catch { /* storage unavailable */ }
+    }
     setIsOpen(true);
     if (!shouldTriggerExtraction(companyName, jd)) return;
+    // Skip if the same JD was already extracted, or a call is already running
+    if (extractInFlightRef.current || extractedJDRef.current === jd) return;
+    extractInFlightRef.current = true;
     setIsExtractingCompany(true);
     extractAction({ jobDescription: jd, accessCode })
       .then(r => {
+        extractedJDRef.current = jd;
         if (r?.companyName) setCompanyName(curr => (curr.trim().length === 0 ? r.companyName! : curr));
         if (r?.stage) setCompanyStage(curr => (curr.trim().length === 0 ? r.stage! : curr));
         if (r?.businessModel) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? r.businessModel! : curr));
       })
       .catch(e => { console.warn('[useCoverLetter] extract failed:', e); })
-      .finally(() => setIsExtractingCompany(false));
-  }, [jobDescription, localJobDescription, companyName, accessCode, extractAction]);
+      .finally(() => {
+        extractInFlightRef.current = false;
+        setIsExtractingCompany(false);
+      });
+  }, [jobDescription, localJobDescription, companyName, letter, accessCode, extractAction]);
   const close = useCallback(() => setIsOpen(false), []);
+
+  const setLetter = useCallback((l: CoverLetterData) => setLetterRaw(l), []);
+
+  const updateLetterField = useCallback((field: keyof CoverLetterData, value: string) => {
+    setIsDirty(true);
+    setLetterRaw(curr => (curr ? { ...curr, [field]: value } : curr));
+  }, []);
 
   const generate = useCallback(async () => {
     if (!cvData || localJobDescription.length < 50) return;
+    if (isDirty && letter) {
+      const confirmed = window.confirm('Régénérer va remplacer vos modifications manuelles. Continuer ?');
+      if (!confirmed) return;
+    }
     setIsGenerating(true);
     try {
       const language = detectJobDescriptionLanguage(localJobDescription);
@@ -111,12 +215,13 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
         companyBusinessModel: companyBusinessModel || undefined,
         tone, language, accessCode,
       });
-      setLetter(result);
+      setLetterRaw(result);
+      setIsDirty(false);
     } catch (e) {
       console.error('Error generating cover letter:', e);
       notify({ message: 'Erreur lors de la génération. Réessayez.', type: 'error' });
     } finally { setIsGenerating(false); }
-  }, [cvData, localJobDescription, companyName, companyStage, companyBusinessModel, tone, accessCode, generateAction, notify]);
+  }, [cvData, localJobDescription, companyName, companyStage, companyBusinessModel, tone, accessCode, generateAction, notify, isDirty, letter]);
 
   const save = useCallback(async () => {
     if (!canSave(user, letter) || !letter) return;
@@ -128,6 +233,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
         companyName: companyName || undefined,
         ...letter,
       });
+      setIsDirty(false);
       notify({ message: 'Lettre sauvegardée !', type: 'success' });
     } catch (e) {
       console.error('Error saving cover letter:', e);
@@ -156,12 +262,14 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, [letter, cvData, companyName]);
 
   return {
-    isOpen, open, close, isTailored,
+    isOpen, open, close, isTailored, isTailoredForLocalJD, cvId,
     companyName, setCompanyName,
     companyStage, setCompanyStage,
     companyBusinessModel, setCompanyBusinessModel,
     tone, setTone,
-    localJobDescription, setLocalJobDescription, letter, setLetter,
+    localJobDescription, setLocalJobDescription,
+    jdOutOfSync, syncJobDescription,
+    letter, setLetter, updateLetterField,
     isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
   };
 }

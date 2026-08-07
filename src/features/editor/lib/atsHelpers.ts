@@ -1,10 +1,4 @@
-import nlp from 'compromise';
-import stats from 'compromise-stats';
 import { STOP_WORDS } from '@/src/shared/lib/stopWords';
-
-nlp.plugin(stats);
-
-import { extractKeywords } from './scoring';
 import type { CVData } from '@/src/shared/types';
 
 /** Internal sub-score result shape (mirrors SubScoreResult in scoring.ts). */
@@ -14,42 +8,30 @@ interface SubScoreResult {
 }
 
 /**
- * Extract keywords from text using NLP (English) or sliding-window (French).
+ * Extract keywords from text via frequency analysis (unigrams + bigrams).
+ * Same extractor for FR and EN: STOP_WORDS covers both languages, and the
+ * AI extraction (extractJobKeywords) provides the high-quality keywords anyway.
+ * Memoizes the last (text, language) call: the JD rarely changes between
+ * keystrokes in the CV, so per-keystroke re-parsing is skipped entirely.
  * Returns deduplicated array of lowercase keyword strings (>= 3 chars).
- * Pure function, no side effects.
  */
+let lastKey = '';
+let lastResult: string[] = [];
+
 export function extractNLPKeywords(text: string, language: 'fr' | 'en'): string[] {
   if (!text?.trim()) return [];
 
-  const lower = text.toLowerCase();
+  const key = `${language}|${text}`;
+  if (key === lastKey) return lastResult;
 
-  if (language === 'en') {
-    return extractEnglishKeywords(lower);
-  }
-
-  return extractFrenchKeywords(lower);
+  const result = extractFrequencyKeywords(text.toLowerCase());
+  lastKey = key;
+  lastResult = result;
+  return result;
 }
 
-/** English NLP extraction via compromise: nouns + bigrams + unigrams, capped. */
-function extractEnglishKeywords(text: string): string[] {
-  const doc = nlp(text);
-  const nouns: string[] = doc.nouns().out('array');
-  const bigrams: string[] = (doc as any).bigrams?.()
-    ?.map((b: { normal: string }) => b.normal)
-    ?.filter((b: string) => b.split(' ').length === 2) ?? [];
-  const unigrams = extractKeywords(text);
-
-  const all = [
-    ...nouns.map((n: string) => n.toLowerCase()),
-    ...bigrams,
-    ...unigrams,
-  ];
-
-  return deduplicateAndFilter(all).slice(0, 40);
-}
-
-/** French fallback: unigrams + sliding-window bigrams, filtered by frequency. */
-function extractFrenchKeywords(text: string): string[] {
+/** Frequency extraction: unigrams + sliding-window bigrams, noise-filtered. */
+function extractFrequencyKeywords(text: string): string[] {
   const words = text
     .replace(/[^a-zà-ÿ0-9\s]/g, ' ')
     .split(/\s+/)

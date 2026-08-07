@@ -22,8 +22,11 @@ interface SavedCVEntry {
   personal_info: { name: string; email: string; title?: string };
   design?: { template?: string };
 }
-import { extractTextFromPDF } from '../lib/pdfTextExtract';
-import { parseLinkedInPDF } from '../lib/linkedinParser';
+// pdfjs (~450 kB) only loads when a PDF is actually dropped
+const loadPdfTools = () => Promise.all([
+  import('../lib/pdfTextExtract'),
+  import('../lib/linkedinParser'),
+] as const);
 import { useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { detectCVLanguage } from '../lib/languageDetection';
 import { attachBilingualCache } from '../lib/bilingual';
@@ -156,6 +159,7 @@ export default function DashboardPage() {
     const doExtract = async () => {
       setIsUploading(true);
       try {
+        const [{ extractTextFromPDF }, { parseLinkedInPDF }] = await loadPdfTools();
         // 1. Try deterministic LinkedIn parser first (instant, zero API, zero cost)
         const linkedInData = await parseLinkedInPDF(file);
 
@@ -201,6 +205,7 @@ export default function DashboardPage() {
     setIsExtractingJob(true);
     const file = acceptedFiles[0];
     try {
+      const [{ extractTextFromPDF }] = await loadPdfTools();
       const pdfText = await extractTextFromPDF(file);
       const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: getCode() });
       setJobDescription(text);
@@ -433,7 +438,7 @@ export default function DashboardPage() {
             )}
           >
             <LayoutDashboard className="w-4 h-4" />
-            <span>Console</span>
+            <span>Optimiser</span>
           </button>
           <button 
             onClick={() => setActiveView('cvs')}
@@ -474,13 +479,13 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col overflow-hidden bg-white">
         <header className="stitch-header justify-between">
           <div className="flex items-center space-x-4 text-sm text-gray-500">
-            <span>Projets</span>
+            <span>Calibre</span>
             <span className="text-gray-300">/</span>
-            <span className="text-gray-900 font-medium">CV_OPTIMIZER_V2</span>
+            <span className="text-gray-900 font-medium">Optimiseur de CV</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-[10px] stitch-mono text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">
-              STATUS: CONNECTED
+              Connecté
             </span>
           </div>
         </header>
@@ -492,7 +497,7 @@ export default function DashboardPage() {
               {/* Left: Configuration */}
               <div className="col-span-12 lg:col-span-4 space-y-6">
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">01. SOURCE_DATA</div>
+                  <div className="stitch-panel-header">1. Votre CV</div>
                   <div className="p-4">
                     {!baseCV ? (
                       <div className="space-y-3">
@@ -543,27 +548,39 @@ export default function DashboardPage() {
                           <p className="text-xs font-bold">{baseCV.personal_info.name}</p>
                           <p className="text-[10px] text-gray-500">{baseCV.personal_info.title}</p>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setBaseCV(null)}
-                          className="text-[10px] text-blue-600 hover:underline stitch-mono"
+                          className="text-[11px] text-blue-600 hover:underline"
                         >
-                          REPLACE_SOURCE_FILE
+                          Remplacer le CV importé
                         </button>
                       </div>
                     )}
                   </div>
                 </section>
 
+                {/* Parcours en 3 étapes (remplace l'ancien faux terminal SYSTEM_LOGS) */}
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">02. SYSTEM_LOGS</div>
-                  <div className="p-4 bg-black text-green-400 stitch-mono text-[10px] h-48 overflow-auto rounded-b">
-                    <p>[{new Date().toLocaleTimeString()}] INITIALIZING_STITCH_ENGINE...</p>
-                    <p>[{new Date().toLocaleTimeString()}] AUTH_VERIFIED: {user?.id?.slice(0,8)}</p>
-                    {baseCV && <p className="text-blue-400">[{new Date().toLocaleTimeString()}] DATA_EXTRACTED: SUCCESS</p>}
-                    {isCrawling && <p className="text-yellow-400 animate-pulse">[{new Date().toLocaleTimeString()}] CRAWLING_JOB_URL...</p>}
-                    {isExtractingJob && <p className="text-yellow-400 animate-pulse">[{new Date().toLocaleTimeString()}] EXTRACTING_JOB_FILE...</p>}
-                    {isGenerating && <p className="text-yellow-400 animate-pulse">[{new Date().toLocaleTimeString()}] GENERATING_OPTIMIZED_CV...</p>}
-                    <p className="opacity-40">_</p>
+                  <div className="stitch-panel-header">Comment ça marche</div>
+                  <div className="p-4 space-y-3">
+                    {[
+                      { n: 1, label: 'Importez votre CV (PDF ou LinkedIn)', done: !!baseCV },
+                      { n: 2, label: 'Collez l\'offre d\'emploi visée', done: jobDescription.length >= 50 },
+                      { n: 3, label: 'Lancez l\'optimisation, puis peaufinez dans l\'éditeur', done: false },
+                    ].map(step => (
+                      <div key={step.n} className="flex items-center gap-3">
+                        <span className={cn(
+                          "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                          step.done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                        )}>
+                          {step.done ? '✓' : step.n}
+                        </span>
+                        <span className={cn("text-[12px]", step.done ? "text-gray-800" : "text-gray-600")}>{step.label}</span>
+                      </div>
+                    ))}
+                    <p className="text-[11px] text-gray-500 pt-1">
+                      Votre CV sera adapté à l'offre pour passer les ATS, les logiciels qui trient les candidatures avant qu'un recruteur ne les lise.
+                    </p>
                   </div>
                 </section>
               </div>
@@ -571,11 +588,11 @@ export default function DashboardPage() {
               {/* Right: Workspace */}
               <div className="col-span-12 lg:col-span-8 space-y-6">
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">03. JOB_SPECIFICATION</div>
+                  <div className="stitch-panel-header">2. L'offre d'emploi</div>
                   <div className="p-4 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] stitch-mono text-gray-500 uppercase block mb-2">Option A: URL_SOURCE</label>
+                        <label className="text-[10px] text-gray-600 uppercase block mb-2">Depuis une URL</label>
                         <div className="flex space-x-2">
                           <input 
                             type="text"
@@ -589,13 +606,13 @@ export default function DashboardPage() {
                             disabled={isCrawling || !jobUrl}
                             className="stitch-button-secondary px-3 py-1 text-[10px] disabled:opacity-50"
                           >
-                            {isCrawling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'FETCH'}
+                            {isCrawling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Importer'}
                           </button>
                         </div>
                         <p className="text-[9px] text-gray-400 italic">Note : Certains sites (LinkedIn, Indeed) bloquent l'accès direct. Copiez-collez le texte si besoin.</p>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] stitch-mono text-gray-500 uppercase block mb-2">Option B: FILE_UPLOAD</label>
+                        <label className="text-[10px] text-gray-600 uppercase block mb-2">Depuis un PDF</label>
                         <div 
                           {...getJobRootProps()} 
                           className={cn(
@@ -607,14 +624,14 @@ export default function DashboardPage() {
                           {isExtractingJob ? (
                             <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
                           ) : (
-                            <span className="text-[10px] font-medium text-gray-500">Upload Job PDF</span>
+                            <span className="text-[10px] font-medium text-gray-500">Déposer le PDF de l'offre</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[10px] stitch-mono text-gray-500 uppercase block mb-2">Option C: MANUAL_INPUT</label>
+                      <label className="text-[10px] text-gray-600 uppercase block mb-2">Ou collez le texte de l'offre</label>
                       <textarea
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
@@ -637,7 +654,7 @@ export default function DashboardPage() {
                           ) : (
                             <>
                               <Sparkles className="w-4 h-4" />
-                              <span>OPTIMISER MON CV</span>
+                              <span>Optimiser mon CV pour cette offre</span>
                             </>
                           )}
                         </button>
@@ -681,7 +698,7 @@ export default function DashboardPage() {
                   className="stitch-button-primary flex items-center space-x-2"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>NOUVEAU_CV</span>
+                  <span>Nouveau CV</span>
                 </button>
               </div>
 
@@ -740,7 +757,7 @@ export default function DashboardPage() {
                           className="w-full mt-2 py-2 bg-white border border-[#DADCE0] text-[10px] font-bold stitch-mono hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all flex items-center justify-center space-x-2"
                         >
                           <ExternalLink className="w-3 h-3" />
-                          <span>OUVRIR_EDITEUR</span>
+                          <span>Ouvrir dans l'éditeur</span>
                         </button>
                       </div>
                     </div>
@@ -762,7 +779,7 @@ export default function DashboardPage() {
           )}
         >
           <LayoutDashboard className="w-5 h-5" />
-          <span>Console</span>
+          <span>Optimiser</span>
         </button>
         <button 
           onClick={() => setActiveView('cvs')}

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Download, Eye, Save, Loader2, FileText, User, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, GraduationCap, Award, Languages, AlignLeft, Sparkles, X, Zap, ArrowLeft, Mail } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { cn } from '../shared/lib/cn';
 import { maskPersonalInfo } from '../shared/lib/anonymize';
+import { downscaleImageToDataURI } from '../shared/lib/imageResize';
 import { Logo } from '../shared/ui/Logo';
 import { Input } from '../shared/ui/Input';
 import { Textarea } from '../shared/ui/Textarea';
@@ -21,7 +22,7 @@ import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, OverflowIndicator, EditorHeader, ATSPanel, BulletDiffView, DistributionProposalsPanel, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { detectCVLanguage, getCVLanguage } from '../lib/languageDetection';
-import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/convex/_ai/schemas';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../shared/constants/companyMeta';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
 import { TEMPLATE_ATS_COMPAT } from '../features/editor/lib/atsRules';
 import type { DesignSettings } from '../shared/types';
@@ -77,7 +78,7 @@ export default function EditorPage() {
   const [isEnrichingExperiences, setIsEnrichingExperiences] = useState(false);
 
   // ─── UI state ───
-  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats' | 'lettre'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -93,6 +94,8 @@ export default function EditorPage() {
   // Debounce handle for the working-draft auto-save (declared early so the
   // effect that drives it can find it).
   const autoSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
 
   // ─── Custom hooks ───
   const { notification, notify, clearNotification } = useAutoNotification();
@@ -146,6 +149,50 @@ export default function EditorPage() {
 
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
+  // Stable references so memo(PaginatedCV) can skip re-renders while the user
+  // types in the sidebar (JD textarea, panel toggles...).
+  const templateStyle = useMemo(() => ({
+    '--primary': designSettings.primaryColor,
+    '--secondary': designSettings.secondaryColor,
+  } as React.CSSProperties), [designSettings.primaryColor, designSettings.secondaryColor]);
+
+  const renderPageWrapper = useCallback((cvPage: React.ReactNode, pageIndex: number, totalPages: number) => (
+    <div
+      className="cv-page-slot"
+      style={{ marginBottom: pageIndex < totalPages - 1 ? '24px' : 0 }}
+    >
+      {/* Page label for pages 2+ — hidden in print */}
+      {pageIndex > 0 && (
+        <div className="cv-page-label flex items-center justify-center mb-2">
+          <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {pageIndex + 1}</span>
+        </div>
+      )}
+      {/* Scaled frame: fixed outer box + transform-scaled inner at true 210×297mm */}
+      <div
+        className="cv-page-frame relative shrink-0 overflow-hidden"
+        style={{
+          width: `${210 * (zoom / 100)}mm`,
+          height: `${297 * (zoom / 100)}mm`,
+        }}
+      >
+        <div
+          className="cv-page-scale bg-white shadow-2xl border border-[#DADCE0]"
+          style={{
+            transform: `scale(${zoom / 100})`,
+            transformOrigin: 'top left',
+            width: '210mm',
+            height: '297mm',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
+        >
+          {cvPage}
+        </div>
+      </div>
+    </div>
+  ), [zoom]);
+
   const missingKeywordsList = useMemo(
     () => atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
     [atsKeywords],
@@ -179,6 +226,7 @@ export default function EditorPage() {
     cvData,
     designSettings,
     notify,
+    isAnonymous,
   });
   const templateSelection = useTemplateSelection({
     selectedTemplate,
@@ -204,20 +252,27 @@ export default function EditorPage() {
     const isNowFilled = jobDescription.trim().length > 0;
     if (wasEmpty && isNowFilled) {
       setActiveTab('ats');
-      // Extract real keywords via AI
+      // Extract real keywords via AI. Cancelled if the JD changes again or the
+      // page unmounts, so a stale response can't overwrite a fresher one.
+      let cancelled = false;
       extractKeywordsAction({ jobDescription, accessCode: getCode() })
         .then(data => {
-          if (data.keywords && Array.isArray(data.keywords)) {
+          if (!cancelled && data.keywords && Array.isArray(data.keywords)) {
             setAiKeywords(data.keywords);
           }
         })
         .catch(() => {}); // Fallback to NLP extraction silently
+      prevJDRef.current = jobDescription;
+      return () => { cancelled = true; };
     }
     prevJDRef.current = jobDescription;
   }, [jobDescription]);
 
-  // Recompute zoom when tab or data changes
-  useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [cvData, activeTab]);
+  // Recompute zoom when the available width changes (sidebar toggle, tab).
+  // cvData is deliberately NOT a dep: typing doesn't change the container
+  // width, and reading clientWidth forces a layout in the same frame as the
+  // pagination reconcile.
+  useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [isSidebarOpen, activeTab]);
 
   // ─── Auto-save to working draft (debounced) ───
   // Persists displayMode toggles, text edits, template changes, and any other
@@ -229,23 +284,40 @@ export default function EditorPage() {
   // Guarded by `userModified` so the initial hydration doesn't trigger a
   // write back to itself.
   useEffect(() => {
-    if (!user || !cvData || !userModified) return;
+    if ((!user && !isGuest) || !cvData || !userModified) return;
     if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
     autoSaveDebounceRef.current = setTimeout(() => {
       const merged = stripPersistenceArtifacts({
         ...cvData,
         design: { ...designSettings, template: selectedTemplate },
       });
-      updateLastCV({ cvData: merged, jobDescription: jobDescription || undefined })
-        .catch((e) => console.warn('[auto-save] failed:', e));
+      if (user) {
+        setIsAutoSaving(true);
+        updateLastCV({ cvData: merged, jobDescription: jobDescription || undefined })
+          .then(() => setLastAutoSaveAt(new Date()))
+          .catch((e) => console.warn('[auto-save] failed:', e))
+          .finally(() => setIsAutoSaving(false));
+      } else {
+        // Guest: mirror to localStorage so a refresh doesn't lose edits
+        localStorage.setItem('guest_last_optimized', JSON.stringify(merged));
+        setLastAutoSaveAt(new Date());
+      }
     }, 1500);
     return () => {
       if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
     };
-  }, [cvData, designSettings, selectedTemplate, jobDescription, user, userModified, updateLastCV]);
+  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, userModified, updateLastCV]);
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
+
+  // One score per experience, recomputed only when experiences or keywords
+  // change: inline calls in the JSX ran keywords.length regexes per experience
+  // on every keystroke.
+  const experienceScores = useMemo(
+    () => (cvData?.experience ?? []).map(exp => scoreExperience(exp, jobKeywords)),
+    [cvData?.experience, jobKeywords],
+  );
 
   const weakBullets = useMemo(
     () => cvData ? analyzeWeakBullets(cvData.experience) : [],
@@ -269,6 +341,17 @@ export default function EditorPage() {
     setUserModified(true);
   };
 
+  // Snapshot of the translatable content. The photo is excluded: it is
+  // identical in both languages and its base64 payload would otherwise be
+  // duplicated per cached language in every auto-save (Convex doc cap ~1 MiB).
+  const contentSnapshot = (d: NonNullable<typeof cvData>) => ({
+    personal_info: { ...d.personal_info, photo_url: undefined },
+    experience: d.experience,
+    education: d.education,
+    skills: d.skills,
+    languages: d.languages,
+  });
+
   // Instant swap to a language we already have cached (no LLM, no modal).
   // Snapshots the current view under its own language first, so toggling back
   // is also instant and preserves in-view edits.
@@ -277,17 +360,12 @@ export default function EditorPage() {
     const cached = cvData._translations?.[target];
     if (!cached) return;
     const currentLang = getCVLanguage(cvData);
-    const currentSnapshot = {
-      personal_info: cvData.personal_info,
-      experience: cvData.experience,
-      education: cvData.education,
-      skills: cvData.skills,
-      languages: cvData.languages,
-    };
     const updated = {
       ...cvData,
       ...cached,
-      _translations: { ...cvData._translations, [currentLang]: currentSnapshot },
+      // The cached snapshot has no photo: carry the current one over
+      personal_info: { ...cached.personal_info, photo_url: cvData.personal_info.photo_url },
+      _translations: { ...cvData._translations, [currentLang]: contentSnapshot(cvData) },
       detectedLanguage: target,
       languageOverride: target,
     };
@@ -322,15 +400,9 @@ export default function EditorPage() {
     if (!cvData || !pendingLanguage) return;
     const currentLang = getCVLanguage(cvData);
 
-    // Snapshot of the current view content. Will be cached under the current
-    // language so the user can toggle back later without re-translating.
-    const currentSnapshot = {
-      personal_info: cvData.personal_info,
-      experience: cvData.experience,
-      education: cvData.education,
-      skills: cvData.skills,
-      languages: cvData.languages,
-    };
+    // Snapshot of the current view content (photo excluded, cf. contentSnapshot).
+    // Cached under the current language so toggling back is free.
+    const currentSnapshot = contentSnapshot(cvData);
 
     // Defensive: if a cache appeared meanwhile, swap instantly instead of
     // burning an LLM call (handleLanguageChange normally catches this first).
@@ -349,15 +421,11 @@ export default function EditorPage() {
         targetLanguage: pendingLanguage,
         accessCode: getCode(),
       });
-      const translatedSnapshot = {
-        personal_info: translatedData.personal_info,
-        experience: translatedData.experience,
-        education: translatedData.education,
-        skills: translatedData.skills,
-        languages: translatedData.languages,
-      };
+      const translatedSnapshot = contentSnapshot(translatedData);
       const updated = {
         ...translatedData,
+        // Keep the current photo whatever the LLM returned for it
+        personal_info: { ...translatedData.personal_info, photo_url: cvData.personal_info.photo_url },
         _translations: {
           ...cvData._translations,
           [currentLang]: currentSnapshot,
@@ -376,7 +444,7 @@ export default function EditorPage() {
       } else if (isGuest) {
         localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
       }
-      notify({ message: 'CV traduit ! Tu pourras désormais basculer entre les langues instantanément.', type: 'success' });
+      notify({ message: 'CV traduit ! Vous pouvez désormais basculer entre les langues instantanément.', type: 'success' });
       setPendingLanguage(null);
     } catch (error) {
       console.error('Error translating CV:', error);
@@ -485,7 +553,7 @@ export default function EditorPage() {
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="stitch-mono text-xs text-gray-500">LOADING_EDITOR_ASSETS...</p>
+          <p className="text-xs text-gray-500">Chargement de l'éditeur...</p>
         </div>
       </div>
     );
@@ -505,13 +573,13 @@ export default function EditorPage() {
       skills.push({ category: 'Autres', items: [skill] });
     }
     setCvData(prev => prev ? { ...prev, skills } : null);
-    notify({ message: `Competence "${skill}" ajoutee`, type: 'success' });
+    notify({ message: `Compétence « ${skill} » ajoutée`, type: 'success' });
   };
 
   return (
     <div className="stitch-container relative">
       {/* Notifications */}
-      {notification && <EditorNotification message={notification.message} type={notification.type} />}
+      {notification && <EditorNotification message={notification.message} type={notification.type} onClose={clearNotification} />}
 
       {/* Confirmation Modal */}
       {templateSelection.showTemplateConfirm && (
@@ -598,14 +666,15 @@ export default function EditorPage() {
             >
               ATS
             </button>
+            {/* Not a tab: opens the cover letter drawer. Keeping it in activeTab
+                left an empty tabpanel behind once the drawer was closed. */}
             <button
-              onClick={() => { setActiveTab('lettre'); coverLetter.open(); }}
-              role="tab"
-              aria-current={activeTab === 'lettre' ? 'true' : undefined}
-              aria-selected={activeTab === 'lettre'}
+              onClick={() => coverLetter.open()}
+              aria-haspopup="dialog"
+              aria-expanded={coverLetter.isOpen}
               className={cn(
                 "flex-1 py-3 text-[10px] stitch-mono font-bold uppercase tracking-widest transition-colors",
-                activeTab === 'lettre' ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:bg-gray-100"
+                coverLetter.isOpen ? "bg-white text-purple-600 border-b-2 border-purple-600" : "text-gray-500 hover:bg-gray-100"
               )}
             >
               Lettre
@@ -620,11 +689,11 @@ export default function EditorPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-blue-600">
                       <Sparkles className="w-4 h-4" />
-                      <span className="text-[10px] stitch-mono font-bold uppercase tracking-widest">MISE_EN_PAGE</span>
+                      <span className="text-[11px] font-bold uppercase tracking-widest">Adapter à l'offre</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="text-[9px] stitch-mono text-gray-400 uppercase">Pages:</label>
-                      <span className="text-[10px] stitch-mono font-bold text-blue-600">{actualPageCount}</span>
+                      <label className="text-[10px] text-gray-500 uppercase">Pages :</label>
+                      <span className="text-[11px] stitch-mono font-bold text-blue-600">{actualPageCount}</span>
                     </div>
                   </div>
 
@@ -660,22 +729,24 @@ export default function EditorPage() {
                       // pagination fit auto-resets on cvData change
                     }}
                   >
-                    AUTO-ASSIGNATION
+                    Réorganiser selon l'offre
                   </Button>
+                  <p className="text-[10px] text-gray-500 -mt-1">Instantané : met en avant vos expériences les plus pertinentes, sans réécrire le texte.</p>
 
                   {/* AI content optimization button */}
                   <Button
                     variant="secondary"
                     fullWidth
-                    className="rounded-lg py-2 px-4 text-[9px] tracking-widest bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                    className="rounded-lg py-2 px-4 text-[10px] normal-case tracking-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
                     icon={isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                     loading={false}
                     disabled={isOptimizing}
                     onClick={handleOptimize}
                   >
-                    {isOptimizing ? 'OPTIMISATION...' : 'RÉÉCRIRE CONTENU (IA)'}
+                    {isOptimizing ? 'Réécriture en cours...' : 'Réécrire le contenu avec l\'IA'}
                   </Button>
-                  
+                  <p className="text-[10px] text-gray-500 -mt-1">Réécrit vos textes pour coller à l'offre (environ 1 minute, remplace le contenu actuel).</p>
+
                   {/* Page count indicator */}
                   <OverflowIndicator
                     actualPageCount={actualPageCount}
@@ -691,7 +762,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <User className="w-3 h-3" />
-                      <span>01. INFOS_PERSONNELLES</span>
+                      <span>Infos personnelles</span>
                     </div>
                     {expandedSection === 'personal' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -758,23 +829,26 @@ export default function EditorPage() {
                               type="file"
                               className="hidden"
                               accept="image/*"
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                if (file.size > 2 * 1024 * 1024) {
-                                  notify({ message: 'Photo trop volumineuse (max 2 MB).', type: 'error' });
+                                if (file.size > 10 * 1024 * 1024) {
+                                  notify({ message: 'Photo trop volumineuse (max 10 MB).', type: 'error' });
                                   return;
                                 }
                                 if (!file.type.startsWith('image/')) {
                                   notify({ message: 'Fichier non reconnu comme image.', type: 'error' });
                                   return;
                                 }
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  const base64String = reader.result as string;
-                                  setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: base64String}} : null);
-                                };
-                                reader.readAsDataURL(file);
+                                try {
+                                  // Downscaled to ~512px JPEG: the photo lives in
+                                  // every auto-save payload (Convex doc cap ~1 MiB)
+                                  const dataUri = await downscaleImageToDataURI(file);
+                                  setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: dataUri}} : null);
+                                  setUserModified(true);
+                                } catch {
+                                  notify({ message: 'Impossible de lire cette image.', type: 'error' });
+                                }
                               }}
                             />
                           </label>
@@ -801,7 +875,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <AlignLeft className="w-3 h-3" />
-                      <span>02. RÉSUMÉ_PRO</span>
+                      <span>Résumé professionnel</span>
                     </div>
                     {expandedSection === 'summary' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -826,7 +900,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <Briefcase className="w-3 h-3" />
-                      <span>02. EXPERIENCES</span>
+                      <span>Expériences</span>
                     </div>
                     {expandedSection === 'experience' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -879,7 +953,7 @@ export default function EditorPage() {
                               </button>
                               <span className="text-[8px] stitch-mono text-gray-400 uppercase ml-1">#{idx + 1}</span>
                               {jobDescription && (() => {
-                                const s = scoreExperience(exp, jobKeywords);
+                                const s = experienceScores[idx] ?? 0;
                                 return (
                                   <span className="text-[7px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
                                     backgroundColor: s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2',
@@ -916,9 +990,14 @@ export default function EditorPage() {
                               ))}
                             </div>
 
-                            <button 
-                              onClick={() => setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null)}
-                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            <button
+                              onClick={() => {
+                                if (!window.confirm(`Supprimer l'expérience « ${exp.position || exp.company} » ? Cette action est définitive.`)) return;
+                                setCvData(prev => prev ? {...prev, experience: prev.experience.filter((_, i) => i !== idx)} : null);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                              title="Supprimer cette expérience"
+                              aria-label="Supprimer cette expérience"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -1175,7 +1254,7 @@ export default function EditorPage() {
                               }}
                               className="text-[8px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
                             >
-                              <Plus className="w-2 h-2" /> AJOUTER_POINT
+                              <Plus className="w-2 h-2" /> Ajouter un point
                             </button>
                           </div>
                           )}
@@ -1209,7 +1288,7 @@ export default function EditorPage() {
                         onClick={() => setCvData(prev => prev ? {...prev, experience: [...prev.experience, { company: 'Nouvelle Entreprise', position: 'Nouveau Poste', start_date: '2024', current: true, description: [] }]} : null)}
                         className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <Plus className="w-3 h-3" /> AJOUTER_EXPERIENCE
+                        <Plus className="w-3 h-3" /> Ajouter une expérience
                       </button>
                     </div>
                   )}
@@ -1223,7 +1302,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <Award className="w-3 h-3" />
-                      <span>03. COMPETENCES</span>
+                      <span>Compétences</span>
                     </div>
                     {expandedSection === 'skills' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -1254,9 +1333,14 @@ export default function EditorPage() {
                                 </button>
                               ))}
                             </div>
-                            <button 
-                              onClick={() => setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null)}
-                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            <button
+                              onClick={() => {
+                                if (!window.confirm(`Supprimer la catégorie « ${cat.category} » et toutes ses compétences ?`)) return;
+                                setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null);
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                              title="Supprimer cette catégorie"
+                              aria-label="Supprimer cette catégorie"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -1316,7 +1400,7 @@ export default function EditorPage() {
                         onClick={() => setCvData(prev => prev ? {...prev, skills: [...prev.skills, { category: 'Nouvelle Catégorie', items: [] }]} : null)}
                         className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <Plus className="w-3 h-3" /> AJOUTER_CATEGORIE
+                        <Plus className="w-3 h-3" /> Ajouter une catégorie
                       </button>
                     </div>
                   )}
@@ -1330,7 +1414,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <GraduationCap className="w-3 h-3" />
-                      <span>04. FORMATION</span>
+                      <span>Formation</span>
                     </div>
                     {expandedSection === 'education' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -1338,9 +1422,14 @@ export default function EditorPage() {
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                       {cvData?.education?.map((edu, idx) => (
                         <div key={idx} className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group space-y-2">
-                          <button 
-                            onClick={() => setCvData(prev => prev ? {...prev, education: prev.education.filter((_, i) => i !== idx)} : null)}
-                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          <button
+                            onClick={() => {
+                              if (!window.confirm(`Supprimer la formation « ${edu.degree || edu.school} » ?`)) return;
+                              setCvData(prev => prev ? {...prev, education: prev.education.filter((_, i) => i !== idx)} : null);
+                            }}
+                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                            title="Supprimer cette formation"
+                            aria-label="Supprimer cette formation"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -1386,7 +1475,7 @@ export default function EditorPage() {
                         onClick={() => setCvData(prev => prev ? {...prev, education: [...prev.education, { school: 'Nouvelle École', degree: 'Nouveau Diplôme', start_date: '2020', end_date: '2024' }]} : null)}
                         className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <Plus className="w-3 h-3" /> AJOUTER_FORMATION
+                        <Plus className="w-3 h-3" /> Ajouter une formation
                       </button>
                     </div>
                   )}
@@ -1400,7 +1489,7 @@ export default function EditorPage() {
                   >
                     <div className="flex items-center gap-2">
                       <Languages className="w-3 h-3" />
-                      <span>05. LANGUES</span>
+                      <span>Langues</span>
                     </div>
                     {expandedSection === 'languages' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
@@ -1408,9 +1497,14 @@ export default function EditorPage() {
                     <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
                       {cvData?.languages?.map((lang, idx) => (
                         <div key={idx} className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group grid grid-cols-2 gap-2">
-                          <button 
-                            onClick={() => setCvData(prev => prev ? {...prev, languages: prev.languages.filter((_, i) => i !== idx)} : null)}
-                            className="absolute -top-2 -right-2 p-1 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                          <button
+                            onClick={() => {
+                              if (!window.confirm(`Supprimer la langue « ${lang.name} » ?`)) return;
+                              setCvData(prev => prev ? {...prev, languages: prev.languages.filter((_, i) => i !== idx)} : null);
+                            }}
+                            className="absolute -top-2 -right-2 p-1 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm z-10"
+                            title="Supprimer cette langue"
+                            aria-label="Supprimer cette langue"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -1449,7 +1543,7 @@ export default function EditorPage() {
                         onClick={() => setCvData(prev => prev ? {...prev, languages: [...prev.languages, { name: 'Nouvelle Langue', proficiency: 'Courant' }]} : null)}
                         className="w-full py-2 border border-dashed border-gray-300 text-[10px] stitch-mono text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <Plus className="w-3 h-3" /> AJOUTER_LANGUE
+                        <Plus className="w-3 h-3" /> Ajouter une langue
                       </button>
                     </div>
                   )}
@@ -1458,7 +1552,7 @@ export default function EditorPage() {
             ) : activeTab === 'design' ? (
               <div className="space-y-6">
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">01. TEMPLATE_SELECTION</div>
+                  <div className="stitch-panel-header">Templates</div>
                   <div className="p-4 grid grid-cols-2 gap-3">
                     {[
                       { id: 'TEMPLATE_A', name: 'Classic', desc: 'Minimaliste & Efficace' },
@@ -1482,9 +1576,9 @@ export default function EditorPage() {
                           <span className={cn("text-[9px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
                           <div className="flex items-center gap-1">
                             {TEMPLATE_ATS_COMPAT[tpl.id] === 'full' ? (
-                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">ATS</span>
+                              <span className="text-[8px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-700" title="Bien lu par les robots de tri des candidatures (ATS)">ATS</span>
                             ) : (
-                              <span className="text-[7px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-600">DESIGN</span>
+                              <span className="text-[8px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-600" title="Mise en page graphique : peut être moins bien lue par les robots de tri (score ATS réduit)">DESIGN</span>
                             )}
                             {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                           </div>
@@ -1498,14 +1592,14 @@ export default function EditorPage() {
                              tpl.id === 'TEMPLATE_E' && "bg-emerald-400"
                            )} />
                         </div>
-                        <span className="text-[7px] text-gray-400 stitch-mono uppercase leading-tight">{tpl.desc}</span>
+                        <span className="text-[10px] text-gray-500 uppercase leading-tight">{tpl.desc}</span>
                       </div>
                     ))}
                   </div>
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">02. QUICK_THEMES</div>
+                  <div className="stitch-panel-header">Thèmes rapides</div>
                   <div className="p-4 grid grid-cols-2 gap-2">
                     {COLOR_THEMES.map((theme) => (
                       <button
@@ -1529,7 +1623,7 @@ export default function EditorPage() {
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">04. COLOR_PALETTE</div>
+                  <div className="stitch-panel-header">Couleurs</div>
                   <div className="p-4 space-y-4">
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Presets</label>
@@ -1592,7 +1686,7 @@ export default function EditorPage() {
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">05. TYPOGRAPHY</div>
+                  <div className="stitch-panel-header">Typographie</div>
                   <div className="p-4 space-y-3">
                     {FONT_OPTIONS.map((font) => (
                       <button
@@ -1612,7 +1706,7 @@ export default function EditorPage() {
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">06. SECTION_TITLES</div>
+                  <div className="stitch-panel-header">Titres de sections</div>
                   <div className="p-4 space-y-4">
                     <div>
                       <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Font Weight</label>
@@ -1703,7 +1797,7 @@ export default function EditorPage() {
                 </section>
 
                 <section data-cv-section="skills" className="stitch-panel">
-                  <div className="stitch-panel-header">07. SECTIONS_VISIBLES</div>
+                  <div className="stitch-panel-header">Sections visibles</div>
                   <div className="p-4 space-y-2">
                     {[
                       { id: 'summary', label: 'Résumé professionnel', icon: '📝' },
@@ -1753,7 +1847,7 @@ export default function EditorPage() {
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">08. PDF_EXPORT_SETTINGS</div>
+                  <div className="stitch-panel-header">Réglages du document</div>
                   <div className="p-4 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1785,48 +1879,14 @@ export default function EditorPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[9px] stitch-mono text-gray-500 uppercase block mb-2">Sections à Inclure</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { id: 'personal', name: 'En-tête' },
-                          { id: 'summary', name: 'Profil' },
-                          { id: 'experience', name: 'Expériences' },
-                          { id: 'education', name: 'Formation' },
-                          { id: 'skills', name: 'Compétences' },
-                          { id: 'languages', name: 'Langues' }
-                        ].map((section) => (
-                          <label key={section.id} className="flex items-center gap-2 cursor-pointer group p-2 rounded border border-gray-100 hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={designSettings.includedSections.includes(section.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setDesignSettings(prev => ({
-                                    ...prev,
-                                    includedSections: [...prev.includedSections, section.id]
-                                  }));
-                                } else {
-                                  setDesignSettings(prev => ({
-                                    ...prev,
-                                    includedSections: prev.includedSections.filter(id => id !== section.id)
-                                  }));
-                                }
-                              }}
-                              className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-[9px] stitch-mono text-gray-600 group-hover:text-gray-900 transition-colors uppercase">
-                              {section.name}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
+                    {/* Section visibility lives in the "Sections visibles" panel
+                        above: a second widget here allowed removing the header
+                        (name/contact) from the PDF and desynced the two UIs. */}
                   </div>
                 </section>
 
                 <section className="stitch-panel">
-                  <div className="stitch-panel-header">08. PREVIEW_EXPORT</div>
+                  <div className="stitch-panel-header">Export</div>
                   <div className="p-4 space-y-3">
                     <Button
                       variant="secondary"
@@ -1835,7 +1895,7 @@ export default function EditorPage() {
                       icon={<Eye className="w-4 h-4" />}
                       onClick={pdfExport.previewPDF}
                     >
-                      PRÉVISUALISER_PDF
+                      Prévisualiser le PDF
                     </Button>
 
                     <Button
@@ -1846,7 +1906,7 @@ export default function EditorPage() {
                       disabled={pdfExport.isExporting}
                       onClick={pdfExport.downloadPDF}
                     >
-                      {pdfExport.isExporting ? 'EXPORTATION...' : 'TÉLÉCHARGER_PDF'}
+                      {pdfExport.isExporting ? 'Export en cours...' : 'Télécharger le PDF'}
                     </Button>
 
                     <Button
@@ -1856,12 +1916,19 @@ export default function EditorPage() {
                       icon={<Download className="w-4 h-4" />}
                       onClick={async () => {
                         if (!cvData) return;
-                        const { exportToDocx } = await import('../shared/lib/export-docx');
-                        await exportToDocx(cvData);
-                        notify({ message: 'DOCX téléchargé !', type: 'success' });
+                        try {
+                          const { exportToDocx } = await import('../shared/lib/export-docx');
+                          // Same language and same anonymization state as the preview
+                          const docxData = isAnonymous ? { ...cvData, personal_info: maskPersonalInfo(cvData).personal_info } : cvData;
+                          await exportToDocx(docxData, currentLanguage);
+                          notify({ message: 'Document Word téléchargé !', type: 'success' });
+                        } catch (e) {
+                          console.error('Error exporting DOCX:', e);
+                          notify({ message: 'Erreur lors de l\'export Word.', type: 'error' });
+                        }
                       }}
                     >
-                      TÉLÉCHARGER_DOCX
+                      Télécharger en Word (.docx)
                     </Button>
 
                     <Button
@@ -1871,7 +1938,7 @@ export default function EditorPage() {
                       icon={<Mail className="w-4 h-4" />}
                       onClick={coverLetter.open}
                     >
-                      GÉNÉRER_LETTRE
+                      Lettre de motivation
                     </Button>
                   </div>
                 </section>
@@ -1907,26 +1974,17 @@ export default function EditorPage() {
           </div>
         </div>
 
+        {/* Single export CTA: saving lives in the header (auto-save + version) */}
         <div className="p-4 border-t border-[#DADCE0] bg-white">
-          <Button
-            variant="secondary"
-            fullWidth
-            className="mb-2 py-2 text-[10px] normal-case tracking-normal font-medium"
-            icon={persistence.isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-            disabled={persistence.isSaving || !cvData}
-            onClick={persistence.saveDraft}
-          >
-            SAVE_DRAFT
-          </Button>
           <Button
             variant="primary"
             fullWidth
-            className="py-2 text-[10px] normal-case tracking-normal font-medium"
+            className="py-2 text-[11px] normal-case tracking-normal font-medium"
             icon={pdfExport.isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             disabled={pdfExport.isExporting || !cvData}
             onClick={pdfExport.downloadPDF}
           >
-            EXPORT_PDF
+            Exporter en PDF
           </Button>
         </div>
       </aside>
@@ -1943,6 +2001,8 @@ export default function EditorPage() {
           onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
           onSave={persistence.saveDraft}
           onExport={pdfExport.downloadPDF}
+          isAutoSaving={isAutoSaving}
+          lastAutoSaveAt={lastAutoSaveAt}
           isSaving={persistence.isSaving}
           isExporting={pdfExport.isExporting}
           hasCvData={!!cvData}
@@ -1968,47 +2028,9 @@ export default function EditorPage() {
                 language={currentLanguage}
                 blockRenderers={blockRenderers}
                 selectedTemplate={selectedTemplate}
-                templateStyle={{
-                  '--primary': designSettings.primaryColor,
-                  '--secondary': designSettings.secondaryColor,
-                } as React.CSSProperties}
+                templateStyle={templateStyle}
                 firstExperiencePage={firstExperiencePage}
-                renderPageWrapper={(cvPage, pageIndex, totalPages) => (
-                  <div
-                    className="cv-page-slot"
-                    style={{ marginBottom: pageIndex < totalPages - 1 ? '24px' : 0 }}
-                  >
-                    {/* Page label for pages 2+ — hidden in print */}
-                    {pageIndex > 0 && (
-                      <div className="cv-page-label flex items-center justify-center mb-2">
-                        <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Page {pageIndex + 1}</span>
-                      </div>
-                    )}
-                    {/* Scaled frame: fixed outer box + transform-scaled inner at true 210×297mm */}
-                    <div
-                      className="cv-page-frame relative shrink-0 overflow-hidden"
-                      style={{
-                        width: `${210 * (zoom / 100)}mm`,
-                        height: `${297 * (zoom / 100)}mm`,
-                      }}
-                    >
-                      <div
-                        className="cv-page-scale bg-white shadow-2xl border border-[#DADCE0]"
-                        style={{
-                          transform: `scale(${zoom / 100})`,
-                          transformOrigin: 'top left',
-                          width: '210mm',
-                          height: '297mm',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                        }}
-                      >
-                        {cvPage}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                renderPageWrapper={renderPageWrapper}
               />
             </div>
           ) : (
@@ -2052,6 +2074,8 @@ export default function EditorPage() {
         controller={coverLetter}
         user={user}
         cvName={cvData?.personal_info?.name}
+        personalInfo={cvData?.personal_info}
+        language={currentLanguage}
       />
     </div>
   );

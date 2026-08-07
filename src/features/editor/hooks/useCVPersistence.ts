@@ -103,7 +103,7 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
         localStorage.setItem(GUEST_CVS_KEY, JSON.stringify(appendToGuestList(existing, entry)));
       }
 
-      notify({ message: 'Brouillon sauvegardé !', type: 'success' });
+      notify({ message: 'Version ajoutée dans Mes CV.', type: 'success' });
     } catch (error) {
       console.error('Error saving draft:', error);
       notify({ message: 'Erreur lors de la sauvegarde.', type: 'error' });

@@ -1,24 +1,12 @@
 // Server-side language detection for Convex actions.
-// Mirrors src/lib/languageDetection.ts but lives in convex/ so actions can
-// import it without crossing the client boundary.
+// The detector itself lives in src/lib/languageDetection.ts (stop-word
+// scorer, pure TS): Convex bundles imports from outside convex/, so we
+// re-export it instead of maintaining a drifting mirror.
 
-import { franc } from 'franc-min';
-
-export type SupportedLanguage = 'fr' | 'en';
-
-const ISO_TO_LANG: Record<string, SupportedLanguage> = {
-  fra: 'fr',
-  eng: 'en',
-};
+export { detectTextLanguage, type SupportedLanguage } from '../../src/lib/languageDetection';
+import { detectTextLanguage, type SupportedLanguage } from '../../src/lib/languageDetection';
 
 const MIN_TEXT_LENGTH = 20;
-
-/** Detect language of arbitrary text. Returns 'fr' as fallback for short/undetermined text. */
-export function detectTextLanguage(text: string): SupportedLanguage {
-  if (text.length < MIN_TEXT_LENGTH) return 'fr';
-  const detected = franc(text, { only: ['fra', 'eng'] });
-  return ISO_TO_LANG[detected] ?? 'fr';
-}
 
 /**
  * Resolve the language the adapt prompt will use to write the CV.

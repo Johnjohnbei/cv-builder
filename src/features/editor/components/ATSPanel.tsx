@@ -88,6 +88,10 @@ export function ATSPanel({
       {/* ─── Score Gauge ─── */}
       <div className="flex flex-col items-center" role="status" aria-live="polite">
         <ScoreGauge score={score.overall} size={120} label="Score ATS" />
+        <p className="text-[11px] text-gray-500 text-center mt-2 leading-snug max-w-[240px]">
+          Les ATS sont les logiciels qui trient les candidatures avant qu'un recruteur ne les lise.
+          Ce score estime vos chances de passer ce filtre.
+        </p>
       </div>
       {/* ─── Sub-scores ─── */}
       <div className="flex flex-col gap-2">

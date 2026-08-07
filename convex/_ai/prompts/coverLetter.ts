@@ -9,6 +9,13 @@ export interface CoverLetterContext {
   language?: 'fr' | 'en';
 }
 
+/** Real candidate title from the CV, with a language-appropriate fallback. */
+function candidateTitle(ctx: CoverLetterContext, fallback: string): string {
+  const title = (ctx.cvData as { personal_info?: { title?: unknown } } | null | undefined)
+    ?.personal_info?.title;
+  return typeof title === "string" && title.trim().length > 0 ? title.trim() : fallback;
+}
+
 function buildCompanyContextFr(ctx: CoverLetterContext): string {
   const parts: string[] = [];
   if (ctx.companyStage) parts.push(`stade : ${ctx.companyStage}`);
@@ -29,9 +36,10 @@ function buildFrenchPrompt(ctx: CoverLetterContext): string {
   const tone = ctx.tone || "professionnel et engagé";
   const company = ctx.companyName ? `pour l'entreprise ${ctx.companyName}` : "";
   const companyContext = buildCompanyContextFr(ctx);
+  const title = candidateTitle(ctx, "candidat");
 
   return `
-Tu es un senior designer qui écrit sa propre lettre de motivation ${company}, à la première personne, en français, ton ${tone}.
+Tu es ${title} et tu écris ta propre lettre de motivation ${company}, à la première personne, en français, ton ${tone}.
 ${companyContext}
 CV du candidat :
 ${JSON.stringify(ctx.cvData)}
@@ -63,11 +71,12 @@ function buildEnglishPrompt(ctx: CoverLetterContext): string {
   const tone = ctx.tone || "professional and engaged";
   const company = ctx.companyName ? `for ${ctx.companyName}` : "";
   const companyContext = buildCompanyContextEn(ctx);
+  const title = candidateTitle(ctx, "candidate");
 
   return `
 CRITICAL: THE OUTPUT MUST BE WRITTEN ENTIRELY IN ENGLISH. The candidate's CV may contain French text — IGNORE that and produce ENGLISH OUTPUT ONLY. Every word of subject, greeting, body, closing must be in English.
 
-You are a senior designer writing your own cover letter ${company}, in first person, in English, ${tone} tone.
+You are a ${title} writing your own cover letter ${company}, in first person, in English, ${tone} tone.
 ${companyContext}
 Candidate's CV (translate any non-English content to English in your output):
 ${JSON.stringify(ctx.cvData)}

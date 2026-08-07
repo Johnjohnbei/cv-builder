@@ -1,0 +1,143 @@
+import { describe, it, expect } from 'vitest';
+import { Packer } from 'docx';
+// ponytail: jszip is a transitive dep of docx (test-only use), avoids adding a dependency
+import JSZip from 'jszip';
+import type { CVData } from '../types';
+import { buildCvDocument } from './export-docx';
+
+const mockCV: CVData = {
+  personal_info: {
+    name: 'Jean Dupont',
+    email: 'jean@example.com',
+    phone: '0600000000',
+    location: 'Paris',
+    title: 'Product Manager',
+    summary: 'Resume summary text.',
+    linkedin: 'linkedin.com/in/jean',
+  },
+  experience: [
+    {
+      company: 'AlphaCorp',
+      position: 'Senior PM',
+      start_date: 'Janvier 2020',
+      end_date: '',
+      current: true,
+      description: ['Intro alpha line', 'Bullet alpha A', 'Bullet alpha B', 'Bullet alpha C'],
+      displayMode: 'normal',
+      kpi: 'KPI alpha metric',
+    },
+    {
+      company: 'BetaCorp',
+      position: 'PM',
+      start_date: 'Mars 2018',
+      end_date: 'Décembre 2019',
+      current: false,
+      description: ['Intro beta line', 'Bullet beta A'],
+      displayMode: 'compact',
+    },
+    {
+      company: 'HiddenCorp',
+      position: 'Intern',
+      start_date: '2016',
+      end_date: '2017',
+      current: false,
+      description: ['Hidden bullet'],
+      displayMode: 'hidden',
+    },
+    {
+      company: 'GammaCorp',
+      position: 'Lead PM',
+      start_date: '2021-05',
+      end_date: '',
+      current: true,
+      description: ['Bullet gamma A', 'Bullet gamma B', 'Bullet gamma C', 'Bullet gamma D'],
+      intro: 'Dedicated gamma intro',
+      displayMode: 'extended',
+      kpi: 'Team of 12',
+    },
+  ],
+  education: [
+    { school: 'HEC', degree: 'Master Management', start_date: '2012', end_date: '2015' },
+  ],
+  skills: [
+    { category: 'Produit', items: ['s1', 's2', 's3', 's4'], displayMode: 'compact' },
+    { category: 'SecretSkills', items: ['x1'], displayMode: 'hidden' },
+    { category: 'Outils', items: ['Jira', 'Figma'] },
+  ],
+  languages: [
+    { name: 'Anglais', proficiency: 'Full Professional' },
+  ],
+};
+
+async function toXml(cv: CVData, language?: 'fr' | 'en'): Promise<string> {
+  const buffer = await Packer.toBuffer(buildCvDocument(cv, language));
+  const zip = await JSZip.loadAsync(buffer);
+  return zip.file('word/document.xml')!.async('string');
+}
+
+describe('buildCvDocument (fr, default)', () => {
+  it('generates without throwing and contains ATS FR section titles', async () => {
+    const xml = await toXml(mockCV);
+    expect(xml).toContain('EXPERIENCE PROFESSIONNELLE');
+    expect(xml).toContain('PROFIL PROFESSIONNEL');
+    expect(xml).toContain('FORMATION');
+    expect(xml).toContain('COMPETENCES');
+    expect(xml).toContain('LANGUES');
+  });
+
+  it('uses localized dates and current label', async () => {
+    const xml = await toXml(mockCV);
+    expect(xml).toContain('Janv. 2020 - Présent');
+    expect(xml).toContain('Mars 2018 - Déc. 2019');
+  });
+
+  it('mirrors displayMode rendering: intro always, bullets per mode', async () => {
+    const xml = await toXml(mockCV);
+    // normal: intro (description[0]) + 2 action bullets, not the 3rd
+    expect(xml).toContain('Intro alpha line');
+    expect(xml).toContain('Bullet alpha A');
+    expect(xml).toContain('Bullet alpha B');
+    expect(xml).not.toContain('Bullet alpha C');
+    // compact: intro only
+    expect(xml).toContain('Intro beta line');
+    expect(xml).not.toContain('Bullet beta A');
+    // hidden: fully absent
+    expect(xml).not.toContain('HiddenCorp');
+    // extended with dedicated intro: intro + up to 4 description bullets
+    expect(xml).toContain('Dedicated gamma intro');
+    expect(xml).toContain('Bullet gamma D');
+  });
+
+  it('shows KPI only when shouldShowKPI (extended by default)', async () => {
+    const xml = await toXml(mockCV);
+    expect(xml).toContain('Team of 12');
+    expect(xml).not.toContain('KPI alpha metric');
+  });
+
+  it('respects skill display modes', async () => {
+    const xml = await toXml(mockCV);
+    expect(xml).toContain('s1, s2, s3');
+    expect(xml).not.toContain('s4');
+    expect(xml).not.toContain('SecretSkills');
+    expect(xml).toContain('Jira, Figma');
+  });
+
+  it('normalizes language proficiency in FR', async () => {
+    const xml = await toXml(mockCV);
+    expect(xml).toContain('Courant (C1)');
+  });
+});
+
+describe('buildCvDocument (en)', () => {
+  it('uses EN section titles, dates and proficiency', async () => {
+    const xml = await toXml(mockCV, 'en');
+    expect(xml).toContain('WORK EXPERIENCE');
+    expect(xml).toContain('PROFESSIONAL SUMMARY');
+    expect(xml).toContain('EDUCATION');
+    expect(xml).toContain('SKILLS');
+    expect(xml).toContain('LANGUAGES');
+    expect(xml).toContain('Jan. 2020 - Present');
+    expect(xml).toContain('Fluent (C1)');
+    expect(xml).not.toContain('Présent');
+  });
+});

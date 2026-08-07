@@ -1,4 +1,4 @@
-import { forwardRef, Fragment } from 'react';
+import { forwardRef, memo, Fragment } from 'react';
 import type { PageAssignment, PlacedBlock, BlockRendererMap } from '../lib/pagination/types';
 import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
@@ -107,7 +107,7 @@ function SectionTitle({ title, color, isContinuation, language }: { title: strin
  * Each page renders only its assigned blocks using the provided block renderers.
  * Automatically injects section titles before experience blocks.
  */
-export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
+export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
   function PaginatedCV({
     pageAssignments,
     designSettings,
@@ -223,4 +223,4 @@ export const PaginatedCV = forwardRef<HTMLDivElement, Props>(
       </div>
     );
   },
-);
+));

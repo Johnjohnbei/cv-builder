@@ -286,8 +286,13 @@ export const generateCoverLetter = action({
     // matches the JD language even if the caller forgot to pass `language`.
     const language = args.language ?? detectTextLanguage(args.jobDescription);
     console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'}, server-detected=${detectTextLanguage(args.jobDescription)})`);
+    // Same as tailorCV/optimizeCVForPage: drop the translation cache and design
+    // settings before prompting — the LLM doesn't need them (saves tokens).
+    const { design: _design, _translations: _staleCache, ...contentOnly } = args.cvData || {};
+    void _design;
+    void _staleCache;
     const prompt = buildCoverLetterPrompt({
-      cvData: args.cvData,
+      cvData: contentOnly,
       jobDescription: args.jobDescription,
       companyName: args.companyName,
       companyStage: args.companyStage,

@@ -1,11 +1,23 @@
 import {
-  Document, Packer, Paragraph, TextRun, HeadingLevel,
-  AlignmentType, BorderStyle, TabStopPosition, TabStopType,
+  Document, Packer, Paragraph, TextRun,
+  AlignmentType, BorderStyle,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { CVData } from '../types';
+import {
+  getIntro, getActionBullets, getVisibleSkills,
+  isHidden, isSkillHidden, shouldShowKPI,
+} from '@/src/features/editor/lib/displayModes';
+import { getSectionTitle } from '@/src/features/editor/lib/atsRules';
+import { formatDateShort, getCurrentLabel, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 
-export async function exportToDocx(cvData: CVData) {
+export type ExportLanguage = 'fr' | 'en';
+
+/**
+ * Builds the docx Document for a CV. Exported separately from exportToDocx so
+ * tests can inspect the generated content without triggering a browser download.
+ */
+export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr'): Document {
   const { personal_info, experience, education, skills, languages } = cvData;
 
   const children: Paragraph[] = [];
@@ -36,57 +48,50 @@ export async function exportToDocx(cvData: CVData) {
 
   // ── Summary ──
   if (personal_info.summary) {
-    children.push(sectionHeading('Profil'));
+    children.push(sectionHeading(getSectionTitle('summary', language)));
     children.push(new Paragraph({
       children: [new TextRun({ text: personal_info.summary, size: 20, font: 'Calibri' })],
       spacing: { after: 200 },
     }));
   }
 
-  // ── Experience (respects displayMode) ──
-  const visibleExps = experience.filter(exp => (exp.displayMode || 'normal') !== 'hidden');
+  // ── Experience (mirrors template rendering: intro always, then action bullets per displayMode) ──
+  const visibleExps = experience.filter(exp => !isHidden(exp));
   if (visibleExps.length) {
-    children.push(sectionHeading('Expérience Professionnelle'));
+    children.push(sectionHeading(getSectionTitle('experience', language)));
     for (const exp of visibleExps) {
-      const mode = exp.displayMode || 'normal';
       children.push(new Paragraph({
         children: [
           new TextRun({ text: exp.position, bold: true, size: 22, font: 'Calibri' }),
-          new TextRun({ text: `  —  ${exp.company}`, size: 20, color: '5F6368', font: 'Calibri' }),
+          new TextRun({ text: `  ·  ${exp.company}`, size: 20, color: '5F6368', font: 'Calibri' }),
         ],
         spacing: { before: 120 },
       }));
+      const endLabel = exp.current ? getCurrentLabel(language) : formatDateShort(exp.end_date, language);
       children.push(new Paragraph({
         children: [new TextRun({
-          text: `${exp.start_date} — ${exp.current ? 'Présent' : exp.end_date || ''}`,
+          text: `${formatDateShort(exp.start_date, language)} - ${endLabel}`,
           size: 18, color: '888888', italics: true, font: 'Calibri',
         })],
         spacing: { after: 60 },
       }));
-      // Intro line (always shown for non-hidden)
-      const intro = (exp as any).intro || exp.description?.[0];
-      if (intro && mode === 'compact') {
+      const intro = getIntro(exp);
+      if (intro) {
         children.push(new Paragraph({
           children: [new TextRun({ text: intro, size: 20, font: 'Calibri' })],
           spacing: { after: 40 },
+        }));
+      }
+      for (const bullet of getActionBullets(exp)) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: `• ${bullet}`, size: 20, font: 'Calibri' })],
+          spacing: { after: 40 },
           indent: { left: 360 },
         }));
-      } else {
-        // Bullets: normal = 2, extended = 4
-        const maxBullets = mode === 'extended' ? 4 : 2;
-        const bullets = (exp.description || []).slice(0, maxBullets);
-        for (const bullet of bullets) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: `• ${bullet}`, size: 20, font: 'Calibri' })],
-            spacing: { after: 40 },
-            indent: { left: 360 },
-          }));
-        }
       }
-      // KPI for extended mode
-      if (mode === 'extended' && (exp as any).kpi) {
+      if (shouldShowKPI(exp)) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: `📈 ${(exp as any).kpi}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
+          children: [new TextRun({ text: `📈 ${exp.kpi}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
           spacing: { after: 60 },
           indent: { left: 360 },
         }));
@@ -96,30 +101,28 @@ export async function exportToDocx(cvData: CVData) {
 
   // ── Education ──
   if (education.length) {
-    children.push(sectionHeading('Formation'));
+    children.push(sectionHeading(getSectionTitle('education', language)));
     for (const edu of education) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: edu.degree, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: `  —  ${edu.school}`, size: 20, color: '5F6368', font: 'Calibri' }),
-          new TextRun({ text: `  (${edu.end_date || ''})`, size: 18, color: '888888', font: 'Calibri' }),
+          new TextRun({ text: `  ·  ${edu.school}`, size: 20, color: '5F6368', font: 'Calibri' }),
+          new TextRun({ text: `  (${formatDateShort(edu.end_date, language)})`, size: 18, color: '888888', font: 'Calibri' }),
         ],
         spacing: { after: 60 },
       }));
     }
   }
 
-  // ── Skills (respects displayMode) ──
-  const visibleSkills = skills.filter(cat => ((cat as any).displayMode || 'normal') !== 'hidden');
-  if (visibleSkills.length) {
-    children.push(sectionHeading('Compétences'));
-    for (const cat of visibleSkills) {
-      const skillMode = (cat as any).displayMode || 'normal';
-      const items = skillMode === 'compact' ? cat.items.slice(0, 3) : cat.items;
+  // ── Skills (same visibility rules as templates) ──
+  const visibleSkillCats = skills.filter(cat => !isSkillHidden(cat) && getVisibleSkills(cat).length > 0);
+  if (visibleSkillCats.length) {
+    children.push(sectionHeading(getSectionTitle('skills', language)));
+    for (const cat of visibleSkillCats) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${cat.category}: `, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: items.join(', '), size: 20, font: 'Calibri' }),
+          new TextRun({ text: getVisibleSkills(cat).join(', '), size: 20, font: 'Calibri' }),
         ],
         spacing: { after: 40 },
       }));
@@ -128,19 +131,19 @@ export async function exportToDocx(cvData: CVData) {
 
   // ── Languages ──
   if (languages.length) {
-    children.push(sectionHeading('Langues'));
+    children.push(sectionHeading(getSectionTitle('languages', language)));
     for (const lang of languages) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${lang.name}: `, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: lang.proficiency, size: 20, color: '5F6368', font: 'Calibri' }),
+          new TextRun({ text: normalizeProficiency(lang.proficiency, language), size: 20, color: '5F6368', font: 'Calibri' }),
         ],
         spacing: { after: 40 },
       }));
     }
   }
 
-  const doc = new Document({
+  return new Document({
     sections: [{
       properties: {
         page: {
@@ -150,9 +153,13 @@ export async function exportToDocx(cvData: CVData) {
       children,
     }],
   });
+}
 
+/** Downloads the CV as a .docx file. `language` defaults to 'fr' for backward compat with existing call sites. */
+export async function exportToDocx(cvData: CVData, language: ExportLanguage = 'fr') {
+  const doc = buildCvDocument(cvData, language);
   const blob = await Packer.toBlob(doc);
-  const filename = `CV_${personal_info.name?.replace(/\s+/g, '_') || 'Export'}.docx`;
+  const filename = `CV_${cvData.personal_info.name?.replace(/\s+/g, '_') || 'Export'}.docx`;
   saveAs(blob, filename);
 }
 

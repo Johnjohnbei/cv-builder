@@ -83,10 +83,12 @@ export const KeywordListSchema = z.object({
 }).passthrough();
 
 export const CoverLetterSchema = z.object({
-  subject: z.string(),
-  greeting: z.string(),
-  body: z.string(),
-  closing: z.string(),
+  subject: z.string().min(1),
+  greeting: z.string().min(1),
+  // A real letter body is several paragraphs — reject near-empty output so the
+  // retry loop regenerates instead of returning a hollow letter.
+  body: z.string().min(150),
+  closing: z.string().min(1),
 }).passthrough();
 
 export const CompanyMetaSchema = z.object({
@@ -98,63 +100,14 @@ export const CompanyMetaSchema = z.object({
 }).passthrough();
 export type CompanyMetaParsed = z.infer<typeof CompanyMetaSchema>;
 
-/** Curated suggestions surfaced in the UI dropdowns. The LLM is asked to pick one when confident.
- *  Stored value (canonical) is in French. Render-time translation via getLocalizedStage. */
-export const COMPANY_STAGE_OPTIONS = [
-  'Startup',
-  'Scaleup',
-  'PME',
-  'Grande entreprise',
-  'Multinationale',
-  'Cabinet',
-  'Secteur public',
-  'Association',
-] as const;
-
-/** FR-canonical → EN label. Reverse-mapped for inputs that come in EN already. */
-const STAGE_TRANSLATIONS_FR_TO_EN: Record<string, string> = {
-  'Startup': 'Startup',
-  'Scaleup': 'Scaleup',
-  'PME': 'SME',
-  'Grande entreprise': 'Large enterprise',
-  'Multinationale': 'Multinational',
-  'Cabinet': 'Consultancy',
-  'Secteur public': 'Public sector',
-  'Association': 'Non-profit',
-};
-
-const STAGE_EN_TO_FR: Record<string, string> = Object.fromEntries(
-  Object.entries(STAGE_TRANSLATIONS_FR_TO_EN).map(([fr, en]) => [en.toLowerCase(), fr]),
-);
-
-/** Returns the stage label in the target language. Accepts either FR or EN input. */
-export function getLocalizedStage(stored: string | null | undefined, language: 'fr' | 'en'): string {
-  if (!stored) return '';
-  const trimmed = stored.trim();
-  if (!trimmed) return '';
-  // Try FR canonical lookup first
-  if (STAGE_TRANSLATIONS_FR_TO_EN[trimmed]) {
-    return language === 'en' ? STAGE_TRANSLATIONS_FR_TO_EN[trimmed] : trimmed;
-  }
-  // Stored value may already be in EN — reverse-lookup
-  const frCanonical = STAGE_EN_TO_FR[trimmed.toLowerCase()];
-  if (frCanonical) {
-    return language === 'en' ? STAGE_TRANSLATIONS_FR_TO_EN[frCanonical] : frCanonical;
-  }
-  // Unknown value — pass through as-is
-  return trimmed;
-}
-
-/** Business models are international shorthand (B2C, SaaS…). No translation needed. */
-export const COMPANY_BUSINESS_MODEL_OPTIONS = [
-  'B2C',
-  'B2B',
-  'B2B2C',
-  'B2G',
-  'D2C',
-  'Marketplace',
-  'SaaS',
-] as const;
+// Company metadata constants live in src/shared/constants/companyMeta.ts
+// (zod-free) so UI imports don't pull zod into the editor bundle.
+// Re-exported here for server-side/back-compat imports.
+export {
+  COMPANY_STAGE_OPTIONS,
+  COMPANY_BUSINESS_MODEL_OPTIONS,
+  getLocalizedStage,
+} from '../../src/shared/constants/companyMeta';
 
 /** Batch enrichment of work experiences with stage + businessModel tags. */
 export const ExperienceEnrichmentSchema = z.object({

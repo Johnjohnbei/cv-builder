@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Sparkles, Zap, ShieldCheck, PenTool, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useDocumentTitle } from '@/src/shared/hooks';
 
 export default function HomePage() {
   useDocumentTitle('Optimisez votre CV avec l\'IA');
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#202124]">
@@ -55,12 +56,16 @@ export default function HomePage() {
                   <span>Commencer gratuitement</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
-                <Link
-                  to="/auth"
+                <button
+                  onClick={() => {
+                    // Same guest flow as AuthPage: try the product without an account
+                    sessionStorage.setItem('guest_access', 'true');
+                    navigate('/dashboard');
+                  }}
                   className="w-full sm:w-auto border border-[#DADCE0] bg-white text-gray-700 flex items-center justify-center gap-2 px-8 py-4 rounded font-mono text-xs font-bold uppercase tracking-wider hover:bg-gray-50 transition-colors"
                 >
-                  <span>Voir la démo</span>
-                </Link>
+                  <span>Essayer sans compte</span>
+                </button>
               </motion.div>
             </div>
 

@@ -146,6 +146,33 @@ describe('detectTextLanguage', () => {
     expect(detectTextLanguage('')).toBe('fr');
     expect(detectTextLanguage('short')).toBe('fr');
   });
+
+  it('returns "fr" for French text loaded with English technical jargon', () => {
+    expect(
+      detectTextLanguage(
+        'Nous recherchons un developpeur backend pour construire des pipelines CI/CD avec Docker, Kubernetes, Terraform et GitHub Actions dans le cloud AWS. Vous maitrisez les frameworks React, Node.js et TypeScript.',
+      ),
+    ).toBe('fr');
+  });
+
+  it('returns "en" for a full English job description', () => {
+    expect(
+      detectTextLanguage(
+        'We are seeking a backend developer to build and maintain CI/CD pipelines in the cloud. You will work with a team of engineers and contribute to the architecture of our platform. Experience with Docker and Kubernetes is required.',
+      ),
+    ).toBe('en');
+  });
+
+  it('returns "fr" on a 50/50 mixed text (tie falls back to the product default)', () => {
+    // FR stop words: le, est, dans, la (4) — EN stop words: the, the, is, in (4)
+    expect(
+      detectTextLanguage('Le produit est dans la phase finale. The product is in the final phase.'),
+    ).toBe('fr');
+  });
+
+  it('returns "fr" when the text contains no stop word at all', () => {
+    expect(detectTextLanguage('JavaScript TypeScript React Node.js Docker Kubernetes')).toBe('fr');
+  });
 });
 
 describe('detectJobDescriptionLanguage', () => {

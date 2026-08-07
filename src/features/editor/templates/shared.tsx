@@ -2,7 +2,7 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 import type { CVData } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
-import { getLocalizedStage } from '@/convex/_ai/schemas';
+import { getLocalizedStage } from '@/src/shared/constants/companyMeta';
 import { shouldShowKPI, getIntro, getActionBullets } from '../lib/displayModes';
 import type { PlacedBlock } from '../lib/pagination/types';
 import type { Experience } from '@/src/shared/types';

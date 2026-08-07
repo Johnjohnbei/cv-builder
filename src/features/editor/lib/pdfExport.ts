@@ -14,6 +14,18 @@ export interface ServerlessPDFOptions {
   onValidation?: (result: ValidationResult) => void;
   onLoadingChange?: (loading: boolean) => void;
   onFallback?: (reason: string) => void;
+  /** Base name for the downloaded file (without extension). Default: "CV" */
+  fileBaseName?: string;
+}
+
+/** "Jean Dupont" → "CV_Jean_Dupont" (accents stripped, recruiter-friendly) */
+export function buildPdfFileName(candidateName?: string): string {
+  const slug = (candidateName ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return slug ? `CV_${slug}` : 'CV';
 }
 
 // ─── DOM Serialization ───
@@ -63,9 +75,6 @@ export async function serverlessPDF(
   designSettings: DesignSettings,
   options?: ServerlessPDFOptions,
 ): Promise<void> {
-  // Count actual pages from the DOM
-  const pageCount = cvElement.querySelectorAll('.cv-page').length || 1;
-
   // 1. Run DOM pre-check validation (D-14)
   if (options?.expectedText && options?.onValidation) {
     const renderedText = cvElement.innerText || cvElement.textContent || '';
@@ -84,7 +93,7 @@ export async function serverlessPDF(
     const response = await fetch('/api/generate-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, styles, pageLimit: pageCount }),
+      body: JSON.stringify({ html, styles }),
     });
 
     if (!response.ok) {
@@ -96,8 +105,7 @@ export async function serverlessPDF(
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    a.download = `CV_${date}.pdf`;
+    a.download = `${options?.fileBaseName || 'CV'}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -174,7 +182,7 @@ export function renderPDF(
   ${styleLinks}
   <style>
     ${inlineStyles}
-    ${getPdfCss(pageCount)}
+    ${getPdfCss()}
   </style>
 </head>
 <body>
@@ -183,8 +191,10 @@ export function renderPDF(
 </html>`);
   doc.close();
 
-  // Wait for styles + fonts to load, then validate and print
-  iframe.onload = () => {
+  // No iframe.onload here: assigning it AFTER doc.close() races the load event
+  // (already fired on some browsers → nothing printed, iframe leaked).
+  // doc.fonts.ready resolves once webfonts are in — deterministic, no timer.
+  const printWhenReady = async () => {
     // Run text extractability validation before printing
     if (options?.expectedText && options?.onValidation) {
       const renderedText = doc.body?.innerText || doc.body?.textContent || '';
@@ -192,12 +202,13 @@ export function renderPDF(
       options.onValidation(result);
     }
 
+    try { await doc.fonts.ready; } catch { /* print with fallback fonts */ }
+    await new Promise(requestAnimationFrame);
+    iframe.contentWindow?.print();
+    // Remove iframe after print dialog closes
     setTimeout(() => {
-      iframe.contentWindow?.print();
-      // Remove iframe after print dialog closes
-      setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch {}
-      }, 1000);
-    }, 500);
+      try { document.body.removeChild(iframe); } catch {}
+    }, 1000);
   };
+  void printWhenReady();
 }

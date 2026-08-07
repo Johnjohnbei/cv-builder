@@ -130,6 +130,23 @@ describe('validateCVTextExtractability', () => {
     expect(result.warning).toBeUndefined();
   });
 
+  it('rejects a render with the right token COUNT but the wrong content', () => {
+    // The old count-based ratio scored this 100% (10 tokens vs 10 tokens)
+    const expected = 'one two three four five six seven eight nine ten';
+    const rendered = 'lorem ipsum dolor sit amet consectetur adipiscing elit sed do';
+    const result = validateCVTextExtractability(rendered, expected);
+    expect(result.valid).toBe(false);
+    expect(result.ratio).toBe(0);
+  });
+
+  it('ignores extra rendered tokens (dates, section titles) instead of inflating the ratio', () => {
+    const expected = 'one two three four';
+    const rendered = 'one two three four EXPERIENCE 2020 2024 PROFIL extra tokens everywhere';
+    const result = validateCVTextExtractability(rendered, expected);
+    expect(result.valid).toBe(true);
+    expect(result.ratio).toBe(1);
+  });
+
   it('returns valid at exactly 0.6 ratio', () => {
     const expected = 'a b c d e f g h i j'; // 10 tokens
     const rendered = 'a b c d e f'; // 6 tokens => 0.6

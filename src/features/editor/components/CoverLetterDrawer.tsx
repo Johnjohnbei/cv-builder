@@ -1,17 +1,24 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, FileText, Sparkles, Copy, Download, Save } from 'lucide-react';
+import { X, FileText, Sparkles, Copy, Download, Save, RotateCcw } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { Button } from '@/src/shared/ui/Button';
 import { Input } from '@/src/shared/ui/Input';
 import { Textarea } from '@/src/shared/ui/Textarea';
 import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
-import { canSave, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
-import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/convex/_ai/schemas';
+import { canSave, findLatestSavedForCv, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/companyMeta';
+import type { PersonalInfo } from '@/src/shared/types';
 
 interface Props {
   controller: UseCoverLetterResult;
   user: unknown;
   cvName?: string;
+  /** Candidate info for the letter header in the Word export */
+  personalInfo?: PersonalInfo;
+  /** Language of the exported letter document (defaults to fr) */
+  language?: 'fr' | 'en';
 }
 
 const TONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
@@ -24,8 +31,12 @@ const TONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 const SUBTLE_SELECT_CLASSES =
   "w-full text-[11px] font-mono text-gray-500 bg-gray-50/60 border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300 focus:bg-white focus:text-gray-700 transition-colors cursor-pointer";
 
-export function CoverLetterDrawer({ controller, user, cvName }: Props) {
+export function CoverLetterDrawer({ controller, user, cvName, personalInfo, language = 'fr' }: Props) {
   const { isOpen, close, letter, setLetter } = controller;
+
+  // Saved letters (signed-in only; guests have no Convex identity, skip the query)
+  const savedLetters = useQuery(api.coverLetters.list, user ? {} : 'skip');
+  const savedForThisCv = findLatestSavedForCv(savedLetters, controller.cvId);
 
   // ─── Escape-to-close ───
   useEffect(() => {
@@ -37,9 +48,17 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, close]);
 
-  const updateLetterField = (field: keyof CoverLetterData, value: string) => {
-    if (!letter) return;
-    setLetter({ ...letter, [field]: value });
+  const updateLetterField = (field: keyof CoverLetterData, value: string) =>
+    controller.updateLetterField(field, value);
+
+  const reloadSavedLetter = () => {
+    if (!savedForThisCv) return;
+    setLetter({
+      subject: savedForThisCv.subject,
+      greeting: savedForThisCv.greeting,
+      body: savedForThisCv.body,
+      closing: savedForThisCv.closing,
+    });
   };
 
   const saveDisabled = !canSave(user, letter);
@@ -67,8 +86,8 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
             <header className="h-12 border-b border-[var(--border-color)] bg-white flex items-center justify-between px-4 shrink-0">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-purple-600" />
-                <span className="font-mono text-[11px] uppercase tracking-wider font-bold">
-                  LETTRE_DE_MOTIVATION
+                <span className="text-[12px] uppercase tracking-wider font-bold">
+                  Lettre de motivation
                 </span>
               </div>
               <Button variant="ghost" size="sm" icon={<X className="w-4 h-4" />} onClick={close} aria-label="Fermer">
@@ -78,11 +97,23 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
 
             {/* Body (scrollable) */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {!controller.isTailored && controller.localJobDescription.length >= 50 && (
+              {!controller.isTailoredForLocalJD && controller.localJobDescription.length >= 50 && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
                   <span className="shrink-0 mt-0.5">⚠</span>
-                  <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base — résultats moins ciblés.</span>
+                  <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base : résultats moins ciblés.</span>
                 </div>
+              )}
+              {!letter && savedForThisCv && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  fullWidth
+                  icon={<RotateCcw className="w-3 h-3" />}
+                  onClick={reloadSavedLetter}
+                  className="border border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Recharger la dernière lettre sauvegardée
+                </Button>
               )}
               <Panel>
                 <PanelHeader>Configuration</PanelHeader>
@@ -132,6 +163,21 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
                     placeholder="Collez l'offre d'emploi ici (min. 50 caractères)..."
                     rows={6}
                   />
+                  {controller.jdOutOfSync && (
+                    <div className="flex items-center justify-between gap-2 -mt-2">
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        L'offre de l'éditeur a changé depuis vos modifications.
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={controller.syncJobDescription}
+                        className="border border-gray-200 text-gray-600 hover:bg-gray-50 shrink-0"
+                      >
+                        Utiliser l'offre courante
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider block">Ton</label>
@@ -166,8 +212,9 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
                     disabled={generateDisabled}
                     onClick={controller.generate}
                   >
-                    GÉNÉRER
+                    Générer la lettre
                   </Button>
+                  <p className="text-[10px] text-gray-500 text-center">Rédigée par l'IA à partir de votre CV et de l'offre (environ 30 secondes).</p>
                 </PanelBody>
               </Panel>
 
@@ -234,8 +281,28 @@ export function CoverLetterDrawer({ controller, user, cvName }: Props) {
                   icon={<Download className="w-3.5 h-3.5" />}
                   disabled={!letter}
                   onClick={controller.download}
+                  title="Télécharger en texte brut (.txt)"
                 >
-                  Télécharger
+                  Texte
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Download className="w-3.5 h-3.5" />}
+                  disabled={!letter || !personalInfo}
+                  title="Télécharger une lettre mise en page (.docx)"
+                  onClick={async () => {
+                    if (!letter || !personalInfo) return;
+                    const { exportLetterToDocx } = await import('@/src/shared/lib/export-letter-docx');
+                    await exportLetterToDocx({
+                      letter,
+                      personalInfo,
+                      companyName: controller.companyName || undefined,
+                      language,
+                    });
+                  }}
+                >
+                  Word
                 </Button>
                 <div className="flex-1" />
                 <div className="flex flex-col items-end gap-0.5">

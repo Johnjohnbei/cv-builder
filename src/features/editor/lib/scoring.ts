@@ -20,7 +20,7 @@ export function extractKeywords(jobDescription: string): string[] {
       .filter(w => w.length >= 3)
       // Filter out ultra-common French/English stop words
       .filter(w => !STOP_WORDS.has(w))
-  )];
+  )].slice(0, 60); // cap: scoreExperience runs one regex per keyword per render
 }
 
 // --- Relevance Scoring ---
@@ -201,7 +201,7 @@ export function scoreFormat(cvData: CVData, design: DesignSettings, language: 'f
     score += 10;
     suggestions.push('Utilisez un template mono-colonne compatible ATS');
   } else {
-    suggestions.push('Template inconnu — compatibilité ATS incertaine');
+    suggestions.push('Template inconnu : compatibilité ATS incertaine');
   }
 
   // Section names (25 pts)

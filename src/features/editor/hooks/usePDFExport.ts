@@ -1,5 +1,5 @@
 import { useCallback, useState, type RefObject } from 'react';
-import { serverlessPDF, renderPDF } from '@/src/features/editor/lib/pdfExport';
+import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { extractExpectedText } from '@/src/features/editor/lib/pdfValidation';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
@@ -8,6 +8,8 @@ export interface UsePDFExportDeps {
   cvData: CVData | null;
   designSettings: DesignSettings;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
+  /** When the anonymize toggle is on, the filename must not leak the name */
+  isAnonymous?: boolean;
 }
 
 export interface UsePDFExportResult {
@@ -27,14 +29,16 @@ export interface UsePDFExportResult {
  * and has been removed.
  */
 export function usePDFExport(deps: UsePDFExportDeps): UsePDFExportResult {
-  const { cvRef, cvData, designSettings, notify } = deps;
+  const { cvRef, cvData, designSettings, notify, isAnonymous = false } = deps;
   const [isExporting, setIsExporting] = useState(false);
 
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;
     const expectedText = cvData ? extractExpectedText(cvData) : '';
+    const fileBaseName = isAnonymous ? 'CV_Anonyme' : buildPdfFileName(cvData?.personal_info?.name);
     await serverlessPDF(cvRef.current, designSettings, {
       expectedText,
+      fileBaseName,
       onValidation: (result) => {
         if (!result.valid && result.warning) {
           notify({ message: result.warning, type: 'error' });
@@ -45,7 +49,7 @@ export function usePDFExport(deps: UsePDFExportDeps): UsePDFExportResult {
         notify({ message: reason, type: 'error' });
       },
     });
-  }, [cvRef, cvData, designSettings, notify, isExporting]);
+  }, [cvRef, cvData, designSettings, notify, isExporting, isAnonymous]);
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;

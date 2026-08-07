@@ -1,59 +1,54 @@
 // ─── Vercel Serverless Function: PDF Generation ───
 // Receives serialized CV HTML+CSS, renders in headless Chrome, returns PDF binary.
 
+import { getPdfCss } from '../src/features/editor/lib/pdfStyles';
+
 interface GeneratePDFRequest {
   html: string;
   styles: string;
-  pageLimit: number;
 }
 
-// ─── PDF CSS (mirror of src/features/editor/lib/pdfStyles.ts) ───
-// Keep in sync with the canonical source. Cannot import from src/ in serverless context.
+// ─── Abuse guards ───
+// The endpoint is reachable by guests (no Clerk session), so auth is
+// origin-based: browsers always send Origin on POST fetch, and the app only
+// calls this API same-origin. Curl/third-party callers get 403.
 
-function getPdfCss(): string {
-  return `
-    @page {
-      size: A4 portrait;
-      margin: 0 !important;
-    }
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      width: 210mm;
-      height: auto;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    .cv-page {
-      width: 210mm;
-      height: 297mm;
-      overflow: hidden;
-      page-break-after: always;
-      break-after: page;
-    }
-    .cv-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
-    }
-    .pdf-safe {
-      height: auto !important;
-      min-height: 0 !important;
-      overflow: visible !important;
-    }
-    [data-cv-block] {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
-    }
-    [data-cv-section] > h2 {
-      break-after: avoid !important;
-      page-break-after: avoid !important;
-    }
-  `;
+function isAllowedOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
+
+/**
+ * Per-IP sliding window rate limit, scoped to the serverless instance.
+ * ponytail: instance-local Map, a distributed limiter (KV) if abuse persists.
+ */
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 60_000;
+const hits = new Map<string, { count: number; windowStart: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = hits.get(ip);
+  if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
+    hits.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT;
+}
+
+/** Hosts the rendered page may fetch from (fonts). Everything else is aborted: no SSRF. */
+const ALLOWED_REQUEST_HOSTS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
 
 // ─── HTML wrapper ───
 
-function wrapHtml(html: string, styles: string, pageLimit: number): string {
+function wrapHtml(html: string, styles: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -93,29 +88,41 @@ async function getBrowser() {
 
 function validatePayload(body: unknown): { valid: true; data: GeneratePDFRequest } | { valid: false; error: string } {
   if (typeof body !== 'object' || body === null) {
-    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (1-4) required' };
+    return { valid: false, error: 'Invalid payload: html and styles (strings) required' };
   }
 
-  const { html, styles, pageLimit } = body as Record<string, unknown>;
+  const { html, styles } = body as Record<string, unknown>;
 
   if (typeof html !== 'string' || html.length === 0) {
-    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (1-4) required' };
+    return { valid: false, error: 'Invalid payload: html and styles (strings) required' };
   }
 
   if (typeof styles !== 'string' || styles.length === 0) {
-    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (1-4) required' };
+    return { valid: false, error: 'Invalid payload: html and styles (strings) required' };
   }
 
-  if (typeof pageLimit !== 'number' || pageLimit < 1 || pageLimit > 20 || !Number.isInteger(pageLimit)) {
-    return { valid: false, error: 'Invalid payload: html, styles (strings) and pageLimit (positive integer) required' };
-  }
-
-  return { valid: true, data: { html, styles, pageLimit } };
+  return { valid: true, data: { html, styles } };
 }
 
 // ─── POST handler ───
 
 export async function POST(request: Request): Promise<Response> {
+  // Same-origin only: this API renders arbitrary HTML in headless Chrome
+  if (!isAllowedOrigin(request)) {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const ip = (request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+  if (isRateLimited(ip)) {
+    return new Response(
+      JSON.stringify({ error: 'Too many requests' }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
   // Validate Content-Type
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -153,14 +160,34 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const { html, styles, pageLimit } = (validation as { valid: true; data: GeneratePDFRequest }).data;
+  const { html, styles } = (validation as { valid: true; data: GeneratePDFRequest }).data;
 
   // Generate PDF
   let browser;
   try {
     browser = await getBrowser();
     const page = await browser.newPage();
-    const fullHtml = wrapHtml(html, styles, pageLimit);
+
+    // SSRF guard: the submitted HTML must not make Chrome fetch arbitrary
+    // URLs (internal network scan, cost amplification). Only font hosts and
+    // inline data: resources are allowed.
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const url = req.url();
+      if (url.startsWith('data:') || url.startsWith('about:')) {
+        req.continue();
+        return;
+      }
+      try {
+        if (ALLOWED_REQUEST_HOSTS.has(new URL(url).host)) {
+          req.continue();
+          return;
+        }
+      } catch { /* fall through to abort */ }
+      req.abort();
+    });
+
+    const fullHtml = wrapHtml(html, styles);
 
     await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
     await page.waitForFunction('document.fonts.ready');

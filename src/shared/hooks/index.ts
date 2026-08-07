@@ -28,9 +28,10 @@ export function useMediaQuery(query: string): boolean {
 export function useAutoNotification() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Errors stay long enough to be read; successes clear quickly
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 4000);
+      const timer = setTimeout(() => setNotification(null), notification.type === 'error' ? 10000 : 4000);
       return () => clearTimeout(timer);
     }
   }, [notification]);

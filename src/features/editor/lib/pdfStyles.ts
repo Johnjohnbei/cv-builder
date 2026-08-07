@@ -3,7 +3,7 @@
  * Single source of truth — used by both serverless (generate-pdf.ts)
  * and browser fallback (pdfExport.ts renderPDF).
  */
-export function getPdfCss(_pageLimit: number): string {
+export function getPdfCss(): string {
   return `
     @page {
       size: A4 portrait;
