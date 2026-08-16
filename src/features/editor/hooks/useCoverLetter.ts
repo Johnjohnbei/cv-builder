@@ -46,9 +46,17 @@ export interface UseCoverLetterResult {
 
 // ─── Pure helpers (exported for tests) ───
 
-/** Format a cover letter object into a plain-text block suitable for copy/download. */
+/**
+ * Format a cover letter into a plain-text block suitable for copy/download.
+ *
+ * The subject line leads, as it does in the .docx export: a letter pasted into
+ * an email without its "Objet" forces the user back into the drawer to grab it
+ * separately, which is the whole point of a one-click copy.
+ */
 export function buildCoverLetterText(letter: CoverLetterData, name?: string): string {
-  const parts = [letter.greeting, letter.body, letter.closing];
+  const parts: string[] = [];
+  if (letter.subject?.trim()) parts.push(`Objet : ${letter.subject.trim()}`);
+  parts.push(letter.greeting, letter.body, letter.closing);
   if (name && name.trim().length > 0) parts.push(name.trim());
   return parts.join('\n\n').replace(/\s+$/, '');
 }

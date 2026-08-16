@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, FileText, Sparkles, Copy, Download, Save, RotateCcw } from 'lucide-react';
+import { X, FileText, Sparkles, Copy, Download, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Button } from '@/src/shared/ui/Button';
@@ -15,10 +15,11 @@ interface Props {
   controller: UseCoverLetterResult;
   user: unknown;
   cvName?: string;
-  /** Candidate info for the letter header in the Word export */
+  /** Candidate info for the letter header in the PDF and Word exports */
   personalInfo?: PersonalInfo;
   /** Language of the exported letter document (defaults to fr) */
   language?: 'fr' | 'en';
+  notify: (args: { message: string; type: 'success' | 'error' }) => void;
 }
 
 const TONE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
@@ -38,8 +39,9 @@ const isEditableField = (el: Element | null): el is HTMLElement =>
   el instanceof HTMLElement &&
   (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
 
-export function CoverLetterDrawer({ controller, user, cvName, personalInfo, language = 'fr' }: Props) {
+export function CoverLetterDrawer({ controller, user, cvName, personalInfo, language = 'fr', notify }: Props) {
   const { isOpen, close, letter, setLetter } = controller;
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Saved letters (signed-in only; guests have no Convex identity, skip the query)
   const savedLetters = useQuery(api.coverLetters.list, user ? {} : 'skip');
@@ -322,18 +324,36 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   icon={<Copy className="w-3.5 h-3.5" />}
                   disabled={!letter}
                   onClick={controller.copy}
+                  title="Copie l'objet, la formule d'appel, le corps, la clôture et votre nom"
                 >
-                  Copier
+                  Tout copier
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
-                  icon={<Download className="w-3.5 h-3.5" />}
-                  disabled={!letter}
-                  onClick={controller.download}
-                  title="Télécharger en texte brut (.txt)"
+                  icon={isExportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  disabled={!letter || !personalInfo || isExportingPdf}
+                  title="Télécharger la lettre mise en page (.pdf)"
+                  onClick={async () => {
+                    if (!letter || !personalInfo) return;
+                    setIsExportingPdf(true);
+                    try {
+                      const { exportLetterToPdf } = await import('@/src/shared/lib/export-letter');
+                      await exportLetterToPdf({
+                        letter,
+                        personalInfo,
+                        companyName: controller.companyName || undefined,
+                        language,
+                      });
+                    } catch (e) {
+                      console.error('Letter PDF export failed:', e);
+                      notify({ message: 'Export PDF impossible. Utilisez Word ou Copier.', type: 'error' });
+                    } finally {
+                      setIsExportingPdf(false);
+                    }
+                  }}
                 >
-                  Texte
+                  PDF
                 </Button>
                 <Button
                   variant="secondary"
@@ -343,7 +363,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   title="Télécharger une lettre mise en page (.docx)"
                   onClick={async () => {
                     if (!letter || !personalInfo) return;
-                    const { exportLetterToDocx } = await import('@/src/shared/lib/export-letter-docx');
+                    const { exportLetterToDocx } = await import('@/src/shared/lib/export-letter');
                     await exportLetterToDocx({
                       letter,
                       personalInfo,
@@ -353,6 +373,16 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   }}
                 >
                   Word
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Download className="w-3.5 h-3.5" />}
+                  disabled={!letter}
+                  onClick={controller.download}
+                  title="Télécharger en texte brut (.txt)"
+                >
+                  Texte
                 </Button>
                 <div className="flex-1" />
                 <div className="flex flex-col items-end gap-0.5">

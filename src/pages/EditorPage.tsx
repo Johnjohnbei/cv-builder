@@ -379,6 +379,7 @@ export default function EditorPage() {
         cvName={cvData?.personal_info?.name}
         personalInfo={cvData?.personal_info}
         language={currentLanguage}
+        notify={notify}
       />
     </div>
   );

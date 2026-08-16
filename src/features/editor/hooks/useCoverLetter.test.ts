@@ -28,6 +28,20 @@ describe('buildCoverLetterText', () => {
     expect(out).toMatch(/\n\nCordialement,/);
   });
 
+  it('leads with the subject line, so a paste needs no second trip', () => {
+    const out = buildCoverLetterText(SAMPLE);
+    expect(out.startsWith('Objet : ')).toBe(true);
+    expect(out).toContain(SAMPLE.subject);
+    // ...and the subject still comes before the greeting
+    expect(out.indexOf(SAMPLE.subject)).toBeLessThan(out.indexOf('Madame, Monsieur,'));
+  });
+
+  it('omits the subject line when empty', () => {
+    const out = buildCoverLetterText({ ...SAMPLE, subject: '   ' });
+    expect(out).not.toContain('Objet :');
+    expect(out.startsWith('Madame, Monsieur,')).toBe(true);
+  });
+
   it('appends the author name when provided', () => {
     const out = buildCoverLetterText(SAMPLE, 'Jean Dupont');
     expect(out.endsWith('Jean Dupont')).toBe(true);

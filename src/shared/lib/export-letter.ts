@@ -112,3 +112,65 @@ export async function exportLetterToDocx(options: ExportLetterOptions): Promise<
   const blob = await Packer.toBlob(doc);
   saveAs(blob, buildLetterFilename(options.companyName, options.language ?? 'fr'));
 }
+
+// ─── PDF ───────────────────────────────────────────────────────────
+
+/** Escape user text before it lands in the generated markup. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
+/**
+ * The letter as a standalone A4 document.
+ *
+ * Built as markup rather than serialized from the DOM: the drawer renders form
+ * fields, not a letter, so there is nothing on screen worth photographing.
+ * Padding lives on the container because the print CSS forces `@page` margins
+ * to zero for the CV's pre-paginated pages.
+ */
+export function buildLetterHtml(opts: ExportLetterOptions): string {
+  const { letter, personalInfo, language = 'fr' } = opts;
+  const contact = [personalInfo.email, personalInfo.phone, personalInfo.location]
+    .filter(Boolean).map(v => escapeHtml(v as string)).join(' · ');
+  const subjectLabel = language === 'en' ? 'Subject: ' : 'Objet : ';
+  const paragraphs = letter.body.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+    .map(p => `<p>${escapeHtml(p)}</p>`).join('\n');
+
+  return `<div class="letter">
+  <header>
+    <p class="sender-name">${escapeHtml(personalInfo.name || '')}</p>
+    ${contact ? `<p class="sender-contact">${contact}</p>` : ''}
+  </header>
+  <p class="date">${escapeHtml(buildLetterDateLine(language, personalInfo.location))}</p>
+  ${letter.subject ? `<p class="subject">${subjectLabel}${escapeHtml(letter.subject)}</p>` : ''}
+  <p class="greeting">${escapeHtml(letter.greeting)}</p>
+  ${paragraphs}
+  <p class="closing">${escapeHtml(letter.closing)}</p>
+  <p class="signature">${escapeHtml(personalInfo.name || '')}</p>
+</div>`;
+}
+
+const LETTER_PDF_CSS = `
+  .letter {
+    width: 210mm; min-height: 297mm; box-sizing: border-box;
+    padding: 25mm 22mm;
+    font-family: Calibri, Carlito, Arial, sans-serif;
+    font-size: 11pt; line-height: 1.55; color: #1a1a1a;
+  }
+  .letter p { margin: 0 0 11pt; }
+  .letter .sender-name { font-weight: 700; font-size: 12pt; margin-bottom: 2pt; }
+  .letter .sender-contact { color: #555; font-size: 9.5pt; }
+  .letter .date { margin-top: 18pt; text-align: right; }
+  .letter .subject { font-weight: 700; margin-top: 14pt; margin-bottom: 16pt; }
+  .letter .greeting { margin-bottom: 12pt; }
+  .letter .closing { margin-top: 14pt; }
+  .letter .signature { font-weight: 700; margin-top: 6pt; }
+`;
+
+/** Download the cover letter as a laid-out PDF, through the same endpoint as the CV. */
+export async function exportLetterToPdf(opts: ExportLetterOptions): Promise<void> {
+  const { downloadPdfFromHtml } = await import('@/src/features/editor/lib/pdfExport');
+  const baseName = buildLetterFilename(opts.companyName, opts.language).replace(/\.docx$/, '');
+  await downloadPdfFromHtml(buildLetterHtml(opts), `<style>${LETTER_PDF_CSS}</style>`, baseName);
+}

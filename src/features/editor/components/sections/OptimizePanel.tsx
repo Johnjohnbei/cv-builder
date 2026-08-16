@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Loader2, Sparkles, Zap, Globe } from 'lucide-react';
 import { Textarea } from '../../../../shared/ui/Textarea';
 import { Button } from '../../../../shared/ui/Button';
@@ -38,6 +38,7 @@ export const OptimizePanel = memo(function OptimizePanel({
     () => pickPortfolioVariant(getPortfolioVariants(), jobDescription),
     [jobDescription],
   );
+  const [isJDExpanded, setIsJDExpanded] = useState(false);
 
   return (
     <section className="stitch-panel p-4 space-y-3 bg-blue-50/30 border-blue-100">
@@ -52,20 +53,43 @@ export const OptimizePanel = memo(function OptimizePanel({
         </div>
       </div>
 
-      {/* Job description display */}
-      {jobDescription ? (
-        <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[11px] stitch-mono text-gray-600 max-h-16 overflow-y-auto">
-          <span className="font-bold text-gray-600 uppercase text-[11px]">Offre importée</span>
-          <p className="mt-1 line-clamp-3">{jobDescription.slice(0, 300)}{jobDescription.length > 300 ? '...' : ''}</p>
-        </div>
+      {/* Job description. Collapsed to a preview once loaded to save room, but
+          always expandable and always editable: it used to become a read-only
+          300-character stub, so the only place to read or fix the end of an
+          offer was the cover-letter drawer. */}
+      {jobDescription && !isJDExpanded ? (
+        <button
+          type="button"
+          onClick={() => setIsJDExpanded(true)}
+          className="w-full text-left bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[11px] stitch-mono text-gray-600 hover:border-blue-300 transition-colors"
+        >
+          <span className="flex items-center justify-between gap-2">
+            <span className="font-bold uppercase">Offre importée</span>
+            <span className="font-normal normal-case text-blue-600 shrink-0">
+              {jobDescription.length} caractères · modifier
+            </span>
+          </span>
+          <span className="mt-1 line-clamp-2 block">{jobDescription}</span>
+        </button>
       ) : (
-        <Textarea
-          value={jobDescription}
-          onChange={(e) => onJobDescriptionChange(e.target.value)}
-          placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
-          rows={2}
-          className="border-blue-200 rounded-lg focus:border-blue-400 focus:ring-blue-400"
-        />
+        <div className="space-y-1">
+          <Textarea
+            value={jobDescription}
+            onChange={(e) => onJobDescriptionChange(e.target.value)}
+            placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
+            rows={jobDescription ? 8 : 2}
+            className="border-blue-200 rounded-lg focus:border-blue-400 focus:ring-blue-400"
+          />
+          {jobDescription && (
+            <button
+              type="button"
+              onClick={() => setIsJDExpanded(false)}
+              className="text-[11px] text-blue-600 hover:underline"
+            >
+              Replier l'offre
+            </button>
+          )}
+        </div>
       )}
 
       {/* Portfolio version matching the offer. Hidden unless variants are configured. */}

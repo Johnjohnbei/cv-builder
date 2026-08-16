@@ -72,6 +72,45 @@ export function serializeCV(cvElement: HTMLElement): { html: string; styles: str
 // ─── Serverless PDF Generation ───
 
 /**
+ * POST an HTML document to the PDF endpoint and hand the result to the browser
+ * as a download.
+ *
+ * The single owner of "turn HTML into a downloaded PDF". Any document the app
+ * exports goes through here — the CV serialized from the live DOM, and the
+ * cover letter built as standalone markup — so the response checks and the
+ * blob plumbing exist once.
+ */
+export async function downloadPdfFromHtml(html: string, styles: string, fileBaseName: string): Promise<void> {
+  const response = await fetch('/api/generate-pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, styles }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Server returned ${response.status}`);
+  }
+
+  // A dev server or a misrouted rewrite can answer 200 with index.html.
+  // Without this check that HTML would be saved as a .pdf the reader can't
+  // open — fail loudly instead.
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/pdf')) {
+    throw new Error(`Expected application/pdf, got "${contentType}"`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${fileBaseName}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Generate PDF via the serverless endpoint.
  * Falls back to window.print() via renderPDF on any error.
  */
@@ -91,38 +130,8 @@ export async function serverlessPDF(
   options?.onLoadingChange?.(true);
 
   try {
-    // 3. Serialize CV DOM
     const { html, styles } = serializeCV(cvElement);
-
-    // 4. POST to serverless function
-    const response = await fetch('/api/generate-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, styles }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server returned ${response.status}`);
-    }
-
-    // A dev server or a misrouted rewrite can answer 200 with index.html.
-    // Without this check that HTML would be saved as a .pdf the reader can't
-    // open — fail loudly into the print fallback instead.
-    const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('application/pdf')) {
-      throw new Error(`Expected application/pdf, got "${contentType}"`);
-    }
-
-    // 5. Download PDF via blob URL (D-12)
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${options?.fileBaseName || 'CV'}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await downloadPdfFromHtml(html, styles, options?.fileBaseName || 'CV');
   } catch (error) {
     // 6. Fallback to window.print() (D-13)
     console.error('Serverless PDF generation failed:', error);
