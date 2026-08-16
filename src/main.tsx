@@ -27,7 +27,7 @@ function MissingConfig() {
   );
 }
 
-let convexUrl = (import.meta as any).env.VITE_CONVEX_URL || "";
+let convexUrl = import.meta.env.VITE_CONVEX_URL || "";
 if (convexUrl && !convexUrl.startsWith("http")) convexUrl = `https://${convexUrl}`;
 if (!convexUrl) {
   console.warn("VITE_CONVEX_URL is not defined");

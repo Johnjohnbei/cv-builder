@@ -11,8 +11,6 @@ export interface UseAutoSaveDraftDeps {
   jobDescription: string;
   user: unknown;
   isGuest: boolean;
-  /** True once the user has actually edited something (guards initial hydration) */
-  userModified: boolean;
   updateLastCV: (args: { cvData: CVData; jobDescription?: string }) => Promise<unknown>;
 }
 
@@ -30,20 +28,34 @@ export interface UseAutoSaveDraftResult {
  * synchronously and rely on this to cover the long tail of low-level edits.
  *
  * Guests mirror to localStorage so a refresh doesn't lose their work.
- * Guarded by `userModified` so the initial hydration doesn't write back to itself.
+ *
+ * The guard is "has cvData changed since hydration", NOT an explicit dirty
+ * flag: the flag version required every one of the ~56 setCvData call sites in
+ * the sidebar to remember to raise it, and all but three had forgotten — name,
+ * title, email, education, skills, languages and summary edits rendered on
+ * screen but were never persisted. Detecting the change here fixes every
+ * caller at once and cannot be forgotten by a new one.
  */
 export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftResult {
   const {
     cvData, designSettings, selectedTemplate, jobDescription,
-    user, isGuest, userModified, updateLastCV,
+    user, isGuest, updateLastCV,
   } = deps;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** False until the first non-null cvData has been seen (the hydration) */
+  const hydratedRef = useRef(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
 
   useEffect(() => {
-    if ((!user && !isGuest) || !cvData || !userModified) return;
+    if ((!user && !isGuest) || !cvData) return;
+    // First non-null cvData is the document we just loaded — saving it would
+    // only write it back to itself.
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const merged = stripPersistenceArtifacts({
@@ -64,7 +76,7 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, userModified, updateLastCV]);
+  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, updateLastCV]);
 
   return { isAutoSaving, lastAutoSaveAt };
 }

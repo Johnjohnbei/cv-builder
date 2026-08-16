@@ -14,7 +14,6 @@ import type { CVData, Experience } from '../../../../shared/types';
 interface Props {
   experience: Experience[] | undefined;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
   hasJobDescription: boolean;
   experienceScores: number[];
   weakBullets: WeakBulletResult[];
@@ -27,7 +26,7 @@ interface Props {
 }
 
 export const ExperienceSection = memo(function ExperienceSection({
-  experience, setCvData, setUserModified, hasJobDescription, experienceScores,
+  experience, setCvData, hasJobDescription, experienceScores,
   weakBullets, expanded, onToggle, aiBusy, isEnrichingExperiences, onEnrich, bullets,
 }: Props) {
   const getWeakIssues = (expIdx: number, bulIdx: number) =>
@@ -74,7 +73,6 @@ export const ExperienceSection = memo(function ExperienceSection({
                       const newExp = [...(experience || [])];
                       [newExp[idx - 1], newExp[idx]] = [newExp[idx], newExp[idx - 1]];
                       setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                      setUserModified(true);
                     }}
                     className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
                     title="Monter"
@@ -116,7 +114,6 @@ export const ExperienceSection = memo(function ExperienceSection({
                         const newExp = [...(experience || [])];
                         newExp[idx] = { ...newExp[idx], displayMode: mode.value };
                         setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                        setUserModified(true);
                       }}
                       title={mode.label}
                       className={cn(

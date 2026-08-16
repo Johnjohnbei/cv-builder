@@ -7,7 +7,6 @@ import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 export interface UseEditorAIDeps {
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  setUserModified: (v: boolean) => void;
   designSettings: DesignSettings;
   jobDescription: string;
   user: unknown;
@@ -36,7 +35,7 @@ export interface UseEditorAIResult {
  */
 export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   const {
-    cvData, setCvData, setUserModified, designSettings,
+    cvData, setCvData, designSettings,
     jobDescription, user, isGuest, notify, accessCode,
   } = deps;
 
@@ -63,12 +62,11 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     try {
       const optimizedData = await optimizeCVAction({
         cvData,
-        pageLimit: designSettings.pageLimit || 1,
+        pageLimit: designSettings.pageLimit || 2,
         jobDescription: jobDescription || undefined,
         accessCode,
       });
       setCvData(optimizedData);
-      setUserModified(true);
       notify({ message: 'CV optimisé avec succès !', type: 'success' });
       if (user) await storeUser();
       persist(optimizedData, 'handleOptimize');
@@ -78,7 +76,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, optimizeCVAction, setCvData, setUserModified, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, optimizeCVAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;
@@ -105,7 +103,6 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
       });
       const updated = { ...cvData, experience: updatedExp };
       setCvData(updated);
-      setUserModified(true);
       persist(updated, 'handleEnrichExperiences');
 
       const filled = result.results.filter(r => r.stage || r.businessModel).length;
@@ -121,7 +118,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsEnriching(false);
     }
-  }, [cvData, accessCode, enrichExperienceAction, setCvData, setUserModified, notify, persist]);
+  }, [cvData, accessCode, enrichExperienceAction, setCvData, notify, persist]);
 
   const optimizeEstimate = useMemo(() => {
     if (!cvData) return 30;

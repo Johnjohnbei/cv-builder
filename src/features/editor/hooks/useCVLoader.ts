@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
-import { autoAssignModes, extractKeywords } from '../lib/scoring';
 import { stripPersistenceArtifacts } from './useCVPersistence';
 
 interface CVLoaderResult {
@@ -12,27 +11,19 @@ interface CVLoaderResult {
   selectedTemplate: string;
   setSelectedTemplate: React.Dispatch<React.SetStateAction<string>>;
   isLoading: boolean;
-  userModified: boolean;
-  setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
-  resetAutoAssign: () => void;
   loadedJobDescription: string;
 }
 
-/**
- * Loads CV data from Convex or localStorage once, and handles auto-assignment
- * of display modes when CV data lacks them.
- */
+/** Loads CV data from Convex or localStorage, once. */
 export function useCVLoader(
   user: any,
   userData: any,
   isGuest: boolean,
-  jobDescription: string,
 ): CVLoaderResult {
   const [cvData, setCvData] = useState<CVData | null>(null);
   const [designSettings, setDesignSettings] = useState<DesignSettings>(DEFAULT_DESIGN);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('TEMPLATE_A');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>(DEFAULT_DESIGN.template);
   const [isLoading, setIsLoading] = useState(true);
-  const [userModified, setUserModified] = useState(false);
   const [loadedJobDescription, setLoadedJobDescription] = useState('');
 
   // Load data — ONCE at initialization
@@ -76,30 +67,11 @@ export function useCVLoader(
     }
   }, [userData, user, isGuest]);
 
-  // Auto-assign display modes when CV is loaded without them
-  const hasAutoAssigned = useRef(false);
-  useEffect(() => {
-    if (!cvData || !cvData.experience?.length || hasAutoAssigned.current) return;
-    const hasAnyMode = cvData.experience.some(exp => exp.displayMode);
-    if (hasAnyMode) { hasAutoAssigned.current = true; return; }
-
-    hasAutoAssigned.current = true;
-    const keywords = extractKeywords(jobDescription);
-    const autoExperiences = autoAssignModes(cvData.experience, keywords);
-    setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
-  }, [cvData?.experience?.length]);
-
-  const resetAutoAssign = () => {
-    hasAutoAssigned.current = false;
-  };
-
   return {
     cvData, setCvData,
     designSettings, setDesignSettings,
     selectedTemplate, setSelectedTemplate,
     isLoading,
-    userModified, setUserModified,
-    resetAutoAssign,
     loadedJobDescription,
   };
 }

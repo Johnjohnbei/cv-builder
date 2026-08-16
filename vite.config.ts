@@ -1,12 +1,61 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
+
+/**
+ * Serve the `api/*.ts` Vercel functions from the dev server.
+ *
+ * Vite's SPA fallback only answers GET, so a POST to /api/generate-pdf used to
+ * 404 in dev — and the client silently fell back to window.print(), which is
+ * why "Exporter" looked like it printed instead of downloading. This runs the
+ * very same handler locally (puppeteer, a devDependency), so the real export
+ * path is what gets exercised during development.
+ */
+function apiDevServer(): Plugin {
+  return {
+    name: 'api-dev-server',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/')) return next();
+        const route = req.url.split('?')[0].replace(/\/$/, '');
+
+        try {
+          const mod = await server.ssrLoadModule(`.${route}.ts`);
+          const handler = mod[req.method ?? 'GET'];
+          if (typeof handler !== 'function') return next();
+
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(chunk as Buffer);
+
+          const proto = 'http';
+          const host = req.headers.host ?? 'localhost';
+          const request = new Request(`${proto}://${host}${req.url}`, {
+            method: req.method,
+            headers: req.headers as Record<string, string>,
+            body: chunks.length > 0 ? Buffer.concat(chunks) : undefined,
+          });
+
+          const response: Response = await handler(request);
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (err) {
+          server.config.logger.error(`[api-dev-server] ${route} failed: ${err}`);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({error: 'Dev API handler failed'}));
+        }
+      });
+    },
+  };
+}
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), apiDevServer()],
     test: {
       globals: true,
       environment: 'node',

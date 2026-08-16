@@ -10,7 +10,6 @@ type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
 export interface UseLanguageSwitchDeps {
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
   user: unknown;
   isGuest: boolean;
   jobDescription: string;
@@ -46,7 +45,7 @@ const contentSnapshot = (d: CVData) => ({
 
 /** Owns the FR/EN switch: cache-hit instant swap, LLM translation, labels-only override. */
 export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitchResult {
-  const { cvData, setCvData, setUserModified, user, isGuest, jobDescription, updateLastCV, notify, accessCode } = deps;
+  const { cvData, setCvData, user, isGuest, jobDescription, updateLastCV, notify, accessCode } = deps;
   const translateCVAction = useAction(api.ai.translateCV);
 
   const [pendingLanguage, setPendingLanguage] = useState<'fr' | 'en' | null>(null);
@@ -67,7 +66,6 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
 
   const applyLanguageOverride = (lang: 'fr' | 'en') => {
     setCvData(prev => prev ? { ...prev, languageOverride: lang } : prev);
-    setUserModified(true);
   };
 
   // Instant swap to a language we already have cached (no LLM, no modal).
@@ -88,7 +86,6 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
       languageOverride: target,
     };
     setCvData(updated);
-    setUserModified(true);
     persist(updated, 'applyCachedLanguage');
     notify({
       message: target === 'en' ? 'Version anglaise (instantané)' : 'Version française (instantané)',
@@ -148,7 +145,6 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
         languageOverride: pendingLanguage,
       };
       setCvData(updated);
-      setUserModified(true);
       // Persist the new translation + cache to the working draft so a refresh
       // doesn't lose the work. Optimistic: don't block UI on the mutation.
       persist(updated, 'handleConfirmRegenerate slow-path');

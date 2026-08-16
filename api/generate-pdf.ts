@@ -77,10 +77,14 @@ async function getBrowser() {
     });
   } else {
     const puppeteer = (await import('puppeteer')).default;
-    return puppeteer.launch({
-      headless: true,
-      defaultViewport: { width: 794, height: 1123 },
-    });
+    const options = { headless: true as const, defaultViewport: { width: 794, height: 1123 } };
+    try {
+      // Reuse the Chrome already installed on the dev machine: no 150 MB
+      // `puppeteer browsers install` step just to preview an export locally.
+      return await puppeteer.launch({ ...options, channel: 'chrome' });
+    } catch {
+      return puppeteer.launch(options);
+    }
   }
 }
 

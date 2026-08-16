@@ -9,12 +9,11 @@ interface Props {
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
   expanded: boolean;
   onToggle: () => void;
-  setUserModified: React.Dispatch<React.SetStateAction<boolean>>;
   notify: (n: { message: string; type: 'success' | 'error' }) => void;
 }
 
 export const PersonalInfoSection = memo(function PersonalInfoSection({
-  personalInfo, setCvData, expanded, onToggle, setUserModified, notify,
+  personalInfo, setCvData, expanded, onToggle, notify,
 }: Props) {
   return (
     <section className="stitch-panel overflow-hidden">
@@ -71,6 +70,22 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
               onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, linkedin: e.target.value}} : null)}
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Portfolio (URL)"
+              type="text"
+              placeholder="https://..."
+              value={personalInfo?.portfolio_url || ''}
+              onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, portfolio_url: e.target.value}} : null)}
+            />
+            <Input
+              label="Libellé du lien"
+              type="text"
+              placeholder="Portfolio"
+              value={personalInfo?.portfolio_label || ''}
+              onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, portfolio_label: e.target.value}} : null)}
+            />
+          </div>
           <div>
             <label className="text-[11px] stitch-mono text-gray-600 uppercase block mb-1">Photo de profil (URL ou Upload)</label>
             <div className="flex gap-2">
@@ -103,7 +118,6 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
                       // every auto-save payload (Convex doc cap ~1 MiB)
                       const dataUri = await downscaleImageToDataURI(file);
                       setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: dataUri}} : null);
-                      setUserModified(true);
                     } catch {
                       notify({ message: 'Impossible de lire cette image.', type: 'error' });
                     }

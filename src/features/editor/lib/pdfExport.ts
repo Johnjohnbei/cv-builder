@@ -18,14 +18,19 @@ export interface ServerlessPDFOptions {
   fileBaseName?: string;
 }
 
-/** "Jean Dupont" → "CV_Jean_Dupont" (accents stripped, recruiter-friendly) */
-export function buildPdfFileName(candidateName?: string): string {
-  const slug = (candidateName ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return slug ? `CV_${slug}` : 'CV';
+/**
+ * Build the exported file's base name from the candidate identity.
+ *
+ * ("Jean Dupont", "Product Design Leader") → "Jean Dupont - Product Design Leader"
+ *
+ * Recruiters file attachments by what they read on screen, so the name and the
+ * targeted role are kept verbatim (accents included) rather than slugified.
+ * Only the characters Windows/macOS reject in a filename are stripped.
+ */
+export function buildPdfFileName(candidateName?: string, jobTitle?: string): string {
+  const clean = (s?: string) => (s ?? '').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+  const parts = [clean(candidateName), clean(jobTitle)].filter(Boolean);
+  return parts.length > 0 ? parts.join(' - ') : 'CV';
 }
 
 // ─── DOM Serialization ───
@@ -98,6 +103,14 @@ export async function serverlessPDF(
 
     if (!response.ok) {
       throw new Error(`Server returned ${response.status}`);
+    }
+
+    // A dev server or a misrouted rewrite can answer 200 with index.html.
+    // Without this check that HTML would be saved as a .pdf the reader can't
+    // open — fail loudly into the print fallback instead.
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/pdf')) {
+      throw new Error(`Expected application/pdf, got "${contentType}"`);
     }
 
     // 5. Download PDF via blob URL (D-12)
