@@ -1,19 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import { LONG_CV, LONG_CV_JOB_DESCRIPTION } from './fixtures/long-cv';
+import { seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
 
 /**
  * The fit pass only runs on a CV that has never been triaged, so the fixture
  * deliberately carries no displayMode — that is what a fresh import looks like.
  */
-async function setupLongCV(page: Page, cv: unknown = LONG_CV) {
-  await page.goto('/');
-  await page.evaluate(({ cv, jd }) => {
-    sessionStorage.setItem('guest_access', 'true');
-    localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-    localStorage.setItem('guest_last_jd', jd);
-  }, { cv, jd: LONG_CV_JOB_DESCRIPTION });
-  await page.goto('/editor');
-  await page.waitForLoadState('networkidle');
+const setupLongCV = (page: Page, cv: unknown = LONG_CV) =>
+  seedGuestSession(page, { cv, jd: LONG_CV_JOB_DESCRIPTION });
+
+/** Arms the no-AI-call guard for every test of a describe block. */
+function guardAICalls() {
+  let calls: string[] = [];
+  test.beforeEach(async ({ page }) => { calls = watchAICalls(page); });
+  test.afterEach(() => { expectNoAICalls(calls); });
 }
 
 /** The fit loop settles over several measure/render passes. */
@@ -42,6 +42,8 @@ async function savedModes(page: Page): Promise<string[]> {
 }
 
 test.describe('Tri auto sur N pages', () => {
+  guardAICalls();
+
   test('un CV de 6 expériences non trié tient sur 2 pages tout seul', async ({ page }) => {
     await setupLongCV(page);
     await waitForPageCount(page, 2);
@@ -106,16 +108,12 @@ test.describe('Tri auto sur N pages', () => {
 });
 
 test.describe('Lien portfolio', () => {
+  guardAICalls();
+
   test('aucune suggestion de portfolio sans offre chargée', async ({ page }) => {
     // Without a job description there is nothing to match against, so the block
     // must stay hidden — same end state as a clone with no variants configured.
-    await page.goto('/');
-    await page.evaluate(cv => {
-      sessionStorage.setItem('guest_access', 'true');
-      localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-      localStorage.removeItem('guest_last_jd');
-    }, LONG_CV);
-    await page.goto('/editor');
+    await seedGuestSession(page, { cv: LONG_CV });
     await page.getByRole('tab', { name: 'Contenu' }).click();
 
     await expect(page.getByRole('button', { name: /^Ajouter au CV$/i })).toHaveCount(0);

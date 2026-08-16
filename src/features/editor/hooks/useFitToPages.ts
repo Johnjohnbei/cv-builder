@@ -60,24 +60,22 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     setCvData(prev => (prev ? { ...prev, experience: expandToMax(prev.experience) } : prev));
   }, [cvData?.experience?.length, setCvData]);
 
-  // A CV whose experiences carry no display mode has never been triaged — it
-  // comes straight from an import or an AI generation. Fit it once, so the
-  // first thing the user sees already respects the page budget. Afterwards the
-  // modes are persisted and only runFit() re-runs the pass, which is what keeps
-  // manual trimming from being silently undone.
-  const initialFitDone = useRef(false);
+  // "No experience carries a display mode" means this CV has never been
+  // triaged: a fresh import, or a rewrite the AI just returned. Fit it, so what
+  // the user sees always respects the page budget without asking.
+  //
+  // Derived from the data rather than latched behind a one-shot ref, because
+  // the condition must fire again after an AI rewrite — and it cannot loop:
+  // runFit() assigns a mode to every experience, which makes it false.
+  // A manually trimmed CV keeps its modes and is therefore never touched.
   useEffect(() => {
-    if (initialFitDone.current || !cvData?.experience?.length) return;
-    if (cvData.experience.some(exp => exp.displayMode)) {
-      initialFitDone.current = true;
-      return;
-    }
+    if (isFitting || !cvData?.experience?.length) return;
+    if (cvData.experience.some(exp => exp.displayMode)) return;
     // Wait for the stored job description to reach state, otherwise the pass
     // would rank every experience against an empty offer.
     if (loadedJobDescription && !jobDescription) return;
-    initialFitDone.current = true;
     runFit();
-  }, [cvData, loadedJobDescription, jobDescription, runFit]);
+  }, [cvData, isFitting, loadedJobDescription, jobDescription, runFit]);
 
   useEffect(() => {
     if (!isFitting || stablePageCount === null || !cvData?.experience?.length) return;

@@ -29,12 +29,17 @@ export function normalizeTitle(title: string | undefined): string | undefined {
 }
 
 // ─── displayMode coercion ────────────────────────────────────────
+// Absence is meaningful and must survive: an experience with NO displayMode is
+// one that has never been triaged, which is exactly the signal useFitToPages
+// waits for to fit the CV to its page budget from real measurements. Defaulting
+// to "normal" here used to erase that signal on every AI rewrite, so the CV
+// came back pre-assigned by a model that cannot measure anything.
 const VALID_DISPLAY_MODES: ExperienceDisplayMode[] = ["hidden", "compact", "normal", "extended"];
-function normalizeDisplayMode(mode: unknown): ExperienceDisplayMode {
+function normalizeDisplayMode(mode: unknown): ExperienceDisplayMode | undefined {
   if (typeof mode === "string" && (VALID_DISPLAY_MODES as string[]).includes(mode)) {
     return mode as ExperienceDisplayMode;
   }
-  return "normal";
+  return undefined;
 }
 
 // ─── Description coercion ────────────────────────────────────────
@@ -80,6 +85,11 @@ export function normalizeExperience(raw: any): Experience {
     kpi: typeof raw.kpi === "string" ? raw.kpi.trim() : "",
     showKpi: typeof raw.showKpi === "boolean" ? raw.showKpi : undefined,
     displayMode: normalizeDisplayMode(raw.displayMode),
+    // Deduced by the same call that rewrites the CV. Kept here because this
+    // normalizer rebuilds the object field by field: anything not listed is
+    // dropped, which is what used to force a separate enrichment round-trip.
+    companyStage: typeof raw.companyStage === "string" ? raw.companyStage : undefined,
+    companyBusinessModel: typeof raw.companyBusinessModel === "string" ? raw.companyBusinessModel : undefined,
   };
 }
 

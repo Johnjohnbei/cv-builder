@@ -54,8 +54,10 @@ RULES:
 6. Summary: 2-3 sentences targeting the position directly, weaving in key terms from the job
 7. Skills: reorder — most relevant for the job first. Add missing key skills from the job if the candidate likely has them
 8. ${intro}
-9. Each experience MUST have a non-empty "kpi" field and a valid "displayMode" ("hidden"|"compact"|"normal"|"extended"). Default to "normal" when unsure.
-10. ${FABRICATION_GUARD}
+9. Each experience MUST have a non-empty "kpi" field.
+10. Each experience MUST also carry "companyStage" (Startup|Scaleup|PME|Grand groupe|ETI|Agence) and "companyBusinessModel" (B2B|B2C|B2B2C|SaaS|Marketplace|E-commerce|Media|Service). Omit a field only if genuinely undeterminable.
+11. NEVER output "displayMode" — how much of each experience is shown is decided downstream by measuring the rendered page, not by you.
+12. ${FABRICATION_GUARD}
 
 ${kpiRules}
 
@@ -88,7 +90,7 @@ No job description provided. Prioritize by RECENCY: most recent experiences are 
 
 LANGUAGE: ${outputLang}
 
-Your mission: reorganize and adjust the content of this CV to fit on ${pageLimit} A4 page(s) while maximizing professional impact.
+Your mission: rewrite and reorder this CV for maximum professional impact, targeting roughly ${pageLimit} A4 page(s) worth of substance.
 
 CV DATA:
 ${cvJson}
@@ -99,34 +101,22 @@ Toutes les expériences, formations, compétences, langues présentes en entrée
 Le nombre d'éléments dans chaque section doit être IDENTIQUE.
 Tu n'as le droit que de : réordonner, reformuler, condenser, enrichir, et changer le displayMode.
 
-═══ SYSTÈME DE BLOCS MODULABLES ═══
-
-Chaque expérience a un champ "displayMode" qui contrôle la place qu'elle prend :
-
-- "compact" : Le poste + entreprise + 1 ligne de description synthétique. Pour les postes anciens ou peu pertinents.
-- "normal" : Le poste + entreprise + 2 bullet points d'actions clés (une ligne chacun). Le mode par défaut.
-- "extended" : Le poste + entreprise + jusqu'à 5 bullet points détaillés. Pour les postes les plus importants.
-
 ${kpiRules}
 
 ${intro}
 
-═══ STRATÉGIE DE PRIORISATION ═══
+═══ PRIORISATION ═══
 
 1. RÉORDONNE les expériences par pertinence (la plus importante en premier)
-2. ASSIGNE un displayMode à chaque expérience :
-   - TOP priorité (1-2 premières) → "extended"
-   - MOYENNE priorité → "normal"
-   - BASSE priorité (anciennes/peu pertinentes) → "compact"
-3. Ajuste le nombre de bullets selon le mode :
-   - "extended" : 3-5 bullets détaillés
-   - "normal" : exactement 2 bullets concis
-   - "compact" : 1 seule phrase descriptive dans description[0]
-4. REMPLIS kpi SUR CHAQUE EXPÉRIENCE (voir règles ci-dessus).
+2. REMPLIS kpi SUR CHAQUE EXPÉRIENCE (voir règles ci-dessus)
+3. RENSEIGNE companyStage (Startup|Scaleup|PME|Grand groupe|ETI|Agence) et companyBusinessModel (B2B|B2C|B2B2C|SaaS|Marketplace|E-commerce|Media|Service) sur chaque expérience
+4. RÉSUMÉ : 2-3 phrases percutantes
+5. COMPÉTENCES : Réordonne — les plus pertinentes en premier
+6. FORMATIONS et LANGUES : Garde tel quel
 
-5. RÉSUMÉ : 2-3 phrases percutantes.
-6. COMPÉTENCES : Réordonne — les plus pertinentes en premier.
-7. FORMATIONS et LANGUES : Garde tel quel.
+N'émets JAMAIS "displayMode" : le niveau de détail affiché pour chaque expérience
+est décidé en aval, en mesurant la page rendue. Écris le meilleur contenu possible,
+la mise en page n'est pas ton problème.
 
 ═══ QUALITÉ DES REFORMULATIONS ═══
 - Verbe d'action fort et précis en début de bullet (${verbs})
@@ -134,12 +124,7 @@ ${intro}
 - ${FABRICATION_GUARD}
 - Mots-clés du secteur / de l'offre intégrés naturellement
 
-═══ CONTRAINTE TAILLE ═══
-Pour ${pageLimit} page(s) A4, un bon équilibre est :
-- 1 page : max 1 extended + 1-2 normal + le reste compact
-- 2 pages : max 2-3 extended + 2-3 normal + le reste compact
-
 ${languageLock}
 
-Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir displayMode ET kpi.`;
+Retourne UNIQUEMENT l'objet JSON complet du CV optimisé. Chaque expérience DOIT avoir kpi.`;
 }

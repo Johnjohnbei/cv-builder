@@ -126,14 +126,22 @@ describe("buildAdaptPrompt — optimize mode", () => {
     expect(prompt).toContain("RECENCY");
   });
 
-  it("describes the displayMode system", () => {
+  // The model writes the content; how much of it is shown is decided by
+  // measuring the rendered page. Asking the model to guess produced modes that
+  // the fit engine could not override, so the prompt now forbids the field.
+  it("forbids the model from assigning displayMode", () => {
     const prompt = buildAdaptPrompt({
       mode: "optimize",
       cvData: SAMPLE_CV,
       pageLimit: 2,
     });
-    expect(prompt).toContain("displayMode");
-    expect(prompt).toContain("extended");
-    expect(prompt).toContain("compact");
+    expect(prompt).toMatch(/JAMAIS "displayMode"/);
+    expect(prompt).not.toMatch(/ASSIGNE un displayMode/);
+  });
+
+  it("asks for the company tags in the same call", () => {
+    const prompt = buildAdaptPrompt({ mode: "optimize", cvData: SAMPLE_CV, pageLimit: 2 });
+    expect(prompt).toContain("companyStage");
+    expect(prompt).toContain("companyBusinessModel");
   });
 });

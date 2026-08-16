@@ -68,19 +68,30 @@ describe("normalizeExperience", () => {
     expect(result.current).toBe(true);
   });
 
-  it("defaults displayMode to 'normal' when missing", () => {
+  // Absence must survive normalization: it is the signal useFitToPages reads to
+  // know the CV has never been triaged and to fit it from real measurements.
+  it("leaves displayMode undefined when missing", () => {
     const result = normalizeExperience({
       company: "A", position: "B", start_date: "2020", current: false, description: [],
     });
-    expect(result.displayMode).toBe("normal");
+    expect(result.displayMode).toBeUndefined();
   });
 
-  it("defaults displayMode to 'normal' when invalid", () => {
+  it("leaves displayMode undefined when invalid", () => {
     const result = normalizeExperience({
       company: "A", position: "B", start_date: "2020", current: false, description: [],
       displayMode: "super-ultra",
     });
-    expect(result.displayMode).toBe("normal");
+    expect(result.displayMode).toBeUndefined();
+  });
+
+  it("keeps the company tags deduced by the same call", () => {
+    const result = normalizeExperience({
+      company: "A", position: "B", start_date: "2020", current: false, description: [],
+      companyStage: "Scaleup", companyBusinessModel: "SaaS",
+    });
+    expect(result.companyStage).toBe("Scaleup");
+    expect(result.companyBusinessModel).toBe("SaaS");
   });
 
   it("preserves valid displayMode", () => {
@@ -208,9 +219,9 @@ describe("normalizeCVData (top-level)", () => {
     expect(result.languages[0].proficiency).toBe("full professional proficiency");
   });
 
-  it("handles legacy fixture without kpi/displayMode (defaults applied)", () => {
+  it("handles legacy fixture without kpi/displayMode (left untriaged)", () => {
     const result = normalizeCVData(cvLegacy);
-    expect(result.experience[0].displayMode).toBe("normal");
+    expect(result.experience[0].displayMode).toBeUndefined();
     expect(result.experience[0].kpi).toBe("");
     expect(result.experience[0].showKpi).toBeUndefined();
   });

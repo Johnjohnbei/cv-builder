@@ -1,16 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION } from './fixtures/mock-cv';
+import { seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
 
-// Helper: inject guest session + CV data before navigating to editor
-async function setupGuestEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.evaluate(({ cv, jd }) => {
-    sessionStorage.setItem('guest_access', 'true');
-    localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-    localStorage.setItem('guest_last_jd', jd);
-  }, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION });
-  await page.goto('/editor');
-  await page.waitForLoadState('networkidle');
+const setupGuestEditor = (page: Page, cv: unknown = MOCK_CV, jd?: string) =>
+  seedGuestSession(page, { cv, jd: jd === undefined ? MOCK_JOB_DESCRIPTION : jd });
+
+/** Arms the no-AI-call guard for every test of a describe block. */
+function guardAICalls() {
+  let calls: string[] = [];
+  test.beforeEach(async ({ page }) => { calls = watchAICalls(page); });
+  test.afterEach(() => { expectNoAICalls(calls); });
 }
 
 // Onglets = role="tab" (buttons avec role explicite dans EditorPage.tsx)
@@ -21,6 +20,7 @@ const TAB = {
 };
 
 test.describe('ATS Panel — mode guest', () => {
+  guardAICalls();
   test.beforeEach(async ({ page }) => {
     await setupGuestEditor(page);
   });
@@ -85,6 +85,7 @@ test.describe('ATS Panel — mode guest', () => {
 });
 
 test.describe('ATS Panel — régression career-ops integration', () => {
+  guardAICalls();
   test.beforeEach(async ({ page }) => {
     await setupGuestEditor(page);
     await page.getByRole('tab', { name: 'ATS' }).click();
@@ -120,20 +121,14 @@ test.describe('ATS Panel — régression career-ops integration', () => {
 });
 
 test.describe('Edge cases — données CV incomplètes', () => {
+  guardAICalls();
+
   test('CV sans summary ne plante pas le panel ATS', async ({ page }) => {
-    await page.goto('/');
     // summary: undefined sérialisé en JSON devient absent de l'objet
-    const cvWithoutSummary = {
+    await setupGuestEditor(page, {
       ...MOCK_CV,
       personal_info: { ...MOCK_CV.personal_info, summary: undefined },
-    };
-    await page.evaluate(({ cv, jd }) => {
-      sessionStorage.setItem('guest_access', 'true');
-      localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-      localStorage.setItem('guest_last_jd', jd);
-    }, { cv: cvWithoutSummary, jd: MOCK_JOB_DESCRIPTION });
-    await page.goto('/editor');
-    await page.waitForLoadState('networkidle');
+    });
     await page.getByRole('tab', { name: 'ATS' }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
@@ -141,15 +136,7 @@ test.describe('Edge cases — données CV incomplètes', () => {
   });
 
   test('CV sans expériences ne plante pas le panel ATS', async ({ page }) => {
-    await page.goto('/');
-    const cvNoExp = { ...MOCK_CV, experience: [] };
-    await page.evaluate(({ cv, jd }) => {
-      sessionStorage.setItem('guest_access', 'true');
-      localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-      localStorage.setItem('guest_last_jd', jd);
-    }, { cv: cvNoExp, jd: MOCK_JOB_DESCRIPTION });
-    await page.goto('/editor');
-    await page.waitForLoadState('networkidle');
+    await setupGuestEditor(page, { ...MOCK_CV, experience: [] });
     await page.getByRole('tab', { name: 'ATS' }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
@@ -157,14 +144,7 @@ test.describe('Edge cases — données CV incomplètes', () => {
   });
 
   test('pas de JD — le panel affiche un score sans section pertinence', async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate((cv) => {
-      sessionStorage.setItem('guest_access', 'true');
-      localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
-      localStorage.removeItem('guest_last_jd');
-    }, MOCK_CV);
-    await page.goto('/editor');
-    await page.waitForLoadState('networkidle');
+    await setupGuestEditor(page, MOCK_CV, '');
     await page.getByRole('tab', { name: 'ATS' }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();

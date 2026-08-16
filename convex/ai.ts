@@ -48,42 +48,6 @@ export const extractCVDataFromPDF = action({
   },
 });
 
-/**
- * Auto-enrich experiences that lack companyStage / companyBusinessModel tags
- * after a tailor or optimize call. Single batched LLM round-trip on fast model.
- * Never overwrites user-set values; skips entirely if all experiences are
- * already enriched.
- */
-async function autoEnrichExperiences(experiences: any[]): Promise<any[]> {
-  if (!Array.isArray(experiences) || experiences.length === 0) return experiences;
-  const needsEnrichment = experiences.some(e => !e?.companyStage || !e?.companyBusinessModel);
-  if (!needsEnrichment) return experiences;
-  try {
-    const prompt = buildExperienceEnrichmentPrompt({
-      experiences: experiences.map(e => ({
-        company: e?.company ?? '',
-        position: e?.position ?? '',
-        intro: e?.intro,
-        description: e?.description,
-      })),
-    });
-    const data = await chatJSONSchema(prompt, ExperienceEnrichmentSchema, "fast");
-    return experiences.map((e, i) => {
-      const r = data.results[i];
-      if (!r) return e;
-      return {
-        ...e,
-        // Merge only — never overwrite existing user-set values
-        companyStage: e?.companyStage || r.stage || undefined,
-        companyBusinessModel: e?.companyBusinessModel || r.businessModel || undefined,
-      };
-    });
-  } catch (err) {
-    console.warn("[autoEnrichExperiences] LLM call failed:", err);
-    return experiences;
-  }
-}
-
 export const tailorCV = action({
   args: {
     baseData: v.any(),
@@ -104,14 +68,15 @@ export const tailorCV = action({
       detectedLanguage,
       languageOverride,
     });
+    // companyStage / companyBusinessModel come back from this same call — a
+    // separate enrichment round-trip used to cost a full extra request to
+    // deduce two tags per experience.
     const normalized = await chatJSONThen(prompt, normalizeCVData);
-    const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     // Return the language actually used by the prompt so the UI toggle and
     // section labels match the generated content (JD-first, then user override).
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
       ...normalized,
-      experience: enrichedExperience,
       ...(design && { design }),
       detectedLanguage: effectiveLanguage,
       ...(languageOverride && { languageOverride }),
@@ -258,11 +223,9 @@ export const optimizeCVForPage = action({
       languageOverride,
     });
     const normalized = await chatJSONThen(prompt, normalizeCVData);
-    const enrichedExperience = await autoEnrichExperiences(normalized.experience);
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
       ...normalized,
-      experience: enrichedExperience,
       ...(design && { design }),
       detectedLanguage: effectiveLanguage,
       ...(languageOverride && { languageOverride }),
@@ -386,7 +349,9 @@ export const translateCV = action({
       cvData: contentOnly,
       targetLanguage: args.targetLanguage,
     });
-    const normalized = await chatJSONThen(prompt, normalizeCVData);
+    // "fast" model: a 1:1 translation with an imposed structure needs fidelity,
+    // not reasoning. Sonnet was doing word-for-word work at 3x the price.
+    const normalized = await chatJSONThen(prompt, normalizeCVData, "fast");
     return {
       ...normalized,
       ...(design && { design }),
