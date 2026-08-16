@@ -13,7 +13,9 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - **IA Provider**: Gemini 2.5 Flash (primary, gratuit) → Claude (fallback fiable). Bascule immédiate sur échec du non-dernier provider ; seul le dernier retente (retry-after aware). `maxRetries: 0` sur les 2 SDKs — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif.
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
-- **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer)
+- **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
+- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), partagée avec le prompt IA `optimizeCVForPage`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu
+- **Portfolio**: `PersonalInfo.portfolio_url` / `portfolio_label` / `portfolio_anon_url` sont génériques et open source. La sélection de version selon l'offre vient de `VITE_PORTFOLIO_VARIANTS` (JSON d'env, absent du dépôt) : sans la variable, aucune UI n'apparaît
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->
@@ -32,7 +34,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - React Router DOM 7.14.0 - Client-side routing (`src/App.tsx`)
 - Convex 1.34.1 - Backend as a service (BaaS) with built-in database
 - Vitest 4.1.2 - Unit/integration test runner (`convex/_ai/__tests__/`)
-- Playwright 1.59.1 - E2E test runner (`e2e/` — smoke + ATS panel tests, mode guest)
+- Playwright 1.59.1 - E2E test runner (`e2e/` — smoke, ATS panel, lettre, tri auto + portfolio, mode guest)
 - Vite 6.2.0 - Dev server and build tool
 - @vitejs/plugin-react 5.0.4 - React fast refresh
 - @tailwindcss/vite 4.2.2 - Tailwind CSS integration (v4)
@@ -79,7 +81,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - camelCase for utility/hook files: `useAutoZoom.ts`, `useAccessCode.ts`, `linkedinParser.ts`
 - index.ts for barrel exports: `src/shared/ui/index.ts`, `src/shared/hooks/index.ts`, `src/shared/types/index.ts`
 - camelCase for all function/hook definitions: `useAutoZoom()`, `condenseOneStep()`, `formatDateShort()`, `extractKeywords()`
-- Function names are descriptive and indicate purpose: `getVisibleBullets()`, `shouldShowKPI()`, `isHidden()`, `autoAssignModes()`
+- Function names are descriptive and indicate purpose: `getVisibleBullets()`, `shouldShowKPI()`, `isHidden()`, `condenseOneStep()`
 - camelCase for all variables and constants: `zoom`, `cvData`, `designSettings`, `jobKeywords`, `expandedSection`
 - UPPERCASE for constant values that are truly immutable: `CV_WIDTH_PX`, `PADDING`, `STORAGE_KEY`, `TEMPLATE_NAMES`
 - Ref variables suffixed with `.current`: `cvRef`, `previewContainerRef`, `dataLoaded`, `hasAutoAssigned`
@@ -161,7 +163,8 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - AI integration via pluggable provider abstraction (Gemini primary, Claude/Anthropic fallback)
 - AI schemas in `convex/_ai/schemas.ts`: `ATSAnalysisSchema` includes optional `seniority_match` (UNDER|MATCH|OVER) and `compensation_estimate`; `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
 - Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
-- E2E tests: `e2e/smoke.spec.ts` (pages publiques) + `e2e/ats-panel.spec.ts` (ATS panel + edge cases, via mode guest)
+- E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel + edge cases), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio) — tous en mode guest
+- `e2e/capture-pdf.spec.ts` n'est pas une régression : il écrit le PDF réellement produit sur disque pour inspection humaine, et ne tourne que si `CAPTURE_PDF=<chemin>` est défini
 - Display mode system for content optimization (experience and skills visibility control)
 - Anonymization toggle: client-side only, masks personal info at render time without touching Convex data (`src/shared/lib/anonymize.ts`)
 ## Layers
@@ -182,7 +185,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Used by: App.tsx routing, protected features
 - Purpose: Compute visibility/rendering of CV sections based on job match and page constraints
 - Location: `src/features/editor/lib/` (scoring.ts, displayModes.ts)
-- Contains: Relevance scoring, keyword extraction, display mode assignment, date formatting
+- Contains: Relevance scoring, keyword extraction, fit-to-pages condensing, date formatting
 - Depends on: CV data types, job description
 - Used by: EditorPage, blockRenderers
 - Purpose: Render CV content in different visual layouts

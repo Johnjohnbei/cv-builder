@@ -5,7 +5,7 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
-import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets } from '../shared';
+import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, renderPortfolioEntry } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -31,6 +31,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const atsMode = designSettings.atsMode;
   const showPhoto = designSettings.showPhoto;
   const cvDataShim = { personal_info: data } as CVData;
+  const portfolio = renderPortfolioEntry(cvDataShim);
 
   return (
     <div data-cv-section="header" className="flex justify-between items-start mb-3">
@@ -46,6 +47,13 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
         {data?.phone && <p>{data.phone}</p>}
         {data?.location && <p>{data.location}</p>}
         {data?.linkedin && <p>{data.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</p>}
+        {portfolio && (
+          <p>
+            <a href={portfolio.href} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: primaryColor }}>
+              {portfolio.text}
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );

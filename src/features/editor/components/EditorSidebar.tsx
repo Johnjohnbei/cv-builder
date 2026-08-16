@@ -5,6 +5,7 @@ import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
 import type { CVData, DesignSettings, ATSScoreResult, KeywordAnalysisResult } from '@/src/shared/types';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
+import type { PortfolioVariant } from '../lib/portfolioVariants';
 import { ATSPanel } from './ATSPanel';
 import { DistributionProposalsPanel } from './DistributionProposalsPanel';
 import {
@@ -12,7 +13,7 @@ import {
   SkillsSection, EducationSection, LanguagesSection, DesignTab,
 } from './sections';
 import type {
-  useBulletOptimization, useKeywordDistribution, usePDFExport,
+  useBulletOptimization, useKeywordDistribution, useExport,
   useTemplateSelection, useCoverLetter,
 } from '../hooks';
 
@@ -26,7 +27,6 @@ interface Props {
 
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  setUserModified: (v: boolean) => void;
   designSettings: DesignSettings;
   setDesignSettings: React.Dispatch<React.SetStateAction<DesignSettings>>;
   selectedTemplate: string;
@@ -44,7 +44,12 @@ interface Props {
   optimizeSeconds: number;
   optimizeEstimate: number;
   onOptimize: () => void;
-  onAutoAssign: () => void;
+  /** Target page count the fit pass condenses towards */
+  targetPages: number;
+  onTargetPagesChange: (n: number) => void;
+  isFitting: boolean;
+  onFitToPages: () => void;
+  onApplyPortfolio: (variant: PortfolioVariant) => void;
   isEnriching: boolean;
   onEnrich: () => void;
 
@@ -56,12 +61,9 @@ interface Props {
   hasJobDescription: boolean;
   onAddSkill: (skill: string) => void;
 
-  onExportDocx: () => void;
-  isExportingDocx: boolean;
-
   bullets: ReturnType<typeof useBulletOptimization>;
   keywordDistribution: ReturnType<typeof useKeywordDistribution>;
-  pdfExport: ReturnType<typeof usePDFExport>;
+  exports: ReturnType<typeof useExport>;
   templateSelection: ReturnType<typeof useTemplateSelection>;
   coverLetter: ReturnType<typeof useCoverLetter>;
 
@@ -85,14 +87,14 @@ const TAB_CLASSES = 'flex-1 py-3 text-[11px] font-bold uppercase tracking-widest
 export function EditorSidebar(props: Props) {
   const {
     isOpen, onClose, activeTab, onTabChange,
-    cvData, setCvData, setUserModified, designSettings, setDesignSettings, selectedTemplate,
+    cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
     jobDescription, onJobDescriptionChange, actualPageCount,
+    targetPages, onTargetPagesChange, isFitting, onFitToPages, onApplyPortfolio,
     expandedSection, toggles,
-    aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize, onAutoAssign,
+    aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
     atsScore, atsKeywords, hasJobDescription, onAddSkill,
-    onExportDocx, isExportingDocx,
-    bullets, keywordDistribution, pdfExport, templateSelection, coverLetter, notify,
+    bullets, keywordDistribution, exports, templateSelection, coverLetter, notify,
   } = props;
 
   return (
@@ -162,7 +164,11 @@ export function EditorSidebar(props: Props) {
                   onJobDescriptionChange={onJobDescriptionChange}
                   actualPageCount={actualPageCount}
                   hasCvData={!!cvData}
-                  onAutoAssign={onAutoAssign}
+                  targetPages={targetPages}
+                  onTargetPagesChange={onTargetPagesChange}
+                  isFitting={isFitting}
+                  onFitToPages={onFitToPages}
+                  onApplyPortfolio={onApplyPortfolio}
                   aiBusy={aiBusy}
                   isOptimizing={isOptimizing}
                   optimizeSeconds={optimizeSeconds}
@@ -174,7 +180,6 @@ export function EditorSidebar(props: Props) {
                   setCvData={setCvData}
                   expanded={expandedSection === 'personal'}
                   onToggle={toggles.personal}
-                  setUserModified={setUserModified}
                   notify={notify}
                 />
                 <SummarySection
@@ -186,7 +191,6 @@ export function EditorSidebar(props: Props) {
                 <ExperienceSection
                   experience={cvData?.experience}
                   setCvData={setCvData}
-                  setUserModified={setUserModified}
                   hasJobDescription={Boolean(jobDescription)}
                   experienceScores={experienceScores}
                   weakBullets={weakBullets}
@@ -223,11 +227,11 @@ export function EditorSidebar(props: Props) {
                 selectedTemplate={selectedTemplate}
                 onRequestTemplateChange={templateSelection.requestTemplateChange}
                 actualPageCount={actualPageCount}
-                onPreviewPDF={pdfExport.previewPDF}
-                onDownloadPDF={pdfExport.downloadPDF}
-                isExporting={pdfExport.isExporting}
-                onExportDocx={onExportDocx}
-                isExportingDocx={isExportingDocx}
+                onPreviewPDF={exports.previewPDF}
+                onDownloadPDF={exports.downloadPDF}
+                isExporting={exports.isExporting}
+                onExportDocx={exports.downloadDocx}
+                isExportingDocx={exports.isExportingDocx}
                 onOpenCoverLetter={coverLetter.open}
               />
             ) : (
@@ -268,9 +272,9 @@ export function EditorSidebar(props: Props) {
             variant="primary"
             fullWidth
             className="py-2 text-[11px] normal-case tracking-normal font-medium"
-            icon={pdfExport.isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-            disabled={pdfExport.isExporting || !cvData}
-            onClick={pdfExport.downloadPDF}
+            icon={exports.isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+            disabled={exports.isExporting || !cvData}
+            onClick={exports.downloadPDF}
           >
             Exporter en PDF
           </Button>

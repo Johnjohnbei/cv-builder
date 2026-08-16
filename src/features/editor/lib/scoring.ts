@@ -1,4 +1,4 @@
-import type { Experience, ExperienceDisplayMode, CVData, DesignSettings, ATSScoreResult } from '@/src/shared/types';
+import type { Experience, CVData, DesignSettings, ATSScoreResult } from '@/src/shared/types';
 import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { extractNLPKeywords as _extractNLPKeywords, scoreRelevance as _scoreRelevance } from './atsHelpers';
@@ -87,46 +87,6 @@ function parseYear(d?: string): number | null {
   if (!d) return null;
   const m = d.match(/(\d{4})/);
   return m ? parseInt(m[1], 10) : null;
-}
-
-// --- Auto-Assign Display Modes ---
-
-/**
- * Auto-assign displayModes based on ATS relevance scores.
- * - No job description (no keywords): all experiences shown as 'normal'
- * - Score > 75: 'extended' (full detail with KPI)
- * - Score > 50: 'normal' (standard detail)
- * - Score <= 50: 'hidden' (filtered out)
- *
- * When respectUserModes is true (default), experiences with an existing
- * displayMode are left untouched — only unset ones get auto-assigned.
- * Pass respectUserModes=false to force full reassignment.
- * Returns a new array with displayMode set. Does NOT mutate input.
- */
-export const SCORE_THRESHOLD_EXTENDED = 75;
-export const SCORE_THRESHOLD_NORMAL = 50;
-
-export function autoAssignModes(
-  experiences: Experience[],
-  jobKeywords: string[],
-  respectUserModes = true,
-): Experience[] {
-  return experiences.map(exp => {
-    if (respectUserModes && exp.displayMode) return { ...exp };
-
-    // No job description → show everything as normal
-    if (jobKeywords.length === 0) {
-      return { ...exp, displayMode: 'normal' as ExperienceDisplayMode };
-    }
-
-    const score = scoreExperience(exp, jobKeywords);
-    let mode: ExperienceDisplayMode;
-    if (score > SCORE_THRESHOLD_EXTENDED) mode = 'extended';
-    else if (score > SCORE_THRESHOLD_NORMAL) mode = 'normal';
-    else mode = 'hidden';
-
-    return { ...exp, displayMode: mode };
-  });
 }
 
 // --- ATS Format Scoring ---

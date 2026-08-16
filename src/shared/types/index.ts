@@ -11,6 +11,15 @@ export interface PersonalInfo {
   github?: string;
   website?: string;
   photo_url?: string;
+  /** Portfolio link printed in the CV header (label + URL) */
+  portfolio_url?: string;
+  portfolio_label?: string;
+  /**
+   * Identity-free variant of the portfolio link. When the anonymize toggle is
+   * on this replaces portfolio_url, so a blind application still carries a
+   * portfolio instead of losing it — the other contact fields are blanked.
+   */
+  portfolio_anon_url?: string;
 }
 
 export type ExperienceDisplayMode = 'hidden' | 'compact' | 'normal' | 'extended';
@@ -68,7 +77,11 @@ export interface DesignSettings {
   sectionTitleWeight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'black';
   sectionTitleTransform?: 'none' | 'uppercase' | 'capitalize';
   sectionTitleSpacing?: 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
-  /** @deprecated Pages are now determined automatically by visible content. Kept for backward compat with stored CVs. */
+  /**
+   * Target page count. Pagination never truncates — this is the budget the
+   * fit-to-pages pass condenses towards, and the length the AI rewrite is
+   * asked to respect. Defaults to 2.
+   */
   pageLimit?: number;
   showPhoto?: boolean;
   paperSize?: 'a4' | 'letter' | 'legal';
@@ -146,13 +159,17 @@ export interface KeywordAnalysisResult {
 }
 
 export const DEFAULT_DESIGN: DesignSettings = {
-  template: 'TEMPLATE_A',
+  // Elegant: single column, ATS-compatible, and the layout the fit-to-pages
+  // pass is calibrated against.
+  template: 'TEMPLATE_E',
   primaryColor: '#1A73E8',
   secondaryColor: '#5F6368',
-  fontFamily: 'sans',
-  sectionTitleWeight: 'bold',
+  // Mirrors TEMPLATE_DEFAULTS.TEMPLATE_E in useTemplateSelection — a fresh CV
+  // must look exactly like one where the user picked Elegant by hand.
+  fontFamily: 'outfit',
+  sectionTitleWeight: 'medium',
   sectionTitleTransform: 'uppercase',
-  sectionTitleSpacing: 'widest',
+  sectionTitleSpacing: 'wide',
   pageLimit: 2,
   showPhoto: true,
   paperSize: 'a4',

@@ -1,25 +1,34 @@
 import { useCallback, useState, type RefObject } from 'react';
 import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { extractExpectedText } from '@/src/features/editor/lib/pdfValidation';
+import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
-export interface UsePDFExportDeps {
+export interface UseExportDeps {
   cvRef: RefObject<HTMLElement | null>;
   cvData: CVData | null;
   designSettings: DesignSettings;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
-  /** When the anonymize toggle is on, the filename must not leak the name */
+  /** When the anonymize toggle is on, neither the file nor its name may leak the identity */
   isAnonymous?: boolean;
+  /** Language the .docx section titles are written in */
+  language: 'fr' | 'en';
 }
 
-export interface UsePDFExportResult {
+export interface UseExportResult {
   isExporting: boolean;
+  isExportingDocx: boolean;
   downloadPDF: () => Promise<void>;
+  downloadDocx: () => Promise<void>;
   previewPDF: () => void;
 }
 
 /**
- * PDF export + print preview.
+ * Every way a CV leaves the app: PDF download, print preview, Word download.
+ *
+ * One owner so the filename convention and the anonymization rule cannot drift
+ * between formats — a .docx that still carried the candidate's name while the
+ * PDF hid it would defeat the whole toggle.
  *
  * `downloadPDF` uses serverlessPDF (with text-validation fallback), which
  * toggles isExporting via onLoadingChange.
@@ -28,14 +37,19 @@ export interface UsePDFExportResult {
  * state. The legacy preview-URL modal was dead code (previewUrl never set)
  * and has been removed.
  */
-export function usePDFExport(deps: UsePDFExportDeps): UsePDFExportResult {
-  const { cvRef, cvData, designSettings, notify, isAnonymous = false } = deps;
+export function useExport(deps: UseExportDeps): UseExportResult {
+  const { cvRef, cvData, designSettings, notify, isAnonymous = false, language } = deps;
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingDocx, setIsExportingDocx] = useState(false);
+
+  /** "Marie Dupont - Product Design Leader", identity stripped when anonymized */
+  const fileBaseName = isAnonymous
+    ? buildPdfFileName('CV Anonyme', cvData?.personal_info?.title)
+    : buildPdfFileName(cvData?.personal_info?.name, cvData?.personal_info?.title);
 
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;
     const expectedText = cvData ? extractExpectedText(cvData) : '';
-    const fileBaseName = isAnonymous ? 'CV_Anonyme' : buildPdfFileName(cvData?.personal_info?.name);
     await serverlessPDF(cvRef.current, designSettings, {
       expectedText,
       fileBaseName,
@@ -49,7 +63,23 @@ export function usePDFExport(deps: UsePDFExportDeps): UsePDFExportResult {
         notify({ message: reason, type: 'error' });
       },
     });
-  }, [cvRef, cvData, designSettings, notify, isExporting, isAnonymous]);
+  }, [cvRef, cvData, designSettings, notify, isExporting, fileBaseName]);
+
+  const downloadDocx = useCallback(async () => {
+    if (!cvData || isExportingDocx) return;
+    setIsExportingDocx(true);
+    try {
+      // Lazy: the docx builder is ~300 kB and most sessions never export Word.
+      const { exportToDocx } = await import('@/src/shared/lib/export-docx');
+      await exportToDocx(isAnonymous ? maskPersonalInfo(cvData) : cvData, language, fileBaseName);
+      notify({ message: 'Document Word téléchargé !', type: 'success' });
+    } catch (e) {
+      console.error('Error exporting DOCX:', e);
+      notify({ message: "Erreur lors de l'export Word.", type: 'error' });
+    } finally {
+      setIsExportingDocx(false);
+    }
+  }, [cvData, isAnonymous, language, notify, isExportingDocx, fileBaseName]);
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;
@@ -64,5 +94,5 @@ export function usePDFExport(deps: UsePDFExportDeps): UsePDFExportResult {
     });
   }, [cvRef, cvData, designSettings, notify]);
 
-  return { isExporting, downloadPDF, previewPDF };
+  return { isExporting, isExportingDocx, downloadPDF, downloadDocx, previewPDF };
 }

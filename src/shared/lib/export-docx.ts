@@ -9,6 +9,7 @@ import {
   isHidden, isSkillHidden, shouldShowKPI,
 } from '@/src/features/editor/lib/displayModes';
 import { getSectionTitle } from '@/src/features/editor/lib/atsRules';
+import { buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 
 export type ExportLanguage = 'fr' | 'en';
@@ -38,7 +39,12 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Contact line ──
-  const contactParts = [personal_info.email, personal_info.phone, personal_info.location, personal_info.linkedin].filter(Boolean);
+  // The portfolio prints as "Label : url" — a .docx opened by a recruiter is
+  // often printed, so the URL has to be readable, not hidden behind a label.
+  const portfolio = personal_info.portfolio_url?.trim()
+    ? [personal_info.portfolio_label?.trim(), personal_info.portfolio_url.trim()].filter(Boolean).join(' : ')
+    : undefined;
+  const contactParts = [personal_info.email, personal_info.phone, personal_info.location, personal_info.linkedin, portfolio].filter(Boolean);
   if (contactParts.length) {
     children.push(new Paragraph({
       children: [new TextRun({ text: contactParts.join('  •  '), size: 18, color: '888888', font: 'Calibri' })],
@@ -155,12 +161,16 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   });
 }
 
-/** Downloads the CV as a .docx file. `language` defaults to 'fr' for backward compat with existing call sites. */
-export async function exportToDocx(cvData: CVData, language: ExportLanguage = 'fr') {
+/**
+ * Downloads the CV as a .docx file.
+ * `fileBaseName` comes from useExport so PDF and Word land in the recruiter's
+ * downloads folder under the exact same name.
+ */
+export async function exportToDocx(cvData: CVData, language: ExportLanguage = 'fr', fileBaseName?: string) {
   const doc = buildCvDocument(cvData, language);
   const blob = await Packer.toBlob(doc);
-  const filename = `CV_${cvData.personal_info.name?.replace(/\s+/g, '_') || 'Export'}.docx`;
-  saveAs(blob, filename);
+  const baseName = fileBaseName || buildPdfFileName(cvData.personal_info.name, cvData.personal_info.title);
+  saveAs(blob, `${baseName}.docx`);
 }
 
 function sectionHeading(text: string): Paragraph {

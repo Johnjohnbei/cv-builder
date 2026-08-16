@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
-import { maskPersonalInfo } from '../shared/lib/anonymize';
+import { maskPersonalInfo, maskHeaderBlocks } from '../shared/lib/anonymize';
 import { getUserErrorMessage } from '../shared/lib/convexError';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { autoAssignModes, extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, usePDFExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
+import { extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
+import { useFitToPages } from '../features/editor/hooks/useFitToPages';
+import { useJobKeywordsAI } from '../features/editor/hooks/useJobKeywordsAI';
+import { applyVariantToPersonalInfo, type PortfolioVariant } from '../features/editor/lib/portfolioVariants';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
@@ -16,7 +19,6 @@ import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
 import { detectCVLanguage } from '../lib/languageDetection';
 import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
-import { readCachedKeywords, writeCachedKeywords } from '../features/editor/lib/aiKeywordCache';
 
 export default function EditorPage() {
   useDocumentTitle('Éditeur');
@@ -27,16 +29,13 @@ export default function EditorPage() {
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
-  const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
-  const [aiKeywords, setAiKeywords] = useState<string[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [isExportingDocx, setIsExportingDocx] = useState(false);
 
   // ─── Refs ───
   const cvRef = useRef<HTMLDivElement>(null);
@@ -49,10 +48,9 @@ export default function EditorPage() {
     cvData, setCvData,
     designSettings, setDesignSettings,
     selectedTemplate, setSelectedTemplate,
-    isLoading, userModified, setUserModified,
-    resetAutoAssign,
+    isLoading,
     loadedJobDescription,
-  } = useCVLoader(user, userData, isGuest, jobDescription);
+  } = useCVLoader(user, userData, isGuest);
 
   const isTailored = Boolean(
     userData?.lastJobDescription &&
@@ -71,27 +69,19 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const { pageAssignments: rawPageAssignments, actualPageCount } = usePaginationFit(
+  const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount } = usePaginationFit(
     cvData, designSettings, selectedTemplate,
   );
-  const pageAssignments = useMemo(() => {
-    if (!isAnonymous || !cvData) return rawPageAssignments;
-    const maskedInfo = maskPersonalInfo(cvData).personal_info;
-    return rawPageAssignments.map(page => ({
-      ...page,
-      blocks: page.blocks.map(pb =>
-        pb.block.type === 'header' ? { ...pb, block: { ...pb.block, data: maskedInfo } } : pb
-      ),
-      sidebarBlocks: page.sidebarBlocks?.map(pb =>
-        pb.block.type === 'header' ? { ...pb, block: { ...pb.block, data: maskedInfo } } : pb
-      ),
-    }));
-  }, [rawPageAssignments, isAnonymous, cvData]);
+  const pageAssignments = useMemo(
+    () => (isAnonymous && cvData ? maskHeaderBlocks(rawPageAssignments, cvData) : rawPageAssignments),
+    [rawPageAssignments, isAnonymous, cvData],
+  );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
+  const aiKeywords = useJobKeywordsAI(jobDescription, getCode());
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
@@ -129,13 +119,6 @@ export default function EditorPage() {
     isGuest,
     notify,
   });
-  const pdfExport = usePDFExport({
-    cvRef,
-    cvData,
-    designSettings,
-    notify,
-    isAnonymous,
-  });
   const templateSelection = useTemplateSelection({
     selectedTemplate,
     setSelectedTemplate,
@@ -155,7 +138,6 @@ export default function EditorPage() {
   const language = useLanguageSwitch({
     cvData,
     setCvData,
-    setUserModified,
     user,
     isGuest,
     jobDescription,
@@ -164,13 +146,23 @@ export default function EditorPage() {
     accessCode: getCode(),
   });
   const currentLanguage = language.currentLanguage;
+  // Declared after useLanguageSwitch: the .docx section titles follow whatever
+  // language the CV is currently showing.
+  const exports = useExport({
+    cvRef,
+    cvData,
+    designSettings,
+    notify,
+    isAnonymous,
+    language: currentLanguage,
+  });
   const ai = useEditorAI({
-    cvData, setCvData, setUserModified, designSettings,
+    cvData, setCvData, designSettings,
     jobDescription, user, isGuest, notify, accessCode: getCode(),
   });
   const { isAutoSaving, lastAutoSaveAt } = useAutoSaveDraft({
     cvData, designSettings, selectedTemplate, jobDescription,
-    user, isGuest, userModified, updateLastCV,
+    user, isGuest, updateLastCV,
   });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
@@ -178,37 +170,12 @@ export default function EditorPage() {
     || bullets.isOptimizing || keywordDistribution.isDistributing || coverLetter.isGenerating;
   const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
 
-  // Auto-open ATS tab + extract AI keywords when JD transitions from empty to non-empty
-  const prevJDRef = useRef(jobDescription);
+  // Switch to the ATS tab the first time an offer arrives — that is where the
+  // score the user just made available lives.
+  const jdWasEmpty = useRef(!jobDescription.trim());
   useEffect(() => {
-    const wasEmpty = !prevJDRef.current.trim();
-    const isNowFilled = jobDescription.trim().length > 0;
-    if (wasEmpty && isNowFilled) {
-      setActiveTab('ats');
-      prevJDRef.current = jobDescription;
-
-      // Same job description as last time: reuse the cached keywords instead
-      // of spending another LLM call on an input that has not changed.
-      const cached = readCachedKeywords(jobDescription);
-      if (cached) {
-        setAiKeywords(cached);
-        return;
-      }
-
-      // Cancelled if the JD changes again or the page unmounts, so a stale
-      // response can't overwrite a fresher one.
-      let cancelled = false;
-      extractKeywordsAction({ jobDescription, accessCode: getCode() })
-        .then(data => {
-          if (!cancelled && data.keywords && Array.isArray(data.keywords)) {
-            setAiKeywords(data.keywords);
-            writeCachedKeywords(jobDescription, data.keywords);
-          }
-        })
-        .catch(() => {}); // Fallback to NLP extraction silently
-      return () => { cancelled = true; };
-    }
-    prevJDRef.current = jobDescription;
+    if (jdWasEmpty.current && jobDescription.trim()) setActiveTab('ats');
+    jdWasEmpty.current = !jobDescription.trim();
   }, [jobDescription]);
 
   // Recompute zoom when the available width changes (sidebar toggle, tab).
@@ -219,6 +186,13 @@ export default function EditorPage() {
 
   // ─── Memoized computations ───
   const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
+
+  // ─── Fit to the target page count ───
+  const targetPages = designSettings.pageLimit ?? 2;
+  const fit = useFitToPages({
+    cvData, setCvData, jobKeywords, stablePageCount, targetPages,
+    loadedJobDescription, jobDescription, notify,
+  });
 
   // One score per experience, recomputed only when experiences or keywords
   // change: inline calls in the JSX ran keywords.length regexes per experience
@@ -248,31 +222,10 @@ export default function EditorPage() {
 
   // renderCV replaced by PaginatedCV — block-based pagination engine
 
-  const handleAutoAssign = useCallback(() => {
-    if (!cvData) return;
-    const keywords = jobKeywords;
-    const autoExperiences = autoAssignModes(cvData.experience, keywords, false);
-    setCvData(prev => prev ? { ...prev, experience: autoExperiences } : null);
-    setUserModified(false);
-    // pagination fit auto-resets on cvData change
-  }, [cvData, jobKeywords, setCvData, setUserModified]);
-
-  const handleExportDocx = useCallback(async () => {
-    if (!cvData || isExportingDocx) return;
-    setIsExportingDocx(true);
-    try {
-      const { exportToDocx } = await import('../shared/lib/export-docx');
-      // Same language and same anonymization state as the preview
-      const docxData = isAnonymous ? { ...cvData, personal_info: maskPersonalInfo(cvData).personal_info } : cvData;
-      await exportToDocx(docxData, currentLanguage);
-      notify({ message: 'Document Word téléchargé !', type: 'success' });
-    } catch (e) {
-      console.error('Error exporting DOCX:', e);
-      notify({ message: 'Erreur lors de l\'export Word.', type: 'error' });
-    } finally {
-      setIsExportingDocx(false);
-    }
-  }, [cvData, isAnonymous, currentLanguage, notify, isExportingDocx]);
+  const handleApplyPortfolio = useCallback((variant: PortfolioVariant) => {
+    setCvData(prev => prev ? { ...prev, personal_info: applyVariantToPersonalInfo(prev.personal_info, variant) } : null);
+    notify({ message: `Lien « ${variant.label} » ajouté au CV`, type: 'success' });
+  }, [setCvData, notify]);
 
   if (isLoading) {
     return (
@@ -335,13 +288,17 @@ export default function EditorPage() {
         onTabChange={setActiveTab}
         cvData={cvData}
         setCvData={setCvData}
-        setUserModified={setUserModified}
         designSettings={designSettings}
         setDesignSettings={setDesignSettings}
         selectedTemplate={selectedTemplate}
         jobDescription={jobDescription}
         onJobDescriptionChange={setJobDescription}
         actualPageCount={actualPageCount}
+        targetPages={targetPages}
+        onTargetPagesChange={(n) => setDesignSettings(prev => ({ ...prev, pageLimit: n }))}
+        isFitting={fit.isFitting}
+        onFitToPages={fit.runFit}
+        onApplyPortfolio={handleApplyPortfolio}
         expandedSection={expandedSection}
         toggles={toggles}
         aiBusy={aiBusy}
@@ -349,7 +306,6 @@ export default function EditorPage() {
         optimizeSeconds={optimizeSeconds}
         optimizeEstimate={ai.optimizeEstimate}
         onOptimize={ai.optimize}
-        onAutoAssign={handleAutoAssign}
         isEnriching={ai.isEnriching}
         onEnrich={ai.enrichExperiences}
         experienceScores={experienceScores}
@@ -358,11 +314,9 @@ export default function EditorPage() {
         atsKeywords={atsKeywords}
         hasJobDescription={hasJobDescription}
         onAddSkill={handleAddSkill}
-        onExportDocx={handleExportDocx}
-        isExportingDocx={isExportingDocx}
         bullets={bullets}
         keywordDistribution={keywordDistribution}
-        pdfExport={pdfExport}
+        exports={exports}
         templateSelection={templateSelection}
         coverLetter={coverLetter}
         notify={notify}
@@ -379,11 +333,11 @@ export default function EditorPage() {
           onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
           onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
           onSave={persistence.saveDraft}
-          onExport={pdfExport.downloadPDF}
+          onExport={exports.downloadPDF}
           isAutoSaving={isAutoSaving}
           lastAutoSaveAt={lastAutoSaveAt}
           isSaving={persistence.isSaving}
-          isExporting={pdfExport.isExporting}
+          isExporting={exports.isExporting}
           hasCvData={!!cvData}
           atsMode={designSettings.atsMode ?? false}
           onAtsModeChange={templateSelection.setAtsMode}
@@ -409,7 +363,7 @@ export default function EditorPage() {
       </main>
 
       {/* PDF generation overlay */}
-      {pdfExport.isExporting && (
+      {exports.isExporting && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[300]">
           <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />

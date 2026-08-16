@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin, Globe } from 'lucide-react';
 import type { CVData } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
@@ -140,9 +140,11 @@ export function renderContactInfo(
   atsMode?: boolean,
   className?: string,
 ) {
-  const labels = { email: 'Email:', phone: 'Tel:', location: 'Location:', linkedin: 'LinkedIn:' };
+  const labels = { email: 'Email:', phone: 'Tel:', location: 'Location:', linkedin: 'LinkedIn:', portfolio: 'Portfolio:' };
 
-  const items: { label: string; icon: React.ReactNode; value: string }[] = [];
+  // `href` turns the entry into a real hyperlink — clickable in the preview and
+  // preserved by the PDF renderer, which is the whole point of a portfolio link.
+  const items: { label: string; icon: React.ReactNode; value: string; href?: string }[] = [];
   if (cvData.personal_info?.email) {
     items.push({ label: labels.email, icon: <Mail className="w-3 h-3" />, value: cvData.personal_info.email });
   }
@@ -156,15 +158,41 @@ export function renderContactInfo(
     items.push({ label: labels.linkedin, icon: <LinkedinIcon className="w-3 h-3" />, value: cvData.personal_info.linkedin.replace(/^https?:\/\/(www\.)?/, '') });
   }
 
+  const portfolio = renderPortfolioEntry(cvData);
+  if (portfolio) {
+    items.push({
+      label: labels.portfolio,
+      icon: <Globe className="w-3 h-3" />,
+      value: portfolio.text,
+      href: portfolio.href,
+    });
+  }
+
   return (
     <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-sm", className)}>
       {items.map((item, i) => (
         <span key={i} className="flex items-center gap-1">
           {atsMode ? <span className="font-semibold">{item.label}</span> : item.icon}
-          {' '}{item.value}
+          {' '}
+          {item.href
+            ? <a href={item.href} target="_blank" rel="noreferrer" className="underline underline-offset-2">{item.value}</a>
+            : item.value}
         </span>
       ))}
     </div>
   );
+}
+
+/**
+ * The portfolio line as it should appear in a CV header, or null when none is
+ * set. Shared by every template so the label fallback and the URL cleanup live
+ * in one place.
+ */
+export function renderPortfolioEntry(cvData: CVData): { text: string; href: string } | null {
+  const url = cvData.personal_info?.portfolio_url?.trim();
+  if (!url) return null;
+  const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
+  const label = cvData.personal_info?.portfolio_label?.trim();
+  return { text: label || url.replace(/^https?:\/\/(www\.)?/, ''), href };
 }
 

@@ -14,6 +14,9 @@ const personalInfoValidator = v.object({
   github: v.optional(v.string()),
   website: v.optional(v.string()),
   photo_url: v.optional(v.string()),
+  portfolio_url: v.optional(v.string()),
+  portfolio_label: v.optional(v.string()),
+  portfolio_anon_url: v.optional(v.string()),
 });
 
 const educationValidator = v.object({

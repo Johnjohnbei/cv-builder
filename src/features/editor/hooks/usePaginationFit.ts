@@ -194,6 +194,16 @@ export function usePaginationFit(
 ): {
   pageAssignments: PageAssignment[];
   actualPageCount: number;
+  /**
+   * Page count once measured heights have converged for the CURRENT content,
+   * null while a measurement pass is still running.
+   *
+   * actualPageCount is fine to display, but anything that FEEDS BACK into the
+   * content (the fit-to-pages loop) must read this instead: mid-reconcile the
+   * count comes from heuristic heights and can be off by a page, which would
+   * make the loop condense several notches too far.
+   */
+  stablePageCount: number | null;
 } {
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
   const singleColumn = layout.type === 'single-column';
@@ -221,6 +231,8 @@ export function usePaginationFit(
   const [sectionTitles, setSectionTitles] = useState<{ experience?: number; skills?: number }>({});
   /** Iteration counter (bounded, reset per content change) */
   const iterCountRef = useRef(0);
+  /** Measured heights have converged — the page count can be trusted */
+  const [isStable, setIsStable] = useState(false);
   /** Last content key we processed — used to detect content changes */
   const lastContentKeyRef = useRef('');
 
@@ -231,6 +243,7 @@ export function usePaginationFit(
     iterCountRef.current = 0;
     setReconciledBlocks(null);
     setSectionTitles({});
+    setIsStable(false);
   }, [contentKey]);
 
   // When cvData changes without altering estimated heights (same line count),
@@ -267,7 +280,10 @@ export function usePaginationFit(
   // race that happens when multiple effects fire in rapid succession.
   useLayoutEffect(() => {
     if (pageAssignments.length === 0) return;
-    if (iterCountRef.current >= MAX_RECONCILE_ITERS) return;
+    if (iterCountRef.current >= MAX_RECONCILE_ITERS) {
+      setIsStable(true);
+      return;
+    }
 
     const live = readLiveDOM();
     if (!live || live.blockHeights.size === 0) return;
@@ -282,6 +298,7 @@ export function usePaginationFit(
     if (heightsStable && titlesStable) {
       // Converged — stop iterating for this content version
       iterCountRef.current = MAX_RECONCILE_ITERS;
+      setIsStable(true);
       return;
     }
 
@@ -290,5 +307,12 @@ export function usePaginationFit(
     if (!titlesStable) setSectionTitles(live.sectionTitles);
   }, [pageAssignments, activeBlocks, sectionTitles, singleColumn]);
 
-  return { pageAssignments, actualPageCount: pageAssignments.length };
+  // Computed during render, not in an effect: right after a content change the
+  // `isStable` state still holds the PREVIOUS content's verdict, and an effect
+  // clearing it runs too late for a consumer that reacts in the same commit.
+  // Comparing the ref to the current key closes that window deterministically.
+  const measuringCurrentContent = lastContentKeyRef.current !== contentKey;
+  const stablePageCount = isStable && !measuringCurrentContent ? pageAssignments.length : null;
+
+  return { pageAssignments, actualPageCount: pageAssignments.length, stablePageCount };
 }

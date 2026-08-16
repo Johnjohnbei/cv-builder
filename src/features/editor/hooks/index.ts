@@ -7,7 +7,7 @@ export type { DistributionProposal } from './useKeywordDistribution';
 export { useBulletOptimization } from './useBulletOptimization';
 export type { RewriteKey, BulletRewriteEntry, BulletSuggestionState } from './useBulletOptimization';
 export { useCVPersistence } from './useCVPersistence';
-export { usePDFExport } from './usePDFExport';
+export { useExport } from './useExport';
 export { useTemplateSelection } from './useTemplateSelection';
 export { useCoverLetter } from './useCoverLetter';
 export type { CoverLetterData } from './useCoverLetter';

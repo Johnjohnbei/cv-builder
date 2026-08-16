@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, autoAssignModes, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore, extractNLPKeywords, scoreRelevance } from './scoring';
+import { scoreExperience, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore, extractNLPKeywords, scoreRelevance } from './scoring';
 import type { Experience, CVData, DesignSettings } from '@/src/shared/types';
 import { EMPTY_CV, DEFAULT_DESIGN } from '@/src/shared/types';
 
@@ -132,68 +132,6 @@ describe('scoreExperience', () => {
     const recent = makeExp({ end_date: '2024' });
     const ancient = makeExp({ end_date: '2005' });
     expect(scoreExperience(recent, [])).toBeGreaterThan(scoreExperience(ancient, []));
-  });
-});
-
-// ─── autoAssignModes ───
-
-describe('autoAssignModes', () => {
-  it('does not mutate input array', () => {
-    const exps = [makeExp({ current: true }), makeExp()];
-    const original = JSON.stringify(exps);
-    autoAssignModes(exps, []);
-    expect(JSON.stringify(exps)).toBe(original);
-  });
-
-  it('shows all as normal when no keywords', () => {
-    const exps = [
-      makeExp({ current: true, position: 'CTO' }),
-      makeExp({ end_date: '2020', position: 'Intern' }),
-    ];
-    const result = autoAssignModes(exps, []);
-    expect(result.every(e => e.displayMode === 'normal')).toBe(true);
-  });
-
-  it('hides low-score experiences when keywords provided', () => {
-    const exps = [
-      makeExp({ position: 'React Developer', description: ['Built React apps with TypeScript'] }),
-      makeExp({ position: 'Waiter', description: ['Served food at restaurant'] }),
-    ];
-    const result = autoAssignModes(exps, ['react', 'typescript', 'developer']);
-    // React developer should be visible, waiter should be hidden
-    expect(result[0].displayMode).not.toBe('hidden');
-    expect(result[1].displayMode).toBe('hidden');
-  });
-
-  it('preserves user-set modes when respectUserModes is true', () => {
-    const exps = [
-      makeExp({ position: 'A', displayMode: 'compact' }),
-      makeExp({ position: 'B' }),
-    ];
-    const result = autoAssignModes(exps, []);
-    expect(result[0].displayMode).toBe('compact');
-    expect(result[1].displayMode).toBe('normal');
-  });
-
-  it('overrides all modes when respectUserModes is false', () => {
-    const exps = [
-      makeExp({ position: 'A', displayMode: 'hidden' }),
-      makeExp({ position: 'B', displayMode: 'extended' }),
-    ];
-    const result = autoAssignModes(exps, [], false);
-    // Without keywords, all should be normal regardless of previous mode
-    expect(result[0].displayMode).toBe('normal');
-    expect(result[1].displayMode).toBe('normal');
-  });
-
-  it('preserves original order', () => {
-    const exps = [
-      makeExp({ position: 'A', end_date: '2020' }),
-      makeExp({ position: 'B', current: true }),
-    ];
-    const result = autoAssignModes(exps, []);
-    expect(result[0].position).toBe('A');
-    expect(result[1].position).toBe('B');
   });
 });
 
