@@ -3,7 +3,7 @@
 
 **Calibre — CV Builder avec IA**
 
-Application web de création et d'optimisation de CV propulsée par l'IA (Gemini primary / Claude fallback). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 6 templates professionnels, et de l'optimiser pour des offres d'emploi spécifiques. Le projet entre dans une phase de conformité ATS complète pour maximiser les chances des candidats face aux systèmes de tri automatisés.
+Application web de création et d'optimisation de CV propulsée par l'IA (Claude, unique provider depuis le 2026-08-16). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 6 templates professionnels, et de l'optimiser pour des offres d'emploi spécifiques. Le projet entre dans une phase de conformité ATS complète pour maximiser les chances des candidats face aux systèmes de tri automatisés.
 
 **Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels — un CV non lu par un ATS est un CV perdu.
 
@@ -158,7 +158,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Feature-based organization with co-located components, hooks, and utilities
 - Template-based CV rendering with memoization optimization
 - Backend authentication via Clerk + Convex identity validation
-- AI integration via pluggable provider abstraction (Gemini primary, Claude/Anthropic fallback)
+- AI integration derrière une abstraction provider () — un seul vendeur aujourd hui, Claude
 - AI schemas in `convex/_ai/schemas.ts`: `ATSAnalysisSchema` includes optional `seniority_match` (UNDER|MATCH|OVER) and `compensation_estimate`; `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
 - Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
 - E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel + edge cases), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio) — tous en mode guest
