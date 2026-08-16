@@ -1,6 +1,5 @@
 "use node";
 
-import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { ConvexError } from "convex/values";
 import type { ZodType } from "zod";
@@ -31,18 +30,18 @@ function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: AIEr
 }
 
 // ─── Reliability policy ─────────────────────────────────────────────
-// The chain is Gemini (free, flaky — 429/503 are routine, see K004) then
-// Claude (paid, reliable). Policy: NEVER wait on a non-last provider — any
-// failure falls through to the next provider immediately. Only the LAST
-// provider gets one retry (with retry-after-aware backoff), because there is
-// nothing left to fall back to.
+// Claude is the only provider since 2026-08-16 (see providers.ts for the
+// measurements that removed Gemini). The loop is kept, and still matters:
+// NEVER wait on a non-last provider, and give the LAST one exactly one retry
+// with retry-after-aware backoff, because there is nothing left to fall back
+// to. With a single provider that means Claude gets its retry — which is why
+// a second provider, if ever added, must go AFTER it and not before.
 //
-// Both SDKs default to 2 internal retries with exponential backoff, which is
-// why "fail fast" was slow in practice: a Gemini 429 burned ~30s inside the
-// SDK before our own retry loop even saw it. maxRetries: 0 gives the loop
-// full control.
+// The SDK defaults to 2 internal retries with exponential backoff, which is
+// why "fail fast" used to be slow in practice: a 429 burned ~30s inside the
+// SDK before our own loop even saw it. maxRetries: 0 gives the loop full
+// control.
 
-const OPENAI_TIMEOUT_MS = 90_000; // Gemini: a call past 90s is hung, not slow
 const ANTHROPIC_TIMEOUT_MS = 300_000; // Claude streaming on a >15k-char CV can take ~4 min (K004)
 const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
@@ -50,8 +49,8 @@ const MAX_RETRY_AFTER_MS = 20_000;
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
 
-function providerName(p: AIProvider): string {
-  return p.protocol === "anthropic" ? "claude" : "gemini";
+function providerName(_p: AIProvider): string {
+  return "claude";
 }
 
 /** Extract an HTTP status from SDK errors (both SDKs expose `status`). */
@@ -150,77 +149,24 @@ function extractAnthropicText(response: Anthropic.Message): string {
 // ─── Per-provider raw calls ─────────────────────────────────────────
 
 async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<string> {
-  const m = getModel(speed, provider);
-
-  if (provider.protocol === "anthropic") {
-    // max_tokens 30000 requires streaming — client.messages.create() throws
-    // "Streaming is required..." (K004). stream().finalMessage() is mandatory.
-    const client = new Anthropic({
-      apiKey: provider.apiKey,
-      timeout: ANTHROPIC_TIMEOUT_MS,
-      maxRetries: 0,
-    });
-    const stream = client.messages.stream({
-      model: m,
-      max_tokens: 30000,
-      temperature: 0.3,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const response = await stream.finalMessage();
-    return extractAnthropicText(response);
-  }
-
-  const client = new OpenAI({
-    baseURL: provider.baseURL,
+  // max_tokens 30000 requires streaming — client.messages.create() throws
+  // "Streaming is required..." (K004). stream().finalMessage() is mandatory.
+  const client = new Anthropic({
     apiKey: provider.apiKey,
-    timeout: OPENAI_TIMEOUT_MS,
+    timeout: ANTHROPIC_TIMEOUT_MS,
     maxRetries: 0,
   });
-  const response = await client.chat.completions.create({
-    model: m,
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.3,
+  const stream = client.messages.stream({
+    model: getModel(speed, provider),
     max_tokens: 30000,
+    temperature: 0.3,
+    messages: [{ role: "user", content: prompt }],
   });
-  return response.choices[0]?.message?.content || "";
+  return extractAnthropicText(await stream.finalMessage());
 }
 
 async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<any> {
-  const m = getModel(speed, provider);
-
-  if (provider.protocol === "anthropic") {
-    return safeParseJSON(await rawChatText(provider, prompt, speed));
-  }
-
-  // OpenAI-compatible path (Gemini): try response_format first, fall back on
-  // 400 (some Gemini models reject json_object format).
-  const client = new OpenAI({
-    baseURL: provider.baseURL,
-    apiKey: provider.apiKey,
-    timeout: OPENAI_TIMEOUT_MS,
-    maxRetries: 0,
-  });
-  try {
-    const response = await client.chat.completions.create({
-      model: m,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 30000,
-      response_format: { type: "json_object" },
-    });
-    return safeParseJSON(response.choices[0]?.message?.content);
-  } catch (e: any) {
-    if (e?.status === 400 || e?.message?.includes("400")) {
-      const response = await client.chat.completions.create({
-        model: m,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 30000,
-      });
-      return safeParseJSON(response.choices[0]?.message?.content);
-    }
-    throw e;
-  }
+  return safeParseJSON(await rawChatText(provider, prompt, speed));
 }
 
 // ─── Public API ─────────────────────────────────────────────────────

@@ -5,12 +5,11 @@ import { withRetry, isRetryable, retryDelayMs, safeParseJSON, userError } from "
 /** Read the user-facing payload off a thrown error (ConvexError.data). */
 const dataOf = (e: unknown) => (e instanceof ConvexError ? (e.data as { userMessage?: string; code?: string }) : {});
 
-const ENV_KEYS = ["GEMINI_API_KEY", "ANTHROPIC_API_KEY"] as const;
+const ENV_KEYS = ["ANTHROPIC_API_KEY"] as const;
 const savedEnv: Record<string, string | undefined> = {};
 
 beforeEach(() => {
   for (const k of ENV_KEYS) savedEnv[k] = process.env[k];
-  process.env.GEMINI_API_KEY = "test-gemini";
   process.env.ANTHROPIC_API_KEY = "test-anthropic";
 });
 
@@ -65,37 +64,18 @@ describe("retryDelayMs", () => {
 });
 
 describe("withRetry", () => {
-  it("returns on first provider success without touching the second", async () => {
+  // Claude is the only provider since 2026-08-16, so it is also the LAST one —
+  // which is what earns it the retry. The fall-through tests that used to live
+  // here exercised a second provider that no longer exists; the policy they
+  // encoded ("never wait on a non-last provider") is documented in chat.ts and
+  // becomes testable again the day a provider is added AFTER Claude.
+  it("returns on success without a second call", async () => {
     const fn = vi.fn().mockResolvedValue("ok");
     await expect(withRetry(fn)).resolves.toBe("ok");
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(fn.mock.calls[0][0].protocol).toBe("openai"); // gemini first
   });
 
-  it("falls through to the next provider IMMEDIATELY on failure (no in-provider retry)", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(Object.assign(new Error("rate limited"), { status: 429 }))
-      .mockResolvedValueOnce("fallback-ok");
-    const start = Date.now();
-    await expect(withRetry(fn)).resolves.toBe("fallback-ok");
-    expect(Date.now() - start).toBeLessThan(1000); // no backoff wait on non-last provider
-    expect(fn).toHaveBeenCalledTimes(2);
-    expect(fn.mock.calls[0][0].protocol).toBe("openai");
-    expect(fn.mock.calls[1][0].protocol).toBe("anthropic");
-  });
-
-  it("falls through on schema/parse errors too (no status)", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT"))
-      .mockResolvedValueOnce("fallback-ok");
-    await expect(withRetry(fn)).resolves.toBe("fallback-ok");
-    expect(fn).toHaveBeenCalledTimes(2);
-  });
-
-  it("retries the LAST provider once on retryable errors", async () => {
-    delete process.env.ANTHROPIC_API_KEY; // single-provider chain
+  it("retries the last provider once on retryable errors", async () => {
     vi.useFakeTimers();
     const fn = vi
       .fn()
@@ -107,8 +87,21 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("does NOT retry the last provider on non-retryable errors", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  // A response that parses as JSON but fails the schema throws without a status,
+  // which isRetryable treats as transient — so it gets the same second chance.
+  it("retries once on schema/parse errors too (no status)", async () => {
+    vi.useFakeTimers();
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT"))
+      .mockResolvedValueOnce("retried-ok");
+    const promise = withRetry(fn);
+    await vi.advanceTimersByTimeAsync(6000);
+    await expect(promise).resolves.toBe("retried-ok");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry on non-retryable errors", async () => {
     const fn = vi.fn().mockRejectedValue(Object.assign(new Error("bad request"), { status: 400 }));
     await expect(withRetry(fn)).rejects.toThrow();
     expect(fn).toHaveBeenCalledTimes(1);

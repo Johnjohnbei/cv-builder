@@ -10,7 +10,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 ### Constraints
 
 - **Tech stack**: React 18 + Vite + Convex + Clerk — stack existante, pas de migration
-- **IA Provider**: Gemini 2.5 Flash (primary, gratuit) → Claude (fallback fiable). Bascule immédiate sur échec du non-dernier provider ; seul le dernier retente (retry-after aware). `maxRetries: 0` sur les 2 SDKs — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif.
+- **IA Provider**: Claude, seul provider depuis le 2026-08-16 (`claude-sonnet-4-5` en `default`, `claude-haiku-4-5` en `fast`). Gemini a été retiré sur mesure : quota gratuit journalier épuisé après quelques dizaines d'appels, puis 60 à 840 ms d'aller-retour perdu avant chaque bascule, et 4,4× plus lent que Claude quand il répondait (médiane 8 167 ms contre 1 847 ms sur 128 mesures). `maxRetries: 0` sur le SDK — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif. **Un second provider, s'il revient un jour, se place APRÈS Claude** : `withRetry` ne réessaie que le dernier de la liste, donc le mettre devant retirerait son retry à Claude.
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
 - **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
@@ -44,9 +44,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - `@clerk/clerk-react` 5.61.4 - Authentication provider
 - `convex/react` 1.34.1 - Convex client SDK (auto-subscriptions)
 - `convex/react-clerk` 1.34.1 - Convex + Clerk integration layer
-- `openai` 6.33.0 - OpenAI SDK for API calls (used server-side via actions)
-- `@google/genai` 1.48.0 - Google Generative AI (Gemini) client
-- Multi-provider support: Gemini (primary), Claude/Anthropic (fallback)
+- `@anthropic-ai/sdk` - Claude, unique provider IA (Messages API, streaming)
 - `pdfjs-dist` 5.6.205 - Client-side PDF text extraction
 - `docx` 9.6.1 - Word document (.docx) generation for exports
 - `file-saver` 2.0.5 - Browser file download API wrapper
@@ -217,9 +215,9 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Gemini
 - Purpose: Registry pattern for dynamic template selection
 - Examples: `getBlockRenderers()` in `src/features/editor/templates/blockRenderers/index.ts`, `TEMPLATE_LAYOUTS` in `src/features/editor/lib/pagination/templateLayouts.ts`
 - Pattern: templateId resolves to a BlockRendererMap (per-block renderers) + a TemplateLayout (dimensions), consumed by PaginatedCV/allocatePages
-- Purpose: Support multiple AI providers without client code changes
-- Examples: `getProvider()` in `convex/ai.ts` returns AIProvider interface
-- Pattern: OpenAI-compatible API used by all providers, single getClient() function
+- Purpose: Isoler le choix du modèle du code appelant
+- Examples: `getProviders()` in `convex/_ai/providers.ts` returns the provider list (un seul depuis 2026-08-16)
+- Pattern: un seul vendeur, SDK Anthropic natif ; chat.ts ne branche plus sur un protocole
 ## Entry Points
 - Location: `src/main.tsx`
 - Triggers: User visits app URL
