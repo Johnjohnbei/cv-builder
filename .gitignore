@@ -43,3 +43,6 @@ npm-debug.log*
 # Playwright
 test-results/
 playwright-report/
+
+# Graphify code index (generated, personal tooling)
+graphify-out/
