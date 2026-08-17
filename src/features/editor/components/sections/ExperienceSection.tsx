@@ -5,6 +5,7 @@ import { Input } from '../../../../shared/ui/Input';
 import { Textarea } from '../../../../shared/ui/Textarea';
 import { Button } from '../../../../shared/ui/Button';
 import { DISPLAY_MODES } from '../../lib/displayModes';
+import { relevanceBand } from '../../lib/scoring';
 import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../../../../shared/constants/companyMeta';
 import { BulletDiffView } from '../BulletDiffView';
 import type { RewriteKey, UseBulletOptimizationResult } from '../../hooks/useBulletOptimization';
@@ -94,11 +95,18 @@ export const ExperienceSection = memo(function ExperienceSection({
                   <span className="text-[11px] stitch-mono text-gray-600 uppercase ml-1">#{idx + 1}</span>
                   {hasJobDescription && (() => {
                     const s = experienceScores[idx] ?? 0;
+                    const band = relevanceBand(s);
+                    const palette = {
+                      high: { backgroundColor: '#dcfce7', color: '#166534' },
+                      medium: { backgroundColor: '#fef9c3', color: '#854d0e' },
+                      low: { backgroundColor: '#fee2e2', color: '#991b1b' },
+                    }[band];
                     return (
-                      <span className="text-[10px] stitch-mono ml-1 px-1 py-0.5 rounded" style={{
-                        backgroundColor: s >= 70 ? '#dcfce7' : s >= 40 ? '#fef9c3' : '#fee2e2',
-                        color: s >= 70 ? '#166534' : s >= 40 ? '#854d0e' : '#991b1b',
-                      }}>
+                      <span
+                        className="text-[10px] stitch-mono ml-1 px-1 py-0.5 rounded"
+                        style={palette}
+                        title={`Cette expérience couvre ${s} % de ce que l'offre demande. C'est ce chiffre qui décide de l'ordre du tri automatique : les plus bas perdent leur détail en premier.`}
+                      >
                         {s}%
                       </span>
                     );

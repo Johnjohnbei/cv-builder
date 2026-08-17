@@ -185,7 +185,16 @@ export default function EditorPage() {
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [isSidebarOpen, activeTab]);
 
   // ─── Memoized computations ───
-  const jobKeywords = useMemo(() => extractKeywords(jobDescription), [jobDescription]);
+  // Le badge de pertinence et le tri auto doivent lire la MÊME liste
+  // d'exigences, sinon le pourcentage affiché ne décrit pas ce que le tri fait.
+  // La liste curée (mots-clés extraits par l'IA + acronymes) est déjà calculée
+  // pour le panneau ATS ; `extractKeywords` produisait à côté un sac de 36 à 60
+  // termes bruts où le bruit noyait les vraies exigences. Repli sur elle
+  // uniquement quand la liste curée n'est pas encore disponible.
+  const jobKeywords = useMemo(() => {
+    const curated = atsKeywords.keywords.map(k => k.keyword);
+    return curated.length > 0 ? curated : extractKeywords(jobDescription);
+  }, [atsKeywords, jobDescription]);
 
   // ─── Fit to the target page count ───
   const targetPages = designSettings.pageLimit ?? 2;

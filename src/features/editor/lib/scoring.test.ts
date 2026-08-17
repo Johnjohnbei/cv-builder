@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore, extractNLPKeywords, scoreRelevance } from './scoring';
+import { scoreExperience, relevanceBand, extractKeywords, computeKeywordMatch, computeRecency, computeDuration, scoreFormat, scoreContent, computeATSScore, extractNLPKeywords, scoreRelevance } from './scoring';
 import type { Experience, CVData, DesignSettings } from '@/src/shared/types';
 import { EMPTY_CV, DEFAULT_DESIGN } from '@/src/shared/types';
 
@@ -111,6 +111,33 @@ describe('scoreExperience', () => {
     const current = makeExp({ current: true, end_date: '' });
     const old = makeExp({ current: false, end_date: '2015' });
     expect(scoreExperience(current, [])).toBeGreaterThan(scoreExperience(old, []));
+  });
+
+  // Le défaut signalé le 2026-08-17 : avec l'ancienne pondération
+  // (pertinence 0,50 / récence 0,35 / durée 0,15), un poste hors sujet mais
+  // actuel affichait 46 % contre 53 % pour un poste parfaitement ciblé mais
+  // ancien. Sept points d'écart, donc un tri qui les traitait en quasi-égaux.
+  it('un poste hors sujet mais récent reste loin derrière un poste ciblé ancien', () => {
+    const kw = ['design system', 'design tokens', 'storybook', 'gouvernance'];
+    const cibleAncien = makeExp({
+      position: 'Lead Design System', current: false, start_date: '2015-01', end_date: '2018-01',
+      description: ['Industrialisé le design system : design tokens, composants, Storybook', 'Gouvernance des composants'],
+    });
+    const horsSujetActuel = makeExp({
+      position: 'Head of Marketing', current: true, end_date: '',
+      description: ["Piloté la stratégie d'acquisition payante"],
+    });
+    const ecart = scoreExperience(cibleAncien, kw) - scoreExperience(horsSujetActuel, kw);
+    expect(ecart).toBeGreaterThan(40);
+  });
+
+  // La récence garde son rôle, mais seulement à pertinence comparable.
+  it('à pertinence égale, la plus récente passe devant', () => {
+    const kw = ['react'];
+    const base = { position: 'React Developer', description: ['Built React apps'] };
+    const recent = makeExp({ ...base, current: true, end_date: '' });
+    const ancien = makeExp({ ...base, current: false, start_date: '2010-01', end_date: '2012-01' });
+    expect(scoreExperience(recent, kw)).toBeGreaterThan(scoreExperience(ancien, kw));
   });
 
   it('boosts score with matching keywords', () => {
@@ -524,5 +551,25 @@ describe('computeATSScore with job description', () => {
     expect(Array.isArray(result.suggestions)).toBe(true);
     // Verify weighted formula
     expect(result.overall).toBe(Math.round(result.format * 0.3 + result.content * 0.3 + result.relevance! * 0.4));
+  });
+});
+
+// Les bandes sont calibrées sur des distributions mesurées (cf. le docblock de
+// RELEVANCE_BAND_HIGH). Ces tests verrouillent le contrat lisible par l'oeil :
+// une expérience ciblée est verte, une expérience hors sujet est rouge.
+describe('relevanceBand', () => {
+  it('classe en haut une expérience parfaitement ciblée (38-47 % mesurés)', () => {
+    expect(relevanceBand(38)).toBe('high');
+    expect(relevanceBand(47)).toBe('high');
+  });
+
+  it('classe en bas une expérience hors sujet portée par sa seule récence (9-15 % mesurés)', () => {
+    expect(relevanceBand(9)).toBe('low');
+    expect(relevanceBand(15)).toBe('low');
+  });
+
+  it('garde une bande intermédiaire pour les expériences partiellement pertinentes', () => {
+    expect(relevanceBand(25)).toBe('medium');
+    expect(relevanceBand(31)).toBe('medium');
   });
 });
