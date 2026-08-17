@@ -155,6 +155,23 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base : résultats moins ciblés.</span>
                 </div>
               )}
+              {/* Une lettre mémorisée qui ne parle pas de l'offre ouverte. Jamais
+                  restaurée d'office : elle argumentait pour un autre poste. */}
+              {!letter && controller.staleStoredLetter && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
+                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <div className="min-w-0 flex-1">
+                    <p>Une lettre écrite pour une <strong>autre offre</strong> est encore en mémoire. Elle n'a pas été chargée pour éviter de candidater avec le mauvais texte.</p>
+                    <button
+                      type="button"
+                      onClick={() => setLetter(controller.staleStoredLetter!)}
+                      className="mt-1 underline hover:no-underline font-bold"
+                    >
+                      L'afficher quand même
+                    </button>
+                  </div>
+                </div>
+              )}
               {!letter && savedForThisCv && (
                 <Button
                   variant="ghost"
@@ -164,7 +181,9 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   onClick={reloadSavedLetter}
                   className="border border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
-                  Recharger la dernière lettre sauvegardée
+                  {savedForThisCv.companyName
+                    ? `Recharger la lettre sauvegardée (${savedForThisCv.companyName})`
+                    : 'Recharger la dernière lettre sauvegardée'}
                 </Button>
               )}
               <Panel>

@@ -35,6 +35,12 @@ export interface UseCoverLetterResult {
   /** Replace the drawer JD with the editor's current JD. */
   syncJobDescription: () => void;
   letter: CoverLetterData | null;
+  /**
+   * A mirrored letter that belongs to a DIFFERENT offer than the one open.
+   * Never restored automatically — the drawer offers to load it explicitly, so
+   * the work is not lost and not passed off as current either.
+   */
+  staleStoredLetter: CoverLetterData | null;
   /** Programmatic load (restore, reload saved). Does NOT mark manual edits. */
   setLetter: (l: CoverLetterData) => void;
   /** Manual field edit from the UI. Marks the letter as dirty. */
@@ -143,6 +149,42 @@ export function findLatestSavedForCv<T extends { cvId?: string }>(
   return letters.find((l) => l.cvId === cvId) ?? null;
 }
 
+/**
+ * Does a mirrored context belong to the offer currently open?
+ *
+ * A stored context with no jobDescription predates that field: nothing can be
+ * compared, so it is treated as belonging rather than silently discarded. It
+ * self-heals on the next write, which always records the offer.
+ */
+export function isStoredContextForOffer(
+  stored: StoredCoverLetterContext | null,
+  currentJobDescription: string,
+): boolean {
+  if (!stored) return false;
+  if (stored.jobDescription === undefined) return true;
+  return stored.jobDescription.trim() === currentJobDescription.trim();
+}
+
+/**
+ * Is a mirrored LETTER still usable for the offer currently open?
+ *
+ * The mirror exists so closing the drawer never loses work, but a letter is
+ * written FOR one job description. Restoring it against another offer showed
+ * the user a letter that argued for a different position — the bug reported on
+ * 2026-08-17.
+ *
+ * Deliberately narrower than isStoredContextForOffer: the company metadata is
+ * worth restoring even when no letter was ever generated, which is what spares
+ * a redundant extraction call. Conflating the two made the company name vanish
+ * and fired that call again — caught by the e2e hermeticity guard.
+ */
+export function isStoredLetterRelevant(
+  stored: StoredCoverLetterContext | null,
+  currentJobDescription: string,
+): boolean {
+  return Boolean(stored?.letter) && isStoredContextForOffer(stored, currentJobDescription);
+}
+
 const DEFAULT_TONE = 'professionnel et engagé';
 
 /** Owns the inline cover letter drawer state for the editor. */
@@ -160,6 +202,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const [localJobDescription, setLocalJobDescriptionRaw] = useState('');
   const [userEditedJD, setUserEditedJD] = useState(false);
   const [letter, setLetterRaw] = useState<CoverLetterData | null>(null);
+  const [staleStoredLetter, setStaleStoredLetter] = useState<CoverLetterData | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -216,14 +259,23 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
       : (jobDescription.length > 0 ? jobDescription : stored?.jobDescription ?? '');
     setLocalJobDescriptionRaw(prev => (prev.length > 0 ? prev : jd));
 
-    const company = companyName.trim().length === 0 && stored?.companyName
+    // A mirrored context belongs to the offer it was written for. Reusing its
+    // letter — or its company metadata — against another offer produced a
+    // letter arguing for a different position, and addressed to the wrong
+    // company. Both are gated on the same check.
+    const sameOffer = isStoredContextForOffer(stored, jd);
+    const letterUsable = isStoredLetterRelevant(stored, jd);
+    const company = companyName.trim().length === 0 && sameOffer && stored?.companyName
       ? stored.companyName : companyName;
     if (stored) {
-      if (!letter && stored.letter) setLetterRaw(stored.letter);
+      if (!letter && stored.letter) setStaleStoredLetter(letterUsable ? null : stored.letter);
+      if (letterUsable && !letter) setLetterRaw(stored.letter);
       if (company !== companyName) setCompanyName(company);
-      const { companyStage: stage, companyBusinessModel: model } = stored;
-      if (stage) setCompanyStage(curr => (curr.trim().length === 0 ? stage : curr));
-      if (model) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? model : curr));
+      if (sameOffer) {
+        const { companyStage: stage, companyBusinessModel: model } = stored;
+        if (stage) setCompanyStage(curr => (curr.trim().length === 0 ? stage : curr));
+        if (model) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? model : curr));
+      }
     }
     setIsOpen(true);
     if (!shouldTriggerExtraction(company, jd)) return;
@@ -246,7 +298,10 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, [jobDescription, localJobDescription, companyName, letter, accessCode, extractAction]);
   const close = useCallback(() => setIsOpen(false), []);
 
-  const setLetter = useCallback((l: CoverLetterData) => setLetterRaw(l), []);
+  const setLetter = useCallback((l: CoverLetterData) => {
+    setLetterRaw(l);
+    setStaleStoredLetter(null);
+  }, []);
 
   const updateLetterField = useCallback((field: keyof CoverLetterData, value: string) => {
     setIsDirty(true);
@@ -323,7 +378,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
     tone, setTone,
     localJobDescription, setLocalJobDescription,
     jdOutOfSync, syncJobDescription,
-    letter, setLetter, updateLetterField,
+    letter, staleStoredLetter, setLetter, updateLetterField,
     isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
   };
 }

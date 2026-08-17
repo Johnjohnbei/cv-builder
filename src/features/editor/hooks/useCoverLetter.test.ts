@@ -6,6 +6,8 @@ import {
   shouldTriggerExtraction,
   parseStoredLetter,
   parseStoredContext,
+  isStoredLetterRelevant,
+  isStoredContextForOffer,
   findLatestSavedForCv,
   COVER_LETTER_STORAGE_KEY,
   type CoverLetterData,
@@ -259,5 +261,53 @@ describe('findLatestSavedForCv', () => {
   it('returns null when list is undefined or empty', () => {
     expect(findLatestSavedForCv(undefined, 'cv1')).toBeNull();
     expect(findLatestSavedForCv([], 'cv1')).toBeNull();
+  });
+});
+
+describe('isStoredLetterRelevant', () => {
+  const ctx = (over: Partial<{ letter: CoverLetterData | null; jobDescription?: string }>) => ({
+    letter: SAMPLE, ...over,
+  });
+
+  it('keeps a letter written for the offer currently open', () => {
+    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), 'Offre A')).toBe(true);
+  });
+
+  it('ignores surrounding whitespace on both sides', () => {
+    expect(isStoredLetterRelevant(ctx({ jobDescription: '  Offre A\n' }), 'Offre A')).toBe(true);
+  });
+
+  // The reported bug: a letter argued for a different position and was shown
+  // as if it were the current one.
+  it('rejects a letter written for another offer', () => {
+    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), 'Offre B')).toBe(false);
+  });
+
+  it('rejects when the offer is now empty', () => {
+    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), '')).toBe(false);
+  });
+
+  // Legacy value written before jobDescription was mirrored: nothing to compare,
+  // so keep it rather than silently dropping the user's work.
+  it('keeps a legacy context that carries no offer', () => {
+    expect(isStoredLetterRelevant(ctx({ jobDescription: undefined }), 'Offre B')).toBe(true);
+  });
+
+  // La distinction qui compte : les métadonnées entreprise survivent sans lettre.
+  // Les avoir conditionnées à la lettre faisait repartir extractCompanyMeta.
+  it('les métadonnées entreprise restent valables sans lettre, sur la même offre', () => {
+    const ctxSansLettre = { letter: null, companyName: 'Acme', jobDescription: 'Offre A' };
+    expect(isStoredContextForOffer(ctxSansLettre, 'Offre A')).toBe(true);
+    expect(isStoredLetterRelevant(ctxSansLettre, 'Offre A')).toBe(false);
+  });
+
+  it('les métadonnées entreprise tombent aussi sur une autre offre', () => {
+    const ctxSansLettre = { letter: null, companyName: 'Acme', jobDescription: 'Offre A' };
+    expect(isStoredContextForOffer(ctxSansLettre, 'Offre B')).toBe(false);
+  });
+
+  it('is false when there is no stored letter at all', () => {
+    expect(isStoredLetterRelevant(ctx({ letter: null, jobDescription: 'Offre A' }), 'Offre A')).toBe(false);
+    expect(isStoredLetterRelevant(null, 'Offre A')).toBe(false);
   });
 });
