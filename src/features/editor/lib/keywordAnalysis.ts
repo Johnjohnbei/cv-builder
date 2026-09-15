@@ -5,7 +5,7 @@
 import type {
   ATSReport, CVData, CVSection, DesignSettings, Experience, JobRequirement, ReadabilityCheck, RequirementCoverage,
 } from '../../../shared/types';
-import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from '../../../shared/lib/text';
+import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from '../../../shared/lib/text';
 import { getLocalizedStage } from '../../../shared/constants/companyMeta';
 import { getCVLanguage, type SupportedLanguage } from '../../../lib/languageDetection';
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './displayModes';
@@ -34,8 +34,8 @@ const isShown = (section: CVSection, design?: IncludedSections) =>
 
 /**
  * Text of one experience as the templates print it: position, company, its
- * company tags (CompanyTags), intro, bullets and KPI. The ATS score and the
- * per-experience relevance badge read the same text.
+ * company tags (CompanyTags), intro, bullets and KPI, inline markdown rendered.
+ * The ATS score and the per-experience relevance badge read the same text.
  */
 export function experienceText(exp: Experience, view: CVTextView, language: SupportedLanguage = 'fr'): string[] {
   const tags = [getLocalizedStage(exp.companyStage, language), exp.companyBusinessModel];
@@ -44,7 +44,7 @@ export function experienceText(exp: Experience, view: CVTextView, language: Supp
     : isHidden(exp)
       ? []
       : [exp.position, exp.company, ...tags, getIntro(exp) ?? undefined, ...getActionBullets(exp), shouldShowKPI(exp) ? exp.kpi : undefined];
-  return parts.filter((text): text is string => Boolean(text?.trim()));
+  return parts.map(stripInlineMarkdown).filter(text => text.trim());
 }
 
 /** The experiences whose dates and positions the CV prints */
@@ -65,8 +65,9 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
     summary: [cv.personal_info.summary],
     experience: cv.experience.flatMap(exp => experienceText(exp, view, language)),
     skills: cv.skills.flatMap(cat => {
-      if (view === 'content') return [categoryTitle(cat.category), ...cat.items];
-      return isSkillHidden(cat) ? [] : [categoryTitle(cat.category), ...getVisibleSkills(cat)];
+      const items = view === 'content' ? cat.items : isSkillHidden(cat) ? [] : getVisibleSkills(cat);
+      // A category with no item is not printed, its title neither
+      return items.length > 0 ? [categoryTitle(cat.category), ...items] : [];
     }),
     education: cv.education.flatMap(edu => [edu.degree, edu.field, edu.school]),
     languages: cv.languages.map(lang => lang.name),
@@ -74,7 +75,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
   const sections = {} as Record<CVSection, string[]>;
   for (const section of Object.keys(raw) as CVSection[]) {
     sections[section] = isShown(section, design)
-      ? raw[section].filter((text): text is string => Boolean(text?.trim()))
+      ? raw[section].map(stripInlineMarkdown).filter(text => text.trim())
       : [];
   }
   return sections;
@@ -82,12 +83,20 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
 
 // ─── Years of experience ───
 
-/** A month count, the year's first (start) or last (end) month when only the year is known */
+/**
+ * A month count. A bare year stands for its middle, July for a start and June
+ * for an end: "2019 - 2021" may be a few months or three years, and counting
+ * the whole years claimed requirements the candidate may not meet.
+ */
 function monthIndex(date: string | undefined, side: 'start' | 'end'): number | null {
   const parsed = parseMonthYear(date);
   if (!parsed) return null;
-  return parsed.year * 12 + (parsed.month ?? (side === 'start' ? 1 : 12)) - 1;
+  return parsed.year * 12 + (parsed.month ?? (side === 'start' ? 7 : 6)) - 1;
 }
+
+/** Whether the dates of a role can be read, so its years are counted */
+const hasReadableDates = (exp: Experience) =>
+  parseMonthYear(exp.start_date) !== null && (exp.current || parseMonthYear(exp.end_date) !== null);
 
 /**
  * Years covered by these roles, as a CV reads them: the start and end months
@@ -100,7 +109,9 @@ export function yearsOfExperience(experiences: Experience[], now: Date = new Dat
     .flatMap(exp => {
       const start = monthIndex(exp.start_date, 'start');
       const end = exp.current ? nowMonth : monthIndex(exp.end_date, 'end');
-      return start !== null && end !== null && end >= start ? [[start, end] as const] : [];
+      if (start === null || end === null || Math.floor(end / 12) < Math.floor(start / 12)) return [];
+      // The middles of "2019 - 2019" cross: the role still counts a month
+      return [[start, Math.max(start, end)] as const];
     })
     .sort((a, b) => a[0] - b[0]);
   let months = 0;
@@ -151,6 +162,7 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
     (Object.keys(sections) as CVSection[]).map(section => [section, prepareText(sections[section].join(' | '))]),
   ) as Record<CVSection, PreparedText>;
   const positions = prepareText(experiences.map(exp => exp.position).join(' | '));
+  const years = yearsOfExperience(experiences, now);
 
   const coverage = requirements.map((requirement): RequirementCoverage => {
     const has = (text: PreparedText) => [requirement.label, ...requirement.variants].some(term => matchPhrase(term, text));
@@ -158,7 +170,7 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
     let found: CVSection[];
     switch (requirement.kind) {
       case 'experience_years':
-        found = yearsOfExperience(experiences, now) >= (requirement.minYears ?? Infinity) ? ['experience'] : [];
+        found = years >= (requirement.minYears ?? Infinity) ? ['experience'] : [];
         break;
       case 'title':
         found = [...where(['title']), ...(has(positions) ? ['experience' as const] : [])];
@@ -172,7 +184,10 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       default:
         found = where(['title', 'summary', 'experience', 'skills', 'education', 'languages']);
     }
-    return { requirement, found: found.length > 0, sections: found, weight: weightOf(requirement) };
+    return {
+      requirement, found: found.length > 0, sections: found, weight: weightOf(requirement),
+      ...(requirement.kind === 'experience_years' && { years }),
+    };
   });
 
   const total = coverage.reduce((sum, c) => sum + c.weight, 0);
@@ -187,6 +202,7 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       id: 'titles',
       passed: ![title, ...experiences.map(exp => exp.position)].some(t => ABBREVIATED_TITLE.test(normalizeForMatch(t ?? ''))),
     },
+    { id: 'dates', passed: experiences.every(hasReadableDates) },
   ];
 
   return {

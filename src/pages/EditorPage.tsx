@@ -7,8 +7,9 @@ import { readStoredText } from '../shared/lib/storage';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { scoreExperience } from '../features/editor/lib/scoring';
+import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keywordAnalysis';
+import { isRequirementsSettled } from '../features/editor/lib/jobRequirementsCache';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -208,14 +209,16 @@ export default function EditorPage() {
   const targetPages = designSettings.pageLimit ?? 2;
   const fit = useFitToPages({
     cvData, setCvData, requirements,
-    requirementsReady: requirementsStatus !== 'loading' && requirementsStatus !== 'pending',
+    requirementsReady: isRequirementsSettled(requirementsStatus),
     stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
   });
 
-  // One score per experience, recomputed only when experiences or requirements change
+  // The badge of each experience: the share of the provable requirements it evidences, none without them
   const experienceScores = useMemo(
-    () => (cvData?.experience ?? []).map(exp => scoreExperience(exp, requirements)),
-    [cvData?.experience, requirements],
+    () => requirements.some(isWritable)
+      ? (cvData?.experience ?? []).map(exp => computeRequirementMatch(exp, requirements, currentLanguage))
+      : [],
+    [cvData?.experience, requirements, currentLanguage],
   );
 
   const weakBullets = useMemo(

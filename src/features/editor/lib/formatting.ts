@@ -1,15 +1,18 @@
+import { stripAccents } from '../../../shared/lib/text';
+
 // --- Date formatting ---
 
 /**
- * Map of any month input (long FR, long EN, short EN, short FR) to its
- * numeric index (1-12). Source of truth for parsing — keeps it locale-agnostic.
+ * Map of any month input (long FR, long EN, short EN, short FR), lowercase and
+ * without accents, to its numeric index (1-12). Source of truth for parsing,
+ * locale-agnostic: the editor's date field is free text ("fevrier", "Févr.").
  */
 const MONTH_TO_INDEX: Record<string, number> = {
   // FR long
-  'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
-  'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12,
+  'janvier': 1, 'fevrier': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
+  'juillet': 7, 'aout': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12,
   // FR short with optional period
-  'janv': 1, 'fév': 2, 'avr': 4, 'juil': 7, 'sept': 9, 'oct': 10, 'nov': 11, 'déc': 12,
+  'janv': 1, 'fev': 2, 'fevr': 2, 'avr': 4, 'juil': 7, 'sept': 9, 'oct': 10, 'nov': 11,
   // EN long
   'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
   'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
@@ -29,9 +32,10 @@ const MONTHS_SHORT_EN: ReadonlyArray<string> = [
 export type DateLanguage = 'fr' | 'en';
 
 /**
- * Year and month of a stored date, whatever the format the app writes: "Mois
- * YYYY" (AI import, LinkedIn), "MM/YYYY", "YYYY-MM", or a bare year (month
- * null). Null when the date cannot be read, an impossible month included.
+ * Year and month of a stored date, whatever the format the app writes or the
+ * user types: "Mois YYYY" (AI import, LinkedIn), "MM/YYYY", "YYYY-MM", a full
+ * date ("YYYY-MM-DD", "DD/MM/YYYY"), or a bare year (month null). Null when the
+ * date cannot be read, an impossible month included.
  * Single parser for display and for the years of experience the score measures.
  */
 export function parseMonthYear(date?: string): { year: number; month: number | null } | null {
@@ -39,10 +43,10 @@ export function parseMonthYear(date?: string): { year: number; month: number | n
   if (/^\d{4}$/.test(d)) return { year: Number(d), month: null };
   const valid = (year: string, month: number) => (month >= 1 && month <= 12 ? { year: Number(year), month } : null);
   const monthYear = d.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
-  if (monthYear) return valid(monthYear[2], MONTH_TO_INDEX[monthYear[1].toLowerCase()] ?? 0);
-  const slash = d.match(/^(\d{1,2})[/-](\d{4})$/);
+  if (monthYear) return valid(monthYear[2], MONTH_TO_INDEX[stripAccents(monthYear[1]).toLowerCase()] ?? 0);
+  const slash = d.match(/^(?:\d{1,2}[/.-])?(\d{1,2})[/.-](\d{4})$/);
   if (slash) return valid(slash[2], Number(slash[1]));
-  const iso = d.match(/^(\d{4})-(\d{1,2})$/);
+  const iso = d.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
   if (iso) return valid(iso[1], Number(iso[2]));
   return null;
 }

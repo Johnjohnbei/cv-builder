@@ -170,11 +170,13 @@ export interface RequirementCoverage {
   sections: CVSection[];
   /** Points it weighs in the score */
   weight: number;
+  /** Years measured from the dates, for a requirement of years of experience */
+  years?: number;
 }
 
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {
-  id: 'email' | 'phone' | 'location' | 'titles';
+  id: 'email' | 'phone' | 'location' | 'titles' | 'dates';
   passed: boolean;
 }
 

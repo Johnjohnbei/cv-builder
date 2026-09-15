@@ -18,6 +18,7 @@
 // for.
 
 import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
@@ -56,7 +57,11 @@ export function expandToMax(experiences: Experience[]): Experience[] {
  * Returns null when every experience is hidden — the caller stops and reports
  * the real page count rather than looping.
  */
-export function condenseOneStep(experiences: Experience[], requirements: JobRequirement[]): Experience[] | null {
+export function condenseOneStep(
+  experiences: Experience[],
+  requirements: JobRequirement[],
+  language: SupportedLanguage = 'fr',
+): Experience[] | null {
   const visible = experiences
     .map((exp, index) => ({ index, current: rung(exp.displayMode) }))
     .filter(c => c.current < HIDDEN_RUNG);
@@ -66,7 +71,7 @@ export function condenseOneStep(experiences: Experience[], requirements: JobRequ
   const richest = Math.min(...visible.map(c => c.current));
   const wave = visible
     .filter(c => c.current === richest)
-    .map(c => ({ ...c, score: scoreExperience(experiences[c.index], requirements) }));
+    .map(c => ({ ...c, score: scoreExperience(experiences[c.index], requirements, language) }));
 
   const victim = wave.reduce((best, c) => {
     if (c.score !== best.score) return c.score < best.score ? c : best;

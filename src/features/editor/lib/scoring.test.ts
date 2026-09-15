@@ -51,6 +51,19 @@ describe('computeRequirementMatch', () => {
     const exp = makeExp({ position: 'Chef', description: ['Cooking'] });
     expect(computeRequirementMatch(exp, reqs('react', 'java'))).toBe(0);
   });
+
+  // Same rules as computeATSReport
+  it('finds a job title in the position only, never in a bullet', () => {
+    const exp = makeExp({ position: 'Designer', description: ['Travaillé avec le Head of Design'] });
+    expect(computeRequirementMatch(exp, [req('Head of Design', { kind: 'title' })])).toBe(0);
+    expect(computeRequirementMatch(makeExp({ position: 'Head of Design' }), [req('Head of Design', { kind: 'title' })])).toBe(100);
+  });
+
+  it('reads the company tags in the language the CV prints them', () => {
+    const exp = makeExp({ companyStage: 'PME' });
+    expect(computeRequirementMatch(exp, reqs('SME'), 'en')).toBe(100);
+    expect(computeRequirementMatch(exp, reqs('SME'), 'fr')).toBe(0);
+  });
 });
 // ─── computeRecency ───
 
@@ -135,27 +148,26 @@ describe('scoreExperience', () => {
   });
 });
 
-// Les bandes sont calibrées sur des distributions mesurées (cf. le docblock de
-// RELEVANCE_BAND_HIGH). Ces tests verrouillent le contrat lisible par l'oeil :
-// une expérience ciblée est verte, une expérience hors sujet est rouge.
+// The badge shows the share of provable requirements a role evidences (see
+// RELEVANCE_BAND_HIGH): on 7 requirements, 4 is green, 2 or 3 yellow, 1 red
 describe('relevanceBand', () => {
-  it('classe en haut une expérience parfaitement ciblée (38-47 % mesurés)', () => {
-    expect(relevanceBand(38)).toBe('high');
-    expect(relevanceBand(47)).toBe('high');
+  it('is high from half of the requirements', () => {
+    expect(relevanceBand(50)).toBe('high');
+    expect(relevanceBand(57)).toBe('high');
   });
 
-  it('classe en bas une expérience hors sujet portée par sa seule récence (9-15 % mesurés)', () => {
-    expect(relevanceBand(9)).toBe('low');
-    expect(relevanceBand(15)).toBe('low');
+  it('is medium for a role proving a few of them', () => {
+    expect(relevanceBand(29)).toBe('medium');
+    expect(relevanceBand(43)).toBe('medium');
   });
 
-  it('garde une bande intermédiaire pour les expériences partiellement pertinentes', () => {
-    expect(relevanceBand(25)).toBe('medium');
-    expect(relevanceBand(31)).toBe('medium');
+  it('is low for a role proving one or none', () => {
+    expect(relevanceBand(14)).toBe('low');
+    expect(relevanceBand(0)).toBe('low');
   });
 });
 
-// The bands read the same requirement matching as the score: an on-target
+// The badge reads the same requirement matching as the score: an on-target
 // role must land in the high band and an off-target one in the low band
 describe('relevanceBand on a representative offer', () => {
   const offer = [
@@ -169,7 +181,10 @@ describe('relevanceBand on a representative offer', () => {
       description: ['Construit le design system Figma et Storybook', 'Mené la recherche utilisateur du SaaS'],
     });
     const offTarget = makeExp({ position: 'Head of Marketing', current: true, end_date: '', description: ["Piloté la stratégie d'acquisition"] });
-    expect(relevanceBand(scoreExperience(onTarget, offer))).toBe('high');
-    expect(relevanceBand(scoreExperience(offTarget, offer))).toBe('low');
+    const partial = makeExp({ position: 'UI Designer', description: ['Maquettes Figma', 'Accessibilité des écrans'] });
+    expect(relevanceBand(computeRequirementMatch(onTarget, offer))).toBe('high');
+    expect(relevanceBand(computeRequirementMatch(partial, offer))).toBe('medium');
+    // A current role proving nothing used to show 15 %, carried by its recency
+    expect(computeRequirementMatch(offTarget, offer)).toBe(0);
   });
 });

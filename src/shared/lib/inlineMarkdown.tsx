@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from 'react';
 // Inline-only markdown renderer: **bold**, *italic*, `code`.
 // AI providers occasionally emit markdown emphasis in CV text. The CV templates
 // render plain strings, so the asterisks would otherwise leak into the output.
+// The plain-text counterpart, read by the ATS score, is stripInlineMarkdown (text.ts).
 //
 // Underscore-based emphasis (_italic_, __bold__) is intentionally NOT supported
 // to avoid mangling identifiers and emails (snake_case, john_doe@example.com,
@@ -31,12 +32,4 @@ export function renderInlineMarkdown(input: string | null | undefined): ReactNod
       })}
     </>
   );
-}
-
-export function stripInlineMarkdown(input: string | null | undefined): string {
-  if (!input) return '';
-  return input
-    .replace(/\*\*([^*\n]+?)\*\*/g, '$1')
-    .replace(/\*([^*\n]+?)\*/g, '$1')
-    .replace(/`([^`\n]+?)`/g, '$1');
 }

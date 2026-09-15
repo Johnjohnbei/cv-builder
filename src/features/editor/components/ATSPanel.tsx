@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { ATSReport, CVSection, ReadabilityCheck } from '@/src/shared/types';
+import type { ATSReport, CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
 import { isWritable } from '../lib/keywordAnalysis';
 import { ScoreGauge } from '@/src/shared/ui/ScoreGauge';
@@ -37,11 +37,16 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
   phone: 'Numéro de téléphone',
   location: 'Ville',
   titles: 'Intitulés de poste écrits en entier (pas « Sr. », « Resp. »)',
+  dates: 'Dates de poste lisibles (par exemple « mars 2021 »)',
 };
 
 const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
 
 const points = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
+
+/** The years the dates add up to, so a verdict on years of experience can be checked */
+const measuredYears = ({ years }: RequirementCoverage) =>
+  years === undefined ? '' : ` · ${years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans mesurés`;
 
 export function ATSPanel({
   report,
@@ -102,13 +107,13 @@ export function ATSPanel({
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {covered.map(({ requirement, sections, weight }) => (
+            {covered.map(c => (
               <span
-                key={requirement.id}
+                key={c.requirement.id}
                 className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
               >
-                {requirement.label}
-                <span className="text-green-700 text-[10px]">({sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(weight)})</span>
+                {c.requirement.label}
+                <span className="text-green-700 text-[10px]">({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
               </span>
             ))}
           </div>
@@ -130,10 +135,10 @@ export function ATSPanel({
           {gaps.length > 0 && (
             <div className="flex flex-col gap-1.5 mt-2">
               <span className="text-[11px] font-mono text-red-600">Écarts ({gaps.length})</span>
-              {gaps.map(({ requirement, weight }) => (
-                <div key={requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
-                  <span className="font-semibold text-red-800">{requirement.label}</span>
-                  <span className="text-gray-600 shrink-0">{points(weight)}</span>
+              {gaps.map(c => (
+                <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                  <span className="font-semibold text-red-800">{c.requirement.label}</span>
+                  <span className="text-gray-600 shrink-0">{points(c.weight)}{measuredYears(c)}</span>
                 </div>
               ))}
             </div>

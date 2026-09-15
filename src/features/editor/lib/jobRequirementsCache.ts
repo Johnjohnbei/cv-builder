@@ -54,6 +54,15 @@ export function requirementsStatus(state: {
   return state.failedOffer.trim() === live ? 'failed' : 'loading';
 }
 
+/**
+ * Whether nothing more is expected for the offer on screen, so a pass reading
+ * the requirements (the fit to pages) can run. A hung analysis cannot hold it
+ * forever: the Convex action ends at its time limit and the status turns failed.
+ */
+export function isRequirementsSettled(status: RequirementsStatus): boolean {
+  return status !== 'loading' && status !== 'pending';
+}
+
 /** The requirements when `liveOffer` is the offer they describe, none otherwise. */
 export function requirementsForOffer(liveOffer: string, analyzed: AnalyzedOffer): JobRequirement[] {
   const jd = normalize(liveOffer);

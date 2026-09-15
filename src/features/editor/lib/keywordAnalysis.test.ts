@@ -94,6 +94,20 @@ describe('cvSections', () => {
     expect(experience).toContain('SaaS');
     expect(experience).toContain('Scaleup');
   });
+
+  // The templates render **design** as bold "design": the score must read the same words
+  it('reads inline markdown as the words the templates print', () => {
+    const bold = cv({ experience: [exp({ description: ['Construit le **design** system'], kpi: '*+30 %* de conversion', displayMode: 'extended' })] });
+    expect(cvSections(bold, 'rendered').experience).toContain('Construit le design system');
+    expect(cvSections(bold, 'rendered').experience).toContain('+30 % de conversion');
+    expect(found(computeATSReport(bold, [req('design system', { kind: 'hard_skill' })]))).toEqual(['design system']);
+  });
+
+  it('skips a skill category with no visible item, which the templates do not print', () => {
+    const empty = cv({ skills: [{ category: 'Figma', items: [] }, { category: 'Outils', items: ['Sketch'] }] });
+    expect(cvSections(empty, 'rendered').skills).toEqual(['Outils', 'Sketch']);
+    expect(cvSections(empty, 'content').skills).toEqual(['Outils', 'Sketch']);
+  });
 });
 
 describe('yearsOfExperience', () => {
@@ -118,8 +132,21 @@ describe('yearsOfExperience', () => {
     expect(years).toBeCloseTo((49 + 25) / 12, 5);
   });
 
-  it('reads a bare year as a whole year', () => {
-    expect(yearsOfExperience([exp({ start_date: '2019', end_date: '2021' })], NOW)).toBe(3);
+  // "2019 - 2021" may be anything from a few months to three years: its middle
+  // is two years, never the three that would claim a requirement it may miss
+  it('reads a bare year at its middle', () => {
+    expect(yearsOfExperience([exp({ start_date: '2019', end_date: '2021' })], NOW)).toBe(2);
+    expect(yearsOfExperience([exp({ start_date: '2019', end_date: '2019' })], NOW)).toBeCloseTo(1 / 12, 5);
+  });
+
+  // The editor's date field is free text
+  it.each([
+    ['fevrier 2019', 'aout 2021'],
+    ['Févr. 2019', 'Août 2021'],
+    ['2019-02-15', '2021-08-31'],
+    ['15/02/2019', '31/08/2021'],
+  ])('reads the typed dates %s to %s', (start_date, end_date) => {
+    expect(yearsOfExperience([exp({ start_date, end_date })], NOW)).toBeCloseTo(31 / 12, 5);
   });
 
   it('ignores a role without a start date, with an unreadable date, or ending before it starts', () => {
@@ -197,6 +224,8 @@ describe('computeATSReport', () => {
     const years = (minYears: number) => req(`${minYears} ans`, { kind: 'experience_years', minYears });
     const report = computeATSReport(cv(), [years(3), years(4)], { now: new Date('2024-01-01') });
     expect(found(report)).toEqual(['3 ans']);
+    // Shown in the panel, so the verdict can be checked against the dates
+    expect(report.requirements.map(r => r.years)).toEqual([37 / 12, 37 / 12]);
   });
 
   it('does not count a requirement placed only in a hidden experience, unless the content view is asked', () => {
@@ -205,13 +234,21 @@ describe('computeATSReport', () => {
     expect(found(computeATSReport(hidden, [req('Kubernetes')], { view: 'content' }))).toEqual(['Kubernetes']);
   });
 
-  it('fails the checks a parser needs: contact, and job titles written out', () => {
+  it('fails the checks a parser needs: contact, job titles written out, readable dates', () => {
     const failing = computeATSReport(cv({
       personal_info: { name: 'A', email: 'pas-un-email', phone: '12 34', location: '' },
-      experience: [exp({ position: 'Sr. Designer' })],
+      experience: [exp({ position: 'Sr. Designer', start_date: 'depuis longtemps' })],
     }), []);
     expect(Object.fromEntries(failing.checks.map(c => [c.id, c.passed])))
-      .toEqual({ email: false, phone: false, location: false, titles: false });
+      .toEqual({ email: false, phone: false, location: false, titles: false, dates: false });
+  });
+
+  // Years are measured from the dates: an unreadable one silently lowered them
+  it('checks the dates of the printed roles only, a current role needing no end', () => {
+    const datesPassed = (experience: Experience[]) => computeATSReport(cv({ experience }), []).checks.find(c => c.id === 'dates')?.passed;
+    expect(datesPassed([exp({ start_date: '2020-01', end_date: '', current: true })])).toBe(true);
+    expect(datesPassed([exp({ end_date: 'bientôt' })])).toBe(false);
+    expect(datesPassed([exp(), exp({ start_date: '', displayMode: 'hidden' })])).toBe(true);
   });
 
   it.each(['Dév. front', 'Resp. marketing', 'Mgr produit'])('flags the abbreviated title %s', (position) => {

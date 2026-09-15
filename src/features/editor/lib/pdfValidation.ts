@@ -5,7 +5,7 @@
  * cases where ATS parsers would fail to extract meaningful text.
  */
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import { stripInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
+import { normalizeForMatch } from '@/src/shared/lib/text';
 import { cvSections } from './keywordAnalysis';
 
 // ─── Types ───
@@ -24,16 +24,15 @@ const EXTRACTABILITY_THRESHOLD = 0.6;
 
 /**
  * Plain text of what the rendered CV should contain: the contact line, then
- * every part as the ATS score reads it (display modes and Design sections
- * applied), inline markdown markers removed as the renderer removes them. One
- * owner of "what the CV prints" for the score and for this check.
+ * every part as the ATS score reads it (display modes, Design sections and
+ * inline markdown applied). One owner of "what the CV prints" for the score and
+ * for this check. Pass the masked CV when the export is anonymized.
  */
 export function extractExpectedText(cvData: CVData, design?: Pick<DesignSettings, 'includedSections'>): string {
   const pi = cvData.personal_info;
   const sections = cvSections(cvData, 'rendered', design);
   return [pi.name, pi.email, pi.phone, pi.location, ...Object.values(sections).flat()]
     .filter(Boolean)
-    .map(text => stripInlineMarkdown(text))
     .join(' ');
 }
 
@@ -70,8 +69,8 @@ export function validateCVTextExtractability(
   // Real coverage: share of expected tokens actually present in the render.
   // A pure count ratio scored 100% on wrong-language or garbage output, and
   // the render's extra tokens (dates, section titles) pushed it above 1.
-  const renderedSet = new Set(renderedTokens.map(t => t.toLowerCase()));
-  const expectedUnique = [...new Set(expectedTokens.map(t => t.toLowerCase()))];
+  const renderedSet = new Set(renderedTokens);
+  const expectedUnique = [...new Set(expectedTokens)];
   const matched = expectedUnique.filter(t => renderedSet.has(t)).length;
   const ratio = matched / expectedUnique.length;
 
@@ -89,6 +88,7 @@ export function validateCVTextExtractability(
 
 // ─── Helpers ───
 
+/** Words, normalized: the render prints "(PME · SaaS)" and "Master, Design" where the data holds the bare words */
 function tokenize(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean);
+  return normalizeForMatch(text).split(/[^\p{L}\p{N}@+#]+/u).filter(Boolean);
 }

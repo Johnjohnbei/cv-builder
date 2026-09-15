@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { JobRequirement } from '@/src/shared/types';
-import { requirementsForOffer, requirementsStatus } from './jobRequirementsCache';
+import { isRequirementsSettled, requirementsForOffer, requirementsStatus } from './jobRequirementsCache';
 
 const R = (label: string): JobRequirement => ({
   id: label.toLowerCase(), label, variants: [], kind: 'tool', importance: 'required', quote: label,
@@ -53,6 +53,15 @@ describe('requirementsStatus', () => {
 
   it('is pending again when the failed offer is edited', () => {
     expect(requirementsStatus({ ...base, liveOffer: 'Offre B', failedOffer: 'Offre A' })).toBe('pending');
+  });
+});
+
+// The fit to pages waits for the requirements, never for a failure or no offer
+describe('isRequirementsSettled', () => {
+  it.each([
+    ['idle', true], ['ready', true], ['failed', true], ['loading', false], ['pending', false],
+  ] as const)('%s settled: %s', (status, settled) => {
+    expect(isRequirementsSettled(status)).toBe(settled);
   });
 });
 

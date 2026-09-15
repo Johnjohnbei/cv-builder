@@ -47,9 +47,12 @@ export function useExport(deps: UseExportDeps): UseExportResult {
     ? buildPdfFileName('CV Anonyme', cvData?.personal_info?.title)
     : buildPdfFileName(cvData?.personal_info?.name, cvData?.personal_info?.title);
 
+  // The anonymized render prints no identity: expecting it lowered the ratio
+  const printedCV = cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData;
+
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;
-    const expectedText = cvData ? extractExpectedText(cvData, designSettings) : '';
+    const expectedText = printedCV ? extractExpectedText(printedCV, designSettings) : '';
     await serverlessPDF(cvRef.current, designSettings, {
       expectedText,
       fileBaseName,
@@ -63,7 +66,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
         notify({ message: reason, type: 'error' });
       },
     });
-  }, [cvRef, cvData, designSettings, notify, isExporting, fileBaseName]);
+  }, [cvRef, printedCV, designSettings, notify, isExporting, fileBaseName]);
 
   const downloadDocx = useCallback(async () => {
     if (!cvData || isExportingDocx) return;
@@ -88,7 +91,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;
-    const expectedText = cvData ? extractExpectedText(cvData, designSettings) : '';
+    const expectedText = printedCV ? extractExpectedText(printedCV, designSettings) : '';
     renderPDF(cvRef.current, designSettings, {
       expectedText,
       onValidation: (result) => {
@@ -97,7 +100,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
         }
       },
     });
-  }, [cvRef, cvData, designSettings, notify]);
+  }, [cvRef, printedCV, designSettings, notify]);
 
   return { isExporting, isExportingDocx, downloadPDF, downloadDocx, previewPDF };
 }

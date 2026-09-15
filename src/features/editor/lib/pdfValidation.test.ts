@@ -156,6 +156,13 @@ describe('validateCVTextExtractability', () => {
     expect(result.ratio).toBe(1);
   });
 
+  // The render prints "(PME · SaaS)", "Master, Design" and a quoted summary
+  it('reads words, not the punctuation around them', () => {
+    const expected = 'PME SaaS Master Design Designer produit';
+    const rendered = '(PME · SaaS) Master, Design "Designer produit"';
+    expect(validateCVTextExtractability(rendered, expected).ratio).toBe(1);
+  });
+
   it('returns valid at exactly 0.6 ratio', () => {
     const expected = 'a b c d e f g h i j'; // 10 tokens
     const rendered = 'a b c d e f'; // 6 tokens => 0.6

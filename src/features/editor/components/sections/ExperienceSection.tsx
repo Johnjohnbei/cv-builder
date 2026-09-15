@@ -15,7 +15,7 @@ import type { CVData, Experience } from '../../../../shared/types';
 interface Props {
   experience: Experience[] | undefined;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  hasJobDescription: boolean;
+  /** Share of the offer's provable requirements each experience evidences; empty without them */
   experienceScores: number[];
   weakBullets: WeakBulletResult[];
   expanded: boolean;
@@ -27,7 +27,7 @@ interface Props {
 }
 
 export const ExperienceSection = memo(function ExperienceSection({
-  experience, setCvData, hasJobDescription, experienceScores,
+  experience, setCvData, experienceScores,
   weakBullets, expanded, onToggle, aiBusy, isEnrichingExperiences, onEnrich, bullets,
 }: Props) {
   const getWeakIssues = (expIdx: number, bulIdx: number) =>
@@ -105,8 +105,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                     <ChevronDown className="w-3 h-3" />
                   </button>
                   <span className="text-[11px] stitch-mono text-gray-600 uppercase ml-1">#{idx + 1}</span>
-                  {hasJobDescription && (() => {
-                    const s = experienceScores[idx] ?? 0;
+                  {experienceScores[idx] !== undefined && (() => {
+                    const s = experienceScores[idx];
                     const band = relevanceBand(s);
                     const palette = {
                       high: { backgroundColor: '#dcfce7', color: '#166534' },
@@ -117,7 +117,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                       <span
                         className="text-[10px] stitch-mono ml-1 px-1 py-0.5 rounded"
                         style={palette}
-                        title={`Cette expérience couvre ${s} % de ce que l'offre demande. C'est ce chiffre qui décide de l'ordre du tri automatique : les plus bas perdent leur détail en premier.`}
+                        title={`Cette expérience prouve ${s} % des exigences de l'offre qu'un poste peut démontrer (hors diplôme, langue et années). Le tri automatique condense d'abord les expériences les moins pertinentes.`}
                       >
                         {s}%
                       </span>

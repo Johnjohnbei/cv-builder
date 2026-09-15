@@ -93,7 +93,7 @@ function ExperienceBlock({ block, designSettings, language, isPage2Plus }: Block
       )}
       {isKPIInRange(exp, block) && (
         <p className="text-xs font-bold mt-2 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
-          <span className="text-[10px]">📈</span> {exp.kpi}
+          <span className="text-[10px]">📈</span> {renderInlineMarkdown(exp.kpi)}
         </p>
       )}
     </div>

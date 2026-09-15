@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CVData, JobRequirement } from '@/src/shared/types';
+import { getCVLanguage } from '@/src/lib/languageDetection';
 import { condenseOneStep, expandToMax, maxCondenseSteps } from '../lib/fitToPages';
 
 export interface UseFitToPagesDeps {
@@ -96,7 +97,7 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     }
 
     const exhausted = stepsRef.current >= maxCondenseSteps(cvData.experience);
-    const next = exhausted ? null : condenseOneStep(cvData.experience, requirementsRef.current);
+    const next = exhausted ? null : condenseOneStep(cvData.experience, requirementsRef.current, getCVLanguage(cvData));
     if (!next) {
       setIsFitting(false);
       notify({

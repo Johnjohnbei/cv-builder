@@ -35,6 +35,19 @@ export function normalizeForMatch(s: string): string {
   return stripAccents(fold(fold(s).normalize('NFKD')).toLowerCase()).replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Text without the inline markdown AI output carries (**bold**, *italic*,
+ * `code`), as renderInlineMarkdown prints it. Underscores are left alone:
+ * snake_case and emails would be mangled.
+ */
+export function stripInlineMarkdown(input: string | null | undefined): string {
+  if (!input) return '';
+  return input
+    .replace(/\*\*([^*\n]+?)\*\*/g, '$1')
+    .replace(/\*([^*\n]+?)\*/g, '$1')
+    .replace(/`([^`\n]+?)`/g, '$1');
+}
+
 // ─── Phrase matching: the owner for the ATS score, the requirement checks and the portfolio suggestion ───
 
 /**

@@ -204,7 +204,6 @@ export function EditorSidebar(props: Props) {
                 <ExperienceSection
                   experience={cvData?.experience}
                   setCvData={setCvData}
-                  hasJobDescription={Boolean(jobDescription)}
                   experienceScores={experienceScores}
                   weakBullets={weakBullets}
                   expanded={expandedSection === 'experience'}

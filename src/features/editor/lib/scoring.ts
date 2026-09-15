@@ -1,31 +1,29 @@
 import type { Experience, JobRequirement } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { matchPhrase, prepareText } from '@/src/shared/lib/text';
 import { experienceText, isWritable } from './keywordAnalysis';
 
 // ─── Relevance of one experience to the offer ───
-// Orders the fit-to-pages condensing and colours the per-experience badge. The
-// ATS score of the whole CV lives in keywordAnalysis.ts (computeATSReport), and
-// both read the same requirements with the same matching.
+// The badge shows the requirement coverage; the fit-to-pages condensing orders
+// on it with recency as a tiebreaker. The ATS score of the whole CV lives in
+// keywordAnalysis.ts (computeATSReport), and all read the same requirements
+// with the same matching.
 
 /**
- * Display bands for the per-experience relevance badge.
+ * Display bands for the per-experience badge, which shows the share of the
+ * provable requirements (computeRequirementMatch) a role evidences. Half of
+ * them is a role on target; one in seven is not. A test locks a representative
+ * offer: on-target role high, partial role medium, off-target role at 0.
  *
- * The score answers "what share of the requirements an experience can prove
- * does THIS experience evidence". First calibrated on keyword lists (an
- * on-target role at 38-47 %, an off-target one at 9-15 % carried by recency);
- * requirement lists are shorter and all provable, so an on-target role lands
- * higher. The bands are kept low on purpose, and a test locks a representative
- * offer: on-target role high, off-target current role low.
- *
- * This calibrates the DISPLAY only. No factor is injected into the score, which
+ * This calibrates the DISPLAY only. No factor is injected into the share, which
  * stays verifiable by counting matched requirements. Keep it so.
  */
-export const RELEVANCE_BAND_HIGH = 35;
-export const RELEVANCE_BAND_MEDIUM = 18;
+export const RELEVANCE_BAND_HIGH = 50;
+export const RELEVANCE_BAND_MEDIUM = 20;
 
 export type RelevanceBand = 'high' | 'medium' | 'low';
 
-/** Which display band a per-experience relevance score falls into. */
+/** Which display band a requirement coverage falls into. */
 export function relevanceBand(score: number): RelevanceBand {
   if (score >= RELEVANCE_BAND_HIGH) return 'high';
   if (score >= RELEVANCE_BAND_MEDIUM) return 'medium';
@@ -36,7 +34,9 @@ export function relevanceBand(score: number): RelevanceBand {
 const RELEVANCE_WEIGHT = 0.85;
 
 /**
- * How well an experience fits the position (0-100).
+ * How well an experience fits the position (0-100), ordering the fit to pages.
+ * Never shown: the badge shows the coverage alone, recency would make a role
+ * proving nothing read "15 %".
  *
  * With an offer, fit dominates and recency is only a tiebreaker. The previous
  * split (relevance 0.50 / recency 0.35 / duration 0.15) let recency carry an
@@ -53,25 +53,29 @@ const RELEVANCE_WEIGHT = 0.85;
  * Without an offer there is no fit to measure, so recency and duration are all
  * that is left to rank on.
  */
-export function scoreExperience(exp: Experience, requirements: JobRequirement[]): number {
+export function scoreExperience(exp: Experience, requirements: JobRequirement[], language: SupportedLanguage = 'fr'): number {
   const recency = computeRecency(exp);
   if (!requirements.some(isWritable)) {
     return Math.round(recency * 0.6 + computeDuration(exp) * 0.4);
   }
-  const relevance = computeRequirementMatch(exp, requirements);
+  const relevance = computeRequirementMatch(exp, requirements, language);
   return Math.round(relevance * RELEVANCE_WEIGHT + recency * (1 - RELEVANCE_WEIGHT));
 }
 
 /**
  * Share of the requirements an experience can prove (not a degree, a language
- * or a number of years) that its whole text evidences, with the matching of
- * the ATS score: variants, accents, plurals, word boundaries.
+ * or a number of years) that its whole text evidences, with the rules of the
+ * ATS score: variants, accents, plurals, word boundaries, company tags in the
+ * CV's language, a job title in the position only.
  */
-export function computeRequirementMatch(exp: Experience, requirements: JobRequirement[]): number {
+export function computeRequirementMatch(exp: Experience, requirements: JobRequirement[], language: SupportedLanguage = 'fr'): number {
   const provable = requirements.filter(isWritable);
   if (provable.length === 0) return 0;
-  const text = prepareText(experienceText(exp, 'content').join(' | '));
-  const hits = provable.filter(r => [r.label, ...r.variants].some(term => matchPhrase(term, text))).length;
+  const text = prepareText(experienceText(exp, 'content', language).join(' | '));
+  const position = prepareText(exp.position ?? '');
+  const hits = provable
+    .filter(r => [r.label, ...r.variants].some(term => matchPhrase(term, r.kind === 'title' ? position : text)))
+    .length;
   return Math.round((hits / provable.length) * 100);
 }
 
