@@ -1,147 +1,27 @@
 import { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import type { ContentBlock, PageAssignment, SubBlock, SubBlockType } from '../lib/pagination/types';
-import { MEASUREMENT_SAFETY_PX } from '../lib/pagination/types';
+import type { ContentBlock, PageAssignment } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
 import { allocatePages, isPageOverfilled } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
+import { blocksStable, readLiveDOM, reconcileBlocks } from '../lib/pagination/reconcile';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 
 /**
- * Pagination pipeline — reconcile-from-live-DOM.
- *
- * Architecture (systematic, no magic constants):
- *
- * 1. Initial render uses buildBlocks() heuristic heights (instant first paint).
- * 2. After paint, read REAL heights from the live [data-cv-root] DOM tree —
- *    each rendered block is tagged with [data-live-block="{id}"] and each
- *    injected section title with [data-live-title="{name}"]. We measure each
- *    in its actual CSS context (real font, real width, real padding, real gaps).
- * 3. Feed those reconciled heights back into allocatePages and re-render.
- * 4. Iterate until heights stabilize or MAX_RECONCILE_ITERS reached.
- *
- * No safety padding, no magic SECTION_TITLE constants — every height comes
- * from what the browser actually laid out.
- */
-
-/**
  * Max reconcile iterations per content change. Convergence is typically
- * reached in 3 iterations:
- *   iter 0: heuristic → render → reconcile measured heights
- *   iter 1: alloc with measured → render → reconcile again (blocks may move
- *           between pages, and a split changes what is measured)
- *   iter 2: allocation stabilizes — reconcile matches previous → stable
- * A ceiling of 5 gives safe headroom without letting pathological oscillation
- * loops run unbounded.
+ * reached in 3: heuristic render then measure, allocation with the measured
+ * heights then measure again (blocks move between pages, a split changes what
+ * is measured), then a stable allocation. 5 leaves headroom without letting
+ * an oscillation run unbounded.
  */
 const MAX_RECONCILE_ITERS = 5;
-/** Ignore sub-pixel drift below this threshold when checking stability */
-const HEIGHT_DIFF_THRESHOLD_PX = 1;
-
-interface LiveMeasurements {
-  /** Per-block measured heights (offsetHeight in its rendered context) */
-  blockHeights: Map<string, number>;
-  /** Per-block sub-block heights, accumulated across every rendered slice */
-  blockSubBlocks: Map<string, SubBlock[]>;
-  /** Measured section-title heights (experience + skills), if present */
-  sectionTitles: { experience?: number; skills?: number };
-}
-
-/** Read all live heights from the unified CV DOM tree. Null if not yet rendered. */
-function readLiveDOM(): LiveMeasurements | null {
-  const cvRoot = document.querySelector('[data-cv-root]');
-  if (!cvRoot) return null;
-
-  const blockHeights = new Map<string, number>();
-  const blockSubBlocks = new Map<string, SubBlock[]>();
-
-  const blockEls = cvRoot.querySelectorAll('[data-live-block]') as NodeListOf<HTMLElement>;
-  blockEls.forEach(el => {
-    const id = el.getAttribute('data-live-block');
-    if (!id) return;
-    blockHeights.set(id, el.offsetHeight);
-
-    // Read sub-blocks from within this element. A block split across pages
-    // renders as several [data-live-block] elements with the SAME id, each
-    // holding a different sub-block slice — accumulate them all (sub ids are
-    // unique, absolute indices) so the merged picture covers the whole block.
-    const subEls = el.querySelectorAll('[data-sub-id]') as NodeListOf<HTMLElement>;
-    if (subEls.length > 0) {
-      const acc = blockSubBlocks.get(id) ?? [];
-      subEls.forEach(subEl => {
-        acc.push({
-          id: subEl.getAttribute('data-sub-id') || '',
-          heightPx: subEl.offsetHeight,
-          type: (subEl.getAttribute('data-sub-type') || 'bullet') as SubBlockType,
-        });
-      });
-      blockSubBlocks.set(id, acc);
-    }
-  });
-
-  const sectionTitles: { experience?: number; skills?: number } = {};
-  const expTitleEl = cvRoot.querySelector('[data-live-title="experience"]') as HTMLElement | null;
-  if (expTitleEl) sectionTitles.experience = expTitleEl.offsetHeight;
-  const skillsTitleEl = cvRoot.querySelector('[data-live-title="skills"]') as HTMLElement | null;
-  if (skillsTitleEl) sectionTitles.skills = skillsTitleEl.offsetHeight;
-
-  return { blockHeights, blockSubBlocks, sectionTitles };
-}
 
 /**
- * Apply live measurements to source blocks. Returns new array (immutable).
- * Every page renders at the same width, so one measured height per block.
- *
- * Split blocks (rendered as multiple partial slices) don't have a meaningful
- * whole offsetHeight. For those, we merge the accumulated sub-block heights
- * and recompute the total from their sum.
+ * Pagination pipeline, reconciled from the live DOM: first paint on the
+ * buildBlocks() estimates, then the real heights of every [data-live-block]
+ * and [data-live-title] (reconcile.ts) fed back into allocatePages until they
+ * stabilize. No safety padding: every height comes from what the browser laid out.
  */
-function reconcileBlocks(
-  source: ContentBlock[],
-  live: LiveMeasurements,
-  pageAssignments: PageAssignment[],
-): ContentBlock[] {
-  // Which placed blocks are rendered as slices
-  const placed = new Set<string>();
-  const split = new Set<string>();
-  pageAssignments.forEach(page => page.blocks.forEach(pb => {
-    placed.add(pb.block.id);
-    if (pb.startSubBlock !== undefined) split.add(pb.block.id);
-  }));
-
-  return source.map(block => {
-    const liveH = live.blockHeights.get(block.id);
-    if (liveH === undefined || !placed.has(block.id)) return block;
-
-    const liveSubs = live.blockSubBlocks.get(block.id);
-
-    if (split.has(block.id)) {
-      // Partial renders — offsetHeight doesn't represent the full block.
-      // Merge the accumulated live sub-block heights and recompute the total
-      // from the sum, so the block height converges even though no single
-      // render ever shows all sub-blocks at once.
-      if (!liveSubs || liveSubs.length === 0 || !block.subBlocks) return block;
-      const liveMap = new Map(liveSubs.map(s => [s.id, s.heightPx]));
-      const mergedSubs = block.subBlocks.map(sb => ({
-        ...sb,
-        heightPx: liveMap.get(sb.id) ?? sb.heightPx,
-      }));
-      const subTotal = mergedSubs.reduce((acc, s) => acc + s.heightPx, 0) + MEASUREMENT_SAFETY_PX;
-      return { ...block, subBlocks: mergedSubs, heightPx: subTotal };
-    }
-
-    // Whole render. Only carry live sub-blocks over for blocks that model
-    // sub-blocks (experiences); other renderers may tag decorative elements.
-    const nextSubs = block.subBlocks ? (liveSubs ?? block.subBlocks) : undefined;
-    return { ...block, heightPx: liveH, subBlocks: nextSubs };
-  });
-}
-
-function blocksStable(a: ContentBlock[], b: ContentBlock[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((block, i) => Math.abs(block.heightPx - b[i].heightPx) <= HEIGHT_DIFF_THRESHOLD_PX);
-}
-
 export function usePaginationFit(
   cvData: CVData | null,
   designSettings: DesignSettings,
@@ -153,12 +33,9 @@ export function usePaginationFit(
   actualPageCount: number;
   /**
    * Page count once measured heights have converged for the CURRENT content,
-   * null while a measurement pass is still running.
-   *
-   * actualPageCount is fine to display, but anything that FEEDS BACK into the
-   * content (the fit-to-pages loop) must read this instead: mid-reconcile the
-   * count comes from heuristic heights and can be off by a page, which would
-   * make the loop condense several notches too far.
+   * null while a measurement pass is still running. Anything that feeds back
+   * into the content (the fit-to-pages loop) must read this: mid-reconcile the
+   * count can be off by a page.
    */
   stablePageCount: number | null;
   /** A block taller than a page is cut at the page edge: the user must shorten it */
@@ -172,13 +49,10 @@ export function usePaginationFit(
     [cvData, includedSections],
   );
 
-  /**
-   * Fingerprint of everything that changes the rendered heights — any change
-   * resets the reconcile loop. Photo, language (dates and labels) and
-   * anonymization change what is painted without touching the estimates:
-   * left out, turning the photo on pushed the last block of page 1 past the
-   * bottom edge, clipped in the preview and in the PDF.
-   */
+  // Fingerprint of everything that changes the rendered heights: any change
+  // resets the loop. Photo, language and anonymization change what is painted
+  // without touching the estimates: left out, turning the photo on clipped the
+  // last block of page 1 in the preview and the PDF.
   const language = cvData ? getCVLanguage(cvData) : 'fr';
   const contentKey = useMemo(
     () => heuristicBlocks.map(b => `${b.id}:${b.heightPx}`).join('|')
@@ -191,14 +65,11 @@ export function usePaginationFit(
   const [reconciledBlocks, setReconciledBlocks] = useState<ContentBlock[] | null>(null);
   /** Live-measured section title heights (feeds allocatePages) */
   const [sectionTitles, setSectionTitles] = useState<{ experience?: number; skills?: number }>({});
-  /** Iteration counter (bounded, reset per content change) */
   const iterCountRef = useRef(0);
   /** Measured heights have converged — the page count can be trusted */
   const [isStable, setIsStable] = useState(false);
-  /** Last content key we processed — used to detect content changes */
   const lastContentKeyRef = useRef('');
 
-  // Reset reconciliation state whenever content changes
   useEffect(() => {
     if (lastContentKeyRef.current === contentKey) return;
     lastContentKeyRef.current = contentKey;
@@ -208,12 +79,9 @@ export function usePaginationFit(
     setIsStable(false);
   }, [contentKey]);
 
-  // When cvData changes without altering estimated heights (most keystrokes),
-  // contentKey stays identical and reconciledBlocks would serve stale data.
-  // Carry the latest data over, keeping measured heights as the starting
-  // point, AND measure again: the real wrap can differ from the estimate, and a
-  // block that grew by one line used to stay allocated at its old height and
-  // be clipped at the bottom of its page.
+  // A keystroke that leaves the estimates unchanged keeps contentKey: carry the
+  // new data over, keep the measured heights, and measure again, since the real
+  // wrap can differ (a block that grew a line used to be clipped).
   useEffect(() => {
     if (!reconciledBlocks) return;
     const dataById = new Map(heuristicBlocks.map(b => [b.id, b.data]));
@@ -227,7 +95,6 @@ export function usePaginationFit(
     setReconciledBlocks(reconciledBlocks.map(b => (isOutdated(b) ? { ...b, data: dataById.get(b.id)! } : b)));
   }, [heuristicBlocks, reconciledBlocks]);
 
-  /** Blocks used for allocation: reconciled if available, else heuristic */
   const activeBlocks = reconciledBlocks ?? heuristicBlocks;
 
   const pageAssignments = useMemo(() => {
@@ -235,10 +102,8 @@ export function usePaginationFit(
     return allocatePages(activeBlocks, layout, { sectionTitleHeights: sectionTitles });
   }, [activeBlocks, layout, sectionTitles]);
 
-  // Post-render reconciliation: read live heights SYNCHRONOUSLY after commit.
-  // useLayoutEffect runs after React commits the DOM but before the browser
-  // paints — offsetHeight is fully valid here and we avoid the rAF cancellation
-  // race that happens when multiple effects fire in rapid succession.
+  // Read live heights synchronously after commit, before paint: offsetHeight is
+  // valid and no rAF can be cancelled by effects firing in rapid succession.
   useLayoutEffect(() => {
     if (pageAssignments.length === 0) return;
     if (iterCountRef.current >= MAX_RECONCILE_ITERS) {
@@ -250,14 +115,12 @@ export function usePaginationFit(
     if (!live || live.blockHeights.size === 0) return;
 
     const nextBlocks = reconcileBlocks(activeBlocks, live, pageAssignments);
-
     const heightsStable = blocksStable(nextBlocks, activeBlocks);
     const titlesStable =
       live.sectionTitles.experience === sectionTitles.experience
       && live.sectionTitles.skills === sectionTitles.skills;
 
     if (heightsStable && titlesStable) {
-      // Converged — stop iterating for this content version
       iterCountRef.current = MAX_RECONCILE_ITERS;
       setIsStable(true);
       return;
@@ -268,10 +131,8 @@ export function usePaginationFit(
     if (!titlesStable) setSectionTitles(live.sectionTitles);
   }, [pageAssignments, activeBlocks, sectionTitles]);
 
-  // Computed during render, not in an effect: right after a content change the
-  // `isStable` state still holds the PREVIOUS content's verdict, and an effect
-  // clearing it runs too late for a consumer that reacts in the same commit.
-  // Comparing the ref to the current key closes that window deterministically.
+  // Computed during render: right after a content change `isStable` still holds
+  // the previous content's verdict, and an effect clearing it runs too late.
   const measuringCurrentContent = lastContentKeyRef.current !== contentKey;
   const stablePageCount = isStable && !measuringCurrentContent ? pageAssignments.length : null;
 
