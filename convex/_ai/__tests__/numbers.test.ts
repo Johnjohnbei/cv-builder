@@ -24,6 +24,16 @@ describe("numbersOf", () => {
     expect(numbersOf("40 pour cent depuis sept. 2019")).toEqual(["40", "2019"]);
   });
 
+  it("reads a figure written against its unit, never a name starting with digits", () => {
+    expect(numbersOf("Latence 40ms, réponse sous 48h, livré en 3j, 5h/semaine, 16Go, 15e")).toEqual(["40", "48", "3", "5", "16", "15"]);
+    expect(numbersOf("99designs, 360Learning, vidéo 1080p")).toEqual([]);
+  });
+
+  it("reads approximate numbers and every part of a compound, never the verb seize nor per cent", () => {
+    expect(numbersOf("une dizaine de clients, twenty-one, vingt-et-un")).toEqual(["10", "20", "1", "20", "1"]);
+    expect(numbersOf("Seize market share, 20 per cent, de sept. à déc. 2019")).toEqual(["20", "2019"]);
+  });
+
   it("reads through the markdown the templates render", () => {
     expect(numbersOf("**1 2**00 clients")).toEqual(numbersOf("1 200 clients"));
   });

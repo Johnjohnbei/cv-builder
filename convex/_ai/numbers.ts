@@ -13,10 +13,13 @@ const NUMBER_WORDS = [
 
 /** A number word's value, and the scale a word after a figure gives it ("30 millions") */
 const TENS: [string[], number][] = [
-  [["seize", "sixteen"], 16], [["seventeen"], 17], [["eighteen"], 18], [["nineteen"], 19],
+  // Not "seize": the English verb ("seize opportunities") is far more common in a CV
+  [["sixteen"], 16], [["seventeen"], 17], [["eighteen"], 18], [["nineteen"], 19],
   [["vingt", "vingts", "twenty"], 20], [["trente", "thirty"], 30], [["quarante", "forty"], 40],
   [["cinquante", "fifty"], 50], [["soixante", "sixty"], 60], [["septante", "seventy"], 70],
   [["huitante", "octante", "eighty"], 80], [["nonante", "ninety"], 90],
+  [["dizaine", "dizaines"], 10], [["douzaine", "douzaines", "dozen", "dozens"], 12], [["quinzaine"], 15],
+  [["vingtaine"], 20], [["trentaine"], 30], [["cinquantaine"], 50], [["centaine", "centaines"], 100],
 ];
 const SCALES: [string[], number][] = [
   [["cent", "cents", "hundred", "hundreds"], 100],
@@ -37,6 +40,8 @@ const WORD_VALUES = new Map<string, number>([
   ...[...TENS, ...SCALES.map(([words, value]) => [words.filter(word => word.length > 3), value] as const)]
     .flatMap(([words, value]) => words.map(word => [word, value] as const)),
 ]);
+/** Inside a number compound ("vingt-et-un", "dix-neuf", "twenty-one"), the excluded words are numbers too */
+const COMPOUND_VALUES = new Map([...WORD_VALUES, ["un", 1], ["une", 1], ["one", 1], ["neuf", 9]]);
 const SCALE_VALUES = new Map(SCALES.flatMap(([words, value]) => words.map(word => [word, value] as const)));
 const SCALE = SCALES.flatMap(([words]) => words).sort((a, b) => b.length - a.length).join("|");
 
@@ -60,8 +65,11 @@ export function statesYears(quote: PreparedText, years: number): boolean {
 
 /** A letter other than the x of a multiplier ("x3", "10x") */
 const NAME_LETTER = String.raw`(?![x×])\p{L}`;
+/** Units written against a figure ("40ms", "48h", "3j", "16Go", "15e"): the figure is a number, not the start of a name */
+const UNITS = "ms|sec|min|mn|hrs?|h|s|jrs?|j|go|mo|ko|gb|mb|kb|tb|to|eme|er|e|nd|rd|th|st|pts?|x";
+// The digits are taken whole ((?!\d)): backtracking read "40ms" as 4 and "99designs" as 9
 const FIGURE = new RegExp(
-  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+)(?:\s?(${SCALE})(?!\p{L}))?(?!${NAME_LETTER})`,
+  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}]))`,
   "gu",
 );
 
@@ -69,9 +77,9 @@ const FIGURE = new RegExp(
  * The numbers a text gives, each with the ways it can be read, a way being the
  * values that must all be backed: "1 500" is 1500, or 1 and 500 ("Top 3 100
  * clients"); "5k" and "5 milliers" are 5000; "trois" and "three" are 3; "x3" is
- * 3. The first way is the plain reading. The markdown the templates render is
- * read through; a digit inside a name ("B2B", "iOS17", "3D"), "pour cent" and
- * the month "sept. 2019" are no numbers.
+ * 3; each part of "vingt-et-un" is read. The first way is the plain reading.
+ * The markdown the templates render is read through; digits in a name ("B2B",
+ * "iOS17", "3D", "99designs"), "pour cent" and the month "sept." are no numbers.
  */
 function numberReadings(text: string | undefined): string[][][] {
   if (!text) return [];
@@ -85,14 +93,20 @@ function numberReadings(text: string | undefined): string[][][] {
     return [[String(whole)], ...(parts.length > 1 && !scale ? [parts.map(part => String(Number(part)))] : [])];
   });
   let previous = "";
-  const words = [...normalized.matchAll(/\p{L}+/gu)].flatMap((match) => {
-    const [word] = match;
+  const words = [...normalized.matchAll(/\p{L}+(?:-\p{L}+)*/gu)].flatMap((match): string[][][] => {
+    const parts = match[0].split("-");
     const before = previous;
-    previous = word;
+    previous = parts[parts.length - 1];
+    if (taken.some(([start, end]) => match.index >= start && match.index < end)) return [];
+    if (parts.length > 1) {
+      if (!parts.some(part => WORD_VALUES.has(part))) return [];
+      return parts.flatMap(part => (COMPOUND_VALUES.has(part) ? [[[String(COMPOUND_VALUES.get(part))]]] : []));
+    }
+    const [word] = parts;
+    const rest = normalized.slice(match.index + word.length);
+    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^(\.|\s*\d)/.test(rest));
     const value = WORD_VALUES.get(word);
-    const inFigure = taken.some(([start, end]) => match.index >= start && match.index < end);
-    const notNumber = (word === "cent" && before === "pour") || (word === "sept" && /^\.?\s*\d/.test(normalized.slice(match.index + 4)));
-    return value === undefined || inFigure || notNumber ? [] : [[[String(value)]]];
+    return value === undefined || notNumber ? [] : [[[String(value)]]];
   });
   return [...figures, ...words];
 }

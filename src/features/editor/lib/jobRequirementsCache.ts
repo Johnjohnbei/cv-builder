@@ -155,8 +155,11 @@ function track(offer: string, accessCode: string | undefined, answer: Requiremen
   const key = inflightKey(offer, accessCode);
   if (!inflight.has(key)) {
     inflight.set(key, request);
-    // Settled: the cache answers from now on, and a failure is asked again at the next request
-    request.catch(() => {}).finally(() => inflight.delete(key));
+    // Settled: the cache answers from now on, and a failure is asked again at the
+    // next request. Registered first, so the entry is gone before any waiter
+    // reacts: the waiters of a failed tailoring then share one new request.
+    const forget = () => { if (inflight.get(key) === request) inflight.delete(key); };
+    request.then(forget, forget);
   }
   return request;
 }
@@ -170,10 +173,9 @@ const tailorings = new WeakSet<Promise<JobRequirement[]>>();
  * not be written says nothing of the offer.
  */
 export function requestRequirements(offer: string, accessCode: string | undefined, extract: ExtractRequirements): Promise<JobRequirement[]> {
-  const ask = () => track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
   const running = pendingRequirements(offer, accessCode);
-  if (!running) return ask();
-  return tailorings.has(running) ? running.catch(ask) : running;
+  if (!running) return track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
+  return tailorings.has(running) ? running.catch(() => requestRequirements(offer, accessCode, extract)) : running;
 }
 
 /** A tailoring running for `offer` answers its requirements: nothing asks for them again meanwhile */

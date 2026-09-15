@@ -235,6 +235,28 @@ describe("tailorPipeline: truth guard", () => {
     expect((await run([FIGMA], Date.now(), source)).cv.languages[0].name).toBe("English");
   });
 
+  // A digit or a letter alone is a word too: "Bac+5" for "Bac+2", "M.A." for a BTS
+  it("puts the source's degree or language back when the model changes a level, adds an abbreviation or empties it", async () => {
+    const source: CVData = {
+      ...SOURCE,
+      education: [
+        { school: "IUT", degree: "Bac+2", field: "Communication", start_date: "2010" },
+        { school: "EFAP", degree: "BTS Communication", start_date: "2012" },
+        { school: "ENSCI", degree: "Master design", start_date: "2014" },
+      ],
+      languages: [{ name: "Anglais", proficiency: "C1" }],
+    };
+    answers(generated(cv => {
+      cv.education[0].degree = "Bac+5";
+      cv.education[1].degree = "M.A. Communication";
+      cv.education[2] = { ...cv.education[2], degree: "", field: "" };
+      cv.languages[0].name = "";
+    }, [], source));
+    const { cv } = await run([FIGMA], Date.now(), source);
+    expect(cv.education).toEqual(source.education);
+    expect(cv.languages).toEqual(source.languages);
+  });
+
   it("reads a quote that shares only a word like « pour » with the requirement as no proof", async () => {
     const source: CVData = { ...SOURCE, personal_info: { ...SOURCE.personal_info, summary: "Designer produit pour le SaaS B2B." } };
     const offer = `${OFFER} Passion pour la data.`;

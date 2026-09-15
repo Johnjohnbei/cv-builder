@@ -210,6 +210,24 @@ describe('requirements cache', () => {
       expect(extract).toHaveBeenCalledTimes(1);
     });
 
+    it('asks once for every waiter of a failed tailoring, a request during the retry included', async () => {
+      const tab = await loadModule();
+      let fail!: (error: Error) => void;
+      tab.adoptRequirements('Offre A', 'code', new Promise((_, reject) => { fail = reject; }));
+      let answer!: (value: { requirements: unknown }) => void;
+      const extract = vi.fn(() => new Promise<{ requirements: unknown }>(resolve => { answer = resolve; }));
+
+      const first = tab.requestRequirements('Offre A', 'code', extract);
+      const second = tab.requestRequirements('Offre A', 'code', extract);
+      fail(new Error('AI_INVALID_OUTPUT'));
+      await settle();
+      const third = tab.requestRequirements('Offre A', 'code', extract);
+      answer({ requirements: [R('SAP')] });
+
+      expect(await Promise.all([first, second, third])).toEqual([[R('SAP')], [R('SAP')], [R('SAP')]]);
+      expect(extract).toHaveBeenCalledTimes(1);
+    });
+
     it('asks again after a failed tailoring', async () => {
       const tab = await loadModule();
       tab.adoptRequirements('Offre A', 'code', Promise.reject(new Error('AI_UNAVAILABLE')));

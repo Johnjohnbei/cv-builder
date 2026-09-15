@@ -23,14 +23,18 @@ function mentions(text: string | undefined, requirements: JobRequirement[]): boo
 
 /** Words that say nothing of a skill, a degree or a language ("pour", "with", "degree") */
 const STOP_WORDS = new Set([
-  "de", "du", "des", "le", "la", "les", "en", "et", "au", "aux", "pour", "avec", "dans", "sans", "chez", "sur", "par",
-  "of", "in", "on", "at", "to", "the", "and", "for", "with", "from", "into",
+  "s", "d", "l", "j", "n", "c", "qu",
+  "de", "du", "des", "le", "la", "les", "en", "et", "au", "aux", "un", "une", "pour", "avec", "dans", "sans", "chez", "sur",
+  "par", "plus", "tout", "tous", "toute", "toutes", "entre", "vers", "sous", "comme", "afin", "leur", "leurs", "cette",
+  "ces", "notre", "nos", "votre", "vos", "aupres", "depuis", "pendant", "selon",
+  "of", "in", "on", "at", "to", "the", "and", "for", "with", "from", "into", "that", "this", "these", "those", "your",
+  "our", "their", "over", "about", "across", "within", "using", "more", "than", "through", "between", "while",
 ]);
 
-/** The stems of the words of `text` that carry meaning, a single letter ("s" of "Master's") left out */
+/** The stems of the words of `text` that carry meaning: a digit or a letter alone ("Bac+5", "M.A.") is one, an elision ("d'") is not */
 const stemsOf = (text: string | undefined) => normalizeForMatch(text ?? "")
   .split(/[^\p{L}\p{N}]+/u)
-  .filter(word => word.length > 1 && !STOP_WORDS.has(word))
+  .filter(word => word.length > 0 && !STOP_WORDS.has(word))
   .map(word => prepareText(word).stemmed);
 
 /** Whether two texts share a word stem of 4 letters or more ("recherche utilisateur" and "entretiens utilisateurs") */
@@ -42,7 +46,9 @@ function shareStem(a: string, b: string): boolean {
 /** Every meaningful word of `entry` is a word of `source`, or one of `alike` ("Master's degree in design" of "Master design") */
 function namesOnly(entry: string, source: string, alike: (stem: string) => string[] = () => []): boolean {
   const allowed = new Set(stemsOf(source).flatMap(stem => [stem, ...alike(stem)]));
-  return stemsOf(entry).every(stem => allowed.has(stem) || DEGREE_WORDS.has(stem));
+  const words = stemsOf(entry);
+  // An emptied entry names nothing: the source's comes back
+  return words.length > 0 && words.every(stem => allowed.has(stem) || DEGREE_WORDS.has(stem));
 }
 
 const DEGREE_WORDS = new Set(stemsOf("degree diploma diplome"));
