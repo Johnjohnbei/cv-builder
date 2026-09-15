@@ -27,6 +27,7 @@ import type * as _ai_providers from "../_ai/providers.js";
 import type * as _ai_publicUrl from "../_ai/publicUrl.js";
 import type * as _ai_schemas from "../_ai/schemas.js";
 import type * as _ai_tailor from "../_ai/tailor.js";
+import type * as _ai_truthGuard from "../_ai/truthGuard.js";
 import type * as _shared_errors from "../_shared/errors.js";
 import type * as accessCodes from "../accessCodes.js";
 import type * as ai from "../ai.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/publicUrl": typeof _ai_publicUrl;
   "_ai/schemas": typeof _ai_schemas;
   "_ai/tailor": typeof _ai_tailor;
+  "_ai/truthGuard": typeof _ai_truthGuard;
   "_shared/errors": typeof _shared_errors;
   accessCodes: typeof accessCodes;
   ai: typeof ai;
