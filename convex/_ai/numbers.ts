@@ -18,8 +18,8 @@ const TENS: [string[], number][] = [
   [["vingt", "vingts", "twenty"], 20], [["trente", "thirty"], 30], [["quarante", "forty"], 40],
   [["cinquante", "fifty"], 50], [["soixante", "sixty"], 60], [["septante", "seventy"], 70],
   [["huitante", "octante", "eighty"], 80], [["nonante", "ninety"], 90],
-  // "dozens" translates "dizaines", not "douzaines": the same value either way
-  [["dizaine", "dizaines", "dozens"], 10], [["douzaine", "douzaines", "dozen"], 12], [["quinzaine"], 15],
+  // One approximate value: "dizaines" translates as "dozens", "douzaine" as "dozen", and each pair must back the other
+  [["dizaine", "dizaines", "douzaine", "douzaines", "dozen", "dozens"], 10], [["quinzaine"], 15],
   [["vingtaine"], 20], [["trentaine"], 30], [["cinquantaine"], 50], [["centaine", "centaines"], 100],
 ];
 const SCALES: [string[], number][] = [
@@ -42,6 +42,7 @@ const WORD_VALUES = new Map<string, number>([
     .flatMap(([words, value]) => words.map(word => [word, value] as const)),
 ]);
 /** Inside a number compound ("vingt-et-un", "dix-neuf", "twenty-one"), the excluded words are numbers too */
+// (read only after "et"/"and" or a number word: see numberReadings)
 const COMPOUND_VALUES = new Map([...WORD_VALUES, ["un", 1], ["une", 1], ["one", 1], ["neuf", 9]]);
 const SCALE_VALUES = new Map(SCALES.flatMap(([words, value]) => words.map(word => [word, value] as const)));
 const SCALE = SCALES.flatMap(([words]) => words).sort((a, b) => b.length - a.length).join("|");
@@ -64,14 +65,13 @@ export function statesYears(quote: PreparedText, years: number): boolean {
   return new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:${between}|${range})${unit}`, "u").test(quote.normalized);
 }
 
-/** A letter other than the x of a multiplier ("x3", "10x") */
-const NAME_LETTER = String.raw`(?![x×])\p{L}`;
 /** Units written against a figure ("40ms", "48h", "3j", "16Go", "15e"): the figure is a number, not the start of a name */
 const UNITS = "ms|sec|min|mn|hrs?|h|s|jrs?|j|jours?|ans?|mois|sem|km|kg|go|mo|ko|gb|mb|kb|tb|to|eme|ere|er|re|nde|e|nd|rd|th|st|pts?|x";
 // The digits are taken whole ((?!\d)): backtracking read "40ms" as 4 and "99designs" as 9.
-// "2h30" reads its hours.
+// A letter before the digits makes them a name ("B2B", "iOS17"), except the x of a
+// multiplier ("x3") and the h of "2h30", whose minutes are read as well as its hours.
 const FIGURE = new RegExp(
-  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}])|h\d)`,
+  String.raw`(?<!(?<!\d)h|(?![x×h])\p{L})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}])|h\d)`,
   "gu",
 );
 
@@ -110,7 +110,7 @@ function numberReadings(text: string | undefined): string[][][] {
     }
     const [word] = parts;
     const rest = normalized.slice(match.index + word.length);
-    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^(\.(?!\s*$)|\s*\d)/.test(rest));
+    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^\.?\s*(\d|(a|au|to)\s|-)/.test(rest));
     const value = WORD_VALUES.get(word);
     return value === undefined || notNumber ? [] : [[[String(value)]]];
   });

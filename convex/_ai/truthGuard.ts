@@ -23,7 +23,7 @@ function mentions(text: string | undefined, requirements: JobRequirement[]): boo
 
 /** Words that say nothing of a skill, a degree or a language ("pour", "with", "degree") */
 const STOP_WORDS = new Set([
-  "de","du", "des", "le", "la", "les", "en", "et", "au", "aux", "un", "une", "pour", "avec", "dans", "sans", "chez", "sur",
+  "de", "du", "des", "le", "la", "les", "en", "et", "au", "aux", "un", "une", "pour", "avec", "dans", "sans", "chez", "sur",
   "par", "plus", "tout", "tous", "toute", "toutes", "entre", "vers", "sous", "comme", "afin", "leur", "leurs", "cette",
   "ces", "notre", "nos", "votre", "vos", "aupres", "depuis", "pendant", "selon",
   "of", "in", "on", "at", "to", "the", "and", "for", "with", "from", "into", "that", "this", "these", "those", "your",
