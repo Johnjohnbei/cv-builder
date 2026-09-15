@@ -161,15 +161,27 @@ function track(offer: string, accessCode: string | undefined, answer: Requiremen
   return request;
 }
 
-/** Cached, already running, or a new request for `offer` */
+/** Analyses that are tailorings: their failure is the tailoring's, not the offer's */
+const tailorings = new WeakSet<Promise<JobRequirement[]>>();
+
+/**
+ * Cached, already running, or a new request for `offer`. Waiting on a
+ * tailoring that fails, it asks for the requirements itself: a CV that could
+ * not be written says nothing of the offer.
+ */
 export function requestRequirements(offer: string, accessCode: string | undefined, extract: ExtractRequirements): Promise<JobRequirement[]> {
-  return pendingRequirements(offer, accessCode) ?? track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
+  const ask = () => track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
+  const running = pendingRequirements(offer, accessCode);
+  if (!running) return ask();
+  return tailorings.has(running) ? running.catch(ask) : running;
 }
 
 /** A tailoring running for `offer` answers its requirements: nothing asks for them again meanwhile */
 export function adoptRequirements(offer: string, accessCode: string | undefined, tailoring: RequirementsAnswer): void {
+  const request = track(offer, accessCode, tailoring);
+  tailorings.add(request);
   // The caller reports a failed tailoring
-  track(offer, accessCode, tailoring).catch(() => {});
+  request.catch(() => {});
 }
 
 export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {

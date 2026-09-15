@@ -3,7 +3,7 @@ import { getSkillCategoryTitle } from "../../src/features/editor/lib/atsRules";
 import type { SkillCategoryKey } from "../../src/features/editor/lib/skillDictionary";
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from "../../src/shared/lib/text";
 import { getLocalizedStage } from "../../src/shared/constants/companyMeta";
-import { numberReadings } from "./numbers";
+import { hasUnbackedNumber } from "./numbers";
 
 // ─── Truth guard of the tailoring (plan § 4.1, step 3) ──────────────
 // Extracted from tailor.ts, over its size limit. Code, never AI: what the
@@ -21,13 +21,31 @@ function mentions(text: string | undefined, requirements: JobRequirement[]): boo
   return requirements.some(r => termsOf(r).some(term => matchPhrase(term, prepared)));
 }
 
-const stemsOf = (text: PreparedText) => new Set(text.stemmed.split(/[^\p{L}\p{N}]+/u).filter(stem => stem.length >= 4));
+/** Words that say nothing of a skill, a degree or a language ("pour", "with", "degree") */
+const STOP_WORDS = new Set([
+  "de", "du", "des", "le", "la", "les", "en", "et", "au", "aux", "pour", "avec", "dans", "sans", "chez", "sur", "par",
+  "of", "in", "on", "at", "to", "the", "and", "for", "with", "from", "into",
+]);
 
-/** Whether two texts share a word stem ("Master design" and "Master's in design") */
-function shareStem(a: string | undefined, b: string | undefined): boolean {
-  const stems = stemsOf(prepareText(a ?? ""));
-  return [...stemsOf(prepareText(b ?? ""))].some(stem => stems.has(stem));
+/** The stems of the words of `text` that carry meaning, a single letter ("s" of "Master's") left out */
+const stemsOf = (text: string | undefined) => normalizeForMatch(text ?? "")
+  .split(/[^\p{L}\p{N}]+/u)
+  .filter(word => word.length > 1 && !STOP_WORDS.has(word))
+  .map(word => prepareText(word).stemmed);
+
+/** Whether two texts share a word stem of 4 letters or more ("recherche utilisateur" and "entretiens utilisateurs") */
+function shareStem(a: string, b: string): boolean {
+  const stems = new Set(stemsOf(a).filter(stem => stem.length >= 4));
+  return stemsOf(b).some(stem => stems.has(stem));
 }
+
+/** Every meaningful word of `entry` is a word of `source`, or one of `alike` ("Master's degree in design" of "Master design") */
+function namesOnly(entry: string, source: string, alike: (stem: string) => string[] = () => []): boolean {
+  const allowed = new Set(stemsOf(source).flatMap(stem => [stem, ...alike(stem)]));
+  return stemsOf(entry).every(stem => allowed.has(stem) || DEGREE_WORDS.has(stem));
+}
+
+const DEGREE_WORDS = new Set(stemsOf("degree diploma diplome"));
 
 /**
  * The requirements the source CV proves: one of its fields writes them, or the
@@ -53,11 +71,9 @@ const LANGUAGE_NAMES = [
   ["japonais", "japanese"], ["arabe", "arabic"], ["russe", "russian"],
 ];
 
-/** Whether two language names name the same language */
-function sameLanguageName(a: string, b: string): boolean {
-  const group = (name: string) => LANGUAGE_NAMES.findIndex(names => names.includes(normalizeForMatch(name)));
-  return shareStem(a, b) || (group(a) >= 0 && group(a) === group(b));
-}
+/** A language name's stem, and the stems of its translations */
+const LANGUAGE_STEMS = LANGUAGE_NAMES.map(names => names.flatMap(stemsOf));
+const translations = (stem: string) => LANGUAGE_STEMS.find(stems => stems.includes(stem)) ?? [];
 
 export interface GuardContext {
   source: CVData;
@@ -83,7 +99,7 @@ export interface GuardContext {
  */
 export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage }: GuardContext): CVData {
   const writes = (text?: string) => mentions(text, unproven);
-  const invents = (text?: string) => writes(text) || numberReadings(text).some(readings => !readings.some(r => sourceNumbers.has(r)));
+  const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers);
   const sentencesKept = (text?: string) => text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
   return {
@@ -107,15 +123,17 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
         description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
       };
     }),
-    // Entries are matched to the source's by what they name, never by their place alone
+    // Entries are matched to the source's by what they name, never by their place
+    // alone: the model's words are kept only when they add none (a translated
+    // degree the words of which differ goes back to the source's wording)
     education: source.education.map((src, i) => {
       const edu = cv.education[i];
-      const same = edu && shareStem(`${edu.degree} ${edu.field ?? ""}`, `${src.degree} ${src.field ?? ""}`);
-      return same && ![edu.degree, edu.field].some(invents) ? { ...src, degree: edu.degree, field: edu.field } : src;
+      const same = edu && namesOnly(`${edu.degree} ${edu.field ?? ""}`, `${src.degree} ${src.field ?? ""}`);
+      return same ? { ...src, degree: edu.degree, field: edu.field } : src;
     }),
     languages: source.languages.map((src, i) => {
       const lang = cv.languages[i];
-      return lang && sameLanguageName(lang.name, src.name) ? { ...src, name: lang.name } : src;
+      return lang && namesOnly(lang.name, src.name, translations) ? { ...src, name: lang.name } : src;
     }),
     skills: cv.skills
       .map((cat, i) => ({

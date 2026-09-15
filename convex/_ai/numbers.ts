@@ -11,17 +11,34 @@ const NUMBER_WORDS = [
   ["onze", "eleven"], ["douze", "twelve"], ["treize", "thirteen"], ["quatorze", "fourteen"], ["quinze", "fifteen"],
 ];
 
+/** A number word's value, and the scale a word after a figure gives it ("30 millions") */
+const TENS: [string[], number][] = [
+  [["seize", "sixteen"], 16], [["seventeen"], 17], [["eighteen"], 18], [["nineteen"], 19],
+  [["vingt", "vingts", "twenty"], 20], [["trente", "thirty"], 30], [["quarante", "forty"], 40],
+  [["cinquante", "fifty"], 50], [["soixante", "sixty"], 60], [["septante", "seventy"], 70],
+  [["huitante", "octante", "eighty"], 80], [["nonante", "ninety"], 90],
+];
+const SCALES: [string[], number][] = [
+  [["cent", "cents", "hundred", "hundreds"], 100],
+  [["k", "mille", "millier", "milliers", "thousand", "thousands"], 1_000],
+  [["m", "million", "millions"], 1_000_000],
+  [["md", "mds", "bn", "milliard", "milliards", "billion", "billions"], 1_000_000_000],
+];
+
 /**
  * Words the truth guard reads as numbers. Not "un", "une", "one" (an article
  * in almost every sentence) nor "neuf" (new): read as 1 and 9, they removed
- * legitimate bullets.
+ * legitimate bullets. A scale word alone ("des millions") is its own number,
+ * an abbreviation alone ("k", "MD") is not.
  */
-const GUARD_WORD_VALUES = new Map<string, string>([
-  ...NUMBER_WORDS.flatMap((words, i) => words.map(word => [word, String(i + 1)] as const))
+const WORD_VALUES = new Map<string, number>([
+  ...NUMBER_WORDS.flatMap((words, i) => words.map(word => [word, i + 1] as const))
     .filter(([word]) => !["un", "une", "one", "neuf"].includes(word)),
-  ["vingt", "20"], ["trente", "30"], ["quarante", "40"], ["cinquante", "50"], ["soixante", "60"], ["cent", "100"], ["mille", "1000"],
-  ["twenty", "20"], ["thirty", "30"], ["forty", "40"], ["fifty", "50"], ["sixty", "60"], ["hundred", "100"], ["thousand", "1000"],
+  ...[...TENS, ...SCALES.map(([words, value]) => [words.filter(word => word.length > 3), value] as const)]
+    .flatMap(([words, value]) => words.map(word => [word, value] as const)),
 ]);
+const SCALE_VALUES = new Map(SCALES.flatMap(([words, value]) => words.map(word => [word, value] as const)));
+const SCALE = SCALES.flatMap(([words]) => words).sort((a, b) => b.length - a.length).join("|");
 
 /**
  * Whether the quote gives `years` as a number of years, in digits or in words:
@@ -41,26 +58,51 @@ export function statesYears(quote: PreparedText, years: number): boolean {
   return new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:${between}|${range})${unit}`, "u").test(quote.normalized);
 }
 
+/** A letter other than the x of a multiplier ("x3", "10x") */
+const NAME_LETTER = String.raw`(?![x×])\p{L}`;
+const FIGURE = new RegExp(
+  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+)(?:\s?(${SCALE})(?!\p{L}))?(?!${NAME_LETTER})`,
+  "gu",
+);
+
 /**
- * The numbers a text gives, each with the readings it may have: "1 500" is
- * 1500, or 1 and 500 ("Top 3 100 clients"); "5k" is 5000 or 5 ("5 milliers"),
- * "30M" 30000000 or 30 ("30 millions"); "trois" and "three" are 3; a multiplier
- * "x3" is 3. The markdown the templates render is read through, and a digit
- * inside a name ("B2B", "S3") is no number.
+ * The numbers a text gives, each with the ways it can be read, a way being the
+ * values that must all be backed: "1 500" is 1500, or 1 and 500 ("Top 3 100
+ * clients"); "5k" and "5 milliers" are 5000; "trois" and "three" are 3; "x3" is
+ * 3. The first way is the plain reading. The markdown the templates render is
+ * read through; a digit inside a name ("B2B", "iOS17", "3D"), "pour cent" and
+ * the month "sept. 2019" are no numbers.
  */
-export function numberReadings(text: string | undefined): string[][] {
+function numberReadings(text: string | undefined): string[][][] {
   if (!text) return [];
   const normalized = normalizeForMatch(stripInlineMarkdown(text));
-  const figures = [...normalized.matchAll(/(?<!(?![x×])\p{L})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+)(?:\s?([km])(?!\p{L}))?/gu)]
-    .map(([, figure, scale]) => {
-      const parts = figure.split(/[\s,.]/);
-      const whole = Number(parts.join(""));
-      const scaled = scale ? [String(whole * (scale === "k" ? 1_000 : 1_000_000))] : [];
-      return [...scaled, String(whole), ...(parts.length > 1 ? parts.map(part => String(Number(part))) : [])];
-    });
-  const words = (normalized.match(/\p{L}+/gu) ?? []).flatMap(word => {
-    const value = GUARD_WORD_VALUES.get(word);
-    return value ? [[value]] : [];
+  const taken: [number, number][] = [];
+  const figures = [...normalized.matchAll(FIGURE)].map((match) => {
+    const [all, figure, scale] = match;
+    taken.push([match.index, match.index + all.length]);
+    const parts = figure.split(/[\s,.]/);
+    const whole = Number(parts.join("")) * (scale ? SCALE_VALUES.get(scale)! : 1);
+    return [[String(whole)], ...(parts.length > 1 && !scale ? [parts.map(part => String(Number(part)))] : [])];
+  });
+  let previous = "";
+  const words = [...normalized.matchAll(/\p{L}+/gu)].flatMap((match) => {
+    const [word] = match;
+    const before = previous;
+    previous = word;
+    const value = WORD_VALUES.get(word);
+    const inFigure = taken.some(([start, end]) => match.index >= start && match.index < end);
+    const notNumber = (word === "cent" && before === "pour") || (word === "sept" && /^\.?\s*\d/.test(normalized.slice(match.index + 4)));
+    return value === undefined || inFigure || notNumber ? [] : [[[String(value)]]];
   });
   return [...figures, ...words];
+}
+
+/** The numbers a text gives, each read the plain way: what a source backs */
+export function numbersOf(text: string | undefined): string[] {
+  return numberReadings(text).map(([plain]) => plain[0]);
+}
+
+/** Whether `text` gives a number no way of reading of which `backed` holds whole */
+export function hasUnbackedNumber(text: string | undefined, backed: Set<string>): boolean {
+  return numberReadings(text).some(ways => !ways.some(values => values.every(value => backed.has(value))));
 }

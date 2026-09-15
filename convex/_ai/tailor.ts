@@ -8,7 +8,7 @@ import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
 import { resolveAdaptLanguage } from "./languageDetection";
 import { normalizeCVData, normalizeJobRequirements } from "./normalizers";
-import { numberReadings } from "./numbers";
+import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
 import { buildRepairPrompt } from "./prompts/distribute";
 import { buildJobRequirementsPrompt } from "./prompts/jobDescription";
@@ -105,15 +105,11 @@ function readGeneration(raw: unknown, source: CVData, requirements: JobRequireme
   };
 }
 
-/** Every reading of every number the source gives: its content, the years of its dates, its years of experience */
+/** The numbers the source gives: its content, the years of its dates (never their months), its years of experience */
 function sourceNumbersOf(source: CVData, contents: string[]): Set<string> {
   const years = yearsOfExperience(source.experience);
-  const dates = [...source.experience, ...source.education].flatMap(entry => [entry.start_date, entry.end_date]);
-  return new Set([
-    ...[...contents, ...dates].flatMap(text => numberReadings(text).flat()),
-    String(Math.floor(years)),
-    String(Math.round(years)),
-  ]);
+  const dateYears = [...source.experience, ...source.education].flatMap(entry => `${entry.start_date ?? ""} ${entry.end_date ?? ""}`.match(/\d{4}/g) ?? []);
+  return new Set([...contents.flatMap(numbersOf), ...dateYears, String(Math.floor(years)), String(Math.round(years))]);
 }
 
 /** The repair's edits applied where they point; an edit pointing nowhere is ignored */

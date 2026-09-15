@@ -215,6 +215,37 @@ describe("tailorPipeline: truth guard", () => {
     expect(cv.languages).toEqual([{ name: "English", proficiency: "B2" }]);
   });
 
+  // A shared word kept "Master Design graphique" for a "Licence", "Anglais, allemand" for "Anglais"
+  it("puts the source's degree or language back when the model's words add one", async () => {
+    const source: CVData = {
+      ...SOURCE,
+      education: [{ school: "ENSAD", degree: "Licence Design graphique", start_date: "2012", end_date: "2015" }],
+      languages: [{ name: "Anglais (C1)", proficiency: "C1" }, { name: "Espagnol", proficiency: "B1" }],
+    };
+    answers(generated(cv => {
+      cv.education[0].degree = "Master Design graphique";
+      cv.languages[0].name = "Anglais, allemand";
+      cv.languages[1].name = "Espagnol TOEIC 950";
+    }, [], source));
+    const { cv } = await run([FIGMA], Date.now(), source);
+    expect(cv.education).toEqual(source.education);
+    expect(cv.languages).toEqual(source.languages);
+
+    answers(generated(cv => { cv.languages[0].name = "English"; }, [], source));
+    expect((await run([FIGMA], Date.now(), source)).cv.languages[0].name).toBe("English");
+  });
+
+  it("reads a quote that shares only a word like « pour » with the requirement as no proof", async () => {
+    const source: CVData = { ...SOURCE, personal_info: { ...SOURCE.personal_info, summary: "Designer produit pour le SaaS B2B." } };
+    const offer = `${OFFER} Passion pour la data.`;
+    answers(generated(cv => {
+      cv.personal_info.summary = "Designer produit pour le SaaS B2B. Passion pour la data.";
+    }, [{ id: "passion-pour-la-data", quote: "Designer produit pour le SaaS B2B" }], source));
+    const result = await run([FIGMA, requirement("Passion pour la data", "soft_skill")], Date.now(), source, offer);
+    expect(result.cv.personal_info.summary).toBe("Designer produit pour le SaaS B2B.");
+    expect(result.unproven).toEqual(["passion-pour-la-data"]);
+  });
+
   it("reads a quote as proof only when the quote itself shares a word with the requirement", async () => {
     answers(generated(cv => {
       cv.experience[0].description[0] = "Conduit la recherche utilisateur : 30 entretiens";
@@ -249,11 +280,15 @@ describe("tailorPipeline: truth guard", () => {
       cv.personal_info.email = "fake@example.org";
       cv.experience[0].kpi = "+40 % de conversion";
       cv.experience[0].description[1] = "Conçu les maquettes de 17 marques";
+      // "1" of the date 2020-01 and "12" of 2019-12 are months, not facts
+      cv.experience[1].kpi = "Mené 1 500 entretiens";
+      cv.experience[1].intro = "Encadré 12 designers.";
     }));
     const { cv } = await run([FIGMA]);
     expect(cv.personal_info.email).toBe("alex@example.com");
     expect(cv.experience[0].kpi).toBe("");
     expect(cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
+    expect(cv.experience[1]).toMatchObject({ kpi: "", intro: "" });
   });
 });
 

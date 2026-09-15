@@ -196,6 +196,20 @@ describe('requirements cache', () => {
       expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('Figma')]);
     });
 
+    // A tailoring can fail after its extraction succeeded: its error is not the offer's
+    it('asks for the requirements itself when the tailoring it waits on fails', async () => {
+      const tab = await loadModule();
+      let fail!: (error: Error) => void;
+      tab.adoptRequirements('Offre A', 'code', new Promise((_, reject) => { fail = reject; }));
+      const extract = vi.fn(async () => ({ requirements: [R('SAP')] }));
+
+      const waiting = tab.requestRequirements('Offre A', 'code', extract);
+      fail(new Error('AI_INVALID_OUTPUT'));
+
+      expect(await waiting).toEqual([R('SAP')]);
+      expect(extract).toHaveBeenCalledTimes(1);
+    });
+
     it('asks again after a failed tailoring', async () => {
       const tab = await loadModule();
       tab.adoptRequirements('Offre A', 'code', Promise.reject(new Error('AI_UNAVAILABLE')));
