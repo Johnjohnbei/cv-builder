@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { maskHeaderBlocks } from '../shared/lib/anonymize';
 import { getUserErrorMessage } from '../shared/lib/convexError';
+import { readStoredText } from '../shared/lib/storage';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -25,7 +26,7 @@ export default function EditorPage() {
   // ─── Auth & API ───
   const { user } = useUser();
   const { id: cvId } = useParams<{ id: string }>();
-  const isGuest = sessionStorage.getItem('guest_access') === 'true';
+  const isGuest = readStoredText('guest_access', 'session') === 'true';
   const userData = useQuery(api.users.getMe, user ? undefined : "skip");
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
 
@@ -58,11 +59,25 @@ export default function EditorPage() {
   );
 
   // Initialize jobDescription from loaded data (dashboard → editor flow)
+  // The offer the AI keywords describe: committed on load and when the offer
+  // field loses focus, not at every keystroke (see useJobKeywordsAI).
+  // Each commit gets a new id, same text included: a failed extraction is
+  // retried at the next commit, which an identical string alone never triggered.
+  const [committed, setCommitted] = useState({ offer: '', id: 0 });
+  const analyzedOffer = committed.offer;
+  const commitOffer = useCallback((offer: string) => setCommitted(c => ({ offer, id: c.id + 1 })), []);
+  const commitJobDescription = useCallback(() => commitOffer(jobDescription), [commitOffer, jobDescription]);
+
   const jdInitialized = useRef(false);
   useEffect(() => {
     if (!jdInitialized.current && loadedJobDescription && !jobDescription) {
       jdInitialized.current = true;
       setJobDescription(loadedJobDescription);
+      commitOffer(loadedJobDescription);
+      // The score this offer makes available lives in the ATS tab. Only for an
+      // offer that arrives: switching on the first character typed unmounted
+      // the field being typed in.
+      setActiveTab('ats');
     }
   }, [loadedJobDescription]);
 
@@ -80,7 +95,7 @@ export default function EditorPage() {
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const aiKeywords = useJobKeywordsAI(jobDescription, getCode());
+  const aiKeywords = useJobKeywordsAI(analyzedOffer, jobDescription, getCode(), committed.id);
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
@@ -94,10 +109,13 @@ export default function EditorPage() {
     () => atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
     [atsKeywords],
   );
+  // Proposals and rewrites belong to the committed offer, like the keywords they
+  // are built from: keyed on the live text, a typo fixed in the offer wiped paid
+  // rewrites on display.
   const keywordDistribution = useKeywordDistribution({
     cvData,
     setCvData,
-    jobDescription,
+    jobDescription: analyzedOffer,
     missingKeywords: missingKeywordsList,
     notify,
     accessCode: getCode(),
@@ -105,7 +123,7 @@ export default function EditorPage() {
   const bullets = useBulletOptimization({
     cvData,
     setCvData,
-    jobDescription,
+    jobDescription: analyzedOffer,
     missingKeywords: missingKeywordsList,
     notify,
     accessCode: getCode(),
@@ -114,6 +132,7 @@ export default function EditorPage() {
     cvData,
     designSettings,
     selectedTemplate,
+    jobDescription,
     user,
     isGuest,
     notify,
@@ -159,7 +178,7 @@ export default function EditorPage() {
     cvData, setCvData, designSettings,
     jobDescription, user, isGuest, notify, accessCode: getCode(),
   });
-  const { isAutoSaving, lastAutoSaveAt } = useAutoSaveDraft({
+  const { isAutoSaving, lastAutoSaveAt, saveFailed } = useAutoSaveDraft({
     cvData, designSettings, selectedTemplate, jobDescription,
     user, isGuest, updateLastCV,
   });
@@ -170,14 +189,6 @@ export default function EditorPage() {
   // These calls answer with a whole CV that replaces the current one
   const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching;
   const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
-
-  // Switch to the ATS tab the first time an offer arrives — that is where the
-  // score the user just made available lives.
-  const jdWasEmpty = useRef(!jobDescription.trim());
-  useEffect(() => {
-    if (jdWasEmpty.current && jobDescription.trim()) setActiveTab('ats');
-    jdWasEmpty.current = !jobDescription.trim();
-  }, [jobDescription]);
 
   // Recompute zoom when the available width changes (sidebar toggle, tab).
   // cvData is deliberately NOT a dep: typing doesn't change the container
@@ -298,6 +309,7 @@ export default function EditorPage() {
         selectedTemplate={selectedTemplate}
         jobDescription={jobDescription}
         onJobDescriptionChange={setJobDescription}
+        onJobDescriptionCommit={commitJobDescription}
         actualPageCount={actualPageCount}
         hasClippedContent={hasClippedContent}
         targetPages={targetPages}
@@ -342,6 +354,7 @@ export default function EditorPage() {
           onExport={exports.downloadPDF}
           isAutoSaving={isAutoSaving}
           lastAutoSaveAt={lastAutoSaveAt}
+          autoSaveFailed={saveFailed}
           isSaving={persistence.isSaving}
           isExporting={exports.isExporting}
           hasCvData={!!cvData}

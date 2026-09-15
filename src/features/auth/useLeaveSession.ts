@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClerk } from '@clerk/clerk-react';
+import { writeStoredText } from '@/src/shared/lib/storage';
 
 /**
  * End the current session, account or guest, and go back to the sign-in page.
@@ -13,7 +14,7 @@ export function useLeaveSession() {
   const navigate = useNavigate();
 
   return useCallback(async () => {
-    sessionStorage.removeItem('guest_access');
+    writeStoredText('guest_access', '', 'session');
     try {
       await signOut();
     } catch (e) {

@@ -49,6 +49,18 @@ describe('attachBilingualCache', () => {
     expect(result.personal_info.title).toBe('Chef de produit');
   });
 
+  it('keeps user-owned fields out of both snapshots (the photo is not stored three times)', async () => {
+    const photo = 'data:image/png;base64,AAAA';
+    const withPhoto: CVData = { ...FR_CV, personal_info: { ...FR_CV.personal_info, photo_url: photo, portfolio_url: 'https://p.example' } };
+    const translated = { ...EN_SNAPSHOT, personal_info: { ...EN_SNAPSHOT.personal_info, photo_url: photo } };
+    const result = await attachBilingualCache(withPhoto, vi.fn().mockResolvedValue(translated as unknown as CVData));
+
+    expect(result.personal_info.photo_url).toBe(photo);
+    expect(result._translations?.fr?.personal_info).not.toHaveProperty('photo_url');
+    expect(result._translations?.fr?.personal_info).not.toHaveProperty('portfolio_url');
+    expect(result._translations?.en?.personal_info).not.toHaveProperty('photo_url');
+  });
+
   it('forwards the access code', async () => {
     const translate = vi.fn().mockResolvedValue(EN_SNAPSHOT as unknown as CVData);
     await attachBilingualCache(FR_CV, translate, 'CODE123');

@@ -5,6 +5,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
 import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
@@ -228,15 +229,18 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   // ─── Mirror letter + company context to localStorage (guest AND signed in) ───
   // Gated on isOpen: before the first open() the state is still empty and would
   // overwrite the stored context that open() is about to restore.
+  // For a guest this mirror is the only copy of a paid letter: a refused write
+  // is said once (not at every keystroke), instead of being swallowed.
+  const mirrorFailedRef = useRef(false);
   useEffect(() => {
     if (!isOpen) return;
-    try {
-      localStorage.setItem(COVER_LETTER_STORAGE_KEY, JSON.stringify({
-        letter, companyName, companyStage, companyBusinessModel,
-        jobDescription: localJobDescription,
-      }));
-    } catch { /* storage unavailable: mirror is best-effort */ }
-  }, [isOpen, letter, companyName, companyStage, companyBusinessModel, localJobDescription]);
+    const saved = writeStoredText(COVER_LETTER_STORAGE_KEY, JSON.stringify({
+      letter, companyName, companyStage, companyBusinessModel,
+      jobDescription: localJobDescription,
+    }));
+    if (!saved && !user && !mirrorFailedRef.current) notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+    mirrorFailedRef.current = !saved;
+  }, [isOpen, letter, companyName, companyStage, companyBusinessModel, localJobDescription, user, notify]);
 
   // ─── Resync the drawer JD when the editor JD changes and the user hasn't typed in it ───
   const prevPropJDRef = useRef(jobDescription);

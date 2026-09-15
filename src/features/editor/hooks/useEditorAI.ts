@@ -3,6 +3,7 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolioVariants';
 
 export interface UseEditorAIDeps {
@@ -53,9 +54,11 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
       updateLastCV({ cvData: updated, jobDescription })
         .catch(e => console.warn(`[${label}] persist failed:`, e));
     } else if (isGuest) {
-      localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+      if (!writeStoredText('guest_last_optimized', JSON.stringify(updated))) {
+        notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+      }
     }
-  }, [user, isGuest, jobDescription, updateLastCV]);
+  }, [user, isGuest, jobDescription, updateLastCV, notify]);
 
   const optimize = useCallback(async () => {
     if (!cvData) return;

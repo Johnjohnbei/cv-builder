@@ -93,6 +93,25 @@ function titleReserve(type: ContentBlock['type'], titled: Set<string>, titles: T
   return 0;
 }
 
+/**
+ * Height a column or page really takes: its blocks at the width they render
+ * at, plus the section titles injected above them. Totals used to skip the
+ * titles (a block forced onto a page under its title was cut in the PDF with
+ * no warning) and to read column-width heights on full-width overflow pages
+ * (a false "cut block" warning on templates A and B). MEASUREMENT_SAFETY_PX
+ * is the CSS gap between blocks, and the last block of a column has none: a
+ * block placed by force that fitted within that gap was reported as cut.
+ */
+function usedHeight(blocks: PlacedBlock[], titles: TitleHeights, useFullWidth = false): number {
+  const titled = new Set<string>();
+  const withGaps = blocks.reduce((sum, pb) => {
+    const titleH = titleReserve(pb.block.type, titled, titles);
+    titled.add(pb.block.type);
+    return sum + titleH + placedHeight(pb, useFullWidth) + MEASUREMENT_SAFETY_PX;
+  }, 0);
+  return blocks.length > 0 ? withGaps - MEASUREMENT_SAFETY_PX : 0;
+}
+
 // ─── Block Classification ───
 
 interface ClassifiedBlocks {
@@ -175,6 +194,8 @@ function allocateTwoColumn(
   // Sidebar: fill with skills/education/languages
   // Blocks that don't fit flow to page 2+ as full-width content
   const sidebarOverflow: PlacedBlock[] = [];
+  // No gap counted after the header: the loop below counts one after the last
+  // block, which the column does not render, so the two cancel out exactly.
   const headerSidebarH = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
   let sidebarUsed = headerSidebarH;
   // Reserve space for the "COMPÉTENCES" section title injected by PaginatedCV
@@ -194,16 +215,12 @@ function allocateTwoColumn(
   // Main column: fill with experiences (fillColumn reserves their section title)
   const overflowExperiences = fillColumn(experiences, page1Height, page1Main, titles);
 
-  // Determine effective page 1 height
-  const mainTotal = page1Main.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-  const sideTotal = page1Sidebar.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-
   pages.push({
     pageIndex: 0,
     blocks: page1Main,
     sidebarBlocks: page1Sidebar,
     layoutMode: 'two-column',
-    usedHeightPx: Math.max(mainTotal, sideTotal),
+    usedHeightPx: Math.max(usedHeight(page1Main, titles), usedHeight(page1Sidebar, titles)),
   });
 
   // ─── Pages 2+: Full-width overflow (experiences + sidebar overflow) ───
@@ -243,13 +260,11 @@ function allocateSingleColumn(
   const page1Blocks: PlacedBlock[] = [];
   const overflow = fillColumn(allBlocks, page1Height, page1Blocks, titles);
 
-  const page1Total = page1Blocks.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-
   pages.push({
     pageIndex: 0,
     blocks: page1Blocks,
     layoutMode: 'full-width',
-    usedHeightPx: page1Total,
+    usedHeightPx: usedHeight(page1Blocks, titles),
   });
 
   if (overflow.length > 0) {
@@ -374,13 +389,11 @@ function allocateOverflowPages(
       overflowStarted = true;
     }
 
-    const pageTotal = pageBlocks.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-
     pages.push({
       pageIndex: pages.length,
       blocks: pageBlocks,
       layoutMode: 'full-width',
-      usedHeightPx: pageTotal,
+      usedHeightPx: usedHeight(pageBlocks, titles, useFullWidthHeight),
     });
 
     remaining = nextOverflow;

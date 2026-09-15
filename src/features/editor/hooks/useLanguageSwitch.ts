@@ -3,7 +3,9 @@ import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
+import { contentSnapshot } from '@/src/lib/bilingual';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
 
@@ -30,20 +32,6 @@ export interface UseLanguageSwitchResult {
   handleCancelLanguageChange: () => void;
 }
 
-/**
- * Snapshot of the translatable content. User-owned fields are excluded: they
- * are identical in both languages, the photo's base64 payload would otherwise
- * be duplicated per cached language in every auto-save (Convex doc cap
- * ~1 MiB), and a cached portfolio link would bring back one the user changed.
- */
-const contentSnapshot = (d: CVData) => ({
-  personal_info: omitUserOwnedFields(d.personal_info),
-  experience: d.experience,
-  education: d.education,
-  skills: d.skills,
-  languages: d.languages,
-});
-
 /** Owns the FR/EN switch: cache-hit instant swap, LLM translation, labels-only override. */
 export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitchResult {
   const { cvData, setCvData, user, isGuest, jobDescription, updateLastCV, notify, accessCode } = deps;
@@ -61,7 +49,9 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
       updateLastCV({ cvData: updated, jobDescription })
         .catch(e => console.warn(`[${label}] persist failed:`, e));
     } else if (isGuest) {
-      localStorage.setItem('guest_last_optimized', JSON.stringify(updated));
+      if (!writeStoredText('guest_last_optimized', JSON.stringify(updated))) {
+        notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+      }
     }
   };
 

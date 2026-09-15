@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, Experience } from '@/src/shared/types';
@@ -127,6 +127,9 @@ export function locateBullet(
 
 const STALE_PROPOSAL_MESSAGE = 'Ce point a été modifié entre-temps : la proposition est ignorée.';
 
+/** A paid answer that arrived for an offer the user has since changed: dropped, but said */
+export const OFFER_CHANGED_MESSAGE = "L'offre a changé pendant la génération : le résultat est ignoré.";
+
 /** Find the longest bullet index in an experience — used by integrateKeyword for best context. */
 function longestBulletIndex(description: string[]): number {
   if (description.length === 0) return -1;
@@ -164,6 +167,17 @@ export function useBulletOptimization(
   const [improvingBulletKey, setImprovingBulletKey] = useState<RewriteKey | null>(null);
   const [bulletSuggestions, setBulletSuggestions] = useState<BulletSuggestionState | null>(null);
 
+  // Rewrites and suggestions are written for one committed offer: another offer
+  // makes them wrong, and a response still in flight for the old offer must not
+  // land under the new one. Compared trimmed, like the keywords.
+  const offerKey = jobDescription.trim();
+  const offerRef = useRef(offerKey);
+  useEffect(() => {
+    offerRef.current = offerKey;
+    setPendingRewrites(new Map());
+    setBulletSuggestions(null);
+  }, [offerKey]);
+
   const optimize = useCallback(async () => {
     if (!cvData || !jobDescription) return;
     setIsOptimizing(true);
@@ -176,6 +190,10 @@ export function useBulletOptimization(
         language,
         accessCode,
       });
+      if (offerRef.current !== jobDescription.trim()) {
+        notify({ message: OFFER_CHANGED_MESSAGE, type: 'error' });
+        return;
+      }
       const next = new Map<RewriteKey, BulletRewriteEntry>();
       for (const rw of data.rewrites) {
         const mapping = indexMap[rw.index];
@@ -244,6 +262,10 @@ export function useBulletOptimization(
           language,
           accessCode,
         });
+        if (offerRef.current !== jobDescription.trim()) {
+          notify({ message: OFFER_CHANGED_MESSAGE, type: 'error' });
+          return;
+        }
 
         const firstSuggestion = data.suggestions?.[0];
         if (firstSuggestion) {
@@ -284,6 +306,10 @@ export function useBulletOptimization(
           language,
           accessCode,
         });
+        if (offerRef.current !== jobDescription.trim()) {
+          notify({ message: OFFER_CHANGED_MESSAGE, type: 'error' });
+          return;
+        }
         setBulletSuggestions({ key, original: bullet, suggestions: result.suggestions ?? [] });
       } catch {
         // Silent — the picker just won't open, matches original behavior
@@ -291,7 +317,7 @@ export function useBulletOptimization(
         setImprovingBulletKey(null);
       }
     },
-    [improveBulletAction, jobDescription, missingKeywords, language, accessCode],
+    [improveBulletAction, jobDescription, missingKeywords, language, accessCode, notify],
   );
 
   const pickSuggestion = useCallback(

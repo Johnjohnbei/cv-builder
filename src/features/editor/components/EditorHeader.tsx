@@ -28,6 +28,8 @@ interface Props {
   isAutoSaving?: boolean;
   /** Timestamp of the last successful auto-save (null before the first one) */
   lastAutoSaveAt?: Date | null;
+  /** The last auto-save failed: never let an older "Enregistré à" stand for it */
+  autoSaveFailed?: boolean;
 }
 
 export function EditorHeader({
@@ -39,10 +41,13 @@ export function EditorHeader({
   isAnonymous, onToggleAnonymous,
   isAutoSaving = false,
   lastAutoSaveAt = null,
+  autoSaveFailed = false,
 }: Props) {
   const autoSaveLabel = isAutoSaving
     ? 'Enregistrement...'
-    : lastAutoSaveAt
+    : autoSaveFailed
+      ? 'Modifications non enregistrées'
+      : lastAutoSaveAt
       ? `Enregistré à ${lastAutoSaveAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
       : null;
 

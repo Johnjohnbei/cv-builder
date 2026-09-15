@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ConvexError } from "convex/values";
-import { withRetry, isRetryable, retryDelayMs, safeParseJSON, userError } from "../chat";
+import { withRetry, isRetryable, retryDelayMs, safeParseJSON } from "../chat";
+import { userError } from "../../_shared/errors";
 
 /** Read the user-facing payload off a thrown error (ConvexError.data). */
 const dataOf = (e: unknown) => (e instanceof ConvexError ? (e.data as { userMessage?: string; code?: string }) : {});

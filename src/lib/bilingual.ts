@@ -1,4 +1,4 @@
-import type { CVData } from '../shared/types';
+import { omitUserOwnedFields, type CVData } from '../shared/types';
 import { getCVLanguage, type SupportedLanguage } from './languageDetection';
 
 /**
@@ -11,15 +11,19 @@ type TranslateFn = (args: {
   accessCode?: string;
 }) => Promise<CVData>;
 
-function snapshotOf(cv: CVData) {
-  return {
-    personal_info: cv.personal_info,
-    experience: cv.experience,
-    education: cv.education,
-    skills: cv.skills,
-    languages: cv.languages,
-  };
-}
+/**
+ * Snapshot of the translatable content, cached per language. User-owned fields
+ * are excluded: they are identical in both languages, the photo's base64
+ * payload would otherwise be stored once more per cached language (Convex doc
+ * cap ~1 MiB), and a cached portfolio link would bring back one the user changed.
+ */
+export const contentSnapshot = (cv: CVData) => ({
+  personal_info: omitUserOwnedFields(cv.personal_info),
+  experience: cv.experience,
+  education: cv.education,
+  skills: cv.skills,
+  languages: cv.languages,
+});
 
 /**
  * Given a freshly generated CV in one language, produce the OTHER language too
@@ -44,8 +48,8 @@ export async function attachBilingualCache(
       ...cv,
       _translations: {
         ...cv._translations,
-        [langA]: snapshotOf(cv),
-        [langB]: snapshotOf(translated),
+        [langA]: contentSnapshot(cv),
+        [langB]: contentSnapshot(translated),
       },
     };
   } catch (e) {

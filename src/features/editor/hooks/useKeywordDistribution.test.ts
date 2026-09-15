@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyAssignments, stripNonContent } from './useKeywordDistribution';
+import { applyAssignments, isStaleProposal, stripNonContent } from './useKeywordDistribution';
 import type { DistributionProposal } from './useKeywordDistribution';
 import type { CVData, Experience } from '@/src/shared/types';
 
@@ -130,6 +130,15 @@ describe('applyAssignments', () => {
   it('skips a proposal whose bullet was edited meanwhile', () => {
     const p = { ...proposal('X', 0, 1, 'rewritten 1'), originalBullet: 'text that is gone' };
     expect(applyAssignments(baseExp, [p])).toBe(baseExp);
+  });
+
+  it('flags as stale only a rewrite whose bullet changed meanwhile', () => {
+    const edited = { ...proposal('X', 0, 1, 'rewritten 1'), originalBullet: 'text that is gone' };
+    const intact = { ...proposal('Y', 0, 1, 'rewritten 1'), originalBullet: 'bullet 1' };
+    expect(isStaleProposal(baseExp, edited)).toBe(true);
+    expect(isStaleProposal(baseExp, intact)).toBe(false);
+    expect(isStaleProposal(baseExp, proposal('Z', 0, 1, null))).toBe(false);
+    expect(isStaleProposal(baseExp, proposal('W', null, null, 'rewritten'))).toBe(false);
   });
 
   it('returns an empty-proposals case unchanged', () => {

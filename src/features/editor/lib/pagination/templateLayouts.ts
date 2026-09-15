@@ -21,7 +21,7 @@ const GAP_12 = 12.7;
 
 /**
  * TemplateA — Classic (sidebar right)
- * Root: px-16 pt-16 pb-10
+ * Root: p-16
  * Grid: grid-cols-3 gap-12 (main=2fr, sidebar=1fr)
  * Main column ≈ (210 - 2*16.9 - 12.7) * 2/3 = ~109mm
  * Sidebar ≈ ~54mm
@@ -51,7 +51,7 @@ const TEMPLATE_A: TemplateLayout = {
 /**
  * TemplateB — Modern (sidebar left, bg primary)
  * Left sidebar: p-12, width=1fr
- * Right main: p-16, width=2fr
+ * Right main: px-16 py-12, width=2fr
  * Grid: grid-cols-[1fr_2fr]
  */
 const TEMPLATE_B: TemplateLayout = {
@@ -78,7 +78,7 @@ const TEMPLATE_B: TemplateLayout = {
 
 /**
  * TemplateC — Minimal (single column, centered)
- * Root: px-16 pt-16 pb-10 space-y-8
+ * Root: p-16 space-y-8
  * Skills/edu in grid-cols-2 below experiences
  */
 const TEMPLATE_C: TemplateLayout = {
@@ -105,7 +105,7 @@ const TEMPLATE_C: TemplateLayout = {
 
 /**
  * TemplateE — Elegant (single column, skills/edu grid)
- * Root: px-16 pt-16 pb-10
+ * Root: p-16
  * Skills/edu: grid-cols-2 gap-12
  */
 const TEMPLATE_E: TemplateLayout = {

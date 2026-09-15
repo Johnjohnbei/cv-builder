@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPersistedCV, appendToGuestList } from './useCVPersistence';
+import { buildPersistedCV, appendToGuestList, replacesDraft, stripPersistenceArtifacts } from './useCVPersistence';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
 const SAMPLE_CV: CVData = {
@@ -40,6 +40,39 @@ describe('buildPersistedCV', () => {
     expect(out).not.toBe(SAMPLE_CV);
     expect(out.design).not.toBe(design);
     expect(design.template).toBe('TEMPLATE_A'); // unchanged
+  });
+});
+
+describe('stripPersistenceArtifacts', () => {
+  it('drops the saved offer with the table fields, so it never rides inside the CV into a prompt', () => {
+    const saved = { ...SAMPLE_CV, _id: 'cv1', _creationTime: 1, userId: 'u', createdAt: 'd', jobDescription: 'Offre A' };
+    expect(stripPersistenceArtifacts(saved)).toEqual(SAMPLE_CV);
+  });
+});
+
+describe('replacesDraft', () => {
+  const OTHER_CV: CVData = { ...SAMPLE_CV, personal_info: { name: 'Y', email: 'y@y.z' } };
+
+  it('asks while the draft is still loading', () => {
+    expect(replacesDraft(undefined, '', SAMPLE_CV, '')).toBe(true);
+  });
+
+  it('does not ask when neither the CV nor the offer changes (table fields aside)', () => {
+    expect(replacesDraft({ ...SAMPLE_CV, _id: 'cv1' } as CVData, ' Offre A\n', SAMPLE_CV, 'Offre A')).toBe(false);
+    expect(replacesDraft(null, '', SAMPLE_CV, '')).toBe(false);
+  });
+
+  it('asks when only the offer differs, including an old version without offer', () => {
+    expect(replacesDraft(SAMPLE_CV, 'Offre A', SAMPLE_CV, 'Offre B')).toBe(true);
+    expect(replacesDraft(SAMPLE_CV, 'Offre A', SAMPLE_CV, '')).toBe(true);
+  });
+
+  it('asks when the draft holds an offer but no CV', () => {
+    expect(replacesDraft(null, 'Offre A', SAMPLE_CV, '')).toBe(true);
+  });
+
+  it('asks when the CV differs', () => {
+    expect(replacesDraft(SAMPLE_CV, 'Offre A', OTHER_CV, 'Offre A')).toBe(true);
   });
 });
 

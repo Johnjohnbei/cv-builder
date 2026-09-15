@@ -207,6 +207,54 @@ describe('allocatePages', () => {
     expect(normal.some(p => isPageOverfilled(p, singleColLayout))).toBe(false);
   });
 
+  it('counts the injected title when a block is forced onto a page', () => {
+    // Page 2 holds one 980px skill block placed by force: 980 + 16 fits the
+    // usable ≈ 1018.6px alone, not under its 45 + 16px title, so the PDF cuts it.
+    const pages = allocatePages([
+      block('header', 'header', 980),
+      block('skill-0', 'skill-category', 980),
+    ], singleColLayout);
+
+    expect(pages.map(p => p.blocks.map(pb => pb.block.id))).toEqual([['header'], ['skill-0']]);
+    expect(isPageOverfilled(pages[0], singleColLayout)).toBe(false);
+    expect(isPageOverfilled(pages[1], singleColLayout)).toBe(true);
+  });
+
+  it('does not flag a block forced onto a page that it really fits (no gap after the last block)', () => {
+    // 950 + 16 gap does not fit under the 61px title (≈ 957.6px left), so the
+    // block is forced; 61 + 950 = 1011px does fit the ≈ 1018.6px page.
+    const pages = allocatePages([
+      block('header', 'header', 980),
+      block('skill-0', 'skill-category', 950),
+    ], singleColLayout);
+
+    expect(pages.map(p => p.blocks.map(pb => pb.block.id))).toEqual([['header'], ['skill-0']]);
+    expect(pages.some(p => isPageOverfilled(p, singleColLayout))).toBe(false);
+  });
+
+  it('fills a sidebar that holds its header to the bottom, without flagging it (template Modern)', () => {
+    // Real stack: 300 header + 16 gap + 45 title + 16 gap + 641 = 1018px of a
+    // ≈ 1018.6px page. It fits: kept on page 1, and not reported as cut.
+    const sidebarHeaderLayout: TemplateLayout = { ...twoColLayout, headerFullWidth: false };
+    const pages = allocatePages([
+      block('header', 'header', 300),
+      block('skill-0', 'skill-category', 641),
+    ], sidebarHeaderLayout);
+
+    expect(pages).toHaveLength(1);
+    expect(pages[0].sidebarBlocks?.map(pb => pb.block.id)).toEqual(['header', 'skill-0']);
+    expect(isPageOverfilled(pages[0], sidebarHeaderLayout)).toBe(false);
+  });
+
+  it('measures full-width overflow pages at full width (no false cut warning)', () => {
+    // Too tall for the page-1 sidebar at column width, 900px once full width on page 2
+    const education = { ...block('edu', 'education', 1500), fullWidthHeightPx: 900 };
+    const pages = allocatePages([block('header', 'header', 200), education], twoColLayout);
+
+    expect(pages[1].blocks.map(pb => pb.block.id)).toEqual(['edu']);
+    expect(pages.some(p => isPageOverfilled(p, twoColLayout))).toBe(false);
+  });
+
   it('reserves the injected section titles on single-column pages', () => {
     // Usable page ≈ 1018.6px. Without the experience and skills titles (45 + 16
     // each) the skill block would fit on page 1 with a few px to spare.

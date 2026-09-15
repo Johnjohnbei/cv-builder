@@ -25,7 +25,7 @@ async function openDrawer(page: import('@playwright/test').Page) {
 const drawerJD = (dialog: ReturnType<import('@playwright/test').Page['locator']>) =>
   dialog.getByPlaceholder(/Collez l'offre d'emploi/);
 
-test.describe('Lettre de motivation — drawer (mode guest)', () => {
+test.describe('Lettre de motivation : drawer (mode guest)', () => {
   // Garde d'hermétisme, élargie le 2026-08-16 de `extractCompanyMeta` seul à
   // TOUS les appels IA : l'extraction de mots-clés passait à travers.
   let aiCalls: string[] = [];

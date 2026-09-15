@@ -21,10 +21,11 @@ interface TemplateGridConfig {
   sidebarHasPrimaryBg?: boolean;
 }
 
-// NOTE: paddings around the page are safety margins — kept symmetric (pt == pb == px)
-// so the content has equal breathing room on every side. Template B uses
-// per-column padding (its sidebar has its own visual treatment) so the page-level
-// padding is empty. Templates A/C/E use a uniform page-level p-16 (64px).
+// NOTE: the vertical padding of page 1 must equal what templateLayouts.ts
+// allocates (paddingTopMm/BottomMm), or the last block runs into the margin;
+// PaginatedCV.test.ts checks it. Templates A/C/E use a uniform page-level p-16
+// (64px). Template B pads each column (its sidebar has its own background):
+// 48px vertically on both, the main column keeping 64px horizontally.
 const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
   TEMPLATE_A: {
     sidebarPosition: 'right',
@@ -38,7 +39,10 @@ const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
     sidebarPosition: 'left',
     gridClass: 'grid-cols-[1fr_2fr]',
     sidebarClassName: 'p-12',
-    mainClassName: 'p-16',
+    // Vertical padding equal to the sidebar's and to the layout's PAD_12: p-16
+    // gave the main column 32px less than allocated, and its last block ran
+    // into the bottom margin unflagged.
+    mainClassName: 'px-16 py-12',
     paddingClass: '',
     page2PaddingClass: 'p-16',
     sidebarHasPrimaryBg: true,

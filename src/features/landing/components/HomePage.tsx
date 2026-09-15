@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Sparkles, Zap, ShieldCheck, PenTool, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useDocumentTitle } from '@/src/shared/hooks';
+import { writeStoredText } from '@/src/shared/lib/storage';
 import { Button } from '@/src/shared/ui/Button';
 
 export default function HomePage() {
@@ -62,9 +63,10 @@ export default function HomePage() {
                   size="lg"
                   className="w-full sm:w-auto px-8 py-4 text-gray-700"
                   onClick={() => {
-                    // Same guest flow as AuthPage: try the product without an account
-                    sessionStorage.setItem('guest_access', 'true');
-                    navigate('/dashboard');
+                    // Same guest flow as AuthPage: try the product without an account.
+                    // Storage blocked: guest mode cannot work; AuthPage says why on arrival.
+                    if (writeStoredText('guest_access', 'true', 'session')) navigate('/dashboard');
+                    else navigate('/auth', { state: { guestUnavailable: true } });
                   }}
                 >
                   Essayer sans compte

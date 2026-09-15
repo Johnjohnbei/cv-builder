@@ -30,6 +30,8 @@ export const createMyCV = mutation({
     detectedLanguage: v.optional(v.string()),
     languageOverride: v.optional(v.string()),
     _translations: v.optional(v.any()),
+    // The offer this version was tailored to: reopening it restores that offer
+    jobDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();

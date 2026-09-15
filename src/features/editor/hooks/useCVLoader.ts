@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
-import { readStoredJSON } from '@/src/shared/lib/storage';
+import { readStoredJSON, readStoredText } from '@/src/shared/lib/storage';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -58,7 +58,7 @@ export function useCVLoader(
           setSelectedTemplate(data.design.template);
         }
       }
-      const storedJD = localStorage.getItem('guest_last_jd');
+      const storedJD = readStoredText('guest_last_jd');
       if (storedJD) {
         setLoadedJobDescription(storedJD);
       }

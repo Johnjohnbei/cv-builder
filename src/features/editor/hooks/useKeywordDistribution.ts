@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
-import { applyRewriteToCV, locateBullet } from './useBulletOptimization';
+import { applyRewriteToCV, locateBullet, OFFER_CHANGED_MESSAGE } from './useBulletOptimization';
 
 // ─── Types ───
 
@@ -76,6 +76,15 @@ export function applyAssignments(
   }, experience);
 }
 
+/**
+ * Whether the bullet a proposal rewrites changed since the AI answered, so
+ * accepting it would do nothing. Exported for unit testing.
+ */
+export function isStaleProposal(experience: CVData['experience'], p: DistributionProposal): boolean {
+  return p.expIndex !== null && p.bulletIndex !== null && p.rewrittenBullet !== null
+    && applyAssignments(experience, [p]) === experience;
+}
+
 // ─── Hook ───
 
 /**
@@ -93,6 +102,16 @@ export function useKeywordDistribution(
   const [proposals, setProposals] = useState<DistributionProposal[]>([]);
   const [isDistributing, setIsDistributing] = useState(false);
 
+  // Proposals are written for one committed offer: another offer makes them
+  // wrong, and a response still in flight for the old offer must not land
+  // under the new one. Compared trimmed, like the keywords.
+  const offerKey = jobDescription.trim();
+  const offerRef = useRef(offerKey);
+  useEffect(() => {
+    offerRef.current = offerKey;
+    setProposals([]);
+  }, [offerKey]);
+
   const distribute = useCallback(async () => {
     if (!cvData || !jobDescription || missingKeywords.length === 0) return;
     setIsDistributing(true);
@@ -104,6 +123,10 @@ export function useKeywordDistribution(
         language,
         accessCode,
       });
+      if (offerRef.current !== jobDescription.trim()) {
+        notify({ message: OFFER_CHANGED_MESSAGE, type: 'error' });
+        return;
+      }
       const mapped: DistributionProposal[] = data.assignments.map((a) => {
         const exp = a.expIndex != null ? cvData.experience[a.expIndex] : null;
         const expLabel = exp ? `${exp.position} @ ${exp.company}` : 'Non assigné';
@@ -138,7 +161,7 @@ export function useKeywordDistribution(
     (keyword: string) => {
       const proposal = proposals.find((p) => p.keyword === keyword);
       if (!proposal || !cvData) return;
-      if (proposal.rewrittenBullet !== null && applyAssignments(cvData.experience, [proposal]) === cvData.experience) {
+      if (isStaleProposal(cvData.experience, proposal)) {
         notify({ message: 'Ce point a été modifié entre-temps : la proposition est ignorée.', type: 'error' });
       } else {
         setCvData((prev) => (prev ? { ...prev, experience: applyAssignments(prev.experience, [proposal]) } : null));
@@ -153,9 +176,19 @@ export function useKeywordDistribution(
   }, []);
 
   const acceptAll = useCallback(() => {
+    // Skipped silently before, while accepting one at a time said so
+    const stale = cvData ? proposals.filter((p) => isStaleProposal(cvData.experience, p)).length : 0;
     setCvData((prev) => (prev ? { ...prev, experience: applyAssignments(prev.experience, proposals) } : null));
     setProposals([]);
-  }, [proposals, setCvData]);
+    if (stale > 0) {
+      notify({
+        message: stale === 1
+          ? 'Un point a été modifié entre-temps : sa proposition est ignorée.'
+          : `${stale} points ont été modifiés entre-temps : leurs propositions sont ignorées.`,
+        type: 'error',
+      });
+    }
+  }, [proposals, cvData, setCvData, notify]);
 
   const rejectAll = useCallback(() => {
     setProposals([]);

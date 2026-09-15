@@ -33,6 +33,7 @@ interface Props {
 
   jobDescription: string;
   onJobDescriptionChange: (v: string) => void;
+  onJobDescriptionCommit: () => void;
   actualPageCount: number;
   hasClippedContent: boolean;
 
@@ -94,7 +95,7 @@ export function EditorSidebar(props: Props) {
   const {
     isOpen, onClose, activeTab, onTabChange,
     cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
-    jobDescription, onJobDescriptionChange, actualPageCount, hasClippedContent,
+    jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSection, toggles,
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
@@ -170,6 +171,7 @@ export function EditorSidebar(props: Props) {
                 <OptimizePanel
                   jobDescription={jobDescription}
                   onJobDescriptionChange={onJobDescriptionChange}
+                  onJobDescriptionCommit={onJobDescriptionCommit}
                   actualPageCount={actualPageCount}
                   hasClippedContent={hasClippedContent}
                   hasCvData={!!cvData}

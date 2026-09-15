@@ -18,7 +18,7 @@ const atsScore = (page: Page) => page.locator('[role="status"]').first();
 const isCritical = (message: string) =>
   !message.includes('ResizeObserver') && !message.includes('Non-Error') && !message.includes('ChunkLoadError');
 
-test.describe('ATS Panel — mode guest', () => {
+test.describe('ATS Panel : mode guest', () => {
   guardAICalls();
   // Collected from before the editor loads: attached inside a test, after the
   // setup had already navigated, the listener missed every load-time error.
@@ -34,7 +34,7 @@ test.describe('ATS Panel — mode guest', () => {
     expect(pageErrors.filter(isCritical)).toHaveLength(0);
   });
 
-  test('le CV mock est chargé — le nom du candidat est visible', async ({ page }) => {
+  test('le CV mock est chargé : le nom du candidat est visible', async ({ page }) => {
     await expect(page.getByText('Marie Dupont').first()).toBeVisible({ timeout: 10_000 });
   });
 
@@ -70,7 +70,7 @@ test.describe('ATS Panel — mode guest', () => {
   });
 });
 
-test.describe('ATS Panel — régression career-ops integration', () => {
+test.describe('ATS Panel : régression career-ops integration', () => {
   guardAICalls();
   test.beforeEach(async ({ page }) => {
     await setupGuestEditor(page);
@@ -91,7 +91,51 @@ test.describe('ATS Panel — régression career-ops integration', () => {
   });
 });
 
-test.describe('Edge cases — données CV incomplètes', () => {
+test.describe('Offre saisie dans l\'éditeur', () => {
+  guardAICalls();
+  /** Only in the warmed AI list, never in the offer text: seeing it proves the AI keywords are used */
+  const AI_ONLY_KEYWORD = 'Zorglub Ops';
+  const offerField = (page: Page) => page.getByPlaceholder(/Collez l'offre d'emploi ici/);
+
+  test.beforeEach(async ({ page }) => {
+    await setupGuestEditor(page, MOCK_CV, '');
+    // Cache warmed for the offer about to be pasted: the analysis is served, no call leaves
+    await page.evaluate(
+      ({ jd, keyword }) => localStorage.setItem('ai_keywords_cache', JSON.stringify({ jobDescription: jd.trim(), keywords: [keyword] })),
+      { jd: MOCK_JOB_DESCRIPTION, keyword: AI_ONLY_KEYWORD },
+    );
+  });
+
+  test('le champ reste ouvert pendant la saisie, puis les mots-clés IA de l\'offre arrivent', async ({ page }) => {
+    const field = offerField(page);
+    await field.click();
+    await field.pressSequentially('Offre');
+    await expect(field).toBeFocused();
+    await field.fill(MOCK_JOB_DESCRIPTION);
+    await expect(field).toBeFocused();
+
+    // The first click below the field right after typing must land: collapsing
+    // the field on blur moved this button up between mousedown and mouseup.
+    const onePage = page.getByRole('group', { name: 'Tenir en' }).getByRole('button', { name: '1' });
+    await onePage.click();
+    await expect(onePage).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('tab', { name: 'ATS' }).click();
+    await expect(page.getByText(AI_ONLY_KEYWORD).first()).toBeVisible({ timeout: 8_000 });
+  });
+
+  test('une offre saisie par un invité revient au rechargement', async ({ page }) => {
+    await offerField(page).fill(MOCK_JOB_DESCRIPTION);
+    await page.getByRole('tab', { name: 'Design' }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('guest_last_jd'))).toBe(MOCK_JOB_DESCRIPTION);
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText(AI_ONLY_KEYWORD).first()).toBeVisible({ timeout: 8_000 });
+  });
+});
+
+test.describe('Edge cases : données CV incomplètes', () => {
   guardAICalls();
 
   test('CV sans summary ne plante pas le panel ATS', async ({ page }) => {
@@ -112,7 +156,7 @@ test.describe('Edge cases — données CV incomplètes', () => {
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
   });
 
-  test('pas de JD — le panel affiche un score sans section pertinence', async ({ page }) => {
+  test('pas de JD : le panel affiche un score sans section pertinence', async ({ page }) => {
     await setupGuestEditor(page, MOCK_CV, '');
     await page.getByRole('tab', { name: 'ATS' }).click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });

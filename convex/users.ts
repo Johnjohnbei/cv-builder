@@ -94,7 +94,8 @@ export const saveBaseCV = mutation({
     if (!user) throw userNotFound();
 
     await ctx.db.patch(user._id, {
-      baseCV: args.cvData,
+      // null forgets the import ("Remplacer le CV importé"); undefined unsets the field
+      baseCV: args.cvData ?? undefined,
       updatedAt: new Date().toISOString(),
     });
   },

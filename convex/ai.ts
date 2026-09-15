@@ -32,59 +32,7 @@ import {
   KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
-
-// ─── Fetching a job offer URL ───────────────────────────────────────
-// The server fetches what the user pastes, so the URL is untrusted input.
-
-// Literal loopback, private, link-local (cloud metadata) and unique-local
-// hosts. ponytail: literal addresses and local names only; a public DNS name
-// resolving to a private IP is not caught (no DNS resolution before fetch).
-const PRIVATE_HOST =
-  /^(localhost|.*\.localhost|.*\.local|.*\.internal|0\.0\.0\.0|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[::1?\]$|\[::ffff:|\[f[cd][0-9a-f]{2}:|\[fe80:)/i;
-
-/** The URL as a public http(s) address, or null. */
-function toPublicHttpUrl(raw: string): URL | null {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-  if (url.username || url.password) return null;
-  return PRIVATE_HOST.test(url.hostname) ? null : url;
-}
-
-/**
- * Page body of a public URL, redirects followed by hand so every hop is
- * checked: a public page redirecting to an internal address would otherwise be
- * followed blindly. A non-2xx answer yields "" — a 404 or a login wall used to
- * be passed to the model as if it were the offer.
- */
-async function fetchPublicPage(start: URL): Promise<string> {
-  let url = start;
-  for (let hop = 0; hop < 4; hop++) {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      },
-      redirect: "manual",
-      signal: AbortSignal.timeout(15_000),
-    });
-    const location = response.headers.get("location");
-    if (response.status >= 300 && response.status < 400 && location) {
-      const next = toPublicHttpUrl(new URL(location, url).toString());
-      if (!next) return "";
-      url = next;
-      continue;
-    }
-    return response.ok ? await response.text() : "";
-  }
-  return "";
-}
+import { fetchPublicPage, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
@@ -165,12 +113,18 @@ export const extractJobDescriptionFromURL = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Checked before the access code, so a malformed link does not use up a code
-    const target = toPublicHttpUrl(args.url);
+    // Syntax and literal addresses before the access code, so a malformed or
+    // private link does not use up a code; DNS names are resolved after it,
+    // so an anonymous caller cannot probe DNS through the deployment
+    // (order tested in __tests__/extractJobDescriptionFromURL.test.ts).
+    const target = parseHttpUrl(args.url);
     if (!target) {
       throw userError("Lien invalide : collez l'adresse http(s) publique de l'offre.", "URL_INVALID");
     }
     await verifyAccessCode(ctx, args.accessCode);
+    if (!(await isPublicUrl(target))) {
+      throw userError("Lien injoignable ou non public : vérifiez l'adresse de l'offre, ou collez son texte.", "URL_UNREACHABLE");
+    }
 
     // Step 1: Try Jina Reader first — renders JS (handles SPAs like WTTJ, LinkedIn),
     // expands accordions, returns clean markdown. Free, no API key needed.

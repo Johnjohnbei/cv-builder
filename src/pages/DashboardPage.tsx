@@ -17,8 +17,10 @@ import { AdminCodesDialog } from '../features/auth/components/AdminCodesDialog';
 import { useLeaveSession } from '../features/auth/useLeaveSession';
 import { api } from "@/convex/_generated/api";
 import { CVData, DesignSettings, EMPTY_CV } from '../shared/types';
-import { readStoredJSON } from '../shared/lib/storage';
-import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
+import {
+  readStoredJSON, readStoredText, STORAGE_FAILED_MESSAGE, writeStoredText, writeStoredTexts,
+} from '../shared/lib/storage';
+import { replacesDraft, stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
 
 /**
  * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: we
@@ -31,6 +33,8 @@ interface SavedCVEntry {
   createdAt: string | number;
   personal_info: { name: string; email: string; title?: string };
   design?: { template?: string };
+  /** The offer the version was saved with; absent on versions saved before it was kept */
+  jobDescription?: string;
 }
 // pdfjs (~450 kB) only loads when a PDF is actually dropped
 const loadPdfTools = () => Promise.all([
@@ -51,7 +55,7 @@ export default function DashboardPage() {
   useDocumentTitle('Dashboard');
   const navigate = useNavigate();
   const { user } = useUser();
-  const isGuest = sessionStorage.getItem('guest_access') === 'true';
+  const isGuest = readStoredText('guest_access', 'session') === 'true';
   
   const [isUploading, setIsUploading] = useState(false);
   const [baseCV, setBaseCV] = useState<CVData | null>(null);
@@ -181,8 +185,8 @@ export default function DashboardPage() {
         if (user) {
           await storeUser();
           await saveBaseCV({ cvData: imported });
-        } else if (isGuest) {
-          localStorage.setItem('guest_base_cv', JSON.stringify(imported));
+        } else if (isGuest && !writeStoredText('guest_base_cv', JSON.stringify(imported))) {
+          setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
         }
       } catch (error: any) {
         console.error('Extraction error:', error);
@@ -285,8 +289,11 @@ export default function DashboardPage() {
         await updateLastCV({ cvData: bilingualData, jobDescription });
         navigate('/editor');
       } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(bilingualData));
-        localStorage.setItem('guest_last_jd', jobDescription);
+        // After paid calls: a full storage must say so, not "réessayez" (and pay again)
+        if (!writeStoredTexts([['guest_last_optimized', JSON.stringify(bilingualData)], ['guest_last_jd', jobDescription]])) {
+          setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+          return;
+        }
         navigate('/editor');
       }
     } catch (error) {
@@ -297,21 +304,53 @@ export default function DashboardPage() {
     }
   };
 
-  /** Start from a blank CV. It replaces the working draft, so ask first when there is one. */
+  /**
+   * The working draft, null when there is none, undefined while the account is
+   * still loading. Read as "no draft", a click in that window replaced the
+   * draft without asking.
+   */
+  const currentDraft = (): CVData | null | undefined => {
+    if (!user) return readStoredJSON<CVData | null>('guest_last_optimized', null);
+    return convexUser === undefined ? undefined : convexUser?.lastGeneratedCV ?? null;
+  };
+
+  /** The offer the working draft was tailored to, "" when none */
+  const currentDraftOffer = (): string => user
+    ? convexUser?.lastJobDescription ?? ''
+    : readStoredText('guest_last_jd');
+
+  /** Forget the imported CV where it is stored too: cleared on screen only, it came back on reload. */
+  const replaceBaseCV = async () => {
+    setBaseCV(null);
+    try {
+      if (user) {
+        await saveBaseCV({ cvData: null });
+      } else if (isGuest && !writeStoredText('guest_base_cv', '')) {
+        setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+      }
+    } catch (error) {
+      console.error('Replace base CV error:', error);
+      setNotification({ message: getUserErrorMessage(error, 'Impossible de retirer le CV importé. Réessayez.'), type: 'error' });
+    }
+  };
+
+  /** Start from a blank CV. It replaces the working draft, so ask first when there may be one. */
   const startEmptyCV = async () => {
-    const hasDraft = user
-      ? Boolean(convexUser?.lastGeneratedCV)
-      : readStoredJSON<CVData | null>('guest_last_optimized', null) !== null;
-    if (hasDraft && !window.confirm('Créer un CV vide remplacera votre brouillon en cours. Continuer ?')) return;
+    if (
+      replacesDraft(currentDraft(), currentDraftOffer(), EMPTY_CV, '')
+      && !window.confirm('Créer un CV vide remplacera votre brouillon en cours. Continuer ?')
+    ) return;
     try {
       if (user) {
         await storeUser();
         // Awaited BEFORE navigating: the editor reads the draft once, on mount,
         // and used to open on the previous one. The old offer goes too.
         await updateLastCV({ cvData: EMPTY_CV, jobDescription: '' });
-      } else if (isGuest) {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(EMPTY_CV));
-        localStorage.removeItem('guest_last_jd');
+      } else if (isGuest && !(
+        writeStoredTexts([['guest_last_optimized', JSON.stringify(EMPTY_CV)], ['guest_last_jd', '']])
+      )) {
+        setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+        return;
       }
       navigate('/editor');
     } catch (error) {
@@ -328,7 +367,10 @@ export default function DashboardPage() {
         await removeCV({ id: cvToDelete as any });
       } else if (isGuest) {
         const updatedCVs = readStoredJSON<SavedCVEntry[]>('guest_cvs', []).filter(cv => cv._id !== cvToDelete);
-        localStorage.setItem('guest_cvs', JSON.stringify(updatedCVs));
+        if (!writeStoredText('guest_cvs', JSON.stringify(updatedCVs))) {
+          setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+          return;
+        }
         setSavedCVs(updatedCVs);
       }
       setNotification({ message: 'CV supprimé.', type: 'success' });
@@ -462,7 +504,7 @@ export default function DashboardPage() {
                           <p className="text-xs font-bold">{baseCV.personal_info.name}</p>
                           <p className="text-[11px] text-gray-500">{baseCV.personal_info.title}</p>
                         </div>
-                        <Button variant="ghost" size="xs" mono={false} className="text-blue-600" onClick={() => setBaseCV(null)}>
+                        <Button variant="ghost" size="xs" mono={false} className="text-blue-600" onClick={replaceBaseCV}>
                           Remplacer le CV importé
                         </Button>
                       </div>
@@ -647,12 +689,11 @@ export default function DashboardPage() {
                             // Opening a saved CV overwrites the current working draft
                             // (users.lastGeneratedCV or guest_last_optimized): warn first
                             // if a different draft already exists.
-                            const currentDraft: unknown = user
-                              ? convexUser?.lastGeneratedCV ?? null
-                              : readStoredJSON<CVData | null>('guest_last_optimized', null);
+                            // The version brings its own offer, or none: left out, the
+                            // editor reopened on the previous draft's offer.
+                            const offer = cv.jobDescription ?? '';
                             if (
-                              currentDraft &&
-                              JSON.stringify(stripPersistenceArtifacts(currentDraft as CVData)) !== JSON.stringify(cleanCv) &&
+                              replacesDraft(currentDraft(), currentDraftOffer(), cleanCv, offer) &&
                               !window.confirm('Ouvrir ce CV remplacera votre brouillon en cours. Continuer ?')
                             ) {
                               return;
@@ -660,9 +701,12 @@ export default function DashboardPage() {
                             try {
                               if (user) {
                                 await storeUser();
-                                await updateLastCV({ cvData: cleanCv });
-                              } else if (isGuest) {
-                                localStorage.setItem('guest_last_optimized', JSON.stringify(cleanCv));
+                                await updateLastCV({ cvData: cleanCv, jobDescription: offer });
+                              } else if (isGuest && !(
+                                writeStoredTexts([['guest_last_optimized', JSON.stringify(cleanCv)], ['guest_last_jd', offer]])
+                              )) {
+                                setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+                                return;
                               }
                               navigate('/editor');
                             } catch (error) {

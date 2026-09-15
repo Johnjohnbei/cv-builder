@@ -13,8 +13,8 @@ interface Props {
   children: React.ReactNode;
   /** Sidebar content (only for page 0 with twoColumn) */
   sidebar?: React.ReactNode;
-  /** Padding classes */
-  paddingClass?: string;
+  /** Padding classes; must match what templateLayouts.ts allocates (no default to drift from it) */
+  paddingClass: string;
   /** Sidebar position: 'left' or 'right' (default: 'right') */
   sidebarPosition?: 'left' | 'right';
   /** Template-specific grid class (e.g. 'grid-cols-3 gap-12') */
@@ -42,7 +42,7 @@ export function CVPage({
   style,
   children,
   sidebar,
-  paddingClass = 'px-16 pt-16 pb-10',
+  paddingClass,
   sidebarPosition = 'right',
   gridClass = 'grid-cols-3 gap-12',
   sidebarClassName,

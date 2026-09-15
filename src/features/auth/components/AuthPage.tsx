@@ -1,26 +1,45 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
 import { Lock, User, Globe } from 'lucide-react';
 import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
 import { useDocumentTitle } from '@/src/shared/hooks';
+import { readStoredText, writeStoredText } from '@/src/shared/lib/storage';
+
+const GUEST_UNAVAILABLE_MESSAGE =
+  "Mode invité indisponible : ce navigateur bloque le stockage des données du site. Autorisez-le, ou connectez-vous.";
 
 export default function AuthPage() {
   useDocumentTitle('Connexion');
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Sent here by the home page's guest button when storage is blocked: say why on arrival
+  const [error, setError] = useState<string | null>(() =>
+    (location.state as { guestUnavailable?: boolean } | null)?.guestUnavailable ? GUEST_UNAVAILABLE_MESSAGE : null,
+  );
   // Guest CVs live in localStorage, but the guest flag lives in sessionStorage:
   // returning visitors think their work is gone. Read once on mount.
   const [hasGuestCVs] = useState(
-    () => Boolean(localStorage.getItem('guest_last_optimized') || localStorage.getItem('guest_cvs')),
+    () => Boolean(readStoredText('guest_last_optimized') || readStoredText('guest_cvs')),
   );
   const navigate = useNavigate();
   const { signIn, isLoaded } = useSignIn();
   const { isSignedIn } = useAuth();
 
+  // Read once, then dropped: left in history.state, the message came back on
+  // reload even after the user had unblocked storage. Declared BEFORE the
+  // sign-in redirect: effects run in order, and this replace used to overwrite
+  // the /dashboard navigation of a user already signed in.
   useEffect(() => {
-    if (isSignedIn) navigate('/dashboard');
+    if ((location.state as { guestUnavailable?: boolean } | null)?.guestUnavailable) {
+      navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
+    }
+  }, []);
+
+  useEffect(() => {
+    // Replace, not push: Back from the dashboard landed on /auth, which pushed /dashboard again
+    if (isSignedIn) navigate('/dashboard', { replace: true });
   }, [isSignedIn, navigate]);
 
   const handleGoogleLogin = async () => {
@@ -59,7 +78,7 @@ export default function AuthPage() {
           </p>
 
           {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded flex items-center space-x-2">
+            <div role="alert" className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded flex items-center space-x-2">
               <Lock className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -86,7 +105,14 @@ export default function AuthPage() {
               className="text-gray-700"
               icon={<User className="w-4 h-4" />}
               onClick={() => {
-                sessionStorage.setItem('guest_access', 'true');
+                // A raw write threw here and the button did nothing, silently
+                if (!writeStoredText('guest_access', 'true', 'session')) {
+                  // Cleared first: the same text set again changed nothing in the
+                  // DOM, so a repeated failure was not announced to screen readers
+                  setError(null);
+                  setTimeout(() => setError(GUEST_UNAVAILABLE_MESSAGE), 0);
+                  return;
+                }
                 navigate('/dashboard');
               }}
             >

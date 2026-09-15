@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
+import { writeStoredTexts } from '@/src/shared/lib/storage';
 
 const DEBOUNCE_MS = 1500;
 
@@ -17,6 +18,8 @@ export interface UseAutoSaveDraftDeps {
 export interface UseAutoSaveDraftResult {
   isAutoSaving: boolean;
   lastAutoSaveAt: Date | null;
+  /** The last save attempt failed (network, session, or browser storage full) */
+  saveFailed: boolean;
 }
 
 /**
@@ -49,9 +52,17 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
   const hydratedRef = useRef(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState<Date | null>(null);
+  // A failed save only warned in the console while the header kept showing
+  // the previous "Enregistré à", so the user believed the edits were kept.
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
-    if ((!user && !isGuest) || !cvData) return;
+    if ((!user && !isGuest) || !cvData) {
+      // Nowhere to save to any more (a session that expired): the save queued
+      // before must not run on exit, it would only be rejected.
+      pendingSaveRef.current = null;
+      return;
+    }
     // First non-null cvData is the document we just loaded — saving it would
     // only write it back to itself.
     if (!hydratedRef.current) {
@@ -69,12 +80,24 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
         // The offer is always sent, "" included: the server keeps the stored
         // offer only when the field is omitted.
         updateLastCV({ cvData: merged, jobDescription })
-          .then(() => setLastAutoSaveAt(new Date()))
-          .catch((e) => console.warn('[auto-save] failed:', e))
+          .then(() => {
+            setLastAutoSaveAt(new Date());
+            setSaveFailed(false);
+          })
+          .catch((e) => {
+            console.warn('[auto-save] failed:', e);
+            setSaveFailed(true);
+          })
           .finally(() => setIsAutoSaving(false));
       } else {
-        localStorage.setItem('guest_last_optimized', JSON.stringify(merged));
-        setLastAutoSaveAt(new Date());
+        // The offer too: only the dashboard wrote it, so an offer changed in the
+        // editor came back as the old one on reload, next to a CV tailored to the new.
+        const saved = writeStoredTexts([
+          ['guest_last_optimized', JSON.stringify(merged)],
+          ['guest_last_jd', jobDescription],
+        ]);
+        if (saved) setLastAutoSaveAt(new Date());
+        setSaveFailed(!saved);
       }
     };
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -101,5 +124,5 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
     };
   }, []);
 
-  return { isAutoSaving, lastAutoSaveAt };
+  return { isAutoSaving, lastAutoSaveAt, saveFailed };
 }

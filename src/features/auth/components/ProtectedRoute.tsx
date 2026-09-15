@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { Loader2 } from 'lucide-react';
 import { SyncUser } from './SyncUser';
+import { readStoredText } from '@/src/shared/lib/storage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,7 +11,8 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isLoaded, isSignedIn } = useAuth();
-  const isGuest = sessionStorage.getItem('guest_access') === 'true';
+  // Read through the guard: with site data blocked a raw read threw here, before any page rendered
+  const isGuest = readStoredText('guest_access', 'session') === 'true';
 
   if (!isLoaded) {
     return (

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Loader2, Sparkles, Zap } from 'lucide-react';
 import { Textarea } from '../../../../shared/ui/Textarea';
 import { Button } from '../../../../shared/ui/Button';
@@ -11,6 +11,8 @@ const PAGE_TARGETS = [1, 2, 3];
 interface Props {
   jobDescription: string;
   onJobDescriptionChange: (value: string) => void;
+  /** The offer is done being edited: its AI keywords are worth extracting */
+  onJobDescriptionCommit: () => void;
   actualPageCount: number;
   hasClippedContent: boolean;
   hasCvData: boolean;
@@ -26,11 +28,26 @@ interface Props {
 }
 
 export const OptimizePanel = memo(function OptimizePanel({
-  jobDescription, onJobDescriptionChange, actualPageCount, hasClippedContent, hasCvData,
+  jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent, hasCvData,
   targetPages, onTargetPagesChange, isFitting, onFitToPages,
   aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
 }: Props) {
+  // Focusing the field expands it for good; only "Replier l'offre" collapses it.
+  // The preview used to replace the field at the first character typed, while
+  // focused (no offer could be typed, and the unmounted field never fired the
+  // blur that commits the offer); collapsing it on blur instead moved every
+  // control below up by ~100px between mousedown and mouseup, losing the click.
   const [isJDExpanded, setIsJDExpanded] = useState(false);
+  const jdFieldRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLButtonElement>(null);
+  // Each toggle button unmounts itself: focus goes to what replaces it, not to
+  // <body> ("modifier" opens the field ready to type, "Replier" returns to the preview)
+  const focusAfterToggle = useRef<'field' | 'preview' | null>(null);
+  useEffect(() => {
+    if (focusAfterToggle.current === 'field') jdFieldRef.current?.focus();
+    if (focusAfterToggle.current === 'preview') previewRef.current?.focus();
+    focusAfterToggle.current = null;
+  }, [isJDExpanded]);
 
   return (
     <section className="stitch-panel p-4 space-y-3 bg-blue-50/30 border-blue-100">
@@ -51,8 +68,12 @@ export const OptimizePanel = memo(function OptimizePanel({
           offer was the cover-letter drawer. */}
       {jobDescription && !isJDExpanded ? (
         <button
+          ref={previewRef}
           type="button"
-          onClick={() => setIsJDExpanded(true)}
+          onClick={() => {
+            focusAfterToggle.current = 'field';
+            setIsJDExpanded(true);
+          }}
           className="w-full text-left bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[11px] stitch-mono text-gray-600 hover:border-blue-300 transition-colors"
         >
           <span className="flex items-center justify-between gap-2">
@@ -68,6 +89,9 @@ export const OptimizePanel = memo(function OptimizePanel({
           <Textarea
             value={jobDescription}
             onChange={(e) => onJobDescriptionChange(e.target.value)}
+            ref={jdFieldRef}
+            onFocus={() => setIsJDExpanded(true)}
+            onBlur={onJobDescriptionCommit}
             placeholder="Collez l'offre d'emploi ici pour le scoring de pertinence..."
             rows={jobDescription ? 8 : 2}
             className="border-blue-200 rounded-lg focus:border-blue-400 focus:ring-blue-400"
@@ -75,7 +99,10 @@ export const OptimizePanel = memo(function OptimizePanel({
           {jobDescription && (
             <button
               type="button"
-              onClick={() => setIsJDExpanded(false)}
+              onClick={() => {
+                focusAfterToggle.current = 'preview';
+                setIsJDExpanded(false);
+              }}
               className="text-[11px] text-blue-600 hover:underline"
             >
               Replier l'offre

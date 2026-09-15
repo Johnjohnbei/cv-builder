@@ -12,9 +12,6 @@ import { userError } from "../_shared/errors";
 // convex/_shared/errors.ts, importable from queries and mutations too) so the
 // French message + a stable code reach the UI (read via getUserErrorMessage).
 
-export type AIErrorCode = "AI_UNAVAILABLE" | "AI_EMPTY_OUTPUT" | "AI_INVALID_OUTPUT";
-export { userError };
-
 /** A ConvexError carrying userMessage, or a legacy plain Error with a French
  *  user-facing message (e.g. normalizers.ts) converted at the boundary so the
  *  text survives Convex prod redaction. Null when not user-facing. */
