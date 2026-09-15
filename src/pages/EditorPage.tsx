@@ -167,6 +167,8 @@ export default function EditorPage() {
   // One AI action at a time: prevents concurrent rewrites clobbering each other
   const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching
     || bullets.isOptimizing || keywordDistribution.isDistributing || coverLetter.isGenerating;
+  // These calls answer with a whole CV that replaces the current one
+  const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching;
   const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
 
   // Switch to the ATS tab the first time an offer arrives — that is where the
@@ -304,6 +306,7 @@ export default function EditorPage() {
         expandedSection={expandedSection}
         toggles={toggles}
         aiBusy={aiBusy}
+        isRewritingCV={isRewritingCV}
         isOptimizing={ai.isOptimizing}
         optimizeSeconds={optimizeSeconds}
         optimizeEstimate={ai.optimizeEstimate}
@@ -345,6 +348,7 @@ export default function EditorPage() {
           onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
           onLanguageChange={language.handleLanguageChange}
+          isLanguageLocked={isRewritingCV}
           isAnonymous={isAnonymous}
           onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
         />

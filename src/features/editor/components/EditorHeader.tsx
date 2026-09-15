@@ -18,6 +18,8 @@ interface Props {
   hasCvData: boolean;
   currentLanguage: 'fr' | 'en';
   onLanguageChange: (lang: 'fr' | 'en') => void;
+  /** Locks the language switch while an AI call rewrites the CV: its answer would undo the switch */
+  isLanguageLocked?: boolean;
   atsMode: boolean;
   onAtsModeChange: (enabled: boolean) => void;
   isAnonymous: boolean;
@@ -32,7 +34,7 @@ export function EditorHeader({
   isSidebarOpen, onToggleSidebar,
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
-  currentLanguage, onLanguageChange,
+  currentLanguage, onLanguageChange, isLanguageLocked = false,
   atsMode, onAtsModeChange,
   isAnonymous, onToggleAnonymous,
   isAutoSaving = false,
@@ -90,7 +92,7 @@ export function EditorHeader({
           </button>
         </div>
         <div className="flex items-center">
-          <LanguageSelector value={currentLanguage} onChange={onLanguageChange} />
+          <LanguageSelector value={currentLanguage} onChange={onLanguageChange} disabled={isLanguageLocked} />
         </div>
         <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
           <button

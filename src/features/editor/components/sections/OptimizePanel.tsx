@@ -134,7 +134,7 @@ export const OptimizePanel = memo(function OptimizePanel({
       </Button>
       <p className="text-[11px] text-gray-600 -mt-1">
         {isOptimizing
-          ? 'Vous pouvez continuer à naviguer, le CV se mettra à jour tout seul.'
+          ? "L'édition reprend dès la fin de la réécriture, pour que rien ne soit écrasé."
           : `Réécrit vos textes pour coller à l'offre (~${optimizeEstimate}s, remplace le contenu actuel).`}
       </p>
 

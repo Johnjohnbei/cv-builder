@@ -29,12 +29,22 @@ export const save = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
 
-    // Upsert by (userId, cvId): re-saving the letter for the same CV updates
-    // it in place instead of piling up near-duplicates.
+    if (args.cvId) {
+      const cv = await ctx.db.get(args.cvId);
+      if (!cv || cv.userId !== identity.subject) throw new Error("Not authorized");
+    }
+
+    // Upsert by (user, CV, offer): re-saving the letter for the same offer
+    // updates it in place, a letter for another offer is a new document. Keyed
+    // on cvId alone, and cvId is absent from the editor's usual flow, every
+    // saved letter overwrote the previous one whatever the company.
     const existing = await ctx.db
       .query("coverLetters")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
-      .filter((q) => q.eq(q.field("cvId"), args.cvId))
+      .filter((q) => q.and(
+        q.eq(q.field("cvId"), args.cvId),
+        q.eq(q.field("jobDescription"), args.jobDescription),
+      ))
       .first();
 
     if (existing) {

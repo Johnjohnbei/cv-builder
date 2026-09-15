@@ -33,6 +33,24 @@ export const ExperienceSection = memo(function ExperienceSection({
   const getWeakIssues = (expIdx: number, bulIdx: number) =>
     weakBullets.find(w => w.expIndex === expIdx && w.bulletIndex === bulIdx);
 
+  // Every edit goes through these two: a new object per changed experience,
+  // built from the latest state. Edits used to assign into `experience[idx]` in
+  // place, which kept the same reference, so the pagination engine (it
+  // propagates block data by reference) kept painting and exporting the old
+  // text while the sidebar showed the new one.
+  const updateExperience = (idx: number, change: (exp: Experience) => Experience) =>
+    setCvData(prev => prev
+      ? { ...prev, experience: prev.experience.map((exp, i) => (i === idx ? change(exp) : exp)) }
+      : null);
+
+  const moveExperience = (from: number, to: number) =>
+    setCvData(prev => {
+      if (!prev || to < 0 || to >= prev.experience.length) return prev;
+      const next = [...prev.experience];
+      [next[from], next[to]] = [next[to], next[from]];
+      return { ...prev, experience: next };
+    });
+
   return (
     <section className="stitch-panel overflow-hidden">
       <button
@@ -70,25 +88,19 @@ export const ExperienceSection = memo(function ExperienceSection({
                   {/* Move up/down */}
                   <button
                     disabled={idx === 0}
-                    onClick={() => {
-                      const newExp = [...(experience || [])];
-                      [newExp[idx - 1], newExp[idx]] = [newExp[idx], newExp[idx - 1]];
-                      setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                    }}
+                    onClick={() => moveExperience(idx, idx - 1)}
                     className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
                     title="Monter"
+                    aria-label="Monter cette expérience"
                   >
                     <ChevronUp className="w-3 h-3" />
                   </button>
                   <button
                     disabled={idx === (experience?.length || 0) - 1}
-                    onClick={() => {
-                      const newExp = [...(experience || [])];
-                      [newExp[idx], newExp[idx + 1]] = [newExp[idx + 1], newExp[idx]];
-                      setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                    }}
+                    onClick={() => moveExperience(idx, idx + 1)}
                     className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
                     title="Descendre"
+                    aria-label="Descendre cette expérience"
                   >
                     <ChevronDown className="w-3 h-3" />
                   </button>
@@ -118,11 +130,7 @@ export const ExperienceSection = memo(function ExperienceSection({
                   {DISPLAY_MODES.map((mode) => (
                     <button
                       key={mode.value}
-                      onClick={() => {
-                        const newExp = [...(experience || [])];
-                        newExp[idx] = { ...newExp[idx], displayMode: mode.value };
-                        setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                      }}
+                      onClick={() => updateExperience(idx, x => ({ ...x, displayMode: mode.value }))}
                       title={mode.label}
                       className={cn(
                         "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
@@ -171,9 +179,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                 value={exp.position}
                 placeholder="Intitulé du poste"
                 onChange={(e) => {
-                  const newExp = [...(experience || [])];
-                  newExp[idx].position = e.target.value;
-                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                  const position = e.target.value;
+                  updateExperience(idx, x => ({ ...x, position }));
                 }}
               />
               <Input
@@ -183,9 +190,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                 value={exp.company}
                 placeholder="Nom de l'entreprise"
                 onChange={(e) => {
-                  const newExp = [...(experience || [])];
-                  newExp[idx].company = e.target.value;
-                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                  const company = e.target.value;
+                  updateExperience(idx, x => ({ ...x, company }));
                 }}
               />
               {/* ─── Company tags (stage + business model) ─── */}
@@ -193,9 +199,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                 <select
                   value={exp.companyStage || ''}
                   onChange={(e) => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx] = { ...newExp[idx], companyStage: e.target.value || undefined };
-                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                    const companyStage = e.target.value || undefined;
+                    updateExperience(idx, x => ({ ...x, companyStage }));
                   }}
                   className="text-[11px] font-mono text-gray-600 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
                   aria-label="Stade de l'entreprise"
@@ -208,9 +213,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                 <select
                   value={exp.companyBusinessModel || ''}
                   onChange={(e) => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx] = { ...newExp[idx], companyBusinessModel: e.target.value || undefined };
-                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                    const companyBusinessModel = e.target.value || undefined;
+                    updateExperience(idx, x => ({ ...x, companyBusinessModel }));
                   }}
                   className="text-[11px] font-mono text-gray-600 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer"
                   aria-label="Modèle économique"
@@ -230,9 +234,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                 value={exp.intro || ''}
                 placeholder="Description courte du rôle (1-2 lignes, optionnel)"
                 onChange={(e) => {
-                  const newExp = [...(experience || [])];
-                  newExp[idx] = { ...newExp[idx], intro: e.target.value };
-                  setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                  const intro = e.target.value;
+                  updateExperience(idx, x => ({ ...x, intro }));
                 }}
               />
 
@@ -243,9 +246,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                   value={exp.start_date}
                   placeholder="Début"
                   onChange={(e) => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx].start_date = e.target.value;
-                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                    const start_date = e.target.value;
+                    updateExperience(idx, x => ({ ...x, start_date }));
                   }}
                 />
                 <Input
@@ -255,9 +257,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                   placeholder="Fin"
                   disabled={exp.current}
                   onChange={(e) => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx].end_date = e.target.value;
-                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                    const end_date = e.target.value;
+                    updateExperience(idx, x => ({ ...x, end_date }));
                   }}
                 />
                 <label className="flex items-center gap-1 text-[11px] font-mono text-gray-600 cursor-pointer">
@@ -265,10 +266,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                     type="checkbox"
                     checked={exp.current}
                     onChange={(e) => {
-                      const newExp = [...(experience || [])];
-                      newExp[idx].current = e.target.checked;
-                      if (e.target.checked) newExp[idx].end_date = '';
-                      setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                      const current = e.target.checked;
+                      updateExperience(idx, x => ({ ...x, current, end_date: current ? '' : x.end_date }));
                     }}
                     className="w-3 h-3"
                   />
@@ -286,9 +285,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                   value={exp.kpi || ''}
                   placeholder="Ex: +35% de CA, 12 personnes managées..."
                   onChange={(e) => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx] = { ...newExp[idx], kpi: e.target.value };
-                    setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+                    const kpi = e.target.value;
+                    updateExperience(idx, x => ({ ...x, kpi }));
                   }}
                 />
                 <label
@@ -299,12 +297,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                     type="checkbox"
                     checked={exp.showKpi === true}
                     onChange={(e) => {
-                      const newExp = [...(experience || [])];
-                      newExp[idx] = {
-                        ...newExp[idx],
-                        showKpi: e.target.checked ? true : undefined,
-                      };
-                      setCvData(prev => prev ? { ...prev, experience: newExp } : null);
+                      const showKpi = e.target.checked ? true : undefined;
+                      updateExperience(idx, x => ({ ...x, showKpi }));
                     }}
                     className="w-3 h-3"
                   />
@@ -326,9 +320,11 @@ export const ExperienceSection = memo(function ExperienceSection({
                           className="flex-1 focus:border-blue-600"
                           value={bullet}
                           onChange={(e) => {
-                            const newExp = [...(experience || [])];
-                            newExp[idx].description[bIdx] = e.target.value;
-                            setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                            const text = e.target.value;
+                            updateExperience(idx, x => ({
+                              ...x,
+                              description: x.description.map((b, i) => (i === bIdx ? text : b)),
+                            }));
                           }}
                         />
                         {(() => {
@@ -343,21 +339,22 @@ export const ExperienceSection = memo(function ExperienceSection({
                         })()}
                         <button
                           title="Améliorer avec l'IA"
+                          aria-label="Améliorer ce point avec l'IA"
                           disabled={bullets.improvingBulletKey === (bulletKey as RewriteKey)}
                           onClick={() => bullets.requestSuggestions(bulletKey as RewriteKey, bullet, exp)}
-                          className="p-1 text-gray-600 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                          className="p-1 text-gray-600 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 transition-opacity"
                         >
                           {bullets.improvingBulletKey === (bulletKey as RewriteKey)
                             ? <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-500" />
                             : <Sparkles className="w-2.5 h-2.5" />}
                         </button>
                         <button
-                          onClick={() => {
-                            const newExp = [...(experience || [])];
-                            newExp[idx].description = newExp[idx].description.filter((_, i) => i !== bIdx);
-                            setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                          }}
-                          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 transition-opacity"
+                          onClick={() => updateExperience(idx, x => ({
+                            ...x,
+                            description: x.description.filter((_, i) => i !== bIdx),
+                          }))}
+                          aria-label="Supprimer ce point"
+                          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-2 h-2" />
                         </button>
@@ -394,11 +391,10 @@ export const ExperienceSection = memo(function ExperienceSection({
                   );
                 })}
                 <button
-                  onClick={() => {
-                    const newExp = [...(experience || [])];
-                    newExp[idx].description = [...(newExp[idx].description || []), 'Nouvelle responsabilité...'];
-                    setCvData(prev => prev ? {...prev, experience: newExp} : null);
-                  }}
+                  onClick={() => updateExperience(idx, x => ({
+                    ...x,
+                    description: [...(x.description || []), 'Nouvelle responsabilité...'],
+                  }))}
                   className="text-[11px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
                 >
                   <Plus className="w-2 h-2" /> Ajouter un point
@@ -416,13 +412,13 @@ export const ExperienceSection = memo(function ExperienceSection({
                     value={exp.description?.[0] || ''}
                     placeholder="Description synthétique du poste..."
                     onChange={(e) => {
-                      const newExp = [...(experience || [])];
-                      if (!newExp[idx].description?.length) {
-                        newExp[idx].description = [e.target.value];
-                      } else {
-                        newExp[idx].description[0] = e.target.value;
-                      }
-                      setCvData(prev => prev ? {...prev, experience: newExp} : null);
+                      const text = e.target.value;
+                      updateExperience(idx, x => ({
+                        ...x,
+                        description: x.description?.length
+                          ? x.description.map((b, i) => (i === 0 ? text : b))
+                          : [text],
+                      }));
                     }}
                   />
                 </div>

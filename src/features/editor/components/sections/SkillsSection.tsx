@@ -15,6 +15,14 @@ interface Props {
 export const SkillsSection = memo(function SkillsSection({
   skills, setCvData, expanded, onToggle,
 }: Props) {
+  // A new category object per edit, built from the latest state: assigning
+  // into `skills[catIdx]` in place kept the reference, so the preview and the
+  // PDF went on showing the previous items.
+  const updateCategory = (catIdx: number, change: (cat: SkillCategory) => SkillCategory) =>
+    setCvData(prev => prev
+      ? { ...prev, skills: prev.skills.map((cat, i) => (i === catIdx ? change(cat) : cat)) }
+      : null);
+
   return (
     <section className="stitch-panel overflow-hidden">
       <button
@@ -37,11 +45,7 @@ export const SkillsSection = memo(function SkillsSection({
                   {SKILL_DISPLAY_MODES.map((mode) => (
                     <button
                       key={mode.value}
-                      onClick={() => {
-                        const newSkills = [...(skills || [])];
-                        newSkills[catIdx] = { ...newSkills[catIdx], displayMode: mode.value };
-                        setCvData(prev => prev ? {...prev, skills: newSkills} : null);
-                      }}
+                      onClick={() => updateCategory(catIdx, c => ({ ...c, displayMode: mode.value }))}
                       title={mode.label}
                       className={cn(
                         "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
@@ -77,20 +81,18 @@ export const SkillsSection = memo(function SkillsSection({
                 value={cat.category}
                 placeholder="NOM_CATEGORIE"
                 onChange={(e) => {
-                  const newSkills = [...(skills || [])];
-                  newSkills[catIdx].category = e.target.value;
-                  setCvData(prev => prev ? {...prev, skills: newSkills} : null);
+                  const category = e.target.value;
+                  updateCategory(catIdx, c => ({ ...c, category }));
                 }}
               />
               <div className="flex flex-wrap gap-2">
                 {cat.items?.map((skill, skillIdx) => (
                   <div key={skillIdx} className="flex items-center gap-1 px-2 py-0.5 bg-white text-gray-600 text-[11px] stitch-mono rounded border border-gray-200">
                     <span>{typeof skill === 'string' ? skill : JSON.stringify(skill)}</span>
-                    <button onClick={() => {
-                      const newSkills = [...(skills || [])];
-                      newSkills[catIdx].items = newSkills[catIdx].items.filter((_, i) => i !== skillIdx);
-                      setCvData(prev => prev ? {...prev, skills: newSkills} : null);
-                    }}>
+                    <button
+                      aria-label={`Retirer la compétence ${skill}`}
+                      onClick={() => updateCategory(catIdx, c => ({ ...c, items: c.items.filter((_, i) => i !== skillIdx) }))}
+                    >
                       <Trash2 className="w-2 h-2" />
                     </button>
                   </div>
@@ -105,9 +107,7 @@ export const SkillsSection = memo(function SkillsSection({
                   if (e.key === 'Enter') {
                     const val = (e.target as HTMLInputElement).value;
                     if (val) {
-                      const newSkills = [...(skills || [])];
-                      newSkills[catIdx].items = [...newSkills[catIdx].items, val];
-                      setCvData(prev => prev ? {...prev, skills: newSkills} : null);
+                      updateCategory(catIdx, c => ({ ...c, items: [...c.items, val] }));
                       (e.target as HTMLInputElement).value = '';
                     }
                   }

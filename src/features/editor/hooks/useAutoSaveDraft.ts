@@ -43,6 +43,8 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
   } = deps;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The save the debounce is waiting to run, if any */
+  const pendingSaveRef = useRef<(() => void) | null>(null);
   /** False until the first non-null cvData has been seen (the hydration) */
   const hydratedRef = useRef(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -56,15 +58,17 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
       hydratedRef.current = true;
       return;
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    const save = () => {
+      pendingSaveRef.current = null;
       const merged = stripPersistenceArtifacts({
         ...cvData,
         design: { ...designSettings, template: selectedTemplate },
       });
       if (user) {
         setIsAutoSaving(true);
-        updateLastCV({ cvData: merged, jobDescription: jobDescription || undefined })
+        // The offer is always sent, "" included: the server keeps the stored
+        // offer only when the field is omitted.
+        updateLastCV({ cvData: merged, jobDescription })
           .then(() => setLastAutoSaveAt(new Date()))
           .catch((e) => console.warn('[auto-save] failed:', e))
           .finally(() => setIsAutoSaving(false));
@@ -72,11 +76,30 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
         localStorage.setItem('guest_last_optimized', JSON.stringify(merged));
         setLastAutoSaveAt(new Date());
       }
-    }, DEBOUNCE_MS);
+    };
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    pendingSaveRef.current = save;
+    debounceRef.current = setTimeout(save, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, updateLastCV]);
+
+  // Leaving the editor or closing the tab inside the debounce window used to
+  // drop the last edits: the cleanup cancelled the timer and nothing ran it.
+  // Run the pending save instead. The guest mirror is synchronous; the account
+  // mutation is best effort on tab close, reliable on in-app navigation.
+  useEffect(() => {
+    const flush = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      pendingSaveRef.current?.();
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
 
   return { isAutoSaving, lastAutoSaveAt };
 }

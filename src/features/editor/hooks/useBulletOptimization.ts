@@ -16,6 +16,8 @@ export interface BulletRewriteEntry {
 
 export interface BulletSuggestionState {
   key: RewriteKey;
+  /** The bullet text the suggestions were asked for */
+  original: string;
   suggestions: string[];
 }
 
@@ -102,6 +104,29 @@ export function applyRewriteToCV(
   });
 }
 
+/**
+ * Where a proposal's original bullet is now. Proposals are computed against
+ * (expIdx, bulIdx), but the user can reorder experiences or edit bullets while
+ * one is pending: the position is trusted only if the text is still there,
+ * otherwise the text is looked up elsewhere. Null when it no longer exists, so
+ * a rewrite never lands on a bullet it was not written for.
+ */
+export function locateBullet(
+  experience: Experience[],
+  expIdx: number,
+  bulIdx: number,
+  original: string,
+): { expIndex: number; bulletIndex: number } | null {
+  if (experience[expIdx]?.description[bulIdx] === original) return { expIndex: expIdx, bulletIndex: bulIdx };
+  for (let e = 0; e < experience.length; e++) {
+    const b = experience[e].description.indexOf(original);
+    if (b !== -1) return { expIndex: e, bulletIndex: b };
+  }
+  return null;
+}
+
+const STALE_PROPOSAL_MESSAGE = 'Ce point a été modifié entre-temps : la proposition est ignorée.';
+
 /** Find the longest bullet index in an experience — used by integrateKeyword for best context. */
 function longestBulletIndex(description: string[]): number {
   if (description.length === 0) return -1;
@@ -156,7 +181,8 @@ export function useBulletOptimization(
         const mapping = indexMap[rw.index];
         if (mapping) {
           next.set(`${mapping.expIndex}-${mapping.bulletIndex}` as RewriteKey, {
-            original: rw.original,
+            // The real text, not the model's echo of it: accepting relocates by text
+            original: cvData.experience[mapping.expIndex].description[mapping.bulletIndex],
             rewritten: rw.rewritten,
           });
         }
@@ -175,15 +201,21 @@ export function useBulletOptimization(
       const entry = pendingRewrites.get(key);
       if (!entry || !cvData) return;
       const [expIdx, bulIdx] = key.split('-').map(Number);
-      const newExp = applyRewriteToCV(cvData.experience, expIdx, bulIdx, entry.rewritten);
-      setCvData(prev => (prev ? { ...prev, experience: newExp } : null));
+      const target = locateBullet(cvData.experience, expIdx, bulIdx, entry.original);
+      if (target) {
+        setCvData(prev => (prev
+          ? { ...prev, experience: applyRewriteToCV(prev.experience, target.expIndex, target.bulletIndex, entry.rewritten) }
+          : null));
+      } else {
+        notify({ message: STALE_PROPOSAL_MESSAGE, type: 'error' });
+      }
       setPendingRewrites(prev => {
         const next = new Map(prev);
         next.delete(key);
         return next;
       });
     },
-    [pendingRewrites, cvData, setCvData],
+    [pendingRewrites, cvData, setCvData, notify],
   );
 
   const rejectRewrite = useCallback((key: RewriteKey) => {
@@ -252,7 +284,7 @@ export function useBulletOptimization(
           language,
           accessCode,
         });
-        setBulletSuggestions({ key, suggestions: result.suggestions ?? [] });
+        setBulletSuggestions({ key, original: bullet, suggestions: result.suggestions ?? [] });
       } catch {
         // Silent — the picker just won't open, matches original behavior
       } finally {
@@ -264,13 +296,19 @@ export function useBulletOptimization(
 
   const pickSuggestion = useCallback(
     (key: RewriteKey, suggestion: string) => {
-      if (!cvData) return;
+      if (!cvData || bulletSuggestions?.key !== key) return;
       const [expIdx, bulIdx] = key.split('-').map(Number);
-      const newExp = applyRewriteToCV(cvData.experience, expIdx, bulIdx, suggestion);
-      setCvData(prev => (prev ? { ...prev, experience: newExp } : null));
+      const target = locateBullet(cvData.experience, expIdx, bulIdx, bulletSuggestions.original);
+      if (target) {
+        setCvData(prev => (prev
+          ? { ...prev, experience: applyRewriteToCV(prev.experience, target.expIndex, target.bulletIndex, suggestion) }
+          : null));
+      } else {
+        notify({ message: STALE_PROPOSAL_MESSAGE, type: 'error' });
+      }
       setBulletSuggestions(null);
     },
-    [cvData, setCvData],
+    [cvData, bulletSuggestions, setCvData, notify],
   );
 
   const dismissSuggestions = useCallback(() => {

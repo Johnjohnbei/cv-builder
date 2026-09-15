@@ -40,6 +40,12 @@ interface Props {
 
   /** True while ANY AI action runs: every AI trigger in the sidebar is disabled */
   aiBusy: boolean;
+  /**
+   * True while an AI call rewrites the whole CV (optimize, translate, enrich).
+   * Its answer replaces the CV, so editing is suspended meanwhile: an edit
+   * made during the wait used to be silently overwritten.
+   */
+  isRewritingCV: boolean;
   isOptimizing: boolean;
   optimizeSeconds: number;
   optimizeEstimate: number;
@@ -90,7 +96,7 @@ export function EditorSidebar(props: Props) {
     jobDescription, onJobDescriptionChange, actualPageCount,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSection, toggles,
-    aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
+    aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
     atsScore, atsKeywords, hasJobDescription, onAddSkill,
     bullets, keywordDistribution, exports, templateSelection, coverLetter, notify,
@@ -155,7 +161,9 @@ export function EditorSidebar(props: Props) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin" role="tabpanel">
+          <div className="flex-1 overflow-y-auto p-4 min-h-0 scrollbar-thin" role="tabpanel">
+            {/* Native fieldset: one attribute disables every field and button below */}
+            <fieldset disabled={isRewritingCV} className="min-w-0 space-y-4">
             {activeTab === 'content' ? (
               <div className="space-y-3">
                 <OptimizePanel
@@ -269,6 +277,7 @@ export function EditorSidebar(props: Props) {
               />
               </>
             )}
+            </fieldset>
           </div>
         </div>
 

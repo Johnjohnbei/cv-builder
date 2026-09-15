@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flattenVisibleBullets, applyRewriteToCV } from './useBulletOptimization';
+import { flattenVisibleBullets, applyRewriteToCV, locateBullet } from './useBulletOptimization';
 import type { Experience } from '@/src/shared/types';
 
 const makeExp = (
@@ -106,5 +106,23 @@ describe('applyRewriteToCV', () => {
   it('returns the input unchanged when expIdx is negative', () => {
     const out = applyRewriteToCV(base, -1, 0, 'rewritten');
     expect(out).toBe(base);
+  });
+});
+
+describe('locateBullet', () => {
+  const base = [makeExp('A', ['a0', 'a1']), makeExp('B', ['b0', 'b1'])];
+
+  it('trusts the position while the text is still there', () => {
+    expect(locateBullet(base, 1, 1, 'b1')).toEqual({ expIndex: 1, bulletIndex: 1 });
+  });
+
+  it('follows the text after the experiences were reordered', () => {
+    const reordered = [base[1], base[0]];
+    expect(locateBullet(reordered, 1, 1, 'b1')).toEqual({ expIndex: 0, bulletIndex: 1 });
+  });
+
+  it('returns null once the bullet was edited, so the rewrite is not misapplied', () => {
+    const edited = [base[0], makeExp('B', ['b0', 'b1 edited by hand'])];
+    expect(locateBullet(edited, 1, 1, 'b1')).toBeNull();
   });
 });

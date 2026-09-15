@@ -66,7 +66,36 @@ export const updateLastGeneratedCV = mutation({
 
     await ctx.db.patch(user._id, {
       lastGeneratedCV: args.cvData,
-      lastJobDescription: args.jobDescription,
+      // Omitted means "leave the stored offer alone", not "erase it": a patch
+      // with undefined deletes the field, so "Enregistrer" used to wipe the
+      // offer the draft was tailored to. Callers pass "" to clear it.
+      ...(args.jobDescription !== undefined && { lastJobDescription: args.jobDescription }),
+      updatedAt: new Date().toISOString(),
+    });
+  },
+});
+
+/**
+ * The CV the user imported, kept apart from the working draft it seeds. Nothing
+ * wrote this field before: the dashboard read it, the import wrote the draft
+ * instead, so a signed-in user lost the import on reload and the import
+ * overwrote the draft being edited.
+ */
+export const saveBaseCV = mutation({
+  args: { cvData: v.any() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(user._id, {
+      baseCV: args.cvData,
       updatedAt: new Date().toISOString(),
     });
   },

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, DesignSettings } from '@/src/shared/types';
+import { readStoredJSON } from '@/src/shared/lib/storage';
 
 const GUEST_LAST_OPTIMIZED_KEY = 'guest_last_optimized';
 const GUEST_CVS_KEY = 'guest_cvs';
@@ -94,7 +95,7 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
         await updateLastCV({ cvData: persisted });
       } else if (isGuest) {
         localStorage.setItem(GUEST_LAST_OPTIMIZED_KEY, JSON.stringify(persisted));
-        const existing = JSON.parse(localStorage.getItem(GUEST_CVS_KEY) || '[]');
+        const existing = readStoredJSON<unknown[]>(GUEST_CVS_KEY, []);
         const entry = {
           ...persisted,
           _id: `guest_${Date.now()}`,

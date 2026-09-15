@@ -119,6 +119,19 @@ describe('applyAssignments', () => {
     expect(out[0].description).toEqual(['bullet 0', 'bullet 1', 'bullet 2']);
   });
 
+  it('follows the original text when experiences were reordered meanwhile', () => {
+    const reordered = [baseExp[1], baseExp[0]];
+    const p = { ...proposal('X', 0, 1, 'rewritten 1'), originalBullet: 'bullet 1' };
+    const out = applyAssignments(reordered, [p]);
+    expect(out[1].description).toEqual(['bullet 0', 'rewritten 1', 'bullet 2']);
+    expect(out[0]).toBe(reordered[0]);
+  });
+
+  it('skips a proposal whose bullet was edited meanwhile', () => {
+    const p = { ...proposal('X', 0, 1, 'rewritten 1'), originalBullet: 'text that is gone' };
+    expect(applyAssignments(baseExp, [p])).toBe(baseExp);
+  });
+
   it('returns an empty-proposals case unchanged', () => {
     const out = applyAssignments(baseExp, []);
     expect(out).toHaveLength(2);

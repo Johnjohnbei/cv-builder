@@ -107,6 +107,47 @@ test.describe('Tri auto sur N pages', () => {
   });
 });
 
+test.describe('Édition du contenu', () => {
+  guardAICalls();
+
+  /** Already triaged, so the fit pass does not reshuffle the CV under the test */
+  const TRIAGED_CV = {
+    ...LONG_CV,
+    experience: LONG_CV.experience.map(e => ({ ...e, displayMode: 'normal' })),
+  };
+
+  test('modifier une puce met à jour l\'aperçu, donc le PDF', async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: 'Expériences' }).click();
+
+    const original = LONG_CV.experience[0].description[0];
+    // Textboxes of a role: position, company, intro, start, end, KPI, then bullets
+    const bullet = page.locator('[data-cv-block="experience"]').first().getByRole('textbox').nth(6);
+    await expect(bullet).toHaveValue(original);
+    // Same length on purpose: the stale preview only showed when the estimated
+    // line count did not change, which is most keystrokes.
+    const edited = original.replace('adopte a 90% en 6 mois', 'adopte a 95% en 4 mois');
+    await bullet.fill(edited);
+
+    await expect(page.locator('.cv-page').first()).toContainText('adopte a 95% en 4 mois');
+  });
+
+  test('une modification faite juste avant de quitter l\'éditeur est enregistrée', async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByLabel('Titre pro').fill('Titre changé juste avant de partir');
+
+    // Leaves right away, well inside the 1.5 s auto-save debounce
+    await page.goto('/');
+
+    const saved = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('guest_last_optimized')!).personal_info.title,
+    );
+    expect(saved).toBe('Titre changé juste avant de partir');
+  });
+});
+
 /**
  * Written the way real offers are: accents and plurals the variant config
  * (playwright.config.ts) spells without. The exact-regex matcher missed all of

@@ -65,35 +65,35 @@ function normalizeDisplayMode(mode: unknown): ExperienceDisplayMode | undefined 
 }
 
 // ─── Description coercion ────────────────────────────────────────
+// Every bullet survives: the prompts promise to delete nothing, and the
+// fit-to-pages pass decides what is shown. A cap of 5 used to drop the 6th
+// bullet on every rewrite and translation, and long bullets were cut on any
+// hyphen ("B2B - SaaS") with short fragments thrown away. Only bullets the
+// model glued into one string with line breaks or "•" markers are split back.
 function normalizeDescription(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    // Handle case where model returned a single string instead of array
-    if (typeof raw === "string") return normalizeDescription([raw]);
-    return [];
-  }
-  return raw
-    .flatMap((d: unknown) => {
-      if (typeof d === "string" && d.length > 200) {
-        return d
-          .split(/[•·\-–—]\s+|(?:\.\s+)(?=[A-Z])/)
-          .filter((s) => s.trim().length > 10)
-          .map((s) => s.trim());
-      }
-      return [typeof d === "string" ? d.trim() : String(d)];
-    })
-    .filter((s) => s.length > 0)
-    .slice(0, 5);
+  const items = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
+  return items
+    .filter((d): d is string => typeof d === "string")
+    .flatMap((d) => d.split(/\n+|(?:^|\s)•\s+/))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
 // ─── Experience coercion ─────────────────────────────────────────
+const PRESENT_END_DATES = new Set([
+  "present", "aujourd'hui", "actuel", "actuellement", "en cours", "now", "today", "current", "ongoing",
+]);
+
 export function normalizeExperience(raw: any): Experience {
-  const endDateRaw = typeof raw.end_date === "string" ? raw.end_date : "";
-  const endDateLower = endDateRaw.toLowerCase();
+  const endDateRaw = typeof raw.end_date === "string" ? raw.end_date.trim() : "";
+  const endDateKey = endDateRaw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/’/g, "'");
+  // An empty end date only means "current" when the model did not say
+  // otherwise: a past role whose end date is unknown is not a current one.
   const isCurrent =
     raw.current === true ||
-    endDateRaw === "" ||
-    endDateLower === "présent" ||
-    endDateLower === "present";
+    raw.current === "true" ||
+    PRESENT_END_DATES.has(endDateKey) ||
+    (endDateRaw === "" && raw.current !== false && raw.current !== "false");
 
   return {
     company: typeof raw.company === "string" ? raw.company : "",
@@ -144,13 +144,14 @@ export function normalizeSkills(raw: unknown): SkillCategory[] {
           deduped.push(item);
         }
       }
+      // No cap on items or categories: same reason as the bullets, a
+      // translation must not silently shorten the CV.
       return {
         category,
-        items: deduped.slice(0, 8),
+        items: deduped,
         displayMode: cat?.displayMode,
       };
-    })
-    .slice(0, 5);
+    });
 }
 
 // ─── Languages coercion ──────────────────────────────────────────
@@ -165,8 +166,24 @@ function normalizeLanguages(raw: unknown): Language[] {
 }
 
 // ─── Top-level normalizer (D-05) ─────────────────────────────────
+/**
+ * Drop null values, in objects and arrays. Models emit `"end_date": null` for
+ * "unknown"; the schema's optional fields refuse null, so a single one used to
+ * reject the whole CV ("L'IA a retourné un CV invalide"), and Convex refuses
+ * null on save anyway.
+ */
+function withoutNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.filter((v) => v !== null).map(withoutNulls);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).filter(([, v]) => v !== null).map(([k, v]) => [k, withoutNulls(v)]),
+    );
+  }
+  return value;
+}
+
 export function normalizeCVData(raw: unknown): CVData {
-  const parsed = CVDataSchema.safeParse(raw);
+  const parsed = CVDataSchema.safeParse(withoutNulls(raw));
   if (!parsed.success) {
     const preview = JSON.stringify(raw).slice(0, 500);
     console.error(

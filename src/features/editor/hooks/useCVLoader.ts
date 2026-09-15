@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
+import { readStoredJSON } from '@/src/shared/lib/storage';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -48,9 +49,9 @@ export function useCVLoader(
       setIsLoading(false);
     } else if (isGuest) {
       dataLoaded.current = true;
-      const stored = localStorage.getItem('guest_last_optimized');
+      const stored = readStoredJSON<CVData | null>('guest_last_optimized', null);
       if (stored) {
-        const data = stripPersistenceArtifacts(JSON.parse(stored)) as CVData;
+        const data = stripPersistenceArtifacts(stored);
         setCvData(data);
         if (data.design) {
           setDesignSettings(data.design);

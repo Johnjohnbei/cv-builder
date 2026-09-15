@@ -8,7 +8,8 @@ import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { CVData, DesignSettings } from '../shared/types';
+import { CVData, DesignSettings, EMPTY_CV } from '../shared/types';
+import { readStoredJSON } from '../shared/lib/storage';
 import { stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
 
 /**
@@ -128,6 +129,7 @@ export default function DashboardPage() {
   const createCV = useMutation(api.cvs.createMyCV);
   const removeCV = useMutation(api.cvs.remove);
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
+  const saveBaseCV = useMutation(api.users.saveBaseCV);
 
   const extractCVDataFromPDF = useAction(api.ai.extractCVDataFromPDF);
   const tailorCV = useAction(api.ai.tailorCV);
@@ -139,21 +141,22 @@ export default function DashboardPage() {
   const adminCodes = useQuery(api.accessCodes.list, isAdmin ? undefined : "skip");
   const adminRequests = useQuery(api.accessCodes.listRequests, isAdmin ? undefined : "skip");
 
+  // A signed-in user reads the account only: falling through to the guest copy
+  // while the query loads, or because the tab still carries a guest flag,
+  // showed another session's CV.
   useEffect(() => {
-    if (user && convexUser?.baseCV) {
-      setBaseCV(convexUser.baseCV);
+    if (user) {
+      if (convexUser?.baseCV) setBaseCV(convexUser.baseCV);
     } else if (isGuest) {
-      const stored = localStorage.getItem('guest_base_cv');
-      if (stored) setBaseCV(JSON.parse(stored));
+      setBaseCV(readStoredJSON<CVData | null>('guest_base_cv', null));
     }
   }, [convexUser, user, isGuest]);
 
   useEffect(() => {
-    if (user && convexCVs) {
-      setSavedCVs(convexCVs);
+    if (user) {
+      if (convexCVs) setSavedCVs(convexCVs);
     } else if (isGuest) {
-      const stored = localStorage.getItem('guest_cvs');
-      if (stored) setSavedCVs(JSON.parse(stored));
+      setSavedCVs(readStoredJSON<SavedCVEntry[]>('guest_cvs', []));
     }
   }, [convexCVs, user, isGuest]);
 
@@ -190,14 +193,16 @@ export default function DashboardPage() {
           const code = getCode();
           data = await extractCVDataFromPDF({ pdfText: pdfText.substring(0, 12000), accessCode: code });
         }
-        const detectedLang = detectCVLanguage(data);
-        setBaseCV({ ...data, detectedLanguage: detectedLang });
+        const imported = { ...data, detectedLanguage: detectCVLanguage(data) };
+        setBaseCV(imported);
 
+        // The import is the base the next offer is tailored from, not the draft
+        // open in the editor: it must never overwrite that draft.
         if (user) {
           await storeUser();
-          await updateLastCV({ cvData: { ...data, detectedLanguage: detectedLang } });
+          await saveBaseCV({ cvData: imported });
         } else if (isGuest) {
-          localStorage.setItem('guest_base_cv', JSON.stringify(data));
+          localStorage.setItem('guest_base_cv', JSON.stringify(imported));
         }
       } catch (error: any) {
         console.error('Extraction error:', error);
@@ -290,6 +295,29 @@ export default function DashboardPage() {
       setNotification({ message: getUserErrorMessage(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.'), type: 'error' });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  /** Start from a blank CV. It replaces the working draft, so ask first when there is one. */
+  const startEmptyCV = async () => {
+    const hasDraft = user
+      ? Boolean(convexUser?.lastGeneratedCV)
+      : readStoredJSON<CVData | null>('guest_last_optimized', null) !== null;
+    if (hasDraft && !window.confirm('Créer un CV vide remplacera votre brouillon en cours. Continuer ?')) return;
+    try {
+      if (user) {
+        await storeUser();
+        // Awaited BEFORE navigating: the editor reads the draft once, on mount,
+        // and used to open on the previous one. The old offer goes too.
+        await updateLastCV({ cvData: EMPTY_CV, jobDescription: '' });
+      } else if (isGuest) {
+        localStorage.setItem('guest_last_optimized', JSON.stringify(EMPTY_CV));
+        localStorage.removeItem('guest_last_jd');
+      }
+      navigate('/editor');
+    } catch (error) {
+      console.error('Empty CV error:', error);
+      setNotification({ message: getUserErrorMessage(error, 'Impossible de créer le CV vide. Réessayez.'), type: 'error' });
     }
   };
 
@@ -547,23 +575,7 @@ export default function DashboardPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => {
-                            const emptyCV: CVData = {
-                              personal_info: { name: '', email: '', title: '' },
-                              experience: [],
-                              education: [],
-                              skills: [],
-                              languages: [],
-                              detectedLanguage: 'fr',
-                            };
-                            setBaseCV(emptyCV);
-                            if (user) {
-                              storeUser().then(() => updateLastCV({ cvData: emptyCV }));
-                            } else if (isGuest) {
-                              localStorage.setItem('guest_last_optimized', JSON.stringify(emptyCV));
-                            }
-                            navigate('/editor');
-                          }}
+                          onClick={startEmptyCV}
                           className="w-full py-2 border border-dashed border-blue-300 text-blue-600 text-[11px] font-mono font-bold uppercase tracking-wider hover:bg-blue-50 transition-colors rounded flex items-center justify-center gap-2"
                         >
                           <Plus className="w-3 h-3" />
@@ -712,22 +724,8 @@ export default function DashboardPage() {
                   <h2 className="text-2xl font-bold tracking-tight">Mes CV Sauvegardés</h2>
                   <p className="text-sm text-gray-500">Gérez et éditez vos différentes versions de CV.</p>
                 </div>
-                <button 
-                  onClick={() => {
-                    const emptyCV: CVData = {
-                      personal_info: { name: '', email: '', title: '' },
-                      experience: [],
-                      education: [],
-                      skills: [],
-                      languages: [],
-                    };
-                    if (user) {
-                      storeUser().then(() => updateLastCV({ cvData: emptyCV }));
-                    } else if (isGuest) {
-                      localStorage.setItem('guest_last_optimized', JSON.stringify(emptyCV));
-                    }
-                    navigate('/editor');
-                  }}
+                <button
+                  onClick={startEmptyCV}
                   className="stitch-button-primary flex items-center space-x-2"
                 >
                   <Plus className="w-4 h-4" />
@@ -880,7 +878,7 @@ export default function DashboardPage() {
                       if (user) {
                         await removeCV({ id: cvToDelete as any });
                       } else if (isGuest) {
-                        const guestCVs = JSON.parse(localStorage.getItem('guest_cvs') || '[]');
+                        const guestCVs = readStoredJSON<SavedCVEntry[]>('guest_cvs', []);
                         const updatedCVs = guestCVs.filter((cv: any) => cv._id !== cvToDelete);
                         localStorage.setItem('guest_cvs', JSON.stringify(updatedCVs));
                         setSavedCVs(updatedCVs);

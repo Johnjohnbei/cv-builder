@@ -4,6 +4,7 @@ import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { applyRewriteToCV, locateBullet } from './useBulletOptimization';
 
 // ─── Types ───
 
@@ -54,28 +55,25 @@ export function stripNonContent(cvData: CVData) {
 }
 
 /**
- * Apply a list of assignments to an experience array in a SINGLE pass.
- * Groups proposals by expIndex and rewrites all target bullets at once.
+ * Apply a list of assignments to an experience array. Immutable.
+ *
+ * Proposals point at (expIndex, bulletIndex) as they were when the AI
+ * answered; the user may have reordered or edited experiences since. When the
+ * original text is known the rewrite follows it, and a bullet that no longer
+ * exists is skipped instead of overwriting whatever now sits at that index.
  * Exported for unit testing.
  */
 export function applyAssignments(
   experience: CVData['experience'],
   proposals: DistributionProposal[],
 ): CVData['experience'] {
-  return experience.map((exp, expIdx) => {
-    const matching = proposals.filter(
-      (p) =>
-        p.expIndex === expIdx &&
-        p.bulletIndex !== null &&
-        p.rewrittenBullet !== null,
-    );
-    if (matching.length === 0) return exp;
-    const newDesc = [...exp.description];
-    for (const p of matching) {
-      newDesc[p.bulletIndex!] = p.rewrittenBullet!;
-    }
-    return { ...exp, description: newDesc };
-  });
+  return proposals.reduce((next, p) => {
+    if (p.expIndex === null || p.bulletIndex === null || p.rewrittenBullet === null) return next;
+    const target = p.originalBullet === null
+      ? { expIndex: p.expIndex, bulletIndex: p.bulletIndex }
+      : locateBullet(next, p.expIndex, p.bulletIndex, p.originalBullet);
+    return target ? applyRewriteToCV(next, target.expIndex, target.bulletIndex, p.rewrittenBullet) : next;
+  }, experience);
 }
 
 // ─── Hook ───
@@ -113,7 +111,9 @@ export function useKeywordDistribution(
           keyword: a.keyword,
           expIndex: a.expIndex,
           bulletIndex: a.bulletIndex ?? null,
-          originalBullet: a.originalBullet ?? null,
+          // The real text, not the model's echo of it: accepting relocates by text
+          originalBullet: (exp && a.bulletIndex != null ? exp.description[a.bulletIndex] : undefined)
+            ?? a.originalBullet ?? null,
           rewrittenBullet: a.rewrittenBullet ?? null,
           reason: a.reason ?? '',
           expLabel,
@@ -138,11 +138,14 @@ export function useKeywordDistribution(
     (keyword: string) => {
       const proposal = proposals.find((p) => p.keyword === keyword);
       if (!proposal || !cvData) return;
-      const newExp = applyAssignments(cvData.experience, [proposal]);
-      setCvData((prev) => (prev ? { ...prev, experience: newExp } : null));
+      if (proposal.rewrittenBullet !== null && applyAssignments(cvData.experience, [proposal]) === cvData.experience) {
+        notify({ message: 'Ce point a été modifié entre-temps : la proposition est ignorée.', type: 'error' });
+      } else {
+        setCvData((prev) => (prev ? { ...prev, experience: applyAssignments(prev.experience, [proposal]) } : null));
+      }
       setProposals((prev) => prev.filter((p) => p.keyword !== keyword));
     },
-    [proposals, cvData, setCvData],
+    [proposals, cvData, setCvData, notify],
   );
 
   const rejectOne = useCallback((keyword: string) => {
@@ -150,11 +153,9 @@ export function useKeywordDistribution(
   }, []);
 
   const acceptAll = useCallback(() => {
-    if (!cvData) return;
-    const newExp = applyAssignments(cvData.experience, proposals);
-    setCvData((prev) => (prev ? { ...prev, experience: newExp } : null));
+    setCvData((prev) => (prev ? { ...prev, experience: applyAssignments(prev.experience, proposals) } : null));
     setProposals([]);
-  }, [cvData, proposals, setCvData]);
+  }, [proposals, setCvData]);
 
   const rejectAll = useCallback(() => {
     setProposals([]);

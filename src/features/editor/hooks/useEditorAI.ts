@@ -50,7 +50,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
 
   const persist = useCallback((updated: CVData, label: string) => {
     if (user) {
-      updateLastCV({ cvData: updated, jobDescription: jobDescription || undefined })
+      updateLastCV({ cvData: updated, jobDescription })
         .catch(e => console.warn(`[${label}] persist failed:`, e));
     } else if (isGuest) {
       localStorage.setItem('guest_last_optimized', JSON.stringify(updated));

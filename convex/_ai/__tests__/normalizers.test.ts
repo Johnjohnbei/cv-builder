@@ -62,12 +62,27 @@ describe("normalizeExperience", () => {
     expect(result.end_date).toBe("");
   });
 
-  it("coerces empty end_date to current=true", () => {
+  it("treats an empty end_date as current when the model gave no flag", () => {
+    const result = normalizeExperience({
+      company: "A", position: "B", start_date: "2020", end_date: "", description: [],
+    });
+    expect(result.current).toBe(true);
+  });
+
+  it("keeps a past role with an unknown end date as past", () => {
     const result = normalizeExperience({
       company: "A", position: "B", start_date: "2020", end_date: "",
       current: false, description: [],
     });
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
+  });
+
+  it("recognizes other ways of saying 'present'", () => {
+    for (const end_date of ["Aujourd'hui", "aujourd’hui", "En cours", "Today", "PRÉSENT"]) {
+      const result = normalizeExperience({ company: "A", position: "B", start_date: "2020", end_date, current: false, description: [] });
+      expect(result.current, end_date).toBe(true);
+      expect(result.end_date, end_date).toBe("");
+    }
   });
 
   // Absence must survive normalization: it is the signal useFitToPages reads to
@@ -119,22 +134,30 @@ describe("normalizeExperience", () => {
     expect(result.kpi).toBe("");
   });
 
-  it("caps description at 5 bullets", () => {
+  it("keeps every bullet, even beyond 5", () => {
     const result = normalizeExperience({
       company: "A", position: "B", start_date: "2020", current: false,
       description: ["1", "2", "3", "4", "5", "6", "7"],
     });
-    expect(result.description).toHaveLength(5);
+    expect(result.description).toHaveLength(7);
   });
 
-  it("splits long bullet strings > 200 chars", () => {
-    const longString =
-      "Led the strategic initiative across multiple business units. Orchestrated cross-functional teams to drive digital transformation. Delivered results exceeding quarterly targets by significant margins. Established new operating procedures.";
+  it("keeps a long bullet intact, hyphens and short words included", () => {
+    const longBullet =
+      "Pilote la stratégie produit B2B - SaaS pour 3 marchés européens, en coordonnant design, data et engineering sur une refonte complète du parcours d'onboarding, de la recherche utilisateur jusqu'au suivi des KPIs - UX";
     const result = normalizeExperience({
       company: "A", position: "B", start_date: "2020", current: false,
-      description: [longString],
+      description: [longBullet],
     });
-    expect(result.description.length).toBeGreaterThan(1);
+    expect(result.description).toEqual([longBullet]);
+  });
+
+  it("splits bullets glued with line breaks or • markers, and drops non-text", () => {
+    const result = normalizeExperience({
+      company: "A", position: "B", start_date: "2020", current: false,
+      description: ["• Premier point • Deuxième point", "Troisième\nQuatrième", 42],
+    });
+    expect(result.description).toEqual(["Premier point", "Deuxième point", "Troisième", "Quatrième"]);
   });
 
   it("passes showKpi boolean through", () => {
@@ -172,18 +195,18 @@ describe("normalizeSkills", () => {
     expect(result[0].items).toHaveLength(1);
   });
 
-  it("caps items at 8 per category", () => {
+  it("keeps every item of a category", () => {
     const result = normalizeSkills([
       { category: "Tech", items: Array.from({ length: 12 }, (_, i) => `Skill${i}`) },
     ]);
-    expect(result[0].items).toHaveLength(8);
+    expect(result[0].items).toHaveLength(12);
   });
 
-  it("caps categories at 5", () => {
+  it("keeps every category", () => {
     const result = normalizeSkills(
       Array.from({ length: 8 }, (_, i) => ({ category: `Cat${i}`, items: ["a"] }))
     );
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(8);
   });
 
   it("defaults category to 'Compétences' when missing", () => {
@@ -266,6 +289,18 @@ describe("normalizeCVData (top-level)", () => {
   it("throws on malformed (non-object) input", () => {
     expect(() => normalizeCVData(cvMalformed)).toThrow(/CV invalide/);
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("accepts null on optional fields instead of rejecting the whole CV", () => {
+    const result = normalizeCVData({
+      personal_info: { name: "X", email: "y@z.com", phone: null, location: null },
+      experience: [{ company: "A", position: "B", start_date: "2020", end_date: null, current: false, kpi: null, description: ["ok", null] }],
+      education: [{ school: "S", degree: "D", end_date: null }],
+    });
+    expect(result.personal_info.phone).toBeUndefined();
+    expect(result.experience[0].description).toEqual(["ok"]);
+    expect(result.experience[0].kpi).toBe("");
+    expect(result.education[0].end_date).toBeUndefined();
   });
 
   it("returns empty arrays for missing sections", () => {
