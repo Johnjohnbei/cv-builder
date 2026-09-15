@@ -5,6 +5,7 @@ import { MEASUREMENT_SAFETY_PX } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
 import { allocatePages } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
+import { getCVLanguage } from '@/src/lib/languageDetection';
 
 /**
  * Pagination pipeline — reconcile-from-live-DOM.
@@ -191,6 +192,8 @@ export function usePaginationFit(
   cvData: CVData | null,
   designSettings: DesignSettings,
   selectedTemplate: string,
+  /** The painted header is masked when true: its height differs from the real one */
+  isAnonymous = false,
 ): {
   pageAssignments: PageAssignment[];
   actualPageCount: number;
@@ -208,21 +211,31 @@ export function usePaginationFit(
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
   const singleColumn = layout.type === 'single-column';
 
+  const includedSections = designSettings.includedSections;
   const heuristicBlocks = useMemo(() => {
     if (!cvData) return [];
-    const blocks = buildBlocks(cvData);
+    const blocks = buildBlocks(cvData, includedSections);
     // Single-column templates have one width context — start from the wide
     // estimate so the first paint is already close to reality.
     return singleColumn
       ? blocks.map(b => ({ ...b, heightPx: b.fullWidthHeightPx }))
       : blocks;
-  }, [cvData, singleColumn]);
+  }, [cvData, singleColumn, includedSections]);
 
-  /** Content fingerprint — any change resets the reconcile loop */
+  /**
+   * Fingerprint of everything that changes the rendered heights — any change
+   * resets the reconcile loop. Photo, ATS mode, language (dates and labels)
+   * and anonymization change what is painted without touching the estimates:
+   * left out, turning the photo on pushed the last block of page 1 past the
+   * bottom edge, clipped in the preview and in the PDF.
+   */
+  const language = cvData ? getCVLanguage(cvData) : 'fr';
   const contentKey = useMemo(
     () => heuristicBlocks.map(b => `${b.id}:${b.heightPx}`).join('|')
-      + `|${selectedTemplate}|${designSettings.fontFamily}`,
-    [heuristicBlocks, selectedTemplate, designSettings.fontFamily],
+      + `|${selectedTemplate}|${designSettings.fontFamily}|${designSettings.showPhoto}`
+      + `|${designSettings.atsMode}|${language}|${isAnonymous}`,
+    [heuristicBlocks, selectedTemplate, designSettings.fontFamily, designSettings.showPhoto,
+      designSettings.atsMode, language, isAnonymous],
   );
 
   /** Reconciled blocks: live-measured heights, fed back into allocation */
@@ -246,25 +259,24 @@ export function usePaginationFit(
     setIsStable(false);
   }, [contentKey]);
 
-  // When cvData changes without altering estimated heights (same line count),
+  // When cvData changes without altering estimated heights (most keystrokes),
   // contentKey stays identical and reconciledBlocks would serve stale data.
-  // Propagate the latest data fields while preserving measured heights.
+  // Carry the latest data over, keeping measured heights as the starting
+  // point, AND measure again: the real wrap can differ from the estimate, and a
+  // block that grew by one line used to stay allocated at its old height and
+  // be clipped at the bottom of its page.
   useEffect(() => {
-    setReconciledBlocks(prev => {
-      if (!prev) return prev;
-      const dataById = new Map(heuristicBlocks.map(b => [b.id, b.data]));
-      let changed = false;
-      const next = prev.map(b => {
-        const newData = dataById.get(b.id);
-        if (newData !== undefined && newData !== b.data) {
-          changed = true;
-          return { ...b, data: newData };
-        }
-        return b;
-      });
-      return changed ? next : prev;
-    });
-  }, [heuristicBlocks]);
+    if (!reconciledBlocks) return;
+    const dataById = new Map(heuristicBlocks.map(b => [b.id, b.data]));
+    const isOutdated = (b: ContentBlock) => {
+      const data = dataById.get(b.id);
+      return data !== undefined && data !== b.data;
+    };
+    if (!reconciledBlocks.some(isOutdated)) return;
+    iterCountRef.current = 0;
+    setIsStable(false);
+    setReconciledBlocks(reconciledBlocks.map(b => (isOutdated(b) ? { ...b, data: dataById.get(b.id)! } : b)));
+  }, [heuristicBlocks, reconciledBlocks]);
 
   /** Blocks used for allocation: reconciled if available, else heuristic */
   const activeBlocks = reconciledBlocks ?? heuristicBlocks;

@@ -14,7 +14,6 @@ describe('mergeTemplateDefaults', () => {
     const out = mergeTemplateDefaults(base, 'TEMPLATE_E');
     expect(out.template).toBe('TEMPLATE_E');
     expect(out.fontFamily).toBe('outfit');
-    expect(out.sectionTitleWeight).toBe('medium');
   });
 
   it('only updates template id for unknown template', () => {

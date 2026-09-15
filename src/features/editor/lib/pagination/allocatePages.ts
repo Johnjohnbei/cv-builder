@@ -53,6 +53,35 @@ function resolveTitleH(override: number | undefined): number {
   return override ?? SECTION_TITLE_HEIGHT_PX;
 }
 
+interface TitleHeights {
+  experience: number;
+  skills: number;
+}
+
+function resolveTitles(options: AllocateOptions): TitleHeights {
+  return {
+    experience: resolveTitleH(options.sectionTitleHeights?.experience),
+    skills: resolveTitleH(options.sectionTitleHeights?.skills),
+  };
+}
+
+/**
+ * Space PaginatedCV adds above the first experience and the first skill
+ * category of a page, for its section title. Zero once that title is already
+ * on the page, and for untitled block types.
+ *
+ * Titles are separate siblings in the DOM, so no measured block height
+ * includes them. Only page 1 of two-column templates used to reserve them:
+ * single-column pages (Elegant is the default) and every page 2+ were
+ * allocated one title short and could clip their last block.
+ */
+function titleReserve(type: ContentBlock['type'], titled: Set<string>, titles: TitleHeights): number {
+  if (titled.has(type)) return 0;
+  if (type === 'experience') return titles.experience + MEASUREMENT_SAFETY_PX;
+  if (type === 'skill-category') return titles.skills + MEASUREMENT_SAFETY_PX;
+  return 0;
+}
+
 // ─── Block Classification ───
 
 interface ClassifiedBlocks {
@@ -110,8 +139,8 @@ function allocateTwoColumn(
 ): PageAssignment[] {
   const pages: PageAssignment[] = [];
   const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);
-  const expTitleH = resolveTitleH(options.sectionTitleHeights?.experience);
-  const skillsTitleH = resolveTitleH(options.sectionTitleHeights?.skills);
+  const titles = resolveTitles(options);
+  const skillsTitleH = titles.skills;
 
   // ─── Page 1: Header + Main Column + Sidebar ───
 
@@ -151,10 +180,8 @@ function allocateTwoColumn(
     }
   }
 
-  // Main column: fill with experiences
-  // Subtract space for the "EXPÉRIENCE PROFESSIONNELLE" section title injected by PaginatedCV
-  const mainAvailable = experiences.length > 0 ? page1Height - expTitleH - MEASUREMENT_SAFETY_PX : page1Height;
-  const overflowExperiences = fillColumn(experiences, mainAvailable, page1Main);
+  // Main column: fill with experiences (fillColumn reserves their section title)
+  const overflowExperiences = fillColumn(experiences, page1Height, page1Main, titles);
 
   // Determine effective page 1 height
   const mainTotal = page1Main.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
@@ -173,9 +200,7 @@ function allocateTwoColumn(
   const allOverflow = [...overflowExperiences, ...sidebarOverflow];
   if (allOverflow.length > 0) {
     const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    // Reserve space for the "(suite)" section title on page 2+ (only for experience overflow)
-    const continuationTitleH = overflowExperiences.length > 0 ? expTitleH + MEASUREMENT_SAFETY_PX : 0;
-    allocateOverflowPages(allOverflow, page2Height - continuationTitleH, pages, true);
+    allocateOverflowPages(allOverflow, page2Height, pages, true, titles);
   }
 
   return pages;
@@ -191,10 +216,11 @@ function allocateSingleColumn(
   experiences: ContentBlock[],
   sidebarBlocks: ContentBlock[],
   layout: TemplateLayout,
-  _options: AllocateOptions,
+  options: AllocateOptions,
 ): PageAssignment[] {
   const pages: PageAssignment[] = [];
   const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);
+  const titles = resolveTitles(options);
 
   // All blocks flow sequentially: header → summary → experiences → skills → edu → languages
   const allBlocks: ContentBlock[] = [];
@@ -204,7 +230,7 @@ function allocateSingleColumn(
   allBlocks.push(...sidebarBlocks);
 
   const page1Blocks: PlacedBlock[] = [];
-  const overflow = fillColumn(allBlocks, page1Height, page1Blocks);
+  const overflow = fillColumn(allBlocks, page1Height, page1Blocks, titles);
 
   const page1Total = page1Blocks.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
 
@@ -217,7 +243,7 @@ function allocateSingleColumn(
 
   if (overflow.length > 0) {
     const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    allocateOverflowPages(overflow, page2Height, pages, false);
+    allocateOverflowPages(overflow, page2Height, pages, false, titles);
   }
 
   return pages;
@@ -233,8 +259,10 @@ function fillColumn(
   blocks: ContentBlock[],
   availablePx: number,
   placed: PlacedBlock[],
+  titles: TitleHeights,
 ): PlacedBlock[] {
   let usedPx = placed.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
+  const titled = new Set<string>(placed.map(pb => pb.block.type));
   const overflow: PlacedBlock[] = [];
   let overflowStarted = false;
 
@@ -244,12 +272,14 @@ function fillColumn(
       continue;
     }
 
-    const remaining = availablePx - usedPx;
+    const titleH = titleReserve(block.type, titled, titles);
+    const remaining = availablePx - usedPx - titleH;
 
     // Block fits entirely
     if (block.heightPx + MEASUREMENT_SAFETY_PX <= remaining) {
       placed.push({ block });
-      usedPx += block.heightPx + MEASUREMENT_SAFETY_PX;
+      usedPx += block.heightPx + MEASUREMENT_SAFETY_PX + titleH;
+      titled.add(block.type);
       continue;
     }
 
@@ -281,12 +311,14 @@ function allocateOverflowPages(
   pageHeightPx: number,
   pages: PageAssignment[],
   useFullWidthHeight: boolean,
+  titles: TitleHeights,
 ): void {
   let remaining = [...overflow];
 
   while (remaining.length > 0) {
     const pageBlocks: PlacedBlock[] = [];
     const nextOverflow: PlacedBlock[] = [];
+    const titled = new Set<string>();
     let usedPx = 0;
     let overflowStarted = false;
 
@@ -297,11 +329,13 @@ function allocateOverflowPages(
       }
 
       const height = placedHeight(pb, useFullWidthHeight);
-      const space = pageHeightPx - usedPx;
+      const titleH = titleReserve(pb.block.type, titled, titles);
+      const space = pageHeightPx - usedPx - titleH;
 
       if (height + MEASUREMENT_SAFETY_PX <= space) {
         pageBlocks.push(pb);
-        usedPx += height + MEASUREMENT_SAFETY_PX;
+        usedPx += height + MEASUREMENT_SAFETY_PX + titleH;
+        titled.add(pb.block.type);
         continue;
       }
 
@@ -319,7 +353,8 @@ function allocateOverflowPages(
       // If no blocks placed yet on this page, force-place to avoid infinite loop
       if (pageBlocks.length === 0) {
         pageBlocks.push(pb);
-        usedPx += height;
+        usedPx += height + titleH;
+        titled.add(pb.block.type);
         overflowStarted = true;
         continue;
       }

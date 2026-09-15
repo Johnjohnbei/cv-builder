@@ -195,6 +195,35 @@ describe('allocatePages', () => {
     expect(pages[0].sidebarBlocks?.length).toBe(1);
   });
 
+  it('reserves the injected section titles on single-column pages', () => {
+    // Usable page ≈ 1018.6px. Without the experience and skills titles (45 + 16
+    // each) the skill block would fit on page 1 with a few px to spare.
+    const blocks = [
+      block('header', 'header', 200),
+      block('exp-0', 'experience', 400),
+      block('skill-0', 'skill-category', 250),
+    ];
+
+    const pages = allocatePages(blocks, singleColLayout);
+
+    expect(pages).toHaveLength(2);
+    expect(pages[1].blocks.map(pb => pb.block.id)).toEqual(['skill-0']);
+  });
+
+  it('reserves the skills title again when skills overflow to a new page', () => {
+    // The overflow page holds one 900px skill block: with its 61px title it no
+    // longer leaves room for a second 60px category.
+    const blocks = [
+      block('header', 'header', 980),
+      block('skill-0', 'skill-category', 900),
+      block('skill-1', 'skill-category', 60),
+    ];
+
+    const pages = allocatePages(blocks, singleColLayout);
+
+    expect(pages.map(p => p.blocks.map(pb => pb.block.id))).toEqual([['header'], ['skill-0'], ['skill-1']]);
+  });
+
   it('splits experiences into slices with ABSOLUTE sub-block indices (no duplicated bullets)', () => {
     // One huge experience that cannot fit on a single page
     const blocks = [

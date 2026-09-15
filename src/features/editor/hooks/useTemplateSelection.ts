@@ -5,10 +5,10 @@ import { TEMPLATE_ATS_COMPAT, ATS_FALLBACK_TEMPLATE } from '@/src/features/edito
 // ─── Template defaults ───
 
 export const TEMPLATE_DEFAULTS: Record<string, Partial<DesignSettings>> = {
-  TEMPLATE_A: { fontFamily: 'sans', sectionTitleWeight: 'bold', sectionTitleSpacing: 'widest', sectionTitleTransform: 'uppercase' },
-  TEMPLATE_B: { fontFamily: 'sans', sectionTitleWeight: 'semibold', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
-  TEMPLATE_C: { fontFamily: 'serif', sectionTitleWeight: 'normal', sectionTitleSpacing: 'normal', sectionTitleTransform: 'uppercase' },
-  TEMPLATE_E: { fontFamily: 'outfit', sectionTitleWeight: 'medium', sectionTitleSpacing: 'wide', sectionTitleTransform: 'uppercase' },
+  TEMPLATE_A: { fontFamily: 'sans' },
+  TEMPLATE_B: { fontFamily: 'sans' },
+  TEMPLATE_C: { fontFamily: 'serif' },
+  TEMPLATE_E: { fontFamily: 'outfit' },
 };
 
 // ─── Pure helpers (exported for unit tests) ───

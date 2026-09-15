@@ -71,7 +71,12 @@ export function useExport(deps: UseExportDeps): UseExportResult {
     try {
       // Lazy: the docx builder is ~300 kB and most sessions never export Word.
       const { exportToDocx } = await import('@/src/shared/lib/export-docx');
-      await exportToDocx(isAnonymous ? maskPersonalInfo(cvData) : cvData, language, fileBaseName);
+      await exportToDocx(
+        isAnonymous ? maskPersonalInfo(cvData) : cvData,
+        language,
+        fileBaseName,
+        designSettings.includedSections,
+      );
       notify({ message: 'Document Word téléchargé !', type: 'success' });
     } catch (e) {
       console.error('Error exporting DOCX:', e);
@@ -79,7 +84,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
     } finally {
       setIsExportingDocx(false);
     }
-  }, [cvData, isAnonymous, language, notify, isExportingDocx, fileBaseName]);
+  }, [cvData, isAnonymous, language, notify, isExportingDocx, fileBaseName, designSettings.includedSections]);
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;

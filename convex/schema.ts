@@ -37,11 +37,13 @@ const designValidator = v.object({
   primaryColor: v.string(),
   secondaryColor: v.string(),
   fontFamily: v.string(),
+  pageLimit: v.optional(v.number()),
+  showPhoto: v.optional(v.boolean()),
+  // No longer written (settings that no renderer read, removed 2026-09-15).
+  // Kept optional so documents saved before still validate.
   sectionTitleWeight: v.optional(v.string()),
   sectionTitleTransform: v.optional(v.string()),
   sectionTitleSpacing: v.optional(v.string()),
-  pageLimit: v.optional(v.number()),
-  showPhoto: v.optional(v.boolean()),
   paperSize: v.optional(v.string()),
   orientation: v.optional(v.string()),
   includedSections: v.optional(v.array(v.string())),

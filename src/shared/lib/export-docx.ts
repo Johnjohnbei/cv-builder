@@ -2,14 +2,15 @@ import {
   Document, Packer, Paragraph, TextRun, ExternalHyperlink,
   AlignmentType, BorderStyle,
 } from 'docx';
-import { getContactEntries } from '@/src/features/editor/templates/shared';
+import { getContactEntries, getEducationLines } from '@/src/features/editor/templates/shared';
 import { saveAs } from 'file-saver';
 import type { CVData } from '../types';
 import {
   getIntro, getActionBullets, getVisibleSkills,
   isHidden, isSkillHidden, shouldShowKPI,
 } from '@/src/features/editor/lib/displayModes';
-import { getSectionTitle } from '@/src/features/editor/lib/atsRules';
+import { getSectionTitle, getSkillCategoryTitle } from '@/src/features/editor/lib/atsRules';
+import type { SkillCategoryKey } from '@/src/features/editor/lib/skillDictionary';
 import { buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 
@@ -19,8 +20,11 @@ export type ExportLanguage = 'fr' | 'en';
  * Builds the docx Document for a CV. Exported separately from exportToDocx so
  * tests can inspect the generated content without triggering a browser download.
  */
-export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr'): Document {
+export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr', includedSections?: string[]): Document {
   const { personal_info, experience, education, skills, languages } = cvData;
+  // Same visibility rule as the PDF layout (buildBlocks): a section switched
+  // off in the Design tab leaves both formats.
+  const shows = (section: string) => !includedSections || includedSections.includes(section);
 
   const children: Paragraph[] = [];
 
@@ -60,7 +64,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Summary ──
-  if (personal_info.summary) {
+  if (shows('summary') && personal_info.summary) {
     children.push(sectionHeading(getSectionTitle('summary', language)));
     children.push(new Paragraph({
       children: [new TextRun({ text: personal_info.summary, size: 20, font: 'Calibri' })],
@@ -69,7 +73,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Experience (mirrors template rendering: intro always, then action bullets per displayMode) ──
-  const visibleExps = experience.filter(exp => !isHidden(exp));
+  const visibleExps = shows('experience') ? experience.filter(exp => !isHidden(exp)) : [];
   if (visibleExps.length) {
     children.push(sectionHeading(getSectionTitle('experience', language)));
     for (const exp of visibleExps) {
@@ -113,14 +117,15 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Education ──
-  if (education.length) {
+  if (shows('education') && education.length) {
     children.push(sectionHeading(getSectionTitle('education', language)));
     for (const edu of education) {
+      const lines = getEducationLines(edu, language);
       children.push(new Paragraph({
         children: [
-          new TextRun({ text: edu.degree, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: `  ·  ${edu.school}`, size: 20, color: '5F6368', font: 'Calibri' }),
-          new TextRun({ text: `  (${formatDateShort(edu.end_date, language)})`, size: 18, color: '888888', font: 'Calibri' }),
+          new TextRun({ text: lines.degree, bold: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: `  ·  ${lines.school}`, size: 20, color: '5F6368', font: 'Calibri' }),
+          ...(lines.date ? [new TextRun({ text: `  (${lines.date})`, size: 18, color: '888888', font: 'Calibri' })] : []),
         ],
         spacing: { after: 60 },
       }));
@@ -128,13 +133,16 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Skills (same visibility rules as templates) ──
-  const visibleSkillCats = skills.filter(cat => !isSkillHidden(cat) && getVisibleSkills(cat).length > 0);
+  const visibleSkillCats = shows('skills')
+    ? skills.filter(cat => !isSkillHidden(cat) && getVisibleSkills(cat).length > 0)
+    : [];
   if (visibleSkillCats.length) {
     children.push(sectionHeading(getSectionTitle('skills', language)));
     for (const cat of visibleSkillCats) {
       children.push(new Paragraph({
         children: [
-          new TextRun({ text: `${cat.category}: `, bold: true, size: 20, font: 'Calibri' }),
+          // Display name, as in the templates: a LinkedIn import stores keys like "technical"
+          new TextRun({ text: `${getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}: `, bold: true, size: 20, font: 'Calibri' }),
           new TextRun({ text: getVisibleSkills(cat).join(', '), size: 20, font: 'Calibri' }),
         ],
         spacing: { after: 40 },
@@ -143,7 +151,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Languages ──
-  if (languages.length) {
+  if (shows('languages') && languages.length) {
     children.push(sectionHeading(getSectionTitle('languages', language)));
     for (const lang of languages) {
       children.push(new Paragraph({
@@ -173,8 +181,13 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
  * `fileBaseName` comes from useExport so PDF and Word land in the recruiter's
  * downloads folder under the exact same name.
  */
-export async function exportToDocx(cvData: CVData, language: ExportLanguage = 'fr', fileBaseName?: string) {
-  const doc = buildCvDocument(cvData, language);
+export async function exportToDocx(
+  cvData: CVData,
+  language: ExportLanguage = 'fr',
+  fileBaseName?: string,
+  includedSections?: string[],
+) {
+  const doc = buildCvDocument(cvData, language, includedSections);
   const blob = await Packer.toBlob(doc);
   const baseName = fileBaseName || buildPdfFileName(cvData.personal_info.name, cvData.personal_info.title);
   saveAs(blob, `${baseName}.docx`);

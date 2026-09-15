@@ -1,6 +1,7 @@
 import { Mail, Phone, MapPin, Globe } from 'lucide-react';
-import type { CVData, PersonalInfo } from '@/src/shared/types';
+import type { CVData, Education, PersonalInfo } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import { formatDateShort } from '../lib/formatting';
 import { cn } from '@/src/shared/lib/cn';
 import { getLocalizedStage } from '@/src/shared/constants/companyMeta';
 import { shouldShowKPI, getIntro, getActionBullets } from '../lib/displayModes';
@@ -129,6 +130,19 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
       />
     </div>
   );
+}
+
+/**
+ * What every template and the .docx print for a degree. The field of study was
+ * matched by the ATS panel but printed nowhere, and templates showed the raw
+ * end date ("2021-06") with a dangling separator when it was empty.
+ */
+export function getEducationLines(edu: Education, language: SupportedLanguage): { degree: string; school: string; date: string } {
+  return {
+    degree: [edu.degree, edu.field].filter(part => part?.trim()).join(', '),
+    school: edu.school,
+    date: formatDateShort(edu.end_date, language),
+  };
 }
 
 /** One contact line of a CV header. */

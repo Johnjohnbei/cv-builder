@@ -107,14 +107,57 @@ test.describe('Tri auto sur N pages', () => {
   });
 });
 
-test.describe('Édition du contenu', () => {
+/** Already triaged, so the fit pass does not reshuffle the CV under the test */
+const TRIAGED_CV = {
+  ...LONG_CV,
+  experience: LONG_CV.experience.map(e => ({ ...e, displayMode: 'normal' })),
+};
+
+/** Ids of the blocks whose bottom edge passes the bottom of their page (clipped in the PDF) */
+const clippedBlocks = (page: Page) => page.evaluate(() =>
+  [...document.querySelectorAll('.cv-page')].flatMap(p => {
+    const limit = p.getBoundingClientRect().bottom + 1;
+    return [...p.querySelectorAll('[data-live-block]')]
+      .filter(b => b.getBoundingClientRect().bottom > limit)
+      .map(b => b.getAttribute('data-live-block'));
+  }),
+);
+
+test.describe('Rendu du CV', () => {
   guardAICalls();
 
-  /** Already triaged, so the fit pass does not reshuffle the CV under the test */
-  const TRIAGED_CV = {
-    ...LONG_CV,
-    experience: LONG_CV.experience.map(e => ({ ...e, displayMode: 'normal' })),
-  };
+  test('le template par défaut titre la section Compétences', async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    await expect(page.locator('[data-live-title="skills"]').first()).toContainText(/Compétences/i);
+  });
+
+  test('masquer une section dans Design la retire de l\'aperçu', async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    await expect(page.locator('.cv-page').last()).toContainText('Zeroheight', { timeout: 15_000 });
+
+    await page.getByRole('tab', { name: 'Design' }).click();
+    await page.getByRole('button', { name: /Compétences/ }).click();
+
+    await expect(page.locator('[data-live-title="skills"]')).toHaveCount(0);
+    for (const cvPage of await page.locator('.cv-page').all()) {
+      await expect(cvPage).not.toContainText('Zeroheight');
+    }
+  });
+
+  test('aucun bloc ne dépasse de sa page, y compris après la bascule anonyme', async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    await expect.poll(() => clippedBlocks(page), { timeout: 15_000 }).toEqual([]);
+
+    for (let i = 0; i < 2; i++) {
+      await page.getByRole('button', { name: /Anonyme/i }).click();
+      await page.waitForTimeout(500);
+      await expect.poll(() => clippedBlocks(page), { timeout: 15_000 }).toEqual([]);
+    }
+  });
+});
+
+test.describe('Édition du contenu', () => {
+  guardAICalls();
 
   test('modifier une puce met à jour l\'aperçu, donc le PDF', async ({ page }) => {
     await setupLongCV(page, TRIAGED_CV);

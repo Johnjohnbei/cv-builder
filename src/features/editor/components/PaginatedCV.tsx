@@ -105,7 +105,7 @@ function SectionTitle({ title, color, isContinuation, language }: { title: strin
 /**
  * Renders a paginated CV as stacked A4 pages.
  * Each page renders only its assigned blocks using the provided block renderers.
- * Automatically injects section titles before experience blocks.
+ * Automatically injects section titles before experience and skill blocks.
  */
 export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
   function PaginatedCV({
@@ -124,6 +124,9 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
     const isTwoColumn = pageAssignments[0]?.layoutMode === 'two-column';
     const gridConfig = getTemplateGridConfig(selectedTemplate);
     const totalPages = pageAssignments.length;
+    // First page carrying skills, sidebar included: skills on a later page are a continuation
+    const firstSkillsPage = pageAssignments.findIndex(p =>
+      [...p.blocks, ...(p.sidebarBlocks ?? [])].some(pb => pb.block.type === 'skill-category'));
 
     const renderBlock = (placed: PlacedBlock, pageIndex: number) => {
       const renderer = blockRenderers[placed.block.type];
@@ -140,6 +143,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
       <div ref={ref} className="pdf-safe">
         {pageAssignments.map((page) => {
           const firstExpIdx = page.blocks.findIndex(pb => pb.block.type === 'experience');
+          const firstSkillIdx = page.blocks.findIndex(pb => pb.block.type === 'skill-category');
           const hasExperiences = firstExpIdx !== -1;
           const isContinuation = hasExperiences && page.pageIndex > firstExperiencePage;
 
@@ -199,6 +203,19 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
                         title={getSectionTitle('experience', language)}
                         color={designSettings.atsMode ? '#000' : primaryColor}
                         isContinuation={isContinuation}
+                        language={language}
+                      />
+                    </div>
+                  )}
+                  {/* Same for skills outside a sidebar: single-column templates
+                      (Elegant, Minimal) and pages 2+ printed the categories with
+                      no "Compétences" heading, which an ATS needs to find them */}
+                  {i === firstSkillIdx && (
+                    <div data-live-title="skills">
+                      <SectionTitle
+                        title={getSectionTitle('skills', language)}
+                        color={designSettings.atsMode ? '#000' : primaryColor}
+                        isContinuation={page.pageIndex > firstSkillsPage}
                         language={language}
                       />
                     </div>

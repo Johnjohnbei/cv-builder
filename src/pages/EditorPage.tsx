@@ -69,7 +69,7 @@ export default function EditorPage() {
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
   const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount } = usePaginationFit(
-    cvData, designSettings, selectedTemplate,
+    cvData, designSettings, selectedTemplate, isAnonymous,
   );
   const pageAssignments = useMemo(
     () => (isAnonymous && cvData ? maskHeaderBlocks(rawPageAssignments, cvData) : rawPageAssignments),
@@ -384,7 +384,6 @@ export default function EditorPage() {
         user={user}
         cvName={cvData?.personal_info?.name}
         personalInfo={cvData?.personal_info}
-        language={currentLanguage}
         notify={notify}
       />
     </div>

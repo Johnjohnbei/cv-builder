@@ -24,7 +24,7 @@ describe('atsRules', () => {
   });
 
   it('exports section names for fr and en', () => {
-    expect(SECTION_NAMES.fr.experience).toBe('Experience professionnelle');
+    expect(SECTION_NAMES.fr.experience).toBe('Expérience professionnelle');
     expect(SECTION_NAMES.en.experience).toBe('Work Experience');
     expect(Object.keys(SECTION_NAMES.fr)).toHaveLength(6);
     expect(Object.keys(SECTION_NAMES.en)).toHaveLength(6);
@@ -50,11 +50,11 @@ describe('atsRules', () => {
 
 describe('getSectionTitle', () => {
   it('returns correct French section names for all 6 keys', () => {
-    expect(getSectionTitle('experience', 'fr')).toBe('Experience professionnelle');
+    expect(getSectionTitle('experience', 'fr')).toBe('Expérience professionnelle');
     expect(getSectionTitle('education', 'fr')).toBe('Formation');
-    expect(getSectionTitle('skills', 'fr')).toBe('Competences');
+    expect(getSectionTitle('skills', 'fr')).toBe('Compétences');
     expect(getSectionTitle('languages', 'fr')).toBe('Langues');
-    expect(getSectionTitle('contact', 'fr')).toBe('Coordonnees');
+    expect(getSectionTitle('contact', 'fr')).toBe('Coordonnées');
     expect(getSectionTitle('summary', 'fr')).toBe('Profil professionnel');
   });
 
@@ -76,9 +76,9 @@ describe('getSectionTitle', () => {
 
 describe('getSkillCategoryTitle', () => {
   it('returns correct French names for all 5 category keys', () => {
-    expect(getSkillCategoryTitle('technical', 'fr')).toBe('Competences techniques');
+    expect(getSkillCategoryTitle('technical', 'fr')).toBe('Compétences techniques');
     expect(getSkillCategoryTitle('tools', 'fr')).toBe('Outils');
-    expect(getSkillCategoryTitle('methodologies', 'fr')).toBe('Methodologies');
+    expect(getSkillCategoryTitle('methodologies', 'fr')).toBe('Méthodologies');
     expect(getSkillCategoryTitle('soft_skills', 'fr')).toBe('Soft Skills');
     expect(getSkillCategoryTitle('other', 'fr')).toBe('Autres');
   });
@@ -97,6 +97,12 @@ describe('getSkillCategoryTitle', () => {
       expect(getSkillCategoryTitle(key, 'fr').length).toBeGreaterThan(0);
       expect(getSkillCategoryTitle(key, 'en').length).toBeGreaterThan(0);
     }
+  });
+
+  it('humanizes snake_case keys and prints typed labels as typed, accents included', () => {
+    expect(getSkillCategoryTitle('design_systems' as SkillCategoryKey, 'fr')).toBe('Design Systems');
+    expect(getSkillCategoryTitle('Nouvelle Catégorie' as SkillCategoryKey, 'fr')).toBe('Nouvelle Catégorie');
+    expect(getSkillCategoryTitle('Outils Design' as SkillCategoryKey, 'en')).toBe('Outils Design');
   });
 
   it('SKILL_CATEGORY_NAMES has entries for both languages', () => {

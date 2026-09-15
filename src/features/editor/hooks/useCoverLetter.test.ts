@@ -38,6 +38,17 @@ describe('buildCoverLetterText', () => {
     expect(out.indexOf(SAMPLE.subject)).toBeLessThan(out.indexOf('Madame, Monsieur,'));
   });
 
+  it('labels the subject in the language the letter is written in', () => {
+    const english: CoverLetterData = {
+      subject: 'Application for the Senior Product Designer position',
+      greeting: 'Dear Hiring Manager,',
+      body: 'I am writing to apply for the Senior Product Designer role at your company. Over the past ten years I have led design teams and shipped products used by millions of people.',
+      closing: 'Best regards,',
+    };
+    expect(buildCoverLetterText(english).startsWith('Subject: ')).toBe(true);
+    expect(buildCoverLetterText(SAMPLE).startsWith('Objet : ')).toBe(true);
+  });
+
   it('omits the subject line when empty', () => {
     const out = buildCoverLetterText({ ...SAMPLE, subject: '   ' });
     expect(out).not.toContain('Objet :');

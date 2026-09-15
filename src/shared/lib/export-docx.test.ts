@@ -78,10 +78,10 @@ async function toXml(cv: CVData, language?: 'fr' | 'en'): Promise<string> {
 describe('buildCvDocument (fr, default)', () => {
   it('generates without throwing and contains ATS FR section titles', async () => {
     const xml = await toXml(mockCV);
-    expect(xml).toContain('EXPERIENCE PROFESSIONNELLE');
+    expect(xml).toContain('EXPÉRIENCE PROFESSIONNELLE');
     expect(xml).toContain('PROFIL PROFESSIONNEL');
     expect(xml).toContain('FORMATION');
-    expect(xml).toContain('COMPETENCES');
+    expect(xml).toContain('COMPÉTENCES');
     expect(xml).toContain('LANGUES');
   });
 
@@ -100,6 +100,34 @@ describe('buildCvDocument (fr, default)', () => {
     expect(xml).toMatch(/<w:hyperlink[^>]*>[\s\S]*Portfolio IA Product[\s\S]*<\/w:hyperlink>/);
     expect(rels).toContain('https://example.com/portfolio/ia');
     expect(xml).toContain('linkedin.com/in/jean');
+  });
+
+  it('formats education like the templates: localized date, field, no orphan separator', async () => {
+    const xml = await toXml({
+      ...mockCV,
+      education: [
+        { school: 'Gobelins', degree: 'Master Design', field: 'UX/UI', start_date: '2012', end_date: '2015-06' },
+        { school: 'Lycée', degree: 'Bac', start_date: '2008' },
+      ],
+    });
+    expect(xml).toContain('Master Design, UX/UI');
+    expect(xml).toContain('(Juin 2015)');
+    expect(xml).not.toContain('()');
+  });
+
+  it('prints skill categories with their display name, not the dictionary key', async () => {
+    const xml = await toXml({ ...mockCV, skills: [{ category: 'technical', items: ['React'] }] });
+    expect(xml).toContain('Compétences techniques: ');
+    expect(xml).not.toContain('technical: ');
+  });
+
+  it('leaves out the sections switched off in the Design tab', async () => {
+    const buffer = await Packer.toBuffer(buildCvDocument(mockCV, 'fr', ['personal', 'experience', 'education', 'languages']));
+    const zip = await JSZip.loadAsync(buffer);
+    const xml = await zip.file('word/document.xml')!.async('string');
+    expect(xml).not.toContain('COMPÉTENCES');
+    expect(xml).not.toContain('PROFIL PROFESSIONNEL');
+    expect(xml).toContain('FORMATION');
   });
 
   it('uses localized dates and current label', async () => {

@@ -15,11 +15,13 @@ export const ATS_FALLBACK_TEMPLATE = 'TEMPLATE_A';
 
 export const SECTION_NAMES = {
   fr: {
-    experience: 'Experience professionnelle',
+    // Printed as-is in the CV and the .docx: a French title without its
+    // accents is a spelling mistake on the document a recruiter reads.
+    experience: 'Expérience professionnelle',
     education: 'Formation',
-    skills: 'Competences',
+    skills: 'Compétences',
     languages: 'Langues',
-    contact: 'Coordonnees',
+    contact: 'Coordonnées',
     summary: 'Profil professionnel',
   },
   en: {
@@ -40,7 +42,7 @@ export function getSectionTitle(key: SectionKey, language: 'fr' | 'en'): string 
 }
 
 // --- Short / display-friendly section titles ---
-// SECTION_NAMES targets ATS parsers (uses formal "Experience professionnelle" /
+// SECTION_NAMES targets ATS parsers (uses formal "Expérience professionnelle" /
 // "Professional Summary"). For visual templates that want shorter headers
 // ("Profil", "Expérience"), use SHORT_SECTION_NAMES.
 
@@ -79,9 +81,9 @@ import type { SkillCategoryKey } from './skillDictionary';
 
 export const SKILL_CATEGORY_NAMES = {
   fr: {
-    technical: 'Competences techniques',
+    technical: 'Compétences techniques',
     tools: 'Outils',
-    methodologies: 'Methodologies',
+    methodologies: 'Méthodologies',
     soft_skills: 'Soft Skills',
     other: 'Autres',
   },
@@ -98,8 +100,16 @@ export const SKILL_CATEGORY_NAMES = {
 export function getSkillCategoryTitle(key: SkillCategoryKey, language: 'fr' | 'en'): string {
   const known = SKILL_CATEGORY_NAMES[language][key];
   if (known) return known;
-  // Format unknown keys: "design_systems" → "Design Systems"
-  return key.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // A snake_case key gets humanized ("design_systems" → "Design Systems");
+  // anything else is a label the user typed and is printed as typed. The old
+  // \b\w capitalizer saw accented letters as word breaks and turned
+  // "Nouvelle Catégorie" into "Nouvelle CatéGorie".
+  if (!/[_-]/.test(key)) return key;
+  return key
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 // --- ATS-Safe Fonts & Styles ---

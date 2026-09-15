@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { LONG_CV, LONG_CV_JOB_DESCRIPTION } from './fixtures/long-cv';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 /**
@@ -27,17 +27,17 @@ test.describe('Capture PDF', () => {
 
     await expect.poll(() => page.locator('.cv-page').count(), { timeout: 20_000 }).toBe(2);
 
-    // Capture the endpoint's response rather than the browser download: the
-    // bytes are the same, and it does not depend on download plumbing.
-    const response = page.waitForResponse(r => r.url().includes('/api/generate-pdf'), { timeout: 120_000 });
+    // Save the file the user actually downloads. Reading the endpoint response
+    // body instead wrote the dev server's transformed api/generate-pdf.ts
+    // source to disk (verified 2026-09-15): a ".pdf" no reader could open,
+    // while the real download was a valid PDF.
+    const download = page.waitForEvent('download', { timeout: 120_000 });
     await page.getByRole('button', { name: /^Exporter$/ }).first().click();
-    const res = await response;
-
-    expect(res.status()).toBe(200);
-    expect(res.headers()['content-type']).toContain('application/pdf');
+    const file = await download;
 
     mkdirSync(dirname(OUT!), { recursive: true });
-    writeFileSync(OUT!, await res.body());
+    await file.saveAs(OUT!);
+    expect(readFileSync(OUT!).subarray(0, 5).toString('latin1')).toBe('%PDF-');
     console.log(`[capture] ${OUT}`);
   });
 });

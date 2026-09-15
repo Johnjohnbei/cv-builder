@@ -5,7 +5,7 @@
 
 import type { CVData } from '@/src/shared/types';
 import type { ContentBlock, SubBlock } from './types';
-import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro } from '../displayModes';
+import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro, shouldShowKPI } from '../displayModes';
 
 // ─── Constants ───
 
@@ -22,8 +22,12 @@ function estimateTextHeight(text: string, charsPerLine: number): number {
 /**
  * Build ContentBlock descriptors from CVData with estimated heights.
  */
-export function buildBlocks(cvData: CVData): ContentBlock[] {
+export function buildBlocks(cvData: CVData, includedSections?: string[]): ContentBlock[] {
   const blocks: ContentBlock[] = [];
+  // Sections switched off in the Design tab stay out of the layout, hence out
+  // of the preview and the PDF. The toggle used to only lower the ATS score.
+  // undefined (older CVs) means everything is shown.
+  const shows = (section: string) => !includedSections || includedSections.includes(section);
 
   // Header
   if (cvData.personal_info) {
@@ -39,7 +43,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   }
 
   // Summary
-  if (cvData.personal_info?.summary) {
+  if (shows('summary') && cvData.personal_info?.summary) {
     const textH = estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_NARROW);
     blocks.push({
       id: 'summary',
@@ -52,9 +56,13 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   }
 
   // Experiences (one block per visible experience)
-  cvData.experience?.filter(exp => !isHidden(exp)).forEach((exp, idx) => {
+  if (shows('experience')) cvData.experience?.filter(exp => !isHidden(exp)).forEach((exp, idx) => {
     const intro = getIntro(exp);
     const bullets = getActionBullets(exp);
+    // Same rule as the renderers (showKpi forces it in any mode): the estimate
+    // used to reserve the KPI only in extended mode, so a forced KPI was left
+    // out of the sub-blocks of a split experience and never painted.
+    const showKpi = shouldShowKPI(exp);
 
     const positionLines = Math.ceil((exp.position?.length || 20) / 35);
     const headerH = positionLines * 22 + 28;
@@ -74,7 +82,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
       })),
     ];
 
-    if (exp.kpi && exp.displayMode === 'extended') {
+    if (showKpi) {
       subBlocks.push({ id: `exp-${idx}-kpi`, heightPx: 28, type: 'kpi' });
     }
 
@@ -84,7 +92,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
     const bulletHFull = bullets.reduce((s, b) => {
       return s + Math.max(1, Math.ceil(b.length / CHARS_PER_LINE_WIDE)) * LINE_HEIGHT + 6;
     }, 0);
-    const totalHFull = headerH + introHFull + bulletHFull + (exp.kpi && exp.displayMode === 'extended' ? 28 : 0) + SPACING;
+    const totalHFull = headerH + introHFull + bulletHFull + (showKpi ? 28 : 0) + SPACING;
 
     blocks.push({
       id: `exp-${idx}`,
@@ -101,7 +109,9 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   // Not splittable: rendered as flex-wrap chips whose real row count depends on
   // text width, so mid-category splits can't be modeled reliably. Categories
   // are small — moving one whole to the next page costs at most one row.
-  cvData.skills?.filter(cat => !isSkillHidden(cat)).forEach((cat, idx) => {
+  // A category with no visible item renders nothing: kept, it would still get
+  // a "Compétences" title injected above an empty space.
+  if (shows('skills')) cvData.skills?.filter(cat => !isSkillHidden(cat) && getVisibleSkills(cat).length > 0).forEach((cat, idx) => {
     const items = getVisibleSkills(cat);
     const titleH = 24;
     const rowH = 28;
@@ -120,7 +130,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   });
 
   // Education
-  if (cvData.education?.length) {
+  if (shows('education') && cvData.education?.length) {
     blocks.push({
       id: 'education',
       type: 'education',
@@ -132,7 +142,7 @@ export function buildBlocks(cvData: CVData): ContentBlock[] {
   }
 
   // Languages
-  if (cvData.languages?.length) {
+  if (shows('languages') && cvData.languages?.length) {
     blocks.push({
       id: 'languages',
       type: 'languages',

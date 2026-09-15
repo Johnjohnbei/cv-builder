@@ -97,9 +97,6 @@ export interface DesignSettings {
   primaryColor: string;
   secondaryColor: string;
   fontFamily: 'sans' | 'serif' | 'mono' | 'playfair' | 'outfit';
-  sectionTitleWeight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'black';
-  sectionTitleTransform?: 'none' | 'uppercase' | 'capitalize';
-  sectionTitleSpacing?: 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
   /**
    * Target page count. Pagination never truncates — this is the budget the
    * fit-to-pages pass condenses towards, and the length the AI rewrite is
@@ -107,8 +104,7 @@ export interface DesignSettings {
    */
   pageLimit?: number;
   showPhoto?: boolean;
-  paperSize?: 'a4' | 'letter' | 'legal';
-  orientation?: 'portrait' | 'landscape';
+  /** Sections shown in the preview, the PDF and the .docx. undefined = all */
   includedSections?: string[];
   atsMode?: boolean;
 }
@@ -190,13 +186,8 @@ export const DEFAULT_DESIGN: DesignSettings = {
   // Mirrors TEMPLATE_DEFAULTS.TEMPLATE_E in useTemplateSelection — a fresh CV
   // must look exactly like one where the user picked Elegant by hand.
   fontFamily: 'outfit',
-  sectionTitleWeight: 'medium',
-  sectionTitleTransform: 'uppercase',
-  sectionTitleSpacing: 'wide',
   pageLimit: 2,
   showPhoto: true,
-  paperSize: 'a4',
-  orientation: 'portrait',
   includedSections: ['personal', 'summary', 'experience', 'education', 'skills', 'languages'],
 };
 

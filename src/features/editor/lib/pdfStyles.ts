@@ -24,12 +24,15 @@ export function getPdfCss(): string {
       width: 210mm;
       height: 297mm;
       overflow: hidden;
+    }
+    /* Break after every page but the last. Each page sits alone inside its
+       preview slot, so the former ".cv-page:last-child" reset matched EVERY
+       page and no break was ever requested: pagination only held because the
+       pages stack at exactly 297mm. */
+    .cv-page-slot:not(:last-child) .cv-page,
+    .pdf-safe > .cv-page:not(:last-child) {
       page-break-after: always;
       break-after: page;
-    }
-    .cv-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
     }
 
     /* Template root: flow naturally */

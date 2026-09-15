@@ -3,7 +3,7 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
-import { detectJobDescriptionLanguage } from '@/src/lib/languageDetection';
+import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
@@ -53,15 +53,28 @@ export interface UseCoverLetterResult {
 // ─── Pure helpers (exported for tests) ───
 
 /**
+ * The language the letter is written in. It follows the offer and can differ
+ * from the CV's: an English letter for a French CV used to be exported with
+ * "Objet :" and "Paris, le 15 septembre 2026".
+ */
+export function getLetterLanguage(letter: CoverLetterData): 'fr' | 'en' {
+  return detectTextLanguage([letter.subject, letter.greeting, letter.body, letter.closing].join('\n'));
+}
+
+/**
  * Format a cover letter into a plain-text block suitable for copy/download.
  *
  * The subject line leads, as it does in the .docx export: a letter pasted into
  * an email without its "Objet" forces the user back into the drawer to grab it
  * separately, which is the whole point of a one-click copy.
  */
-export function buildCoverLetterText(letter: CoverLetterData, name?: string): string {
+export function buildCoverLetterText(
+  letter: CoverLetterData,
+  name?: string,
+  language: 'fr' | 'en' = getLetterLanguage(letter),
+): string {
   const parts: string[] = [];
-  if (letter.subject?.trim()) parts.push(`Objet : ${letter.subject.trim()}`);
+  if (letter.subject?.trim()) parts.push(`${language === 'en' ? 'Subject: ' : 'Objet : '}${letter.subject.trim()}`);
   parts.push(letter.greeting, letter.body, letter.closing);
   if (name && name.trim().length > 0) parts.push(name.trim());
   return parts.join('\n\n').replace(/\s+$/, '');

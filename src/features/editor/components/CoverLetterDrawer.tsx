@@ -7,7 +7,7 @@ import { Button } from '@/src/shared/ui/Button';
 import { Input } from '@/src/shared/ui/Input';
 import { Textarea } from '@/src/shared/ui/Textarea';
 import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
-import { canSave, findLatestSavedForCv, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
+import { canSave, findLatestSavedForCv, getLetterLanguage, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
 import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/companyMeta';
 import type { PersonalInfo } from '@/src/shared/types';
 
@@ -17,8 +17,6 @@ interface Props {
   cvName?: string;
   /** Candidate info for the letter header in the PDF and Word exports */
   personalInfo?: PersonalInfo;
-  /** Language of the exported letter document (defaults to fr) */
-  language?: 'fr' | 'en';
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
 }
 
@@ -39,7 +37,7 @@ const isEditableField = (el: Element | null): el is HTMLElement =>
   el instanceof HTMLElement &&
   (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
 
-export function CoverLetterDrawer({ controller, user, cvName, personalInfo, language = 'fr', notify }: Props) {
+export function CoverLetterDrawer({ controller, user, cvName, personalInfo, notify }: Props) {
   const { isOpen, close, letter, setLetter } = controller;
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -362,7 +360,8 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                         letter,
                         personalInfo,
                         companyName: controller.companyName || undefined,
-                        language,
+                        // The letter's own language, not the CV's: labels and date follow it
+                        language: getLetterLanguage(letter),
                       });
                     } catch (e) {
                       console.error('Letter PDF export failed:', e);
@@ -382,13 +381,19 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, lang
                   title="Télécharger une lettre mise en page (.docx)"
                   onClick={async () => {
                     if (!letter || !personalInfo) return;
-                    const { exportLetterToDocx } = await import('@/src/shared/lib/export-letter');
-                    await exportLetterToDocx({
-                      letter,
-                      personalInfo,
-                      companyName: controller.companyName || undefined,
-                      language,
-                    });
+                    // A failed Word export used to fail silently
+                    try {
+                      const { exportLetterToDocx } = await import('@/src/shared/lib/export-letter');
+                      await exportLetterToDocx({
+                        letter,
+                        personalInfo,
+                        companyName: controller.companyName || undefined,
+                        language: getLetterLanguage(letter),
+                      });
+                    } catch (e) {
+                      console.error('Letter Word export failed:', e);
+                      notify({ message: 'Export Word impossible. Utilisez le PDF ou Copier.', type: 'error' });
+                    }
                   }}
                 >
                   Word

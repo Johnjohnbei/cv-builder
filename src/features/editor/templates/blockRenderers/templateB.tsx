@@ -6,7 +6,7 @@ import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/colorContrast';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
-import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue } from '../shared';
+import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue, getEducationLines } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -142,13 +142,16 @@ function EducationBlock({ block, designSettings, language, isPage2Plus }: BlockR
     <section data-cv-section="education" data-measure-id={block.block.id}>
       <h2 className="text-[8px] font-bold uppercase tracking-[0.2em] pb-1 mb-3 border-b" style={{ color: mutedColor, borderColor: onSidebar ? 'rgba(255,255,255,0.15)' : '#e5e7eb' }}>{getShortSectionTitle('education', language)}</h2>
       <div className="space-y-3">
-        {educations.map((edu, idx) => (
-          <div key={idx} className="space-y-0.5" data-cv-block="education">
-            <p className="text-[11px] font-bold" style={{ color: textColor }}>{edu.degree}</p>
-            <p className="text-[9px]" style={{ color: mutedColor }}>{edu.school}</p>
-            <p className="text-[8px] font-mono" style={{ color: mutedColor }}>{edu.end_date}</p>
-          </div>
-        ))}
+        {educations.map((edu, idx) => {
+          const lines = getEducationLines(edu, language);
+          return (
+            <div key={idx} className="space-y-0.5" data-cv-block="education">
+              <p className="text-[11px] font-bold" style={{ color: textColor }}>{lines.degree}</p>
+              <p className="text-[9px]" style={{ color: mutedColor }}>{lines.school}</p>
+              {lines.date && <p className="text-[8px] font-mono" style={{ color: mutedColor }}>{lines.date}</p>}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

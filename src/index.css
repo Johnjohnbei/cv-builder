@@ -318,12 +318,13 @@ body {
     width: 210mm !important;
     height: 297mm !important;
     overflow: hidden !important;
+  }
+  /* Same rule as pdfStyles.ts: ".cv-page:last-child" matched every page, each
+     one being alone in its slot. Break after every page but the last. */
+  .cv-page-slot:not(:last-child) .cv-page,
+  .pdf-safe > .cv-page:not(:last-child) {
     page-break-after: always;
     break-after: page;
-  }
-  .cv-page:last-child {
-    page-break-after: auto;
-    break-after: auto;
   }
 
   .pdf-safe {

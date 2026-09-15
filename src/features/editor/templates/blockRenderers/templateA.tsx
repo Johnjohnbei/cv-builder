@@ -5,7 +5,7 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
-import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBullets } from '../shared';
+import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBullets, getEducationLines } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -131,12 +131,15 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
     <section data-cv-section="education" data-measure-id={block.block.id}>
       <h2 className="text-sm border-b pb-1.5 mb-3 font-bold uppercase tracking-wider" style={sectionStyle}>{getShortSectionTitle('education', language)}</h2>
       <div className="space-y-4">
-        {educations.map((edu, idx) => (
-          <div key={idx} className="space-y-1" data-cv-block="education">
-            <p className="text-xs font-bold">{edu.degree}</p>
-            <p className="text-[10px] text-gray-500">{edu.school} • {edu.end_date}</p>
-          </div>
-        ))}
+        {educations.map((edu, idx) => {
+          const lines = getEducationLines(edu, language);
+          return (
+            <div key={idx} className="space-y-1" data-cv-block="education">
+              <p className="text-xs font-bold">{lines.degree}</p>
+              <p className="text-[10px] text-gray-500">{[lines.school, lines.date].filter(Boolean).join(' • ')}</p>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

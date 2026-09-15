@@ -212,14 +212,20 @@ export function scoreFormat(cvData: CVData, design: DesignSettings, language: 'f
     suggestions.push('Template inconnu : compatibilité ATS incertaine');
   }
 
-  // Section names (25 pts)
-  const essentialSections = ['experience', 'education', 'skills', 'contact', 'summary'];
-  const included = design.includedSections ?? [];
-  const sectionCount = essentialSections.filter(s => included.includes(s)).length;
-  const sectionScore = Math.round((sectionCount / essentialSections.length) * 25);
-  score += sectionScore;
-  if (sectionCount < essentialSections.length) {
-    const missing = essentialSections.filter(s => !included.includes(s));
+  // Sections (25 pts): a section counts when it is shown AND has content.
+  // Contact is scored below. Checked against the toggle list alone, "contact"
+  // never matched the "personal" key the app stores, so every CV lost points
+  // and read "Sections manquantes : contact" in raw English keys.
+  const shows = (section: string) => !design.includedSections || design.includedSections.includes(section);
+  const sections: [label: string, present: boolean][] = [
+    ['Profil', shows('summary') && Boolean(cvData.personal_info.summary?.trim())],
+    ['Expérience', shows('experience') && cvData.experience.length > 0],
+    ['Formation', shows('education') && cvData.education.length > 0],
+    ['Compétences', shows('skills') && cvData.skills.length > 0],
+  ];
+  const missing = sections.filter(([, present]) => !present).map(([label]) => label);
+  score += Math.round(((sections.length - missing.length) / sections.length) * 25);
+  if (missing.length > 0) {
     suggestions.push(`Sections manquantes : ${missing.join(', ')}`);
   }
 

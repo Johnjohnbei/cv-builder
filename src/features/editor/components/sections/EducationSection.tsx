@@ -13,6 +13,12 @@ interface Props {
 export const EducationSection = memo(function EducationSection({
   education, setCvData, expanded, onToggle,
 }: Props) {
+  // A new object per edit, never an assignment into the previous state
+  const updateEducation = (idx: number, change: (edu: Education) => Education) =>
+    setCvData(prev => prev
+      ? { ...prev, education: prev.education.map((edu, i) => (i === idx ? change(edu) : edu)) }
+      : null);
+
   return (
     <section className="stitch-panel overflow-hidden">
       <button
@@ -47,9 +53,19 @@ export const EducationSection = memo(function EducationSection({
                 value={edu.degree}
                 placeholder="Diplôme"
                 onChange={(e) => {
-                  const newEdu = [...(education || [])];
-                  newEdu[idx].degree = e.target.value;
-                  setCvData(prev => prev ? {...prev, education: newEdu} : null);
+                  const degree = e.target.value;
+                  updateEducation(idx, x => ({ ...x, degree }));
+                }}
+              />
+              <Input
+                variant="bare"
+                mono={false}
+                className="text-gray-700"
+                value={edu.field || ''}
+                placeholder="Domaine (optionnel)"
+                onChange={(e) => {
+                  const field = e.target.value;
+                  updateEducation(idx, x => ({ ...x, field }));
                 }}
               />
               <Input
@@ -59,21 +75,19 @@ export const EducationSection = memo(function EducationSection({
                 value={edu.school}
                 placeholder="École"
                 onChange={(e) => {
-                  const newEdu = [...(education || [])];
-                  newEdu[idx].school = e.target.value;
-                  setCvData(prev => prev ? {...prev, education: newEdu} : null);
+                  const school = e.target.value;
+                  updateEducation(idx, x => ({ ...x, school }));
                 }}
               />
               <Input
                 variant="bare"
                 mono={false}
                 className="text-gray-600"
-                value={edu.end_date}
-                placeholder="Année"
+                value={edu.end_date || ''}
+                placeholder="Année de fin"
                 onChange={(e) => {
-                  const newEdu = [...(education || [])];
-                  newEdu[idx].end_date = e.target.value;
-                  setCvData(prev => prev ? {...prev, education: newEdu} : null);
+                  const end_date = e.target.value;
+                  updateEducation(idx, x => ({ ...x, end_date }));
                 }}
               />
             </div>
