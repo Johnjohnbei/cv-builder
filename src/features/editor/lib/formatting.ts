@@ -39,11 +39,12 @@ export type DateLanguage = 'fr' | 'en';
  * Single parser for display and for the years of experience the score measures.
  */
 export function parseMonthYear(date?: string): { year: number; month: number | null } | null {
-  const d = date?.trim() ?? '';
+  // Without accents first: pasted from macOS or a PDF, "é" can be "e" and a combining mark
+  const d = stripAccents(date?.trim() ?? '');
   if (/^\d{4}$/.test(d)) return { year: Number(d), month: null };
   const valid = (year: string, month: number) => (month >= 1 && month <= 12 ? { year: Number(year), month } : null);
-  const monthYear = d.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
-  if (monthYear) return valid(monthYear[2], MONTH_TO_INDEX[stripAccents(monthYear[1]).toLowerCase()] ?? 0);
+  const monthYear = d.match(/^([A-Za-z]+)\.?\s+(\d{4})$/);
+  if (monthYear) return valid(monthYear[2], MONTH_TO_INDEX[monthYear[1].toLowerCase()] ?? 0);
   const slash = d.match(/^(?:\d{1,2}[/.-])?(\d{1,2})[/.-](\d{4})$/);
   if (slash) return valid(slash[2], Number(slash[1]));
   const iso = d.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);

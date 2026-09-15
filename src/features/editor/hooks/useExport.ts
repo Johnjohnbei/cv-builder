@@ -1,4 +1,4 @@
-import { useCallback, useState, type RefObject } from 'react';
+import { useCallback, useMemo, useState, type RefObject } from 'react';
 import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { extractExpectedText } from '@/src/features/editor/lib/pdfValidation';
 import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
@@ -48,7 +48,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
     : buildPdfFileName(cvData?.personal_info?.name, cvData?.personal_info?.title);
 
   // The anonymized render prints no identity: expecting it lowered the ratio
-  const printedCV = cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData;
+  const printedCV = useMemo(() => (cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData), [cvData, isAnonymous]);
 
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;

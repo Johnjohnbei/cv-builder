@@ -103,6 +103,19 @@ describe('cvSections', () => {
     expect(found(computeATSReport(bold, [req('design system', { kind: 'hard_skill' })]))).toEqual(['design system']);
   });
 
+  // The templates render markdown in the summary, intros, bullets and KPI only; the rest prints as typed
+  it('removes markdown once, and only where the templates render it', () => {
+    const typed = cv({
+      personal_info: { name: 'A', email: 'a@b.fr', title: '*Lead* designer', summary: '**a*b**' },
+      skills: [{ category: 'Outils', items: ['*C*'] }],
+    });
+    const sections = cvSections(typed, 'rendered');
+    expect(sections.title).toEqual(['*Lead* designer']);
+    expect(sections.skills).toEqual(['Outils', '*C*']);
+    // renderInlineMarkdown prints "*" + <em>a</em> + "b**"
+    expect(sections.summary).toEqual(['*ab**']);
+  });
+
   it('skips a skill category with no visible item, which the templates do not print', () => {
     const empty = cv({ skills: [{ category: 'Figma', items: [] }, { category: 'Outils', items: ['Sketch'] }] });
     expect(cvSections(empty, 'rendered').skills).toEqual(['Outils', 'Sketch']);
@@ -154,7 +167,14 @@ describe('yearsOfExperience', () => {
       exp({ start_date: '' }),
       exp({ start_date: '2019-00', end_date: '2020-01' }),
       exp({ start_date: '2021-06', end_date: '2020-01' }),
+      exp({ start_date: '2020-03', end_date: '2020-01' }),
     ], NOW)).toBe(0);
+  });
+
+  // Pasted from macOS or a PDF, "é" can arrive as "e" and a combining accent
+  it('reads a date whose accent is decomposed', () => {
+    const decomposed = 'Févr. 2019'.normalize('NFD');
+    expect(yearsOfExperience([exp({ start_date: decomposed, end_date: 'Août 2021'.normalize('NFD') })], NOW)).toBeCloseTo(31 / 12, 5);
   });
 });
 

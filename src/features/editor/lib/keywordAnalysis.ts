@@ -34,17 +34,19 @@ const isShown = (section: CVSection, design?: IncludedSections) =>
 
 /**
  * Text of one experience as the templates print it: position, company, its
- * company tags (CompanyTags), intro, bullets and KPI, inline markdown rendered.
- * The ATS score and the per-experience relevance badge read the same text.
+ * company tags (CompanyTags), intro, bullets and KPI, with the markdown the
+ * templates render in the last three. The ATS score and the per-experience
+ * relevance badge read the same text.
  */
 export function experienceText(exp: Experience, view: CVTextView, language: SupportedLanguage = 'fr'): string[] {
   const tags = [getLocalizedStage(exp.companyStage, language), exp.companyBusinessModel];
+  const md = (text: string | null | undefined) => stripInlineMarkdown(text);
   const parts = view === 'content'
-    ? [exp.position, exp.company, ...tags, exp.intro, ...exp.description, exp.kpi]
+    ? [exp.position, exp.company, ...tags, md(exp.intro), ...exp.description.map(md), md(exp.kpi)]
     : isHidden(exp)
       ? []
-      : [exp.position, exp.company, ...tags, getIntro(exp) ?? undefined, ...getActionBullets(exp), shouldShowKPI(exp) ? exp.kpi : undefined];
-  return parts.map(stripInlineMarkdown).filter(text => text.trim());
+      : [exp.position, exp.company, ...tags, md(getIntro(exp)), ...getActionBullets(exp).map(md), shouldShowKPI(exp) ? md(exp.kpi) : undefined];
+  return parts.filter((text): text is string => Boolean(text?.trim()));
 }
 
 /** The experiences whose dates and positions the CV prints */
@@ -62,7 +64,8 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
   const categoryTitle = (category: string) => getSkillCategoryTitle(category as SkillCategoryKey, language);
   const raw: Record<CVSection, (string | undefined)[]> = {
     title: [cv.personal_info.title],
-    summary: [cv.personal_info.summary],
+    // The templates render markdown in the summary, and print the other sections as typed
+    summary: [stripInlineMarkdown(cv.personal_info.summary)],
     experience: cv.experience.flatMap(exp => experienceText(exp, view, language)),
     skills: cv.skills.flatMap(cat => {
       const items = view === 'content' ? cat.items : isSkillHidden(cat) ? [] : getVisibleSkills(cat);
@@ -75,7 +78,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
   const sections = {} as Record<CVSection, string[]>;
   for (const section of Object.keys(raw) as CVSection[]) {
     sections[section] = isShown(section, design)
-      ? raw[section].map(stripInlineMarkdown).filter(text => text.trim())
+      ? raw[section].filter((text): text is string => Boolean(text?.trim()))
       : [];
   }
   return sections;
@@ -109,8 +112,12 @@ export function yearsOfExperience(experiences: Experience[], now: Date = new Dat
     .flatMap(exp => {
       const start = monthIndex(exp.start_date, 'start');
       const end = exp.current ? nowMonth : monthIndex(exp.end_date, 'end');
-      if (start === null || end === null || Math.floor(end / 12) < Math.floor(start / 12)) return [];
-      // The middles of "2019 - 2019" cross: the role still counts a month
+      if (start === null || end === null) return [];
+      // The middles of "2019 - 2019" cross, and the role still counts a month;
+      // with both months known, an end before the start is a typo
+      const bareYear = parseMonthYear(exp.start_date)?.month === null || (!exp.current && parseMonthYear(exp.end_date)?.month === null);
+      const crossedMiddles = bareYear && Math.floor(end / 12) === Math.floor(start / 12);
+      if (end < start && !crossedMiddles) return [];
       return [[start, Math.max(start, end)] as const];
     })
     .sort((a, b) => a[0] - b[0]);

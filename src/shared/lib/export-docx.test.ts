@@ -85,6 +85,21 @@ describe('buildCvDocument (fr, default)', () => {
     expect(xml).toContain('LANGUES');
   });
 
+  // The PDF renders **bold**: the Word document must not print the asterisks
+  it('prints the summary, intro, bullets and KPI without their markdown markers', async () => {
+    const gamma = mockCV.experience[3];
+    const xml = await toXml({
+      ...mockCV,
+      personal_info: { ...mockCV.personal_info, summary: 'Profil **produit**' },
+      experience: [{ ...gamma, intro: 'Intro *gamma*', description: ['Puce `Figma`', 'B', 'C', 'D'], kpi: '**+30 %**' }],
+    });
+    expect(xml).toContain('Profil produit');
+    expect(xml).toContain('Intro gamma');
+    expect(xml).toContain('Puce Figma');
+    expect(xml).toContain('+30 %');
+    expect(xml).not.toContain('*');
+  });
+
   it('prints the portfolio as a clickable label, like the PDF header', async () => {
     const buffer = await Packer.toBuffer(buildCvDocument({
       ...mockCV,

@@ -34,7 +34,11 @@ const points = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
 
 /** The years the dates add up to, so a verdict on years of experience can be checked */
 const measuredYears = ({ years }: RequirementCoverage) =>
-  years === undefined ? '' : ` · ${years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans mesurés`;
+  years === undefined ? '' : ` · ${years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${years < 2 ? 'an mesuré' : 'ans mesurés'}`;
+
+/** The counting convention, shown where measured years are */
+const yearsHint = ({ years }: RequirementCoverage) =>
+  years === undefined ? undefined : "Mois de début et de fin compris. Une année écrite sans mois compte à partir de son milieu : précisez les mois pour un calcul exact.";
 
 export function ATSPanel({
   report,
@@ -94,7 +98,7 @@ export function ATSPanel({
                 className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
               >
                 {c.requirement.label}
-                <span className="text-green-700 text-[10px]">({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
+                <span className="text-green-700 text-[10px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
               </span>
             ))}
           </div>
@@ -105,7 +109,7 @@ export function ATSPanel({
               {gaps.map(c => (
                 <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
                   <span className="font-semibold text-red-800">{c.requirement.label}</span>
-                  <span className="text-gray-600 shrink-0">{points(c.weight)}{measuredYears(c)}</span>
+                  <span className="text-gray-600 shrink-0" title={yearsHint(c)}>{points(c.weight)}{measuredYears(c)}</span>
                 </div>
               ))}
             </div>

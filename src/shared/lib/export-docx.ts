@@ -13,6 +13,7 @@ import { getSectionTitle, getSkillCategoryTitle } from '@/src/features/editor/li
 import type { SkillCategoryKey } from '@/src/features/editor/lib/skillDictionary';
 import { buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '@/src/features/editor/lib/formatting';
+import { stripInlineMarkdown } from './text';
 
 export type ExportLanguage = 'fr' | 'en';
 
@@ -67,7 +68,8 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
   if (shows('summary') && personal_info.summary) {
     children.push(sectionHeading(getSectionTitle('summary', language)));
     children.push(new Paragraph({
-      children: [new TextRun({ text: personal_info.summary, size: 20, font: 'Calibri' })],
+      // Markdown where the PDF renders it: the asterisks used to reach the document
+      children: [new TextRun({ text: stripInlineMarkdown(personal_info.summary), size: 20, font: 'Calibri' })],
       spacing: { after: 200 },
     }));
   }
@@ -95,20 +97,20 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
       const intro = getIntro(exp);
       if (intro) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: intro, size: 20, font: 'Calibri' })],
+          children: [new TextRun({ text: stripInlineMarkdown(intro), size: 20, font: 'Calibri' })],
           spacing: { after: 40 },
         }));
       }
       for (const bullet of getActionBullets(exp)) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: `• ${bullet}`, size: 20, font: 'Calibri' })],
+          children: [new TextRun({ text: `• ${stripInlineMarkdown(bullet)}`, size: 20, font: 'Calibri' })],
           spacing: { after: 40 },
           indent: { left: 360 },
         }));
       }
       if (shouldShowKPI(exp)) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: `📈 ${exp.kpi}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
+          children: [new TextRun({ text: `📈 ${stripInlineMarkdown(exp.kpi)}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
           spacing: { after: 60 },
           indent: { left: 360 },
         }));

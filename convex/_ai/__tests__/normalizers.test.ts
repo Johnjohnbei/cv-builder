@@ -379,6 +379,17 @@ describe("normalizeJobRequirements", () => {
     expect(kept("Entre trois et cinq ans")).toBe(1);
   });
 
+  // "Bac+5 et 3 ans" is the model error the check exists for: a degree's number is not years
+  it("does not read a degree's number joined to a duration as years", () => {
+    const offer = "Bac+5 et 3 ans d'expérience minimum. Master 2 et 5 ans en agence. Bac+3/5 ans.";
+    const kept = (quote: string, minYears: number) =>
+      normalizeJobRequirements([req({ label: "Expérience", kind: "experience_years", quote, minYears })], offer).length;
+    expect(kept("Bac+5 et 3 ans d'expérience minimum", 5)).toBe(0);
+    expect(kept("Bac+5 et 3 ans d'expérience minimum", 3)).toBe(1);
+    expect(kept("Master 2 et 5 ans en agence", 2)).toBe(0);
+    expect(kept("Bac+3/5 ans", 3)).toBe(0);
+  });
+
   it("caps the list at 25 requirements", () => {
     const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
     const offer = `Outils : ${labels.join(", ")}.`;

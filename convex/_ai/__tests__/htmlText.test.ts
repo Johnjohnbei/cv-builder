@@ -113,6 +113,17 @@ describe("htmlToText", () => {
     expect(htmlToText('<script><!-- document.write("<script>x()</script>"); --></script><p>Offre</p>')).toBe("Offre");
   });
 
+  // Fetched without JavaScript, a page shows "enable JavaScript" there: not the offer
+  it("drops noscript content, like a browser running scripts", () => {
+    expect(htmlToText("<noscript>Activez JavaScript</noscript><p>Offre</p>")).toBe("Offre");
+  });
+
+  // Old Latin-1 sites write the Windows apostrophe as &#146;, which the HTML standard reads as windows-1252
+  it("reads numeric references 128 to 159 as windows-1252, and more named entities", () => {
+    expect(htmlToText("<p>l&#146;offre &#150; Z&uuml;rich, S&atilde;o Paulo, 20&deg;, caf&eacute;&shy;s</p>"))
+      .toBe(`l${String.fromCodePoint(0x2019)}offre ${String.fromCodePoint(0x2013)} Zürich, São Paulo, 20°, cafés`);
+  });
+
   // WordPress writes l&#8217;équipe everywhere
   it("decodes numeric and common named entities, once", () => {
     const html = "<p>l&#8217;&eacute;quipe &quot;produit&quot; &#x27;ok&#39; &Eacute;t&eacute; &amp;amp; &#0; &nope;</p>";
@@ -130,6 +141,7 @@ describe("htmlToText", () => {
     ["unclosed comments", "<!--".repeat(500_000)],
     ["page chrome after a long text", "a".repeat(1_000_000) + "<nav>x</nav>".repeat(300_000)],
     ["bogus comments", "<!x>".repeat(500_000)],
+    ["open page chrome closed by other names", "<nav>".repeat(500_000) + "</header>".repeat(500_000)],
   ])("stays fast on %s", (_name, html) => {
     const startedAt = performance.now();
     htmlToText(html);

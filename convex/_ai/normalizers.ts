@@ -33,9 +33,12 @@ const NUMBER_WORDS = [
  */
 function statesYears(quote: ReturnType<typeof prepareText>, years: number): boolean {
   const number = [String(years), ...(NUMBER_WORDS[years - 1] ?? [])].join("|");
-  const range = String.raw`(?:\s*[-/]\s*|\s+(?:a|to|ou|or|et|and)\s+)[\p{L}\p{N}]+`;
+  // "et"/"and" only after "entre"/"between": "Bac+5 et 3 ans", "Master 2 et 5 ans" give no years of 5 or 2
+  const between = String.raw`(?:entre|between)\s+(?:${number})\s+(?:et|and)\s+[\p{L}\p{N}]+`;
+  const range = String.raw`(?:${number})\+?(?:(?:\s*[-/]\s*|\s+(?:a|to|ou|or)\s+)[\p{L}\p{N}]+)?`;
   const unit = String.raw`\+?(?:\s*\(\s*\d+\s*\))?\s*(?:ans?|annees?|years?|yrs?)(?![\p{L}\p{N}])`;
-  return new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:${number})\+?(?:${range})?${unit}`, "u").test(quote.normalized);
+  // Not after "+": the 5 of "Bac+5" is a degree
+  return new RegExp(String.raw`(?:^|[^\p{L}\p{N}+])(?:${between}|${range})${unit}`, "u").test(quote.normalized);
 }
 
 /**
