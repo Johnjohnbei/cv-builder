@@ -32,7 +32,7 @@ import {
   KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
-import { fetchPublicPage, htmlToText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
+import { fetchPublicPage, htmlToText, isPublicUrl, JINA_MAX_BYTES, JINA_TIMEOUT_MS, parseHttpUrl, readTextUpTo } from "./_ai/publicUrl";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
@@ -116,7 +116,7 @@ export const extractJobDescriptionFromURL = action({
     // Syntax and literal addresses before the access code, so a malformed or
     // private link does not use up a code; DNS names are resolved after it,
     // so an anonymous caller cannot probe DNS through the deployment
-    // (order tested in __tests__/extractJobDescriptionFromURL.test.ts).
+    // (order tested in _ai/__tests__/actions.test.ts).
     const target = parseHttpUrl(args.url);
     if (!target) {
       throw userError("Lien invalide : collez l'adresse http(s) publique de l'offre.", "URL_INVALID");
@@ -137,11 +137,11 @@ export const extractJobDescriptionFromURL = action({
           Accept: "text/plain",
           "X-Return-Format": "text",
         },
-        // 15 s: the page fetch and the AI call must fit the 10-minute action (budget in publicUrl.ts)
-        signal: AbortSignal.timeout(15_000),
+        // Part of URL_ACTION_BUDGET_MS: the page fetch and the AI call must fit the 10-minute action
+        signal: AbortSignal.timeout(JINA_TIMEOUT_MS),
       });
       if (jinaResponse.ok) {
-        pageText = (await jinaResponse.text()).substring(0, 15000);
+        pageText = (await readTextUpTo(jinaResponse, JINA_MAX_BYTES)).substring(0, 15000);
       } else {
         console.warn(`[extractJobDescriptionFromURL] Jina returned ${jinaResponse.status}, falling back to direct fetch`);
       }

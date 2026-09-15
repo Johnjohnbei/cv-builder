@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchPublicPage, htmlToText, isPublicAddress, isPublicUrl, parseHttpUrl } from "../publicUrl";
+import { fetchPublicPage, htmlToText, isPublicAddress, isPublicUrl, parseHttpUrl, readTextUpTo, URL_ACTION_BUDGET_MS } from "../publicUrl";
 
 const resolvesTo = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
 
@@ -99,7 +99,10 @@ describe("isPublicUrl (DNS, after the access code)", () => {
 });
 
 describe("fetchPublicPage (one deadline for the whole page, redirects included)", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   // Each hop used to get its own 15 s: four redirects took 60 s before the AI
   // call, and the URL action could outlive the 10-minute Convex limit.
@@ -123,7 +126,6 @@ describe("fetchPublicPage (one deadline for the whole page, redirects included)"
     await fetchPublicPage(new URL("http://8.8.4.4/"));
 
     expect(timeout).toHaveBeenCalledWith(10_000);
-    timeout.mockRestore();
   });
 
   it("stops following redirects once the deadline has passed", async () => {
@@ -150,14 +152,64 @@ describe("htmlToText", () => {
     expect(htmlToText(`<p>${"a ".repeat(20_000)}</p>`).length).toBe(15_000);
   });
 
+  // Pages with a large inline script or data blob before the offer exist
+  // (Next.js __NEXT_DATA__): a cut in the middle of that script sent code to the model.
+  it("reads the offer after a script larger than a megabyte", () => {
+    const html = `<head><script>${"var x=1;".repeat(160_000)}</script></head><h1>Offre Designer</h1>`;
+    expect(htmlToText(html)).toBe("Offre Designer");
+  });
+
+  it("keeps the text of tags whose attribute contains a less-than sign", () => {
+    expect(htmlToText('<div x-show="a < b">Texte</div>')).toBe("Texte");
+  });
+
+  it("keeps custom elements whose name only starts like a removed block", () => {
+    expect(htmlToText("<header-bar>Titre</header-bar><navigation>Menu</navigation><p>Offre</p>")).toBe("Titre Menu Offre");
+  });
+
   // A hostile page must not hold the action: these regexes used to go quadratic
   // on a few megabytes, past the Convex limit, where no deadline can stop CPU work.
   it.each([
     ["unclosed opening brackets", "<".repeat(2_000_000)],
     ["unclosed script tags", "<script>".repeat(250_000)],
+    ["closing tags without opening ones", "</script".repeat(250_000)],
   ])("stays fast on %s", (_name, html) => {
     const startedAt = performance.now();
     htmlToText(html);
     expect(performance.now() - startedAt).toBeLessThan(1_000);
+  });
+});
+
+describe("readTextUpTo", () => {
+  const chunked = (chunks: string[]) => {
+    const cancel = vi.fn();
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+      cancel,
+    });
+    return { response: new Response(body), cancel };
+  };
+
+  it("reads a small body whole", async () => {
+    expect(await readTextUpTo(chunked(["<p>", "Offre", "</p>"]).response, 1_000)).toBe("<p>Offre</p>");
+  });
+
+  // A page of hundreds of megabytes must not fill the action's memory
+  it("stops at the byte limit and cancels the rest of the download", async () => {
+    const { response, cancel } = chunked(["a".repeat(600), "b".repeat(600), "c".repeat(600)]);
+    const text = await readTextUpTo(response, 1_000);
+    expect(text).toBe("a".repeat(600) + "b".repeat(400));
+    expect(cancel).toHaveBeenCalled();
+  });
+});
+
+describe("URL action budget", () => {
+  // Raising one of these timeouts used to break the 10-minute limit silently
+  it("stays under the 10-minute Convex action limit, with room for the access check", () => {
+    expect(URL_ACTION_BUDGET_MS).toBeLessThanOrEqual(595_000);
   });
 });

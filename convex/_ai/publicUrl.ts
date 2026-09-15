@@ -2,6 +2,7 @@
 
 import { lookup } from "dns/promises";
 import { BlockList, isIP } from "net";
+import { AI_CALL_WORST_CASE_MS } from "./chat";
 
 // ─── Fetching a URL the user pasted ─────────────────────────────────
 // The server fetches it, so the URL is untrusted input: it must never reach
@@ -39,6 +40,21 @@ type Resolve = (hostname: string) => Promise<{ address: string }[]>;
 
 /** A resolver that never answers must not hold the action until its own limit */
 const DNS_TIMEOUT_MS = 5_000;
+/** Jina Reader, tried first by the URL action (convex/ai.ts) */
+export const JINA_TIMEOUT_MS = 15_000;
+/** Jina already returns text, and the model gets 15 000 characters of it */
+export const JINA_MAX_BYTES = 200_000;
+/** fetchPublicPage, every redirect included */
+const PAGE_DEADLINE_MS = 10_000;
+/** A real offer page, inline scripts included, is far below this */
+const MAX_PAGE_BYTES = 5_000_000;
+
+/**
+ * Worst case of the URL action: the DNS check, Jina, the page with a redirect's
+ * DNS check running past its deadline, then the AI call. Must stay under the
+ * 10-minute Convex limit, with room for the access check.
+ */
+export const URL_ACTION_BUDGET_MS = DNS_TIMEOUT_MS + JINA_TIMEOUT_MS + PAGE_DEADLINE_MS + DNS_TIMEOUT_MS + AI_CALL_WORST_CASE_MS;
 
 const resolveAll: Resolve = (hostname) =>
   Promise.race([
@@ -109,11 +125,9 @@ export async function isPublicUrl(url: URL, resolve: Resolve = resolveAll): Prom
  *
  * One deadline covers every hop: 15 s per hop let four redirects take a minute
  * before the AI call. A redirect's DNS check can still run up to 5 s past it,
- * and no hop starts after it. Budget of the URL action (convex/ai.ts): DNS 5 +
- * Jina 15 + this page 10 + DNS 5 = 35 s, plus the AI worst case of 560 s
- * (chat.ts) = 595 s, under the 10-minute Convex limit.
+ * and no hop starts after it. The whole budget is URL_ACTION_BUDGET_MS.
  */
-export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortSignal.timeout(10_000)): Promise<string> {
+export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortSignal.timeout(PAGE_DEADLINE_MS)): Promise<string> {
   let url = start;
   for (let hop = 0; hop < 4 && !deadline.aborted; hop++) {
     const response = await fetch(url, {
@@ -133,13 +147,32 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
       url = next;
       continue;
     }
-    return response.ok ? await response.text() : "";
+    return response.ok ? await readTextUpTo(response, MAX_PAGE_BYTES) : "";
   }
   return "";
 }
 
-/** HTML processed at most: bounds the memory and CPU a hostile page can take, which no deadline stops */
-const MAX_HTML_CHARS = 1_000_000;
+/**
+ * Body of a response as text, read up to `maxBytes`, the rest of the download
+ * cancelled: `response.text()` held a page of any size in the action's memory.
+ */
+export async function readTextUpTo(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+  while (bytes < maxBytes) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    const kept = value.subarray(0, maxBytes - bytes);
+    bytes += kept.byteLength;
+    text += decoder.decode(kept, { stream: true });
+  }
+  await reader.cancel();
+  return text + decoder.decode();
+}
+
 /** Page text handed to the model */
 const MAX_PAGE_TEXT_CHARS = 15_000;
 
@@ -147,10 +180,11 @@ const MAX_PAGE_TEXT_CHARS = 15_000;
  * Remove script, style and page-chrome blocks. A scan rather than a lazy
  * `<script>[\s\S]*?</script>` regex: on unclosed tags that regex rescanned the
  * rest of the page from every opening tag, quadratic on a few megabytes. A tag
- * with no closing tag left is not searched for again.
+ * with no closing tag left is not searched for again. The name must end the
+ * tag name, so custom elements such as <header-bar> are kept.
  */
 function dropBlocks(html: string): string {
-  const open = /<(script|style|nav|footer|header)\b/gi;
+  const open = /<(script|style|nav|footer|header)(?=[\s/>])/gi;
   const unclosed = new Set<string>();
   let text = "";
   let kept = 0;
@@ -158,7 +192,7 @@ function dropBlocks(html: string): string {
   while ((match = open.exec(html))) {
     const tag = match[1].toLowerCase();
     if (unclosed.has(tag)) continue;
-    const close = new RegExp(`</${tag}[^<>]*>`, "gi");
+    const close = new RegExp(`</${tag}\\s*>`, "gi");
     close.lastIndex = open.lastIndex;
     const found = close.exec(html);
     if (!found) {
@@ -172,13 +206,22 @@ function dropBlocks(html: string): string {
 }
 
 /**
+ * A tag is removed up to its closing ">", a "<" inside an attribute included.
+ * `<[^>]+>` only goes quadratic on a tail with no ">" left, which is kept as is.
+ */
+function dropTags(html: string): string {
+  const end = html.lastIndexOf(">") + 1;
+  return html.slice(0, end).replace(/<[^>]+>/g, " ") + html.slice(end);
+}
+
+/**
  * Readable text of an HTML page. Entities are decoded after the tags are gone,
  * &amp; last so "&amp;lt;" stays the text "&lt;", and whitespace is collapsed
- * after decoding.
+ * after decoding. Linear on any input: a hostile page must not hold the action,
+ * and no deadline stops CPU work.
  */
 export function htmlToText(html: string): string {
-  return dropBlocks(html.slice(0, MAX_HTML_CHARS))
-    .replace(/<[^<>]*>/g, " ")
+  return dropTags(dropBlocks(html))
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")

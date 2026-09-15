@@ -47,6 +47,8 @@ function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: stri
 const ANTHROPIC_TIMEOUT_MS = 270_000;
 const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
+/** Longest one AI call can take, retry included: what an action must leave room for */
+export const AI_CALL_WORST_CASE_MS = ANTHROPIC_TIMEOUT_MS + MAX_RETRY_AFTER_MS + ANTHROPIC_TIMEOUT_MS;
 
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";

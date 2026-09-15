@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Action handlers run through `_handler` (Convex keeps it there), with the
 // access check, the URL checks and the AI call mocked at their module seams.
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   /** What the model answers to chatJSONThen */
   aiAnswer: undefined as unknown,
   chatJSONThen: vi.fn(),
+  chatText: vi.fn(),
 }));
 
 vi.mock("../auth", () => ({ verifyAccessCode: mocks.verifyAccessCode }));
@@ -18,6 +19,7 @@ vi.mock("../publicUrl", async (importOriginal) => ({
 vi.mock("../chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../chat")>()),
   chatJSONThen: mocks.chatJSONThen,
+  chatText: mocks.chatText,
 }));
 
 import { extractJobDescriptionFromURL, extractJobRequirements } from "../../ai";
@@ -55,6 +57,38 @@ describe("extractJobDescriptionFromURL: URL checks around the access code", () =
   it("resolves the name only after the access code, and refuses a non-public one", async () => {
     await expect(run("https://jobs.example/offre")).rejects.toMatchObject({ data: { code: "URL_UNREACHABLE" } });
     expect(mocks.verifyAccessCode.mock.invocationCallOrder[0]).toBeLessThan(mocks.isPublicUrl.mock.invocationCallOrder[0]);
+  });
+});
+
+describe("extractJobDescriptionFromURL: Jina first, then the page itself", () => {
+  const run = (url: string) => handlerOf<{ url: string }, string>(extractJobDescriptionFromURL)({}, { url });
+  const OFFER_PAGE = "<html><script>track()</script><h1>Product Designer Senior</h1><p>Maîtrise de Figma, 5 ans d'expérience.</p></html>";
+
+  beforeEach(() => {
+    mocks.isPublicUrl.mockResolvedValue(true);
+    mocks.chatText.mockReset().mockResolvedValue("Offre structurée");
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** fetch answering Jina with `jina`, the page itself with `page` */
+  const stubFetch = (jina: () => Promise<Response>, page: () => Promise<Response>) =>
+    vi.stubGlobal("fetch", vi.fn((url: unknown) => (String(url).startsWith("https://r.jina.ai/") ? jina() : page())));
+
+  it("falls back to the page when Jina refuses, and hands its text to the model", async () => {
+    stubFetch(async () => new Response("", { status: 429 }), async () => new Response(OFFER_PAGE, { status: 200 }));
+
+    await expect(run("https://jobs.example/offre")).resolves.toBe("Offre structurée");
+
+    const prompt = mocks.chatText.mock.calls[0][0] as string;
+    expect(prompt).toContain("Product Designer Senior Maîtrise de Figma, 5 ans d'expérience.");
+    expect(prompt).not.toContain("track()");
+  });
+
+  it("reports a page it could not read, instead of sending nothing to the model", async () => {
+    stubFetch(async () => new Response("", { status: 429 }), async () => { throw new Error("socket hang up"); });
+
+    await expect(run("https://jobs.example/offre")).rejects.toMatchObject({ data: { code: "URL_EXTRACT_FAILED" } });
+    expect(mocks.chatText).not.toHaveBeenCalled();
   });
 });
 
