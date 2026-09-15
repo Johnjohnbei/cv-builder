@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keywordAnalysis';
 import { isRequirementsSettled } from '../features/editor/lib/jobRequirementsCache';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
@@ -108,32 +108,6 @@ export default function EditorPage() {
     '--secondary': designSettings.secondaryColor,
   } as React.CSSProperties), [designSettings.primaryColor, designSettings.secondaryColor]);
 
-  // Only the gaps a rewrite can cover: a degree, a language or years are facts
-  const missingKeywordsList = useMemo(
-    () => (atsReport?.requirements ?? [])
-      .filter(c => !c.found && isWritable(c.requirement))
-      .map(c => c.requirement.label),
-    [atsReport],
-  );
-  // Proposals and rewrites belong to the committed offer, like the keywords they
-  // are built from: keyed on the live text, a typo fixed in the offer wiped paid
-  // rewrites on display.
-  const keywordDistribution = useKeywordDistribution({
-    cvData,
-    setCvData,
-    jobDescription: analyzedOffer,
-    missingKeywords: missingKeywordsList,
-    notify,
-    accessCode: getCode(),
-  });
-  const bullets = useBulletOptimization({
-    cvData,
-    setCvData,
-    jobDescription: analyzedOffer,
-    missingKeywords: missingKeywordsList,
-    notify,
-    accessCode: getCode(),
-  });
   const persistence = useCVPersistence({
     cvData,
     designSettings,
@@ -190,8 +164,7 @@ export default function EditorPage() {
   });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
-  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching
-    || bullets.isOptimizing || keywordDistribution.isDistributing || coverLetter.isGenerating;
+  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching || coverLetter.isGenerating;
   // These calls answer with a whole CV that replaces the current one
   const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching;
   const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
@@ -314,8 +287,6 @@ export default function EditorPage() {
         requirementsStatus={requirementsStatus}
         requirementsError={requirementsError}
         onRetryAnalysis={commitJobDescription}
-        bullets={bullets}
-        keywordDistribution={keywordDistribution}
         exports={exports}
         templateSelection={templateSelection}
         coverLetter={coverLetter}

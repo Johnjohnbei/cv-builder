@@ -8,15 +8,11 @@ import type { RequirementsStatus } from '../lib/jobRequirementsCache';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
 import { ATSPanel } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
-import { DistributionProposalsPanel } from './DistributionProposalsPanel';
 import {
   OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection,
   SkillsSection, EducationSection, LanguagesSection, DesignTab,
 } from './sections';
-import type {
-  useBulletOptimization, useKeywordDistribution, useExport,
-  useTemplateSelection, useCoverLetter,
-} from '../hooks';
+import type { useExport, useTemplateSelection, useCoverLetter } from '../hooks';
 
 export type EditorTab = 'content' | 'design' | 'ats';
 
@@ -71,8 +67,6 @@ interface Props {
   requirementsError: string;
   onRetryAnalysis: () => void;
 
-  bullets: ReturnType<typeof useBulletOptimization>;
-  keywordDistribution: ReturnType<typeof useKeywordDistribution>;
   exports: ReturnType<typeof useExport>;
   templateSelection: ReturnType<typeof useTemplateSelection>;
   coverLetter: ReturnType<typeof useCoverLetter>;
@@ -104,7 +98,7 @@ export function EditorSidebar(props: Props) {
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
     atsReport, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis,
-    bullets, keywordDistribution, exports, templateSelection, coverLetter, notify,
+    exports, templateSelection, coverLetter, notify,
   } = props;
 
   return (
@@ -211,7 +205,6 @@ export function EditorSidebar(props: Props) {
                   aiBusy={aiBusy}
                   isEnrichingExperiences={isEnriching}
                   onEnrich={onEnrich}
-                  bullets={bullets}
                 />
                 <SkillsSection
                   skills={cvData?.skills}
@@ -260,23 +253,7 @@ export function EditorSidebar(props: Props) {
                 requirementsStatus={requirementsStatus}
                 requirementsError={requirementsError}
                 onRetryAnalysis={onRetryAnalysis}
-                onOptimizeBullets={bullets.optimize}
-                isOptimizing={bullets.isOptimizing}
                 aiBusy={aiBusy}
-                onAutoDistribute={keywordDistribution.distribute}
-                isDistributing={keywordDistribution.isDistributing}
-                pendingProposalsCount={keywordDistribution.proposals.length}
-                proposalsSlot={
-                  keywordDistribution.proposals.length > 0 ? (
-                    <DistributionProposalsPanel
-                      proposals={keywordDistribution.proposals}
-                      onAcceptOne={keywordDistribution.acceptOne}
-                      onRejectOne={keywordDistribution.rejectOne}
-                      onAcceptAll={keywordDistribution.acceptAll}
-                      onRejectAll={keywordDistribution.rejectAll}
-                    />
-                  ) : undefined
-                }
               />
               </>
             )}

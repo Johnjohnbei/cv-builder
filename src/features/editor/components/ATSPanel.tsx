@@ -1,7 +1,5 @@
-import type { ReactNode } from 'react';
 import type { ATSReport, CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
-import { isWritable } from '../lib/keywordAnalysis';
 import { ScoreGauge } from '@/src/shared/ui/ScoreGauge';
 import { Button } from '@/src/shared/ui/Button';
 
@@ -13,18 +11,8 @@ interface ATSPanelProps {
   requirementsError?: string;
   /** Analyze the offer again after a failure */
   onRetryAnalysis: () => void;
-  onOptimizeBullets?: () => void;
-  isOptimizing?: boolean;
-  /** True while ANY AI action runs (here or elsewhere): siblings are disabled */
+  /** True while ANY AI action runs: the retry is disabled */
   aiBusy?: boolean;
-  /** Optional click handler for the auto-distribute CTA. Hides the CTA when undefined. */
-  onAutoDistribute?: () => void;
-  /** Disable + loading label on the auto-distribute CTA. */
-  isDistributing?: boolean;
-  /** Number of pending proposals — controls whether the CTA is rendered (hidden when > 0). */
-  pendingProposalsCount?: number;
-  /** Slot for the proposals review panel, rendered after the missing requirements. */
-  proposalsSlot?: ReactNode;
 }
 
 const SECTION_LABELS: Record<CVSection, string> = {
@@ -54,20 +42,13 @@ export function ATSPanel({
   requirementsStatus,
   requirementsError,
   onRetryAnalysis,
-  onOptimizeBullets,
-  isOptimizing,
   aiBusy = false,
-  onAutoDistribute,
-  isDistributing,
-  pendingProposalsCount = 0,
-  proposalsSlot,
 }: ATSPanelProps) {
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
   const covered = report.requirements.filter(r => r.found);
   const gaps = report.requirements.filter(r => !r.found);
-  const writableGaps = gaps.filter(g => isWritable(g.requirement));
 
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
@@ -118,20 +99,6 @@ export function ATSPanel({
             ))}
           </div>
 
-          {onAutoDistribute && writableGaps.length >= 2 && pendingProposalsCount === 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={isDistributing}
-              disabled={aiBusy && !isDistributing}
-              onClick={onAutoDistribute}
-              className="w-full mt-2"
-            >
-              {isDistributing ? 'Distribution en cours...' : `Répartir automatiquement (${writableGaps.length} exigences)`}
-            </Button>
-          )}
-          {proposalsSlot}
-
           {gaps.length > 0 && (
             <div className="flex flex-col gap-1.5 mt-2">
               <span className="text-[11px] font-mono text-red-600">Écarts ({gaps.length})</span>
@@ -161,17 +128,6 @@ export function ATSPanel({
           ))}
         </ul>
       </div>
-
-      <Button
-        variant="primary"
-        size="sm"
-        disabled={!hasJobDescription || isOptimizing || aiBusy}
-        onClick={() => onOptimizeBullets?.()}
-        title={!hasJobDescription ? "Importez une offre d'emploi" : undefined}
-        className="w-full"
-      >
-        {isOptimizing ? 'Optimisation en cours...' : 'Optimiser pour cette offre'}
-      </Button>
     </div>
   );
 }

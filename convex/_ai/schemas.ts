@@ -122,20 +122,6 @@ export const ExperienceEnrichmentSchema = z.object({
 }).passthrough();
 export type ExperienceEnrichmentParsed = z.infer<typeof ExperienceEnrichmentSchema>;
 
-export const BulletSuggestionsSchema = z.object({
-  suggestions: z.array(z.string()).default([]),
-}).passthrough();
-
-export const BulletRewriteSchema = z.object({
-  rewrites: z.array(
-    z.object({
-      index: z.number(),
-      original: z.string().default(""),
-      rewritten: z.string().default(""),
-    }).passthrough()
-  ).default([]),
-}).passthrough();
-
 // ─── Keyword distribution (Phase 12) ────────────────────────────
 export const KeywordAssignmentSchema = z.object({
   keyword: z.string(),

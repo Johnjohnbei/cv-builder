@@ -3,9 +3,7 @@ import {
   CVDataSchema,
   ExperienceSchema,
   JobRequirementSchema,
-  BulletRewriteSchema,
   CoverLetterSchema,
-  BulletSuggestionsSchema,
   CompanyMetaSchema,
   KeywordAssignmentSchema,
 } from "../schemas";
@@ -80,13 +78,6 @@ describe("Ancillary schemas", () => {
     expect(JobRequirementSchema.safeParse({ label: "Figma", kind: "tool", importance: "must", quote: "Figma" }).success).toBe(false);
   });
 
-  it("BulletRewriteSchema parses rewrites", () => {
-    const result = BulletRewriteSchema.parse({
-      rewrites: [{ index: 0, original: "x", rewritten: "y" }],
-    });
-    expect(result.rewrites).toHaveLength(1);
-  });
-
   it("CoverLetterSchema parses letter fields", () => {
     const body = "B".repeat(200);
     const result = CoverLetterSchema.parse({
@@ -106,13 +97,6 @@ describe("Ancillary schemas", () => {
     expect(() =>
       CoverLetterSchema.parse({ subject: "s", greeting: "g", body: "too short", closing: "c" }),
     ).toThrow();
-  });
-
-  it("BulletSuggestionsSchema parses 3 suggestions", () => {
-    const result = BulletSuggestionsSchema.parse({
-      suggestions: ["a", "b", "c"],
-    });
-    expect(result.suggestions).toHaveLength(3);
   });
 });
 

@@ -7,10 +7,6 @@ import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildAdaptPrompt } from "./_ai/prompts/adapt";
-import {
-  buildBulletSuggestionsPrompt,
-  buildBulletRewritePrompt,
-} from "./_ai/prompts/rewrite";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
@@ -21,15 +17,11 @@ import {
   buildJobDescriptionFromPDFPrompt,
   buildJobRequirementsPrompt,
 } from "./_ai/prompts/jobDescription";
-import { buildKeywordDistributionPrompt } from "./_ai/prompts/distribute";
 import {
-  BulletSuggestionsSchema,
-  BulletRewriteSchema,
   CoverLetterSchema,
   CompanyMetaSchema,
   ExperienceEnrichmentSchema,
   JobRequirementsSchema,
-  KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchPublicPage, isPublicUrl, JINA_MAX_BYTES, JINA_TIMEOUT_MS, parseHttpUrl, readTextUpTo } from "./_ai/publicUrl";
@@ -369,86 +361,5 @@ export const translateCV = action({
       detectedLanguage: args.targetLanguage,
       languageOverride: args.targetLanguage,
     };
-  },
-});
-
-export const improveBulletPoint = action({
-  args: {
-    bullet: v.string(),
-    position: v.string(),
-    company: v.string(),
-    jobDescription: v.optional(v.string()),
-    missingKeywords: v.optional(v.array(v.string())),
-    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildBulletSuggestionsPrompt({
-      bullet: args.bullet,
-      position: args.position,
-      company: args.company,
-      jobDescription: args.jobDescription,
-      missingKeywords: args.missingKeywords,
-      language: args.language,
-    });
-    return await chatJSONSchema(prompt, BulletSuggestionsSchema, "fast");
-  },
-});
-
-export const rewriteBulletsForJob = action({
-  args: {
-    bullets: v.array(
-      v.object({
-        index: v.number(),
-        text: v.string(),
-        position: v.string(),
-        company: v.string(),
-      })
-    ),
-    jobDescription: v.string(),
-    missingKeywords: v.array(v.string()),
-    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildBulletRewritePrompt({
-      bullets: args.bullets.map((b) => ({
-        index: b.index,
-        text: b.text,
-        position: b.position,
-        company: b.company,
-      })),
-      jobDescription: args.jobDescription,
-      missingKeywords: args.missingKeywords,
-      language: args.language,
-    });
-    return await chatJSONSchema(prompt, BulletRewriteSchema);
-  },
-});
-
-export const autoDistributeMissingKeywords = action({
-  args: {
-    cvData: v.any(),
-    missingKeywords: v.array(v.string()),
-    jobDescription: v.string(),
-    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildKeywordDistributionPrompt({
-      cvData: { experience: args.cvData?.experience ?? [] },
-      missingKeywords: args.missingKeywords,
-      jobDescription: args.jobDescription,
-      summary: args.cvData?.personal_info?.summary,
-      language: args.language,
-    });
-    const data = await chatJSONSchema(prompt, KeywordDistributionSchema);
-    return { assignments: data.assignments };
   },
 });

@@ -5,6 +5,4 @@ export { EditorHeader } from './EditorHeader';
 export { LanguageSelector } from './LanguageSelector';
 export { LanguageRegenerateModal } from './LanguageRegenerateModal';
 export { ATSPanel } from './ATSPanel';
-export { DistributionProposalsPanel } from './DistributionProposalsPanel';
-export { BulletDiffView } from './BulletDiffView';
 export { CoverLetterDrawer } from './CoverLetterDrawer';

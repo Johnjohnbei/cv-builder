@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Briefcase, ChevronDown, ChevronUp, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Briefcase, ChevronDown, ChevronUp, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Textarea } from '../../../../shared/ui/Textarea';
@@ -7,8 +7,6 @@ import { Button } from '../../../../shared/ui/Button';
 import { DISPLAY_MODES } from '../../lib/displayModes';
 import { relevanceBand } from '../../lib/scoring';
 import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../../../../shared/constants/companyMeta';
-import { BulletDiffView } from '../BulletDiffView';
-import type { RewriteKey, UseBulletOptimizationResult } from '../../hooks/useBulletOptimization';
 import type { WeakBulletResult } from '../../lib/weakBulletDetection';
 import type { CVData, Experience } from '../../../../shared/types';
 
@@ -23,12 +21,11 @@ interface Props {
   aiBusy: boolean;
   isEnrichingExperiences: boolean;
   onEnrich: () => void;
-  bullets: UseBulletOptimizationResult;
 }
 
 export const ExperienceSection = memo(function ExperienceSection({
   experience, setCvData, experienceScores,
-  weakBullets, expanded, onToggle, aiBusy, isEnrichingExperiences, onEnrich, bullets,
+  weakBullets, expanded, onToggle, aiBusy, isEnrichingExperiences, onEnrich,
 }: Props) {
   const getWeakIssues = (expIdx: number, bulIdx: number) =>
     weakBullets.find(w => w.expIndex === expIdx && w.bulletIndex === bulIdx);
@@ -309,9 +306,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               {/* ─── Bullet points (hidden in compact mode) ─── */}
               {(exp.displayMode || 'normal') !== 'compact' && (
                 <div className="space-y-1 mt-2">
-                  {exp.description?.map((bullet, bIdx) => {
-                    const bulletKey = `${idx}-${bIdx}`;
-                    return (
+                  {exp.description?.map((bullet, bIdx) => (
                     <div key={bIdx} className="space-y-1">
                       <div className="flex items-center gap-1 group/bullet">
                         <Input
@@ -338,17 +333,6 @@ export const ExperienceSection = memo(function ExperienceSection({
                           );
                         })()}
                         <button
-                          title="Améliorer avec l'IA"
-                          aria-label="Améliorer ce point avec l'IA"
-                          disabled={bullets.improvingBulletKey === (bulletKey as RewriteKey)}
-                          onClick={() => bullets.requestSuggestions(bulletKey as RewriteKey, bullet, exp)}
-                          className="p-1 text-gray-600 hover:text-blue-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 transition-opacity"
-                        >
-                          {bullets.improvingBulletKey === (bulletKey as RewriteKey)
-                            ? <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-500" />
-                            : <Sparkles className="w-2.5 h-2.5" />}
-                        </button>
-                        <button
                           onClick={() => updateExperience(idx, x => ({
                             ...x,
                             description: x.description.filter((_, i) => i !== bIdx),
@@ -359,37 +343,8 @@ export const ExperienceSection = memo(function ExperienceSection({
                           <Trash2 className="w-2 h-2" />
                         </button>
                       </div>
-                      {bullets.bulletSuggestions?.key === (bulletKey as RewriteKey) && (
-                        <div className="ml-2 p-2 bg-blue-50 border border-blue-100 rounded space-y-1 animate-in fade-in duration-200">
-                          <p className="text-[11px] font-mono text-blue-700 uppercase tracking-wider mb-1">Suggestions IA</p>
-                          {bullets.bulletSuggestions.suggestions.map((sug, sIdx) => (
-                            <button
-                              key={sIdx}
-                              onClick={() => bullets.pickSuggestion(bulletKey as RewriteKey, sug)}
-                              className="w-full text-left px-2 py-1 text-[11px] text-gray-700 hover:bg-blue-100 rounded transition-colors"
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                          <button
-                            onClick={bullets.dismissSuggestions}
-                            className="text-[11px] font-mono text-gray-600 hover:text-gray-900 mt-1"
-                          >
-                            Fermer
-                          </button>
-                        </div>
-                      )}
-                      {bullets.pendingRewrites.has(bulletKey as RewriteKey) && (
-                        <BulletDiffView
-                          original={bullets.pendingRewrites.get(bulletKey as RewriteKey)!.original}
-                          rewritten={bullets.pendingRewrites.get(bulletKey as RewriteKey)!.rewritten}
-                          onAccept={() => bullets.acceptRewrite(bulletKey as RewriteKey)}
-                          onReject={() => bullets.rejectRewrite(bulletKey as RewriteKey)}
-                        />
-                      )}
                     </div>
-                  );
-                })}
+                  ))}
                 <button
                   onClick={() => updateExperience(idx, x => ({
                     ...x,
