@@ -107,11 +107,13 @@ export async function isPublicUrl(url: URL, resolve: Resolve = resolveAll): Prom
  * followed blindly. A non-2xx answer yields "": a 404 or a login wall used to
  * be passed to the model as if it were the offer.
  *
- * One deadline covers every hop and redirect check: 15 s per hop let four
- * redirects take a minute before the AI call, and the URL action could outlive
- * the 10-minute Convex limit (AI worst case 545 s, see chat.ts).
+ * One deadline covers every hop: 15 s per hop let four redirects take a minute
+ * before the AI call. A redirect's DNS check can still run up to 5 s past it,
+ * and no hop starts after it. Budget of the URL action (convex/ai.ts): DNS 5 +
+ * Jina 15 + this page 10 + DNS 5 = 35 s, plus the AI worst case of 560 s
+ * (chat.ts) = 595 s, under the 10-minute Convex limit.
  */
-export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortSignal.timeout(15_000)): Promise<string> {
+export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortSignal.timeout(10_000)): Promise<string> {
   let url = start;
   for (let hop = 0; hop < 4 && !deadline.aborted; hop++) {
     const response = await fetch(url, {
@@ -134,4 +136,54 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
     return response.ok ? await response.text() : "";
   }
   return "";
+}
+
+/** HTML processed at most: bounds the memory and CPU a hostile page can take, which no deadline stops */
+const MAX_HTML_CHARS = 1_000_000;
+/** Page text handed to the model */
+const MAX_PAGE_TEXT_CHARS = 15_000;
+
+/**
+ * Remove script, style and page-chrome blocks. A scan rather than a lazy
+ * `<script>[\s\S]*?</script>` regex: on unclosed tags that regex rescanned the
+ * rest of the page from every opening tag, quadratic on a few megabytes. A tag
+ * with no closing tag left is not searched for again.
+ */
+function dropBlocks(html: string): string {
+  const open = /<(script|style|nav|footer|header)\b/gi;
+  const unclosed = new Set<string>();
+  let text = "";
+  let kept = 0;
+  let match: RegExpExecArray | null;
+  while ((match = open.exec(html))) {
+    const tag = match[1].toLowerCase();
+    if (unclosed.has(tag)) continue;
+    const close = new RegExp(`</${tag}[^<>]*>`, "gi");
+    close.lastIndex = open.lastIndex;
+    const found = close.exec(html);
+    if (!found) {
+      unclosed.add(tag);
+      continue;
+    }
+    text += html.slice(kept, match.index);
+    kept = open.lastIndex = found.index + found[0].length;
+  }
+  return text + html.slice(kept);
+}
+
+/**
+ * Readable text of an HTML page. Entities are decoded after the tags are gone,
+ * &amp; last so "&amp;lt;" stays the text "&lt;", and whitespace is collapsed
+ * after decoding.
+ */
+export function htmlToText(html: string): string {
+  return dropBlocks(html.slice(0, MAX_HTML_CHARS))
+    .replace(/<[^<>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, MAX_PAGE_TEXT_CHARS);
 }

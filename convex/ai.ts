@@ -32,7 +32,7 @@ import {
   KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
-import { fetchPublicPage, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
+import { fetchPublicPage, htmlToText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
@@ -137,7 +137,8 @@ export const extractJobDescriptionFromURL = action({
           Accept: "text/plain",
           "X-Return-Format": "text",
         },
-        signal: AbortSignal.timeout(20_000),
+        // 15 s: the page fetch and the AI call must fit the 10-minute action (budget in publicUrl.ts)
+        signal: AbortSignal.timeout(15_000),
       });
       if (jinaResponse.ok) {
         pageText = (await jinaResponse.text()).substring(0, 15000);
@@ -151,24 +152,7 @@ export const extractJobDescriptionFromURL = action({
     // Step 2: Fallback to direct fetch if Jina failed (faster, works for simple static sites)
     if (!pageText || pageText.length < 100) {
       try {
-        const html = await fetchPublicPage(target);
-
-        // Entities are decoded after the tags are gone, &amp; last so "&amp;lt;"
-        // stays the text "&lt;", and whitespace is collapsed after decoding.
-        pageText = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
-          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
-          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&amp;/g, "&")
-          .replace(/\s+/g, " ")
-          .trim()
-          .substring(0, 15000);
+        pageText = htmlToText(await fetchPublicPage(target));
       } catch (e) {
         pageText = "";
       }

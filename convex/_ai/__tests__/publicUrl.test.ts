@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchPublicPage, isPublicAddress, isPublicUrl, parseHttpUrl } from "../publicUrl";
+import { fetchPublicPage, htmlToText, isPublicAddress, isPublicUrl, parseHttpUrl } from "../publicUrl";
 
 const resolvesTo = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
 
@@ -116,6 +116,16 @@ describe("fetchPublicPage (one deadline for the whole page, redirects included)"
     expect(fetch.mock.calls.map(([, init]) => init.signal)).toEqual([deadline, deadline]);
   });
 
+  it("waits 10 s at most by default, so the AI call keeps its budget", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
+
+    await fetchPublicPage(new URL("http://8.8.4.4/"));
+
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    timeout.mockRestore();
+  });
+
   it("stops following redirects once the deadline has passed", async () => {
     const controller = new AbortController();
     const fetch = vi.fn(async () => {
@@ -126,5 +136,28 @@ describe("fetchPublicPage (one deadline for the whole page, redirects included)"
 
     expect(await fetchPublicPage(new URL("http://8.8.4.4/"), controller.signal)).toBe("");
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("htmlToText", () => {
+  it("drops scripts, styles and page chrome, then decodes entities with &amp; last", () => {
+    const html = "<header>Menu</header><nav>Liens</nav><style>p{}</style>"
+      + "<p>Offre&nbsp;:  Designer &amp;lt;senior&amp;gt;</p><script>track()</script><footer>Pied</footer>";
+    expect(htmlToText(html)).toBe("Offre : Designer &lt;senior&gt;");
+  });
+
+  it("keeps at most 15 000 characters", () => {
+    expect(htmlToText(`<p>${"a ".repeat(20_000)}</p>`).length).toBe(15_000);
+  });
+
+  // A hostile page must not hold the action: these regexes used to go quadratic
+  // on a few megabytes, past the Convex limit, where no deadline can stop CPU work.
+  it.each([
+    ["unclosed opening brackets", "<".repeat(2_000_000)],
+    ["unclosed script tags", "<script>".repeat(250_000)],
+  ])("stays fast on %s", (_name, html) => {
+    const startedAt = performance.now();
+    htmlToText(html);
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
   });
 });
