@@ -152,12 +152,15 @@ export interface ATSScoreResult {
   suggestions: string[];
 }
 
-/** Every kind of job requirement: the AI prompt, the server schema and the score read this list. */
+/** Every kind of job requirement: the server schema and the client cache check this list, the prompt guide is typed by it. */
 export const REQUIREMENT_KINDS = [
   'title', 'hard_skill', 'tool', 'method', 'certification',
   'domain', 'language', 'education', 'experience_years', 'soft_skill',
 ] as const;
 export type RequirementKind = typeof REQUIREMENT_KINDS[number];
+
+export const REQUIREMENT_IMPORTANCES = ['required', 'preferred'] as const;
+export type RequirementImportance = typeof REQUIREMENT_IMPORTANCES[number];
 
 /** One demand of a job offer, extracted by the AI and checked against the offer text. */
 export interface JobRequirement {
@@ -168,7 +171,7 @@ export interface JobRequirement {
   /** Acronym, long form, synonyms ("UX" / "expérience utilisateur") */
   variants: string[];
   kind: RequirementKind;
-  importance: 'required' | 'preferred';
+  importance: RequirementImportance;
   /** Excerpt of the offer stating the requirement */
   quote: string;
   /** For experience_years only */

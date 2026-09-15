@@ -87,7 +87,15 @@ describe('requirements cache', () => {
   });
 
   it('skips stored requirements that are not requirements', async () => {
-    store.set('job_requirements_cache', JSON.stringify([{ jobDescription: 'Offre A', requirements: ['Figma', R('SAP')] }]));
+    const badKind = { ...R('Excel'), kind: 'skill' };
+    const noQuote = { ...R('Word'), quote: undefined };
+    store.set('job_requirements_cache', JSON.stringify([{ jobDescription: 'Offre A', requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('SAP')]);
+  });
+
+  // An empty answer would pin the offer to "no requirements" until evicted
+  it('answers null for an entry with no valid requirement left, so the offer is analyzed again', async () => {
+    store.set('job_requirements_cache', JSON.stringify([{ jobDescription: 'Offre A', requirements: [{ label: 'Figma' }] }]));
+    expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();
   });
 });

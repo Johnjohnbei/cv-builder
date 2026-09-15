@@ -71,6 +71,10 @@ describe("Ancillary schemas", () => {
     expect(result).toMatchObject({ label: "Figma", kind: "tool", importance: "required", quote: "Figma", variants: [] });
   });
 
+  it("JobRequirementSchema reads null variants as none", () => {
+    expect(JobRequirementSchema.parse({ label: "Figma", kind: "tool", importance: "preferred", quote: "Figma", variants: null }).variants).toEqual([]);
+  });
+
   it("JobRequirementSchema rejects an unknown kind or importance", () => {
     expect(JobRequirementSchema.safeParse({ label: "Figma", kind: "skill", importance: "required", quote: "Figma" }).success).toBe(false);
     expect(JobRequirementSchema.safeParse({ label: "Figma", kind: "tool", importance: "must", quote: "Figma" }).success).toBe(false);

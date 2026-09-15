@@ -1,4 +1,4 @@
-import type { JobRequirement } from '@/src/shared/types';
+import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS, type JobRequirement } from '@/src/shared/types';
 
 /**
  * Local cache of the AI-extracted job requirements, keyed by the job description.
@@ -40,10 +40,16 @@ export function requirementsForOffer(liveOffer: string, analyzed: AnalyzedOffer)
   return jd && jd === normalize(analyzed.offer) ? analyzed.requirements : NO_REQUIREMENTS;
 }
 
-const isRequirement = (r: unknown): r is JobRequirement =>
-  typeof (r as JobRequirement)?.id === 'string'
-  && typeof (r as JobRequirement).label === 'string'
-  && Array.isArray((r as JobRequirement).variants);
+/** Storage is outside the app's control: every field the score reads is checked */
+function isRequirement(value: unknown): value is JobRequirement {
+  const r = value as Partial<JobRequirement> | null;
+  return typeof r?.id === 'string'
+    && typeof r.label === 'string'
+    && typeof r.quote === 'string'
+    && Array.isArray(r.variants) && r.variants.every(v => typeof v === 'string')
+    && (REQUIREMENT_KINDS as readonly unknown[]).includes(r.kind)
+    && (REQUIREMENT_IMPORTANCES as readonly unknown[]).includes(r.importance);
+}
 
 function readEntries(): CachedRequirements[] {
   try {
@@ -75,12 +81,17 @@ function mostRecentOffers(entries: CachedRequirements[]): CachedRequirements[] {
   }).slice(0, MAX_OFFERS);
 }
 
-/** Cached requirements for this exact job description, or null. */
+/**
+ * Cached requirements for this exact job description, or null. An entry with
+ * no valid requirement left answers null too, so the offer is analyzed again
+ * instead of staying pinned to an empty list.
+ */
 export function readCachedRequirements(jobDescription: string): JobRequirement[] | null {
   const jd = normalize(jobDescription);
   if (!jd) return null;
   const hit = [...answeredInTab, ...readEntries()].find(e => normalize(e.jobDescription) === jd);
-  return hit ? hit.requirements.filter(isRequirement) : null;
+  const valid = hit?.requirements.filter(isRequirement) ?? [];
+  return valid.length > 0 ? valid : null;
 }
 
 export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {

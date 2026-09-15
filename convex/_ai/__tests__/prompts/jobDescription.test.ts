@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { REQUIREMENT_KINDS } from "../../../../src/shared/types";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
@@ -37,15 +38,17 @@ describe("buildJobDescriptionFromPDFPrompt", () => {
 describe("buildJobRequirementsPrompt", () => {
   const prompt = buildJobRequirementsPrompt({ jobDescription: "Product Designer Senior, Figma requis" });
 
-  it("embeds the job description", () => {
-    expect(prompt).toContain("Product Designer Senior, Figma requis");
+  // Between delimiters, declared as data: an offer imported from a third-party
+  // page can contain text shaped like the prompt's own sections.
+  it("embeds the job description between data delimiters", () => {
+    expect(prompt).toContain("<offre>\nProduct Designer Senior, Figma requis\n</offre>");
   });
 
   // What recruiters filter on first was missing from the keyword list:
   // job title, years of experience, degree, languages.
-  it("asks for every kind of requirement a recruiter filters on", () => {
-    for (const kind of ["title", "hard_skill", "tool", "method", "certification", "domain", "language", "education", "experience_years", "soft_skill"]) {
-      expect(prompt).toContain(kind);
+  it("asks for every kind of requirement the schema accepts", () => {
+    for (const kind of REQUIREMENT_KINDS) {
+      expect(prompt).toContain(`- ${kind} :`);
     }
   });
 

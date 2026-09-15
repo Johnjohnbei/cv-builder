@@ -349,14 +349,55 @@ describe("normalizeJobRequirements", () => {
     expect(ux.variants).toEqual(["UX Designer"]);
   });
 
-  it("keeps years of experience only with a positive minYears", () => {
+  it("keeps years of experience only with a positive minYears that its quote states", () => {
     const years = req({ label: "5 ans d'expérience", kind: "experience_years", quote: "5 ans d'expérience" });
     expect(normalizeJobRequirements([{ ...years, minYears: 5 }], OFFER)[0].minYears).toBe(5);
     expect(normalizeJobRequirements([years], OFFER)).toEqual([]);
+    expect(normalizeJobRequirements([{ ...years, minYears: 8 }], OFFER)).toEqual([]);
   });
 
   it("caps the list at 25 requirements", () => {
-    const many = Array.from({ length: 30 }, (_, i) => req({ label: `Outil ${i}`, quote: "Figma" }));
-    expect(normalizeJobRequirements(many, OFFER)).toHaveLength(25);
+    const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
+    const offer = `Outils : ${labels.join(", ")}.`;
+    const many = labels.map(label => req({ label, quote: label }));
+    expect(normalizeJobRequirements(many, offer)).toHaveLength(25);
+  });
+
+  it("finds a quote written with straight marks in an offer with typographic ones", () => {
+    const offer = "Maîtrise de l’anglais indispensable.";
+    const english = req({ label: "anglais", kind: "language", quote: "Maîtrise de l'anglais" });
+    expect(normalizeJobRequirements([english], offer).map(r => r.id)).toEqual(["anglais"]);
+  });
+
+  // A real excerpt of the offer is not enough: the requirement must be the one
+  // that excerpt states, or any label passes by quoting one word of the offer.
+  it("drops a label that neither itself nor a variant appears in its own quote", () => {
+    expect(normalizeJobRequirements([req({ label: "Kubernetes", quote: "maîtrise de Figma" })], OFFER)).toEqual([]);
+    expect(normalizeJobRequirements([req({ label: "Maquettage", variants: ["Figma"], quote: "maîtrise de Figma" })], OFFER))
+      .toHaveLength(1);
+  });
+
+  it("lets a job title or a degree be worded apart from its quote", () => {
+    const offer = "Nous recrutons notre futur·e Product Designer. Bac+5 en design.";
+    const out = normalizeJobRequirements([
+      req({ label: "Designer produit", kind: "title", quote: "futur·e Product Designer" }),
+      req({ label: "Master", kind: "education", quote: "Bac+5 en design" }),
+    ], offer);
+    expect(out.map(r => r.kind)).toEqual(["title", "education"]);
+  });
+
+  it("keeps C++, C# and C apart", () => {
+    const offer = "Langages : C++, C# et C.";
+    const out = normalizeJobRequirements([req({ label: "C++", quote: "C++" }), req({ label: "C#", quote: "C#" }), req({ label: "C", quote: "et C" })], offer);
+    expect(new Set(out.map(r => r.id)).size).toBe(3);
+  });
+
+  it("keeps a label written in a non-Latin script", () => {
+    const offer = "Требования: русский язык.";
+    expect(normalizeJobRequirements([req({ label: "Русский язык", kind: "language", quote: "русский язык" })], offer)).toHaveLength(1);
+  });
+
+  it("reads null variants as none", () => {
+    expect(normalizeJobRequirements([req({ variants: null })], OFFER)[0].variants).toEqual([]);
   });
 });

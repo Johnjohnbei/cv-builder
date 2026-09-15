@@ -13,12 +13,26 @@ import { normalizeForMatch, stripAccents } from "../../src/shared/lib/text";
 // ─── Job requirements ────────────────────────────────────────────
 const MAX_REQUIREMENTS = 25;
 
+/** `term` in `text` (both normalized), starting on a word boundary; a plural ending still matches */
+function containsTerm(text: string, term: string): boolean {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}`, "u").test(text);
+}
+
+/** Symbols carry meaning in skill names: C++, C# and C must not share an id */
+const slugOf = (key: string) => key
+  .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
+  .replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+
 /**
  * The requirements the offer actually states, checked one by one. A malformed
- * item is dropped, not the list. A requirement whose quote is not in the offer
- * is dropped too: an offer pasted by the user can carry instructions, and the
- * model can invent. The id is computed from the label, never taken from the
- * model, so the same requirement keeps the same id.
+ * item is dropped, not the list. A requirement is dropped when its quote is not
+ * in the offer, or when the quote does not state it: its label or a variant
+ * must appear in the quote (a title or a degree may be reworded), and years of
+ * experience must be the number the quote gives. Otherwise any label passed by
+ * quoting one real word of the offer. Text injected in the offer is quotable
+ * too: the prompt fences the offer as data, which this cannot replace.
+ * The id is computed from the label, never taken from the model.
  */
 export function normalizeJobRequirements(items: unknown[], jobDescription: string): JobRequirement[] {
   const offer = normalizeForMatch(jobDescription);
@@ -29,12 +43,9 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
     if (!parsed.success) continue;
     const { label, variants, kind, importance, quote, minYears } = parsed.data;
     const key = normalizeForMatch(label);
-    const id = key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const id = slugOf(key);
     const quoted = normalizeForMatch(quote);
     if (!id || ids.has(id) || !quoted || !offer.includes(quoted)) continue;
-    // Years are measured from the dates, which needs a number
-    if (kind === "experience_years" && !(typeof minYears === "number" && minYears > 0)) continue;
-    ids.add(id);
 
     const seen = new Set([key]);
     const cleanVariants = variants.map(v => v.trim()).filter(v => {
@@ -43,6 +54,14 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
       seen.add(k);
       return true;
     });
+
+    if (kind === "experience_years") {
+      // Years are measured from the dates, which needs the number the offer gives
+      if (!(typeof minYears === "number" && minYears > 0 && new RegExp(`(^|\\D)${minYears}(\\D|$)`).test(quoted))) continue;
+    } else if (kind !== "title" && kind !== "education") {
+      if (![key, ...cleanVariants.map(normalizeForMatch)].some(term => containsTerm(quoted, term))) continue;
+    }
+    ids.add(id);
     requirements.push({
       id, label: label.trim(), variants: cleanVariants, kind, importance, quote: quote.trim(),
       ...(kind === "experience_years" && { minYears }),

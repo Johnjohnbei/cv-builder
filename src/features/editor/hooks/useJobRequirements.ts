@@ -56,7 +56,7 @@ export function useJobRequirements(
       request
         // Cached even when superseded or unmounted: the call is paid, and the
         // offer may come back (reload, return from the dashboard)
-        .then(data => writeCachedRequirements(committedOffer, data.requirements))
+        .then(data => { if (Array.isArray(data.requirements)) writeCachedRequirements(committedOffer, data.requirements); })
         .catch(() => {})
         // Settled: the cache answers from now on, and a failure is retried at the next commit
         .finally(() => inflight.current.delete(key));
@@ -66,7 +66,7 @@ export function useJobRequirements(
     request
       .then(data => {
         // A stale response must not overwrite the requirements of a newer offer
-        if (!cancelled) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
+        if (!cancelled && Array.isArray(data.requirements)) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
       })
       .catch(() => {});
     return () => {

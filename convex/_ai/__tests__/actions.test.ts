@@ -85,8 +85,12 @@ describe("extractJobRequirements", () => {
   });
 
   // Thrown inside the transform, so chatJSONThen retries the call once
-  it("treats an answer where the offer states no requirement as invalid", async () => {
-    mocks.aiAnswer = { requirements: [requirement("Kubernetes", "Kubernetes")] };
+  it.each([
+    ["no requirement the offer states", { requirements: [requirement("Kubernetes", "Kubernetes")] }],
+    ["a malformed root", { requirements: null }],
+    ["a list instead of an object", [requirement("Figma", "maîtrise de Figma")]],
+  ])("treats an answer with %s as invalid", async (_case, answer) => {
+    mocks.aiAnswer = answer;
     await expect(run(OFFER)).rejects.toMatchObject({ data: { code: "AI_INVALID_OUTPUT" } });
   });
 });

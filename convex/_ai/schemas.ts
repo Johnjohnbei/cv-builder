@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { REQUIREMENT_KINDS } from "../../src/shared/types";
+import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS } from "../../src/shared/types";
 
 // ─── Personal Info ──────────────────────────────────────────────
 export const PersonalInfoSchema = z.object({
@@ -72,9 +72,9 @@ export type CVDataParsed = z.infer<typeof CVDataSchema>;
 /** One requirement as the model writes it; the id is computed by normalizeJobRequirements */
 export const JobRequirementSchema = z.object({
   label: z.string(),
-  variants: z.array(z.string()).default([]),
+  variants: z.array(z.string()).nullish().transform(v => v ?? []),
   kind: z.enum(REQUIREMENT_KINDS),
-  importance: z.enum(["required", "preferred"]),
+  importance: z.enum(REQUIREMENT_IMPORTANCES),
   quote: z.string(),
   minYears: z.number().optional(),
 }).passthrough();

@@ -21,12 +21,12 @@ import { expect, type Page } from '@playwright/test';
 const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache';
 
 /**
- * Keywords a real extraction would plausibly return for the mock offers.
- * Some are present in the mock CVs and some are not, so the ATS panel still
- * renders both found (green) and missing keywords — and it does so
- * deterministically, which the LLM never did.
+ * Requirement labels a real extraction would plausibly return for the mock
+ * offers. Some are present in the mock CVs and some are not, so the ATS panel
+ * renders both covered and missing requirements, deterministically, which the
+ * LLM never did.
  */
-export const MOCK_JOB_KEYWORDS = [
+export const MOCK_REQUIREMENT_LABELS = [
   'Product Design', 'UX Design', 'UI Design', 'Figma', 'Design System',
   'Storybook', 'SaaS', 'B2B', 'KPI', 'NPS', 'Retention', 'Agile',
   'Design Thinking', 'Recherche utilisateur', 'Roadmap', 'Prototypage',
@@ -35,7 +35,9 @@ export const MOCK_JOB_KEYWORDS = [
 
 /** Requirements as extractJobRequirements returns them, one per label */
 export function requirementsOf(labels: string[]) {
-  return labels.map(label => ({ id: label, label, variants: [], kind: 'hard_skill', importance: 'required', quote: label }));
+  return labels.map(label => ({
+    id: label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-'), label, variants: [], kind: 'hard_skill', importance: 'required', quote: label,
+  }));
 }
 
 export interface SeedOptions {
@@ -43,7 +45,7 @@ export interface SeedOptions {
   /** Job description; omit for the "no offer" cases */
   jd?: string;
   /** Requirement labels to serve from cache instead of calling the LLM */
-  keywords?: string[];
+  requirementLabels?: string[];
   /** Pre-seeded cover letter context, so no company extraction fires */
   coverLetter?: { companyName: string; jobDescription: string };
 }
@@ -73,7 +75,7 @@ export async function seedGuestSession(page: Page, opts: SeedOptions): Promise<v
     {
       cv: opts.cv,
       jd: opts.jd,
-      requirements: requirementsOf(opts.keywords ?? MOCK_JOB_KEYWORDS),
+      requirements: requirementsOf(opts.requirementLabels ?? MOCK_REQUIREMENT_LABELS),
       coverLetter: opts.coverLetter,
       cacheKey: REQUIREMENTS_CACHE_KEY,
     },

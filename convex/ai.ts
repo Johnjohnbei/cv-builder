@@ -197,7 +197,8 @@ export const extractJobRequirements = action({
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobRequirementsPrompt({ jobDescription: args.jobDescription });
     const requirements = await chatJSONThen(prompt, (raw) => {
-      const found = normalizeJobRequirements(JobRequirementsSchema.parse(raw).requirements, args.jobDescription);
+      const parsed = JobRequirementsSchema.safeParse(raw);
+      const found = parsed.success ? normalizeJobRequirements(parsed.data.requirements, args.jobDescription) : [];
       if (found.length === 0) throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
       return found;
     }, "fast");
