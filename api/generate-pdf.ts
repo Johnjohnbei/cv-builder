@@ -9,9 +9,11 @@ interface GeneratePDFRequest {
 }
 
 // ─── Abuse guards ───
-// The endpoint is reachable by guests (no Clerk session), so auth is
+// The endpoint is reachable by guests (no Clerk session), so the first gate is
 // origin-based: browsers always send Origin on POST fetch, and the app only
-// calls this API same-origin. Curl/third-party callers get 403.
+// calls this API same-origin, so other sites cannot use it from a visitor's
+// browser. A script can forge the header: the rate limit, the payload cap and
+// the locked-down page below are what bound that case.
 
 function isAllowedOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
@@ -34,6 +36,12 @@ const hits = new Map<string, { count: number; windowStart: number }>();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+  // Forget expired windows once the map grows, or it keeps every IP ever seen
+  if (hits.size > 1_000) {
+    for (const [key, value] of hits) {
+      if (now - value.windowStart > RATE_WINDOW_MS) hits.delete(key);
+    }
+  }
   const entry = hits.get(ip);
   if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
     hits.set(ip, { count: 1, windowStart: now });
@@ -136,22 +144,24 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Check payload size (~2MB limit) on the raw text, BEFORE parsing: checked
+  // after, an oversized body had already been parsed in full.
+  const rawBody = await request.text();
+  if (rawBody.length > 2_000_000) {
+    return new Response(
+      JSON.stringify({ error: 'Payload too large' }),
+      { status: 413, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
   // Parse JSON body
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response(
       JSON.stringify({ error: 'Invalid JSON body' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // Check payload size (~2MB limit)
-  if (JSON.stringify(body).length > 2_000_000) {
-    return new Response(
-      JSON.stringify({ error: 'Payload too large' }),
-      { status: 413, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
@@ -171,6 +181,10 @@ export async function POST(request: Request): Promise<Response> {
   try {
     browser = await getBrowser();
     const page = await browser.newPage();
+    // The serialized CV is static markup and needs no script. Disabling
+    // JavaScript also closes WebSocket and WebRTC, which request interception
+    // below does not see: submitted HTML could otherwise still reach the network.
+    await page.setJavaScriptEnabled(false);
 
     // SSRF guard: the submitted HTML must not make Chrome fetch arbitrary
     // URLs (internal network scan, cost amplification). Only font hosts and
@@ -194,7 +208,8 @@ export async function POST(request: Request): Promise<Response> {
     const fullHtml = wrapHtml(html, styles);
 
     await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-    await page.waitForFunction('document.fonts.ready');
+    // Evaluated through the DevTools protocol, which page scripts being off does not block
+    await page.evaluate('document.fonts.ready');
 
     const pdf = await page.pdf({
       format: 'A4',

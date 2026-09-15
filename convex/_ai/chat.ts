@@ -4,24 +4,23 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ConvexError } from "convex/values";
 import type { ZodType } from "zod";
 import { getProviders, getModel, type AIProvider } from "./providers";
+import { userError } from "../_shared/errors";
 
 // ─── User-facing errors ─────────────────────────────────────────────
 // Convex redacts plain Error messages in prod; ConvexError.data survives to the
-// client. Every user-facing throw goes through userError() so the French
-// message + a stable code reach the UI (read via getUserErrorMessage).
+// client. Every user-facing throw goes through userError() (owner:
+// convex/_shared/errors.ts, importable from queries and mutations too) so the
+// French message + a stable code reach the UI (read via getUserErrorMessage).
 
 export type AIErrorCode = "AI_UNAVAILABLE" | "AI_EMPTY_OUTPUT" | "AI_INVALID_OUTPUT";
-
-export function userError(userMessage: string, code: AIErrorCode): ConvexError<{ userMessage: string; code: AIErrorCode }> {
-  return new ConvexError({ userMessage, code });
-}
+export { userError };
 
 /** A ConvexError carrying userMessage, or a legacy plain Error with a French
  *  user-facing message (e.g. normalizers.ts) converted at the boundary so the
  *  text survives Convex prod redaction. Null when not user-facing. */
-function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: AIErrorCode }> | null {
+function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: string }> | null {
   if (e instanceof ConvexError && typeof (e.data as any)?.userMessage === "string") {
-    return e as ConvexError<{ userMessage: string; code: AIErrorCode }>;
+    return e as ConvexError<{ userMessage: string; code: string }>;
   }
   if (e instanceof Error && e.message.startsWith("L'IA a retourné")) {
     return userError(e.message, "AI_INVALID_OUTPUT");
@@ -42,18 +41,18 @@ function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: AIEr
 // SDK before our own loop even saw it. maxRetries: 0 gives the loop full
 // control.
 
-const ANTHROPIC_TIMEOUT_MS = 300_000; // Claude streaming on a >15k-char CV can take ~4 min (K004)
+// Claude streaming on a >15k-char CV can take ~4 min (K004). The worst case is
+// timeout + capped retry-after + timeout, which must stay under the 10-minute
+// Convex action limit: at 300 s each it reached 620 s and Convex killed the
+// action before our French error could be sent. 270 + 20 + 270 = 560 s.
+const ANTHROPIC_TIMEOUT_MS = 270_000;
 const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
 
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
 
-function providerName(_p: AIProvider): string {
-  return "claude";
-}
-
-/** Extract an HTTP status from SDK errors (both SDKs expose `status`). */
+/** Extract an HTTP status from Anthropic SDK errors (they expose `status`). */
 function errorStatus(e: any): number | undefined {
   const status = e?.status ?? e?.response?.status;
   if (typeof status === "number") return status;
@@ -96,13 +95,20 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
 }
 
 export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Promise<T> {
-  const providers = getProviders();
+  let providers: AIProvider[];
+  try {
+    providers = getProviders();
+  } catch (e) {
+    // A missing API key used to escape as a plain Error, redacted into a generic failure
+    console.error("[ai] provider configuration:", e);
+    throw userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
+  }
   let lastError: any;
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
     const isLastProvider = i === providers.length - 1;
-    const name = providerName(provider);
+    const name = "claude";
     const maxAttempts = isLastProvider ? 2 : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -205,7 +211,7 @@ export async function chatJSONSchema<T>(
     const raw = await rawChatJSON(provider, prompt, speed);
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
-      console.warn(`[ai] ${providerName(provider)} JSON failed schema validation:`, parsed.error.message.slice(0, 300));
+      console.warn("[ai] claude JSON failed schema validation:", parsed.error.message.slice(0, 300));
       throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
     }
     return parsed.data;
@@ -213,5 +219,11 @@ export async function chatJSONSchema<T>(
 }
 
 export async function chatText(prompt: string, speed: "default" | "fast" = "default"): Promise<string> {
-  return withRetry((provider) => rawChatText(provider, prompt, speed));
+  return withRetry(async (provider) => {
+    const text = await rawChatText(provider, prompt, speed);
+    // An empty answer is a failed call, retried, not a result: it used to reach
+    // the dashboard as an empty job offer.
+    if (!text.trim()) throw userError("L'IA a retourné une réponse vide. Veuillez réessayer.", "AI_EMPTY_OUTPUT");
+    return text;
+  });
 }

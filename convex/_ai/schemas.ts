@@ -68,16 +68,6 @@ export const CVDataSchema = z.object({
 export type CVDataParsed = z.infer<typeof CVDataSchema>;
 
 // ─── Ancillary AI action schemas ────────────────────────────────
-export const ATSAnalysisSchema = z.object({
-  score: z.number(),
-  missingKeywords: z.array(z.string()).default([]),
-  strengths: z.array(z.string()).default([]),
-  improvements: z.array(z.string()).default([]),
-  ats_compatibility: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  seniority_match: z.enum(["UNDER", "MATCH", "OVER"]).optional(),
-  compensation_estimate: z.string().nullable().optional(),
-}).passthrough();
-
 export const KeywordListSchema = z.object({
   keywords: z.array(z.string()).default([]),
 }).passthrough();

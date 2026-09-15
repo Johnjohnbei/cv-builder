@@ -158,8 +158,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Feature-based organization with co-located components, hooks, and utilities
 - Template-based CV rendering with memoization optimization
 - Backend authentication via Clerk + Convex identity validation
-- AI integration derrière une abstraction provider () — un seul vendeur aujourd hui, Claude
-- AI schemas in `convex/_ai/schemas.ts`: `ATSAnalysisSchema` includes optional `seniority_match` (UNDER|MATCH|OVER) and `compensation_estimate`; `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
+- Intégration IA derrière une abstraction provider (`convex/_ai/providers.ts`) : un seul vendeur aujourd'hui, Claude
+- Accès aux actions IA : un compte connecté OU un code d'accès valide (`convex/_ai/auth.ts`), sans interrupteur d'environnement
+- Erreurs lisibles par l'utilisateur : toujours `userError()` (`convex/_shared/errors.ts`), jamais `new Error` (message masqué par Convex en production)
+- AI schemas in `convex/_ai/schemas.ts`: `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
 - Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
 - E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel + edge cases), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio) — tous en mode guest
 - `e2e/capture-pdf.spec.ts` n'est pas une régression : il écrit le PDF réellement produit sur disque pour inspection humaine, et ne tourne que si `CAPTURE_PDF=<chemin>` est défini

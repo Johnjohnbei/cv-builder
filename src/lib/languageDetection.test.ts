@@ -173,6 +173,14 @@ describe('detectTextLanguage', () => {
   it('returns "fr" when the text contains no stop word at all', () => {
     expect(detectTextLanguage('JavaScript TypeScript React Node.js Docker Kubernetes')).toBe('fr');
   });
+
+  it('detects an English offer written as a list, with no stop word', () => {
+    expect(detectTextLanguage('Senior Product Designer. Requirements: Figma, design systems, B2B SaaS, 5+ years experience. Remote.')).toBe('en');
+  });
+
+  it('keeps a French offer written as a list in French', () => {
+    expect(detectTextLanguage('Product Designer Senior. Profil : Figma, design system, SaaS B2B, 5 ans expérience. Télétravail.')).toBe('fr');
+  });
 });
 
 describe('detectJobDescriptionLanguage', () => {

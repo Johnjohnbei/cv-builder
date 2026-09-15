@@ -24,7 +24,6 @@
 // on api.anthropic.com/v1/chat/completions (revert 67239be).
 
 export interface AIProvider {
-  baseURL: string; // log symmetry only; the SDK ignores it
   apiKey: string;
   defaultModel: string;
   fastModel: string;
@@ -39,7 +38,6 @@ export function getProviders(): AIProvider[] {
   }
 
   return [{
-    baseURL: "https://api.anthropic.com",
     apiKey: anthropicKey,
     defaultModel: "claude-sonnet-4-5",
     fastModel: "claude-haiku-4-5-20251001",

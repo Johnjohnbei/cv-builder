@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ConvexError } from 'convex/values';
-import { getUserErrorMessage } from './convexError';
+import { getErrorCode, getUserErrorMessage } from './convexError';
 
 const FALLBACK = 'Une erreur est survenue';
 
@@ -20,5 +20,17 @@ describe('getUserErrorMessage', () => {
     expect(getUserErrorMessage(new Error('Server Error'), FALLBACK)).toBe(FALLBACK);
     expect(getUserErrorMessage(undefined, FALLBACK)).toBe(FALLBACK);
     expect(getUserErrorMessage('boom', FALLBACK)).toBe(FALLBACK);
+  });
+});
+
+describe('getErrorCode', () => {
+  it('returns the stable code of a ConvexError', () => {
+    expect(getErrorCode(new ConvexError({ userMessage: 'Code expiré', code: 'ACCESS_CODE_INVALID' }))).toBe('ACCESS_CODE_INVALID');
+  });
+
+  it('returns undefined when there is no code to read', () => {
+    expect(getErrorCode(new ConvexError({ userMessage: 'x' }))).toBeUndefined();
+    expect(getErrorCode(new Error('ACCESS_CODE_INVALID'))).toBeUndefined();
+    expect(getErrorCode(null)).toBeUndefined();
   });
 });

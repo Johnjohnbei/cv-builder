@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   CVDataSchema,
   ExperienceSchema,
-  ATSAnalysisSchema,
   KeywordListSchema,
   BulletRewriteSchema,
   CoverLetterSchema,
@@ -63,24 +62,6 @@ describe("ExperienceSchema", () => {
         displayMode: "weird",
       })
     ).toThrow();
-  });
-});
-
-describe("ATSAnalysisSchema", () => {
-  it("parses valid analysis", () => {
-    const result = ATSAnalysisSchema.parse({
-      score: 85, missingKeywords: ["Figma"], strengths: ["UX"], improvements: ["metrics"],
-      ats_compatibility: "HIGH",
-    });
-    expect(result.score).toBe(85);
-  });
-
-  it("rejects invalid ats_compatibility", () => {
-    expect(() => ATSAnalysisSchema.parse({ score: 50, ats_compatibility: "BAD" })).toThrow();
-  });
-
-  it("rejects missing score", () => {
-    expect(() => ATSAnalysisSchema.parse({ ats_compatibility: "LOW" })).toThrow();
   });
 });
 
@@ -178,42 +159,6 @@ describe("CompanyMetaSchema", () => {
       extraField: "keep me",
     });
     expect((result as any).extraField).toBe("keep me");
-  });
-});
-
-describe("ATSAnalysisSchema — career-ops fields", () => {
-  const BASE = {
-    score: 75,
-    missingKeywords: [],
-    strengths: [],
-    improvements: [],
-    ats_compatibility: "MEDIUM" as const,
-  };
-
-  it("accepts seniority_match when provided with a valid enum value", () => {
-    const result = ATSAnalysisSchema.parse({ ...BASE, seniority_match: "MATCH" });
-    expect(result.seniority_match).toBe("MATCH");
-  });
-
-  it("accepts compensation_estimate as a string", () => {
-    const result = ATSAnalysisSchema.parse({ ...BASE, compensation_estimate: "45k-65k€" });
-    expect(result.compensation_estimate).toBe("45k-65k€");
-  });
-
-  it("accepts compensation_estimate as null", () => {
-    const result = ATSAnalysisSchema.parse({ ...BASE, compensation_estimate: null });
-    expect(result.compensation_estimate).toBeNull();
-  });
-
-  it("still parses when both new fields are absent (backward compat)", () => {
-    const result = ATSAnalysisSchema.parse(BASE);
-    expect(result.seniority_match).toBeUndefined();
-    expect(result.compensation_estimate).toBeUndefined();
-  });
-
-  it("rejects seniority_match outside the enum (e.g. JUNIOR)", () => {
-    const parsed = ATSAnalysisSchema.safeParse({ ...BASE, seniority_match: "JUNIOR" });
-    expect(parsed.success).toBe(false);
   });
 });
 

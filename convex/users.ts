@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { unauthenticated, userNotFound } from "./_shared/errors";
 
 export const getMe = query({
   args: {},
@@ -18,9 +19,7 @@ export const store = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Called storeUser without authentication");
-    }
+    if (!identity) throw unauthenticated();
 
     const existing = await ctx.db
       .query("users")
@@ -55,14 +54,14 @@ export const updateLastGeneratedCV = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    if (!identity) throw unauthenticated();
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .unique();
 
-    if (!user) throw new Error("User not found");
+    if (!user) throw userNotFound();
 
     await ctx.db.patch(user._id, {
       lastGeneratedCV: args.cvData,
@@ -85,14 +84,14 @@ export const saveBaseCV = mutation({
   args: { cvData: v.any() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    if (!identity) throw unauthenticated();
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .unique();
 
-    if (!user) throw new Error("User not found");
+    if (!user) throw userNotFound();
 
     await ctx.db.patch(user._id, {
       baseCV: args.cvData,

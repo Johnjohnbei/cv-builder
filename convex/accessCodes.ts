@@ -1,65 +1,58 @@
-import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
+import { userError } from "./_shared/errors";
 
-// ─── Verify an access code (called from AI actions) ───
+const ADMIN_EMAIL = "joaudran@gmail.com";
+
+function findCode(db: QueryCtx["db"], code: string) {
+  return db
+    .query("accessCodes")
+    .withIndex("by_code", (q) => q.eq("code", code.trim()))
+    .first();
+}
+
+/** Why a code cannot be used, or null when it can. */
+function rejectionReason(record: Doc<"accessCodes"> | null): string | null {
+  if (!record) return "Code inconnu";
+  if (new Date(record.expiresAt) < new Date()) return "Code expiré";
+  if (record.usedCount >= record.maxUses) return "Code épuisé";
+  return null;
+}
+
+// ─── Check a code before storing it (access modal) ───
 export const verify = query({
   args: { code: v.string() },
   handler: async (ctx, args) => {
-    const record = await ctx.db
-      .query("accessCodes")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
-      .first();
-    
-    if (!record) return { valid: false, reason: "Code inconnu" };
-    if (new Date(record.expiresAt) < new Date()) return { valid: false, reason: "Code expiré" };
-    if (record.usedCount >= record.maxUses) return { valid: false, reason: "Code épuisé" };
-    
-    return { valid: true };
+    const reason = rejectionReason(await findCode(ctx.db, args.code));
+    return reason ? { valid: false, reason } : { valid: true };
   },
 });
 
-// ─── Increment usage count when code is used ───
-export const incrementUsage = mutation({
+// ─── Check and count one use, atomically (called from AI actions) ───
+// A separate check then increment ran in two transactions, so concurrent calls
+// could all pass the check and push a code past maxUses. The public, unauthenticated
+// incrementUsage mutation that let anyone exhaust any code is gone.
+export const consumeInternal = internalMutation({
   args: { code: v.string() },
   handler: async (ctx, args) => {
-    const record = await ctx.db
-      .query("accessCodes")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
-      .first();
-    if (record) {
-      await ctx.db.patch(record._id, { usedCount: record.usedCount + 1 });
-    }
+    const record = await findCode(ctx.db, args.code);
+    const reason = rejectionReason(record);
+    if (reason || !record) return { valid: false, reason: reason ?? "Code inconnu" };
+    await ctx.db.patch(record._id, { usedCount: record.usedCount + 1 });
+    return { valid: true, reason: "" };
   },
 });
 
-// ─── Internal: verify code (called from actions) ───
-export const verifyInternal = internalQuery({
-  args: { code: v.string() },
-  handler: async (ctx, args) => {
-    const record = await ctx.db
-      .query("accessCodes")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
-      .first();
-    if (!record) return { valid: false, reason: "Code inconnu" };
-    if (new Date(record.expiresAt) < new Date()) return { valid: false, reason: "Code expiré" };
-    if (record.usedCount >= record.maxUses) return { valid: false, reason: "Code épuisé" };
-    return { valid: true };
-  },
-});
-
-// ─── Internal: increment usage (called from actions) ───
-export const incrementUsageInternal = internalMutation({
-  args: { code: v.string() },
-  handler: async (ctx, args) => {
-    const record = await ctx.db
-      .query("accessCodes")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
-      .first();
-    if (record) {
-      await ctx.db.patch(record._id, { usedCount: record.usedCount + 1 });
-    }
-  },
-});
+/**
+ * 10 characters from an alphabet without look-alikes (0/O, 1/I), from a
+ * cryptographic source. The former Math.random 6-character codes could be
+ * guessed through the public verify query.
+ */
+function randomCode(length = 10): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(length)), (b) => alphabet[b % alphabet.length]).join("");
+}
 
 // ─── Generate a new access code (admin only) ───
 export const generate = mutation({
@@ -71,12 +64,12 @@ export const generate = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.email !== "joaudran@gmail.com") {
-      throw new Error("Admin access required");
+    if (!identity || identity.email !== ADMIN_EMAIL) {
+      throw userError("Accès administrateur requis.", "ADMIN_REQUIRED");
     }
-    const code = args.code || Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = args.code?.trim() || randomCode();
     const expiresAt = new Date(Date.now() + args.durationDays * 24 * 60 * 60 * 1000).toISOString();
-    
+
     await ctx.db.insert("accessCodes", {
       code,
       maxUses: args.maxUses,
@@ -85,7 +78,7 @@ export const generate = mutation({
       createdAt: new Date().toISOString(),
       label: args.label,
     });
-    
+
     return { code, expiresAt, maxUses: args.maxUses };
   },
 });
@@ -94,21 +87,33 @@ export const generate = mutation({
 export const list = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.email !== "joaudran@gmail.com") return [];
+    if (!identity || identity.email !== ADMIN_EMAIL) return [];
     return await ctx.db.query("accessCodes").take(100);
   },
 });
 
-// ─── Submit an access request ───
+// ─── Submit an access request (open to anonymous visitors) ───
 export const requestAccess = mutation({
   args: {
     email: v.string(),
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw userError("Adresse email invalide.", "INVALID_EMAIL");
+    }
+    // Anyone can call this: one request per address is kept, repeats are
+    // dropped, and the free text is capped, so it cannot be used to flood the table.
+    const existing = await ctx.db
+      .query("accessRequests")
+      .filter((q) => q.eq(q.field("email"), email))
+      .first();
+    if (existing) return { success: true };
+
     await ctx.db.insert("accessRequests", {
-      email: args.email,
-      message: args.message,
+      email,
+      message: args.message?.trim().slice(0, 500),
       createdAt: new Date().toISOString(),
     });
     return { success: true };
@@ -119,7 +124,7 @@ export const requestAccess = mutation({
 export const listRequests = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity || identity.email !== "joaudran@gmail.com") return [];
+    if (!identity || identity.email !== ADMIN_EMAIL) return [];
     return await ctx.db.query("accessRequests").order("desc").take(100);
   },
 });

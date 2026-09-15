@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import {existsSync} from 'fs';
 import {defineConfig, loadEnv, type Plugin} from 'vite';
 
 /**
@@ -18,8 +19,13 @@ function apiDevServer(): Plugin {
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/')) return next();
-        const route = req.url.split('?')[0].replace(/\/$/, '');
+        // Only /api/<name> backed by an existing api/<name>.ts. The raw path used
+        // to go straight into ssrLoadModule: /api/../<anything> loaded any module
+        // of the project on a server listening on 0.0.0.0, and a route with no
+        // file answered 500 instead of falling through.
+        const name = req.url?.split('?')[0].match(/^\/api\/([a-z0-9-]+)\/?$/)?.[1];
+        if (!name || !existsSync(path.resolve(__dirname, 'api', `${name}.ts`))) return next();
+        const route = `/api/${name}`;
 
         try {
           const mod = await server.ssrLoadModule(`.${route}.ts`);

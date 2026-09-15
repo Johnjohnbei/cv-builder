@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { notAuthorized, unauthenticated } from "./_shared/errors";
 
 export const list = query({
   args: {},
@@ -27,11 +28,11 @@ export const save = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    if (!identity) throw unauthenticated();
 
     if (args.cvId) {
       const cv = await ctx.db.get(args.cvId);
-      if (!cv || cv.userId !== identity.subject) throw new Error("Not authorized");
+      if (!cv || cv.userId !== identity.subject) throw notAuthorized();
     }
 
     // Upsert by (user, CV, offer): re-saving the letter for the same offer
@@ -67,12 +68,10 @@ export const remove = mutation({
   args: { id: v.id("coverLetters") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    if (!identity) throw unauthenticated();
 
     const letter = await ctx.db.get(args.id);
-    if (!letter || letter.userId !== identity.subject) {
-      throw new Error("Not authorized");
-    }
+    if (!letter || letter.userId !== identity.subject) throw notAuthorized();
     await ctx.db.delete(args.id);
   },
 });

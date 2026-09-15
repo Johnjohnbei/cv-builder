@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, Plus, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
-import { getUserErrorMessage } from '../shared/lib/convexError';
+import { getErrorCode, getUserErrorMessage } from '../shared/lib/convexError';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useAction, useConvex } from "convex/react";
@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
-  const { accessCode, saveCode, getCode } = useAccessCode();
+  const { accessCode, saveCode, getCode, clearCode } = useAccessCode();
   const [accessEmail, setAccessEmail] = useState('');
   const [showAccessCodePrompt, setShowAccessCodePrompt] = useState(false);
   const [codeInput, setCodeInput] = useState('');
@@ -71,11 +71,14 @@ export default function DashboardPage() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const convex = useConvex();
 
+  /**
+   * Run an AI action once the visitor may use it: a signed-in account always
+   * may, a guest needs an access code, asked for here. Same rule as the server
+   * (convex/_ai/auth.ts). Only the PDF import used to go through this gate: the
+   * URL import, the offer PDF and the optimization sent an empty code and failed.
+   */
   const requireAccessCode = (action: () => void) => {
-    // Admin bypasses access code
-    if (isAdmin) { action(); return; }
-    const code = getCode();
-    if (code) {
+    if (user || getCode()) {
       action();
     } else {
       setPendingAction(() => action);
@@ -117,9 +120,15 @@ export default function DashboardPage() {
     try {
       await requestAccessMutation({ email: accessEmail, message: 'Demande depuis Calibre' });
       setRequestSent(true);
-    } catch {
-      setAccessError("Erreur lors de l'envoi. Réessayez.");
+    } catch (error) {
+      setAccessError(getUserErrorMessage(error, "Erreur lors de l'envoi. Réessayez."));
     }
+  };
+
+  /** Show an AI failure. A code the server refused is forgotten, so the next action asks for a new one. */
+  const reportAIError = (error: unknown, fallback: string) => {
+    if (getErrorCode(error)?.startsWith('ACCESS_CODE')) clearCode();
+    setNotification({ message: getUserErrorMessage(error, fallback), type: 'error' });
   };
 
   const convexUser = useQuery(api.users.getMe, user ? undefined : "skip");
@@ -206,10 +215,11 @@ export default function DashboardPage() {
         }
       } catch (error: any) {
         console.error('Extraction error:', error);
-        const msg = error?.message === 'PDF_NO_TEXT'
-          ? 'Ce PDF semble être une image scannée. Veuillez utiliser un PDF généré depuis Word, Google Docs ou LinkedIn.'
-          : getUserErrorMessage(error, 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.');
-        setNotification({ message: msg, type: 'error' });
+        if (error?.message === 'PDF_NO_TEXT') {
+          setNotification({ message: 'Ce PDF semble être une image scannée. Veuillez utiliser un PDF généré depuis Word, Google Docs ou LinkedIn.', type: 'error' });
+        } else {
+          reportAIError(error, 'Erreur lors de l\'extraction du PDF. Assurez-vous que le fichier est lisible.');
+        }
       } finally {
         setIsUploading(false);
       }
@@ -223,24 +233,27 @@ export default function DashboardPage() {
     maxFiles: 1
   });
 
-  const onJobDrop = useCallback(async (acceptedFiles: File[]) => {
-    setIsExtractingJob(true);
+  const onJobDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    try {
-      const [{ extractTextFromPDF }] = await loadPdfTools();
-      const pdfText = await extractTextFromPDF(file);
-      const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: getCode() });
-      setJobDescription(text);
-    } catch (error: any) {
-      console.error('Job extraction error:', error);
-      const msg = error?.message === 'PDF_NO_TEXT'
-        ? 'Ce PDF semble être une image scannée. Veuillez copier-coller le texte manuellement.'
-        : getUserErrorMessage(error, 'Erreur lors de l\'extraction de la fiche de poste.');
-      setNotification({ message: msg, type: 'error' });
-    } finally {
-      setIsExtractingJob(false);
-    }
-  }, []);
+    requireAccessCode(async () => {
+      setIsExtractingJob(true);
+      try {
+        const [{ extractTextFromPDF }] = await loadPdfTools();
+        const pdfText = await extractTextFromPDF(file);
+        const text = await extractJobDescriptionFromPDF({ pdfText, accessCode: getCode() });
+        setJobDescription(text);
+      } catch (error: any) {
+        console.error('Job extraction error:', error);
+        if (error?.message === 'PDF_NO_TEXT') {
+          setNotification({ message: 'Ce PDF semble être une image scannée. Veuillez copier-coller le texte manuellement.', type: 'error' });
+        } else {
+          reportAIError(error, 'Erreur lors de l\'extraction de la fiche de poste.');
+        }
+      } finally {
+        setIsExtractingJob(false);
+      }
+    });
+  }, [user, accessCode]);
 
   const { getRootProps: getJobRootProps, getInputProps: getJobInputProps, isDragActive: isJobDragActive } = useDropzone({ 
     onDrop: onJobDrop,
@@ -248,28 +261,37 @@ export default function DashboardPage() {
     maxFiles: 1
   });
 
-  const handleUrlCrawl = async () => {
-    if (!jobUrl) return;
+  const crawlJobUrl = async () => {
     setIsCrawling(true);
     try {
       const text = await extractJobDescriptionFromURL({ url: jobUrl, accessCode: getCode() });
       if (!text || text.length < 50) {
-        setNotification({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Notez que les sites comme LinkedIn bloquent souvent l'accès direct. Veuillez copier-coller le texte de l'offre manuellement dans la zone 'Option C'.", type: 'error' });
+        setNotification({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Les sites comme LinkedIn bloquent souvent l'accès direct : copiez-collez plutôt le texte de l'offre dans la zone prévue.", type: 'error' });
       } else {
         setJobDescription(text);
       }
     } catch (error) {
       console.error('Crawl error:', error);
-      setNotification({ message: getUserErrorMessage(error, 'Erreur lors de la récupération de l\'offre via URL. Les sites protégés (comme LinkedIn) peuvent bloquer cette fonctionnalité.'), type: 'error' });
+      reportAIError(error, 'Erreur lors de la récupération de l\'offre via URL. Les sites protégés (comme LinkedIn) peuvent bloquer cette fonctionnalité.');
     } finally {
       setIsCrawling(false);
     }
   };
 
-  const handleOptimize = async () => {
+  const handleUrlCrawl = () => {
+    if (!jobUrl) return;
+    requireAccessCode(() => { void crawlJobUrl(); });
+  };
+
+  const handleOptimize = () => {
+    if (!baseCV || !jobDescription) return;
+    requireAccessCode(() => { void optimizeForOffer(); });
+  };
+
+  const optimizeForOffer = async () => {
     if (!baseCV || !jobDescription) return;
     setIsGenerating(true);
-    
+
     try {
       // A CV proposed for an offer comes with the portfolio version that offer calls for
       const optimizedData = withSuggestedPortfolio(
@@ -292,7 +314,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Optimization error:', error);
-      setNotification({ message: getUserErrorMessage(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.'), type: 'error' });
+      reportAIError(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.');
     } finally {
       setIsGenerating(false);
     }
@@ -621,7 +643,7 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-gray-500 pt-1">
                       Votre CV sera adapté à l'offre pour passer les ATS, les logiciels qui trient les candidatures avant qu'un recruteur ne les lise.
                     </p>
-                    {!isAdmin && !accessCode && (
+                    {!user && !accessCode && (
                       <p className="text-[11px] text-gray-600">
                         Bêta privée : un code d'accès vous sera demandé pour les fonctions IA.
                       </p>

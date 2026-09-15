@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { notAuthorized, unauthenticated } from "./_shared/errors";
 
 export const listMyCVs = query({
   args: {},
@@ -32,9 +33,7 @@ export const createMyCV = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    if (!identity) throw unauthenticated();
     return await ctx.db.insert("cvs", {
       ...args,
       userId: identity.subject,
@@ -47,13 +46,9 @@ export const remove = mutation({
   args: { id: v.id("cvs") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    if (!identity) throw unauthenticated();
     const cv = await ctx.db.get(args.id);
-    if (!cv || cv.userId !== identity.subject) {
-      throw new Error("Not authorized to delete this CV");
-    }
+    if (!cv || cv.userId !== identity.subject) throw notAuthorized();
     await ctx.db.delete(args.id);
   },
 });

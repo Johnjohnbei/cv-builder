@@ -1,27 +1,28 @@
 # Calibre — CV Builder avec IA
 
-Application web de création et d'optimisation de CV, propulsée par l'IA (Gemini / Claude).
+Application web de création et d'optimisation de CV, propulsée par l'IA (Claude).
 
 ## 🚀 Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS v4
 - **Backend** : Convex (serverless, temps réel)
 - **Auth** : Clerk (Google OAuth + mode invité)
-- **IA** : Google Gemini 2.5 Flash (primary, gratuit) / Anthropic Claude (fallback fiable) — bascule immédiate au moindre 429/503
+- **IA** : Anthropic Claude, unique fournisseur (claude-sonnet-4-5, claude-haiku-4-5 pour les appels rapides)
 - **PDF parsing** : pdfjs-dist (client-side, zero API)
-- **PDF export** : Natif navigateur (window.print)
+- **PDF export** : fonction serverless Puppeteer (`api/generate-pdf.ts`), impression navigateur en secours
 - **Deploy** : Vercel + Convex Cloud
 
 ## ✨ Fonctionnalités
 
 ### Éditeur de CV
-- 6 templates professionnels (Classic, Modern, Minimal, Creative, Elegant, Sidebar)
+- 4 templates professionnels (Classic, Modern, Minimal, Elegant)
 - Blocs modulables : chaque expérience a un mode (masqué/compact/normal/étendu)
-- Auto-fit intelligent : ajuste automatiquement les blocs pour tenir sur 1-4 pages
+- Tri automatique : fait tenir le CV dans le nombre de pages visé (1 à 3)
 - Scoring de pertinence par rapport à une offre d'emploi
 - Dates automatiquement raccourcies (Septembre → Sept.)
 - KPI chiffrés en mode étendu
-- Réordonnement par glisser-déplacer
+- Réordonnement des expériences
+- Lien portfolio adapté à l'offre (variantes dans `VITE_PORTFOLIO_VARIANTS`)
 
 ### Import & IA
 - **Import LinkedIn PDF** : parsing déterministe instantané (<100ms, 0 appel API)
@@ -36,14 +37,13 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Gemin
 - Lettre de motivation générée par IA
 
 ### Export
-- Export PDF via impression navigateur (rendu CSS fidèle)
-- Support 1 à 4 pages A4
-- Page breaks automatiques (évite de couper les blocs)
+- Export PDF (Puppeteer) et Word (.docx), même contenu et mêmes sections visibles
+- Pages A4 pré-paginées : aucun bloc coupé en bas de page
 
 ### Administration
-- Système de codes d'accès avec expiration
+- Fonctions IA réservées aux comptes connectés, ou aux invités munis d'un code d'accès
+- Codes d'accès avec expiration et nombre d'utilisations, vérifiés côté serveur
 - Panneau admin pour générer des codes et voir les demandes
-- Protection des appels API
 
 ## 🏗️ Architecture
 
@@ -55,19 +55,19 @@ src/
   features/editor/
     lib/                    ← Logique pure (pas de React)
       displayModes.ts         Modes d'affichage, bullets, skills
-      scoring.ts              Pertinence, dates, proficiency
-      autoFit.ts              Boucle de condensation
-      pdfExport.ts            Export PDF natif
+      scoring.ts              Pertinence, score ATS
+      fitToPages.ts           Tri automatique sur N pages
+      pagination/             Construction des blocs et répartition sur les pages
+      pdfExport.ts            Export PDF (endpoint serverless, impression en secours)
     templates/              ← Composants de rendu
-      shared.tsx              Helpers partagés
-      CVRenderer.tsx          Routeur de templates
-      TemplateA-F.tsx         6 templates individuels
+      shared.tsx              Helpers partagés (contact, formation…)
+      blockRenderers/         Rendu par bloc des 4 templates (A, B, C, E)
   pages/
     EditorPage.tsx          ← Orchestration UI
     DashboardPage.tsx       ← Import, optimisation, admin
   shared/types/             ← Types TypeScript
 convex/
-  ai.ts                   ← Fonctions IA (Gemini / Claude)
+  ai.ts                   ← Fonctions IA (Claude)
   accessCodes.ts          ← Gestion des codes d'accès
   schema.ts               ← Schéma de la base de données
 ```
@@ -122,8 +122,7 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 
 **Convex (via dashboard)** :
 ```
-GEMINI_API_KEY=...          # Primary AI provider (gratuit, instable)
-ANTHROPIC_API_KEY=...       # Fallback AI provider (fiable)
+ANTHROPIC_API_KEY=...       # Unique fournisseur IA
 CLERK_JWT_ISSUER_DOMAIN=...
 ```
 

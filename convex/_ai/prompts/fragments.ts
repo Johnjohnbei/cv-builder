@@ -39,7 +39,7 @@ EXEMPLES DE BONS KPI :
 - "Stack Notion / Figma / GTM déployée" (scope technique pour une mission courte)`;
 
 // English twin of KPI_RULES_FR. The few-shot examples MUST be in English —
-// a French example set is the main reason Gemini bleeds French into an
+// a French example set is the main reason a model bleeds French into an
 // English CV (it copies the sample phrasing). Keep both lists in sync.
 export const KPI_RULES_EN = `═══ "kpi" FIELD — MANDATORY ON EVERY EXPERIENCE ═══
 

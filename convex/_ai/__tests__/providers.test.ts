@@ -46,8 +46,6 @@ describe("getProviders() — env-var → provider list mapping", () => {
     expect(providers[0].defaultModel).toBe("claude-sonnet-4-5");
     expect(providers[0].fastModel).toBe("claude-haiku-4-5-20251001");
     expect(providers[0].apiKey).toBe("sk-ant-test-key");
-    // baseURL kept for withRetry log symmetry (SDK ignores it)
-    expect(providers[0].baseURL).toContain("anthropic.com");
   });
 
   // Removed 2026-08-16: its free daily quota ran out after a few dozen calls,
@@ -84,7 +82,6 @@ describe("getProviders() — env-var → provider list mapping", () => {
 
 describe("getModel()", () => {
   const provider: AIProvider = {
-    baseURL: "https://api.anthropic.com",
     apiKey: "test",
     defaultModel: "claude-sonnet-4-5",
     fastModel: "claude-haiku-4-5-20251001",

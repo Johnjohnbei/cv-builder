@@ -12,3 +12,10 @@ export function getUserErrorMessage(e: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/** The stable `code` a backend ConvexError carries (e.g. "ACCESS_CODE_INVALID"), if any. */
+export function getErrorCode(e: unknown): string | undefined {
+  if (!(e instanceof ConvexError)) return undefined;
+  const code = (e.data as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' ? code : undefined;
+}

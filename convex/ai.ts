@@ -1,16 +1,16 @@
 "use node";
 
 import { action } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { chatJSONSchema, chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
+import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildAdaptPrompt } from "./_ai/prompts/adapt";
 import {
   buildBulletSuggestionsPrompt,
   buildBulletRewritePrompt,
 } from "./_ai/prompts/rewrite";
-import { buildATSAnalysisPrompt } from "./_ai/prompts/analysis";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
@@ -25,7 +25,6 @@ import { buildKeywordDistributionPrompt } from "./_ai/prompts/distribute";
 import {
   BulletSuggestionsSchema,
   BulletRewriteSchema,
-  ATSAnalysisSchema,
   CoverLetterSchema,
   CompanyMetaSchema,
   ExperienceEnrichmentSchema,
@@ -33,6 +32,59 @@ import {
   KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
+
+// ─── Fetching a job offer URL ───────────────────────────────────────
+// The server fetches what the user pastes, so the URL is untrusted input.
+
+// Literal loopback, private, link-local (cloud metadata) and unique-local
+// hosts. ponytail: literal addresses and local names only; a public DNS name
+// resolving to a private IP is not caught (no DNS resolution before fetch).
+const PRIVATE_HOST =
+  /^(localhost|.*\.localhost|.*\.local|.*\.internal|0\.0\.0\.0|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[::1?\]$|\[::ffff:|\[f[cd][0-9a-f]{2}:|\[fe80:)/i;
+
+/** The URL as a public http(s) address, or null. */
+function toPublicHttpUrl(raw: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.username || url.password) return null;
+  return PRIVATE_HOST.test(url.hostname) ? null : url;
+}
+
+/**
+ * Page body of a public URL, redirects followed by hand so every hop is
+ * checked: a public page redirecting to an internal address would otherwise be
+ * followed blindly. A non-2xx answer yields "" — a 404 or a login wall used to
+ * be passed to the model as if it were the offer.
+ */
+async function fetchPublicPage(start: URL): Promise<string> {
+  let url = start;
+  for (let hop = 0; hop < 4; hop++) {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+    });
+    const location = response.headers.get("location");
+    if (response.status >= 300 && response.status < 400 && location) {
+      const next = toPublicHttpUrl(new URL(location, url).toString());
+      if (!next) return "";
+      url = next;
+      continue;
+    }
+    return response.ok ? await response.text() : "";
+  }
+  return "";
+}
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -79,24 +131,11 @@ export const tailorCV = action({
       ...normalized,
       ...(design && { design }),
       detectedLanguage: effectiveLanguage,
-      ...(languageOverride && { languageOverride }),
+      // An override older than the offer must follow the language actually
+      // written: the client reads languageOverride first, so returning the
+      // stale one left an English UI (dates, titles) on a French CV.
+      ...(languageOverride && { languageOverride: effectiveLanguage }),
     };
-  },
-});
-
-export const getATSAnalysis = action({
-  args: {
-    cvData: v.any(),
-    jobDescription: v.string(),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildATSAnalysisPrompt({
-      cvData: args.cvData,
-      jobDescription: args.jobDescription,
-    });
-    return await chatJSONSchema(prompt, ATSAnalysisSchema, "fast");
   },
 });
 
@@ -106,6 +145,11 @@ export const extractJobDescriptionFromURL = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Checked before the access code, so a malformed link does not use up a code
+    const target = toPublicHttpUrl(args.url);
+    if (!target) {
+      throw userError("Lien invalide : collez l'adresse http(s) publique de l'offre.", "URL_INVALID");
+    }
     await verifyAccessCode(ctx, args.accessCode);
 
     // Step 1: Try Jina Reader first — renders JS (handles SPAs like WTTJ, LinkedIn),
@@ -114,7 +158,7 @@ export const extractJobDescriptionFromURL = action({
     // IPs) and can hang — hard timeout, then fall through to direct fetch.
     let pageText = "";
     try {
-      const jinaResponse = await fetch(`https://r.jina.ai/${args.url}`, {
+      const jinaResponse = await fetch(`https://r.jina.ai/${target.toString()}`, {
         headers: {
           Accept: "text/plain",
           "X-Return-Format": "text",
@@ -133,17 +177,10 @@ export const extractJobDescriptionFromURL = action({
     // Step 2: Fallback to direct fetch if Jina failed (faster, works for simple static sites)
     if (!pageText || pageText.length < 100) {
       try {
-        const response = await fetch(args.url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            Accept: "text/html,application/xhtml+xml",
-            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-          },
-          signal: AbortSignal.timeout(15_000),
-        });
-        const html = await response.text();
+        const html = await fetchPublicPage(target);
 
+        // Entities are decoded after the tags are gone, &amp; last so "&amp;lt;"
+        // stays the text "&lt;", and whitespace is collapsed after decoding.
         pageText = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -151,11 +188,11 @@ export const extractJobDescriptionFromURL = action({
           .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
           .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
           .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
           .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
           .replace(/&lt;/g, "<")
           .replace(/&gt;/g, ">")
+          .replace(/&amp;/g, "&")
+          .replace(/\s+/g, " ")
           .trim()
           .substring(0, 15000);
       } catch (e) {
@@ -164,14 +201,13 @@ export const extractJobDescriptionFromURL = action({
     }
 
     if (!pageText || pageText.length < 50) {
-      throw new ConvexError({
-        userMessage:
-          "Impossible d'extraire le contenu de cette URL. Essayez de copier-coller le texte de l'offre manuellement.",
-        code: "URL_EXTRACT_FAILED",
-      });
+      throw userError(
+        "Impossible d'extraire le contenu de cette URL. Essayez de copier-coller le texte de l'offre manuellement.",
+        "URL_EXTRACT_FAILED",
+      );
     }
 
-    const prompt = buildJobDescriptionFromURLPrompt({ url: args.url, pageText });
+    const prompt = buildJobDescriptionFromURLPrompt({ url: target.toString(), pageText });
     return await chatText(prompt);
   },
 });
@@ -228,7 +264,8 @@ export const optimizeCVForPage = action({
       ...normalized,
       ...(design && { design }),
       detectedLanguage: effectiveLanguage,
-      ...(languageOverride && { languageOverride }),
+      // Same as tailorCV: never hand back an override the content no longer matches
+      ...(languageOverride && { languageOverride: effectiveLanguage }),
     };
   },
 });

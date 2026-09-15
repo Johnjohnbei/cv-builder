@@ -55,25 +55,48 @@ export function extractCVText(cvData: CVData): string {
   return parts.join(' ');
 }
 
+// Tie-breakers for texts with no stop word at all, such as an offer written as
+// a list ("Requirements: Figma, design systems, 5+ years"): section words of a
+// job offer that exist in one language only. Such offers used to be detected
+// as French, and the CV and the letter were written in the wrong language.
+const EN_OFFER_WORDS = new Set([
+  'requirements', 'responsibilities', 'qualifications', 'skills', 'years', 'experience',
+  'knowledge', 'ability', 'benefits', 'salary', 'remote', 'hybrid', 'degree', 'strong',
+  'required', 'preferred', 'working', 'hiring', 'job', 'role',
+]);
+const FR_OFFER_WORDS = new Set([
+  'expérience', 'compétences', 'profil', 'missions', 'poste', 'années', 'ans', 'équipe',
+  'maîtrise', 'connaissance', 'diplôme', 'rémunération', 'télétravail', 'avantages',
+  'recherchons', 'rejoindre', 'souhaité', 'requis',
+]);
+
+function countTokens(tokens: string[], frWords: Set<string>, enWords: Set<string>): { fr: number; en: number } {
+  let fr = 0;
+  let en = 0;
+  for (const token of tokens) {
+    if (token.length < 2) continue;
+    if (frWords.has(token)) fr++;
+    else if (enWords.has(token)) en++;
+  }
+  return { fr, en };
+}
+
 /**
  * Detects the language of an arbitrary text by counting FR vs EN stop words.
- * Majority wins; ties, short text (< 20 chars), and texts without any stop
- * word fall back to 'fr' (product default). Technical EN jargon inside French
- * prose does not flip the result: jargon words are not stop words.
+ * Majority wins. On a tie (typically no stop word at all), job-offer section
+ * words decide. Short text (< 20 chars) and texts still undecided fall back to
+ * 'fr' (product default). Technical EN jargon inside French prose does not
+ * flip the result: jargon words are neither stop words nor section words.
  */
 export function detectTextLanguage(text: string): SupportedLanguage {
   if (text.length < MIN_TEXT_LENGTH) {
     return 'fr';
   }
   const tokens = text.toLowerCase().match(/\p{L}+/gu) ?? [];
-  let fr = 0;
-  let en = 0;
-  for (const token of tokens) {
-    if (token.length < 2) continue;
-    if (FR_STOP_WORDS.has(token)) fr++;
-    else if (EN_STOP_WORDS.has(token)) en++;
-  }
-  return en > fr ? 'en' : 'fr';
+  const stop = countTokens(tokens, FR_STOP_WORDS, EN_STOP_WORDS);
+  if (stop.en !== stop.fr) return stop.en > stop.fr ? 'en' : 'fr';
+  const offer = countTokens(tokens, FR_OFFER_WORDS, EN_OFFER_WORDS);
+  return offer.en > offer.fr ? 'en' : 'fr';
 }
 
 /**
