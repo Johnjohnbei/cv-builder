@@ -3,7 +3,7 @@
 
 **Calibre — CV Builder avec IA**
 
-Application web de création et d'optimisation de CV propulsée par l'IA (Claude, unique provider depuis le 2026-08-16). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 6 templates professionnels, et de l'optimiser pour des offres d'emploi spécifiques. Le projet entre dans une phase de conformité ATS complète pour maximiser les chances des candidats face aux systèmes de tri automatisés.
+Application web de création et d'optimisation de CV propulsée par l'IA (Claude, unique provider depuis le 2026-08-16). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 2 templates une colonne (C Minimal, E Elegant), et de l'adapter à une offre d'emploi. Le score ATS mesure la part des exigences de l'offre que le CV écrit, et l'adaptation n'écrit que ce que le CV source prouve (refonte ATS du 2026-09-15, décision Atelier `2026-09-15-un-score-ats-qui-ne-note-que-ce-que-le-cv-prouve`).
 
 **Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels — un CV non lu par un ATS est un CV perdu.
 
@@ -14,7 +14,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
 - **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
-- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), partagée avec le prompt IA `optimizeCVForPage`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu
+- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), transmise à `tailorCV`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu
 - **Portfolio**: `PersonalInfo.portfolio_url` / `portfolio_label` / `portfolio_anon_url` sont génériques et open source. La sélection de version selon l'offre vient de `VITE_PORTFOLIO_VARIANTS` (JSON d'env, absent du dépôt) : sans la variable, aucune UI n'apparaît
 <!-- GSD:project-end -->
 
@@ -78,10 +78,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - PascalCase for React components: `Button.tsx`, `ErrorBoundary.tsx`, `EditorPage.tsx`
 - camelCase for utility/hook files: `useAutoZoom.ts`, `useAccessCode.ts`, `linkedinParser.ts`
 - index.ts for barrel exports: `src/shared/ui/index.ts`, `src/shared/hooks/index.ts`, `src/shared/types/index.ts`
-- camelCase for all function/hook definitions: `useAutoZoom()`, `condenseOneStep()`, `formatDateShort()`, `extractKeywords()`
+- camelCase for all function/hook definitions: `useAutoZoom()`, `condenseOneStep()`, `formatDateShort()`, `computeATSReport()`
 - Function names are descriptive and indicate purpose: `getVisibleBullets()`, `shouldShowKPI()`, `isHidden()`, `condenseOneStep()`
-- camelCase for all variables and constants: `zoom`, `cvData`, `designSettings`, `jobKeywords`, `expandedSection`
-- UPPERCASE for constant values that are truly immutable: `CV_WIDTH_PX`, `PADDING`, `STORAGE_KEY`, `TEMPLATE_NAMES`
+- camelCase for all variables and constants: `zoom`, `cvData`, `designSettings`, `requirements`, `expandedSection`
+- UPPERCASE for constant values that are truly immutable: `CV_WIDTH_PX`, `PADDING`, `STORAGE_KEY`, `TEMPLATES`
 - Ref variables suffixed with `.current`: `cvRef`, `previewContainerRef`, `dataLoaded`, `hasAutoAssigned`
 - PascalCase for all type/interface names: `CVData`, `DesignSettings`, `Experience`, `PersonalInfo`, `ExperienceDisplayMode`
 - Discriminated union types using `type`: `type ExperienceDisplayMode = 'hidden' | 'compact' | 'normal' | 'extended'`
@@ -161,9 +161,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Intégration IA derrière une abstraction provider (`convex/_ai/providers.ts`) : un seul vendeur aujourd'hui, Claude
 - Accès aux actions IA : un compte connecté OU un code d'accès valide (`convex/_ai/auth.ts`), sans interrupteur d'environnement
 - Erreurs lisibles par l'utilisateur : toujours `userError()` (`convex/_shared/errors.ts`), jamais `new Error` (message masqué par Convex en production)
-- AI schemas in `convex/_ai/schemas.ts`: `KeywordAssignmentSchema` includes optional `target` (summary|experience|skills)
-- Keyword injection hierarchy in `convex/_ai/prompts/distribute.ts`: summary (top-5) → first bullet of role → skills section
-- E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel + edge cases), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio) — tous en mode guest
+- ATS : exigences d'offre (`JobRequirement`, extraites par `extractRequirements` dans `convex/_ai/tailor.ts`, citation vérifiée dans l'offre, cache client `jobRequirementsCache.ts` avec une seule analyse en cours par offre) ; score = `computeATSReport` (`src/features/editor/lib/keywordAnalysis.ts`), le même côté client et serveur ; pas de score sans exigences
+- Adaptation : `tailorCV` seule (`convex/_ai/tailor.ts`) : génération avec citations de preuve, garde vérité en code (`convex/_ai/truthGuard.ts`, nombres lus par `convex/_ai/numbers.ts`), mesure, au plus 2 réparations (`prompts/distribute.ts` = prompt de réparation) avant 240 s. Tout ce que le CV adapté écrit doit être prouvé par le CV source
+- Templates : registre unique `TEMPLATES` / `TemplateId` (`lib/pagination/templateLayouts.ts`) ; un design stocké avec un template retiré (A, B) ou `atsMode` est migré à la lecture (`migratedDesign`)
+- E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel + edge cases), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio), `e2e/dashboard.spec.ts` : tous en mode guest
 - `e2e/capture-pdf.spec.ts` n'est pas une régression : il écrit le PDF réellement produit sur disque pour inspection humaine, et ne tourne que si `CAPTURE_PDF=<chemin>` est défini
 - Display mode system for content optimization (experience and skills visibility control)
 - Anonymization toggle: client-side only, masks personal info at render time without touching Convex data (`src/shared/lib/anonymize.ts`)
@@ -175,7 +176,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Used by: React DOM via entry point `src/main.tsx`
 - Purpose: Fetch, cache, and mutate server state; sync client state with server
 - Location: `convex/` (backend), React components via hooks
-- Contains: Query resolvers (cvs.listMyCVs), mutations (cvs.createMyCV), actions (ai.optimizeCVForPage)
+- Contains: Query resolvers (cvs.listMyCVs), mutations (cvs.createMyCV), actions (ai.tailorCV)
 - Depends on: Clerk identity for auth, Convex database schema
 - Used by: All components via `useQuery()`, `useMutation()`, `useAction()` from convex/react
 - Purpose: Verify user identity and enforce access control
@@ -185,11 +186,11 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Used by: App.tsx routing, protected features
 - Purpose: Compute visibility/rendering of CV sections based on job match and page constraints
 - Location: `src/features/editor/lib/` (scoring.ts, displayModes.ts)
-- Contains: Relevance scoring, keyword extraction, fit-to-pages condensing, date formatting
+- Contains: Requirement coverage (ATS report), relevance ordering, fit-to-pages condensing, date formatting
 - Depends on: CV data types, job description
 - Used by: EditorPage, blockRenderers
 - Purpose: Render CV content in different visual layouts
-- Location: `src/features/editor/templates/blockRenderers/` (templateA/B/C/E), shared utilities in `src/features/editor/templates/shared.tsx`
+- Location: `src/features/editor/templates/blockRenderers/` (templateC/E, A and B removed 2026-09-15), shared utilities in `src/features/editor/templates/shared.tsx`
 - Contains: Per-block renderers per template, consumed by PaginatedCV (block-based pagination). Monolithic Template components and CVRenderer removed 2026-08-07 (commit 86d4cab)
 - Depends on: Design settings, display mode computations, CV data structure
 - Used by: EditorPage preview rendering, PDF export
