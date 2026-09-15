@@ -142,14 +142,14 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
     });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
-      void response.body?.cancel(); // an unread body holds the socket
+      response.body?.cancel().catch(() => {}); // an unread body holds the socket
       const next = parseHttpUrl(new URL(location, url).toString());
       if (!next || !(await isPublicUrl(next))) return "";
       url = next;
       continue;
     }
     if (!response.ok) {
-      void response.body?.cancel();
+      response.body?.cancel().catch(() => {});
       return "";
     }
     return await readTextUpTo(response, MAX_PAGE_BYTES);
@@ -165,111 +165,123 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
 export async function readTextUpTo(response: Response, maxBytes: number): Promise<string> {
   if (!response.body) return "";
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+  let decoder: TextDecoder | undefined;
   let text = "";
   let bytes = 0;
   while (bytes < maxBytes) {
     const { done, value } = await reader.read();
-    if (done) return text + decoder.decode();
+    if (done) return text + (decoder?.decode() ?? "");
+    decoder ??= decoderFor(response.headers.get("content-type"), value);
     const kept = value.subarray(0, maxBytes - bytes);
     bytes += kept.byteLength;
     text += decoder.decode(kept, { stream: true });
   }
-  await reader.cancel();
+  await reader.cancel().catch(() => {});
   return text;
+}
+
+/**
+ * Decoder for the charset the header declares, else a meta tag of the first
+ * chunk, else UTF-8: old job boards still serve Latin-1, whose accents decoded
+ * as UTF-8 became U+FFFD.
+ * ponytail: a meta tag past the first chunk is missed; read ahead if one shows up.
+ */
+function decoderFor(contentType: string | null, head: Uint8Array): TextDecoder {
+  const charset = /charset\s*=\s*["']?([\w:.-]+)/i;
+  const label = charset.exec(contentType ?? "")?.[1]
+    ?? charset.exec(new TextDecoder("latin1").decode(head.subarray(0, 2_048)))?.[1];
+  try {
+    return new TextDecoder(label ?? "utf-8");
+  } catch {
+    return new TextDecoder();
+  }
 }
 
 /** Page text handed to the model */
 const MAX_PAGE_TEXT_CHARS = 15_000;
 
-// Every scanner below is linear: a hostile page must not hold the action, and
-// no deadline stops CPU work. Lazy regexes such as <script>[\s\S]*?</script>
-// rescanned the rest of the page from every unclosed opening tag.
+/** Index of the ">" ending the tag whose name starts at `from`, or -1 when the page ends first */
+function tagEnd(html: string, from: number): number {
+  // Like a browser tokenizer, a quote opens a value only right after "=":
+  // an apostrophe in a name or an unquoted value (class=l'offre) is a letter
+  let state: "name" | "afterEquals" | "unquoted" | '"' | "'" = "name";
+  for (let i = from; i < html.length; i++) {
+    const ch = html[i];
+    const space = ch === " " || ch === "\n" || ch === "\t" || ch === "\r" || ch === "\f";
+    if (state === '"' || state === "'") {
+      if (ch === state) state = "name";
+    } else if (ch === ">") {
+      return i;
+    } else if (state === "afterEquals") {
+      if (!space) state = ch === '"' || ch === "'" ? ch : "unquoted";
+    } else if (space) {
+      state = "name";
+    } else if (state === "name" && ch === "=") {
+      state = "afterEquals";
+    }
+  }
+  return -1;
+}
+
+const RAW_TEXT_END: Record<string, RegExp> = { script: /<\/script(?=[\s/>])/gi, style: /<\/style(?=[\s/>])/gi };
+const PAGE_CHROME = new Set(["nav", "header", "footer"]);
 
 /**
- * Remove `names` blocks (the name must end the tag name, so <header-bar> is
- * kept). A browser closes a block on "</name" followed by a space, "/" or ">".
- * Unclosed: a script or style runs to the end of the page, like in a browser
- * (a byte limit can cut one); a nav or header keeps its text, and is not
- * searched for again.
+ * Text of the page without its markup, scripts, styles, comments and page
+ * chrome, read in one linear pass the way a browser tokenizes: a hostile page
+ * must not hold the action, and no deadline stops CPU work. Separate passes
+ * disagreed on what was markup ("<!--" inside an attribute, "<script>" inside
+ * a comment) and lost the rest of the page.
+ *
+ * A page cut by the byte limit ends like in a browser: an unclosed script or
+ * style, comment or tag runs to the end; an unclosed nav keeps its text.
  */
-function dropBlocks(html: string, names: string, unclosedRunsToEnd: boolean): string {
-  const open = new RegExp(`<(${names})(?=[\\s/>])`, "gi");
-  const unclosed = new Set<string>();
-  let text = "";
-  let kept = 0;
-  let match: RegExpExecArray | null;
-  while ((match = open.exec(html))) {
-    const tag = match[1].toLowerCase();
-    if (unclosed.has(tag)) continue;
-    const close = new RegExp(`</${tag}(?=[\\s/>])[^<>]*>`, "gi");
-    close.lastIndex = open.lastIndex;
-    const found = close.exec(html);
-    if (!found) {
-      if (unclosedRunsToEnd) return text + html.slice(kept, match.index);
-      unclosed.add(tag);
+function stripMarkup(html: string): string {
+  const parts: string[] = [];
+  let chromeDepth = 0;
+  let chromeStart = 0; // parts dropped when the outermost chrome closes
+  let i = 0; // start of the text not yet copied
+  for (let lt = html.indexOf("<"); lt !== -1; lt = html.indexOf("<", Math.max(i, lt + 1))) {
+    const next = html[lt + 1] ?? "";
+    const closing = next === "/";
+    const nameStart = closing ? lt + 2 : lt + 1;
+    const comment = html.startsWith("<!--", lt);
+    const tag = !comment && /[A-Za-z]/.test(html[nameStart] ?? "");
+    // "<!doctype", "<?xml", "</ x": bogus comments, up to the first ">"
+    const bogus = !comment && !tag && (next === "!" || next === "?" || (closing && nameStart < html.length));
+    if (!comment && !tag && !bogus) continue; // "a < b" in running text
+    parts.push(html.slice(i, lt));
+    const end = comment ? html.indexOf("-->", lt + 4) : tag ? tagEnd(html, nameStart) : html.indexOf(">", lt + 2);
+    if (end === -1) return parts.join("");
+    if (comment) {
+      i = end + 3;
       continue;
     }
-    text += html.slice(kept, match.index);
-    kept = open.lastIndex = found.index + found[0].length;
-  }
-  return text + html.slice(kept);
-}
-
-/** Remove HTML comments, a ">" inside them included; an unclosed comment runs to the end */
-function dropComments(html: string): string {
-  let text = "";
-  let kept = 0;
-  for (let start = html.indexOf("<!--"); start !== -1; start = html.indexOf("<!--", kept)) {
-    text += html.slice(kept, start);
-    const end = html.indexOf("-->", start + 4);
-    if (end === -1) return text;
-    kept = end + 3;
-  }
-  return text + html.slice(kept);
-}
-
-/** What can follow "<" in a tag: "a < b" in running text is not one */
-const TAG_START = /[A-Za-z/!?]/;
-
-/**
- * Replace each tag by a space, up to the ">" that ends it outside quotes, so a
- * "<" or a ">" inside an attribute value does not leak markup. A tag with no
- * closing ">" left stays text.
- */
-function dropTags(html: string): string {
-  let text = "";
-  let kept = 0;
-  for (let lt = html.indexOf("<"); lt !== -1; lt = html.indexOf("<", lt + 1)) {
-    if (lt < kept || !TAG_START.test(html[lt + 1] ?? "")) continue;
-    let end = lt + 1;
-    let quote = "";
-    for (; end < html.length; end++) {
-      const ch = html[end];
-      if (quote) {
-        if (ch === quote) quote = "";
-      } else if (ch === '"' || ch === "'") {
-        quote = ch;
-      } else if (ch === ">") {
-        break;
-      }
+    parts.push(" ");
+    i = end + 1;
+    if (bogus) continue;
+    const name = /^[^\s/>]*/.exec(html.slice(nameStart, Math.min(end, nameStart + 16)))![0].toLowerCase();
+    if (PAGE_CHROME.has(name)) {
+      if (!closing && chromeDepth++ === 0) chromeStart = parts.length;
+      else if (closing && chromeDepth > 0 && --chromeDepth === 0) parts.length = chromeStart;
+    } else if (!closing && RAW_TEXT_END[name]) {
+      const rawEnd = RAW_TEXT_END[name];
+      rawEnd.lastIndex = i;
+      const close = rawEnd.exec(html);
+      if (!close) return parts.join("");
+      i = close.index; // its end tag is read as a tag, so "</script\n<p>" ends at ">"
     }
-    if (end === html.length) break;
-    text += html.slice(kept, lt) + " ";
-    kept = end + 1;
   }
-  return text + html.slice(kept);
+  return parts.join("") + html.slice(i);
 }
 
 /**
  * Readable text of an HTML page. Entities are decoded after the tags are gone,
  * &amp; last so "&amp;lt;" stays the text "&lt;", and whitespace is collapsed
- * after decoding. Scripts and styles go first, so a string inside them that
- * looks like "</nav>" or "<!--" is never read as markup.
+ * after decoding.
  */
 export function htmlToText(html: string): string {
-  const withoutScripts = dropBlocks(html, "script|style", true);
-  return dropTags(dropBlocks(dropComments(withoutScripts), "nav|footer|header", false))
+  return stripMarkup(html)
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")

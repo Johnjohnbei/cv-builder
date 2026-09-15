@@ -86,14 +86,25 @@ describe("extractJobDescriptionFromURL: Jina first, then the page itself", () =>
 
   it("uses Jina's text when it answers, cut to 15 000 characters", async () => {
     const page = vi.fn();
-    stubFetch(async () => new Response(`Offre Product Designer ${"x".repeat(20_000)}`, { status: 200 }), page);
+    const head = "Offre Product Designer ";
+    stubFetch(async () => new Response(`${head}${"x".repeat(20_000)}`, { status: 200 }), page);
 
     await run("https://jobs.example/offre");
 
     const prompt = mocks.chatText.mock.calls[0][0] as string;
-    expect(prompt).toContain("Offre Product Designer");
-    expect(prompt).not.toContain("x".repeat(15_000));
+    expect(prompt).toContain(head + "x".repeat(15_000 - head.length));
+    expect(prompt).not.toContain("x".repeat(15_000 - head.length + 1));
     expect(page).not.toHaveBeenCalled();
+  });
+
+  it("cancels the body of a Jina refusal before falling back", async () => {
+    const cancel = vi.fn();
+    const refused = new Response(new ReadableStream<Uint8Array>({ pull() {}, cancel }), { status: 429 });
+    stubFetch(async () => refused, async () => new Response(OFFER_PAGE, { status: 200 }));
+
+    await run("https://jobs.example/offre");
+
+    expect(cancel).toHaveBeenCalled();
   });
 
   it("reports a page it could not read, instead of sending nothing to the model", async () => {

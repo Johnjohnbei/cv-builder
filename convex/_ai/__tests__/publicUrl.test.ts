@@ -128,6 +128,24 @@ describe("fetchPublicPage (one deadline for the whole page, redirects included)"
     expect(timeout).toHaveBeenCalledWith(10_000);
   });
 
+  /** A response whose body records being cancelled */
+  const withBody = (status: number, headers: Record<string, string> = {}) => {
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ pull() {}, cancel });
+    return { response: new Response(body, { status, headers }), cancel };
+  };
+
+  // An unread body holds the socket until it times out
+  it("cancels the body of a redirect and of an error it does not read", async () => {
+    const redirect = withBody(302, { location: "http://8.8.8.8/offre" });
+    const notFound = withBody(404);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(redirect.response).mockResolvedValueOnce(notFound.response));
+
+    expect(await fetchPublicPage(new URL("http://8.8.4.4/"), new AbortController().signal)).toBe("");
+    expect(redirect.cancel).toHaveBeenCalled();
+    expect(notFound.cancel).toHaveBeenCalled();
+  });
+
   it("stops following redirects once the deadline has passed", async () => {
     const controller = new AbortController();
     const fetch = vi.fn(async () => {
@@ -148,8 +166,8 @@ describe("htmlToText", () => {
     expect(htmlToText(html)).toBe("Offre : Designer &lt;senior&gt;");
   });
 
-  it("keeps at most 15 000 characters", () => {
-    expect(htmlToText(`<p>${"a ".repeat(20_000)}</p>`).length).toBe(15_000);
+  it("keeps the first 15 000 characters", () => {
+    expect(htmlToText(`<p>${"ab".repeat(10_000)}</p>`)).toBe("ab".repeat(7_500));
   });
 
   // Pages with a large inline script or data blob before the offer exist
@@ -197,6 +215,36 @@ describe("htmlToText", () => {
     expect(htmlToText('<div title="a>b">Texte</div>')).toBe("Texte");
   });
 
+  // Like a browser tokenizer: a quote only opens a value right after "="
+  it("reads an apostrophe in an unquoted value or a tag name as an ordinary character", () => {
+    expect(htmlToText("<p class=l'offre>Rejoignez l'équipe produit</p><p>Suite</p>")).toBe("Rejoignez l'équipe produit Suite");
+    expect(htmlToText("<img alt=L'équipe src=a.png><p>Offre</p><p>Suite</p>")).toBe("Offre Suite");
+    expect(htmlToText('<a"b>Offre</a"b><p>Suite</p>')).toBe("Offre Suite");
+  });
+
+  // One pass sees comments, attributes and script text the way a browser does
+  it("does not lose the page to markup hidden in a comment or an attribute", () => {
+    expect(htmlToText("<!-- <script> --><p>Offre</p><script>real()</script><p>Suite</p>")).toBe("Offre Suite");
+    expect(htmlToText('<div data-x="<!--">Offre</div><p>Suite</p><!-- vrai -->')).toBe("Offre Suite");
+    expect(htmlToText('<div data-tpl="<style>">Offre</div><p>Suite</p><script>a()</script><p>Fin</p>')).toBe("Offre Suite Fin");
+  });
+
+  it("ends a bogus comment at the first >, quotes or not", () => {
+    expect(htmlToText("<!x ' ><p>Offre</p><p>Suite l'x</p>")).toBe("Offre Suite l'x");
+  });
+
+  it("ends a closing script tag at its >, a < before it included", () => {
+    expect(htmlToText("<script>x()</script\n<p>Offre</p>")).toBe("Offre");
+  });
+
+  it("drops a tag cut by the end of the page, never the text before it", () => {
+    expect(htmlToText('<p>Offre</p><div class="x')).toBe("Offre");
+  });
+
+  it("drops nested page chrome", () => {
+    expect(htmlToText("<nav>A<nav>B</nav>C</nav><p>Offre</p>")).toBe("Offre");
+  });
+
   // A hostile page must not hold the action: these regexes used to go quadratic
   // on a few megabytes, past the Convex limit, where no deadline can stop CPU work.
   it.each([
@@ -206,6 +254,8 @@ describe("htmlToText", () => {
     ["an open script followed by unterminated closing tags", "<script>" + "</script ".repeat(250_000)],
     ["unclosed quotes inside tags", '<a "'.repeat(500_000)],
     ["unclosed comments", "<!--".repeat(500_000)],
+    ["page chrome after a long text", "a".repeat(1_000_000) + "<nav>x</nav>".repeat(300_000)],
+    ["bogus comments", "<!x>".repeat(500_000)],
   ])("stays fast on %s", (_name, html) => {
     const startedAt = performance.now();
     htmlToText(html);
@@ -226,6 +276,24 @@ describe("readTextUpTo", () => {
     });
     return { response: new Response(body), cancel };
   };
+
+  // Old job boards still serve Latin-1: decoded as UTF-8 their accents became U+FFFD
+  it("decodes the charset the response declares", async () => {
+    const latin1 = new Uint8Array([0x65, 0x78, 0x70, 0xe9, 0x72, 0x69, 0x65, 0x6e, 0x63, 0x65]);
+    const response = new Response(latin1, { headers: { "content-type": "text/html; charset=ISO-8859-1" } });
+    expect(await readTextUpTo(response, 1_000)).toBe(`exp${String.fromCodePoint(0xe9)}rience`);
+  });
+
+  it("reads the charset of a meta tag when the header names none", async () => {
+    const head = new TextEncoder().encode('<meta charset="windows-1252"><p>exp');
+    const response = new Response(new Uint8Array([...head, 0xe9, 0x72, 0x69, 0x65, 0x6e, 0x63, 0x65]));
+    expect(await readTextUpTo(response, 1_000)).toBe(`<meta charset="windows-1252"><p>exp${String.fromCodePoint(0xe9)}rience`);
+  });
+
+  it("falls back to UTF-8 on an unknown charset", async () => {
+    const response = new Response("Offre", { headers: { "content-type": "text/html; charset=klingon" } });
+    expect(await readTextUpTo(response, 1_000)).toBe("Offre");
+  });
 
   it("reads no body as empty text", async () => {
     expect(await readTextUpTo(new Response(null), 10)).toBe("");

@@ -143,7 +143,7 @@ export const extractJobDescriptionFromURL = action({
       if (jinaResponse.ok) {
         pageText = (await readTextUpTo(jinaResponse, JINA_MAX_BYTES)).substring(0, 15000);
       } else {
-        void jinaResponse.body?.cancel(); // an unread body holds the socket
+        jinaResponse.body?.cancel().catch(() => {}); // an unread body holds the socket
         console.warn(`[extractJobDescriptionFromURL] Jina returned ${jinaResponse.status}, falling back to direct fetch`);
       }
     } catch (e: any) {
