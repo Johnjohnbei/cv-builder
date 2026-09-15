@@ -49,6 +49,7 @@ import { detectCVLanguage } from '../lib/languageDetection';
 import { attachBilingualCache } from '../lib/bilingual';
 import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
 import { writeCachedRequirements } from '../features/editor/lib/jobRequirementsCache';
+import { templateName } from '../features/editor/lib/pagination/templateLayouts';
 
 
 
@@ -674,7 +675,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center text-[11px] text-gray-500 space-x-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span className="stitch-mono uppercase">Modèle : {cv.design?.template === 'TEMPLATE_C' ? 'Minimal' : 'Elegant'}</span>
+                          <span className="stitch-mono uppercase">Modèle : {templateName(cv.design?.template)}</span>
                         </div>
                         <Button
                           variant="secondary"

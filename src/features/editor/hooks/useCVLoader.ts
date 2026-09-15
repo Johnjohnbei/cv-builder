@@ -3,10 +3,7 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
 import { readStoredJSON, readStoredText } from '@/src/shared/lib/storage';
-import { knownTemplateId } from '../lib/pagination/templateLayouts';
-
-/** The design of a stored CV, a removed template (TEMPLATE_A, TEMPLATE_B) opened in the default one */
-const withKnownTemplate = (design: DesignSettings): DesignSettings => ({ ...design, template: knownTemplateId(design.template) });
+import { migratedDesign } from '../lib/pagination/templateLayouts';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -43,7 +40,7 @@ export function useCVLoader(
         const clean = stripPersistenceArtifacts(userData.lastGeneratedCV) as CVData;
         setCvData(clean);
         if (clean.design) {
-          const design = withKnownTemplate(clean.design);
+          const design = migratedDesign(clean.design);
           setDesignSettings(design);
           setSelectedTemplate(design.template);
         }
@@ -59,7 +56,7 @@ export function useCVLoader(
         const data = stripPersistenceArtifacts(stored);
         setCvData(data);
         if (data.design) {
-          const design = withKnownTemplate(data.design);
+          const design = migratedDesign(data.design);
           setDesignSettings(design);
           setSelectedTemplate(design.template);
         }

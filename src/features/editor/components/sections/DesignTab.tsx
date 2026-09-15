@@ -3,7 +3,7 @@ import { Download, Eye, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Button } from '../../../../shared/ui/Button';
-import { TemplateThumbnail } from '../TemplateThumbnail';
+import { TemplatePicker } from './TemplatePicker';
 import type { DesignSettings } from '../../../../shared/types';
 
 type FontFamily = DesignSettings['fontFamily'];
@@ -45,39 +45,11 @@ export const DesignTab = memo(function DesignTab({
 }: Props) {
   return (
     <div className="space-y-6">
-      <section className="stitch-panel">
-        <div className="stitch-panel-header">Templates</div>
-        <div className="p-4 grid grid-cols-2 gap-3">
-          {/* Both single column, both read in order by an ATS: the two-column
-              Classic and Modern were removed on 2026-09-15 */}
-          {[
-            { id: 'TEMPLATE_C', name: 'Minimal', desc: 'Sérieux & Professionnel' },
-            { id: 'TEMPLATE_E', name: 'Elegant', desc: 'Haut de gamme' }
-          ].map((tpl) => (
-            <div
-              key={tpl.id}
-              onClick={() => {
-                if (selectedTemplate !== tpl.id) {
-                  onRequestTemplateChange(tpl.id);
-                }
-              }}
-              className={cn(
-                "stitch-panel p-2 cursor-pointer transition-all flex flex-col gap-2",
-                selectedTemplate === tpl.id ? "border-blue-600 ring-1 ring-blue-600 bg-blue-50/30" : "opacity-60 hover:opacity-100 hover:bg-gray-50"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className={cn("text-[11px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
-                {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
-              </div>
-              <div className="h-16 bg-white border border-gray-100 rounded overflow-hidden">
-                <TemplateThumbnail templateId={tpl.id} primaryColor={designSettings.primaryColor} />
-              </div>
-              <span className="text-[11px] text-gray-500 uppercase leading-tight">{tpl.desc}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TemplatePicker
+        selectedTemplate={selectedTemplate}
+        primaryColor={designSettings.primaryColor}
+        onRequestTemplateChange={onRequestTemplateChange}
+      />
 
       <section className="stitch-panel">
         <div className="stitch-panel-header">Thèmes rapides</div>

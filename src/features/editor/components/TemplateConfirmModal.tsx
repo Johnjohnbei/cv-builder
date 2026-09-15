@@ -1,11 +1,8 @@
 import { Layout as LayoutIcon } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
 import { Dialog } from '@/src/shared/ui/Dialog';
+import { templateName } from '../lib/pagination/templateLayouts';
 
-const TEMPLATE_NAMES: Record<string, string> = {
-  TEMPLATE_C: 'Minimal',
-  TEMPLATE_E: 'Elegant',
-};
 
 interface Props {
   pendingTemplate: string | null;
@@ -24,7 +21,7 @@ export function TemplateConfirmModal({ pendingTemplate, onConfirm, onCancel }: P
       <p className="text-sm text-gray-600 mb-6 leading-relaxed">
         Vous êtes sur le point de passer au modèle{' '}
         <span className="font-bold text-gray-900">
-          {pendingTemplate ? TEMPLATE_NAMES[pendingTemplate] || pendingTemplate : ''}
+          {pendingTemplate ? templateName(pendingTemplate) : ''}
         </span>
         . Votre contenu sera conservé, mais la police sera ajustée au modèle.
       </p>

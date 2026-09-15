@@ -256,7 +256,7 @@ test.describe('Lien portfolio', () => {
         },
         design: {
           template: 'TEMPLATE_B', primaryColor: '#1A73E8', secondaryColor: '#5F6368',
-          fontFamily: 'sans', pageLimit: 2, showPhoto: true,
+          fontFamily: 'sans', pageLimit: 2, showPhoto: true, atsMode: true,
         },
       },
     });
@@ -268,6 +268,13 @@ test.describe('Lien portfolio', () => {
     // The selected template card (its name in blue), not the "Elegant" colour theme
     await expect(page.getByText('Elegant', { exact: true }).first()).toHaveClass(/text-blue-600/);
     await expect(page.getByText('Modern', { exact: true })).toHaveCount(0);
+    // The fit pass edits the CV: the auto-save writes the migrated design back
+    await expect.poll(
+      () => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized')!).design),
+      { timeout: 15_000 },
+    ).toMatchObject({ template: 'TEMPLATE_E', fontFamily: 'sans' });
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized')!).design);
+    expect(saved).not.toHaveProperty('atsMode');
   });
 
   test('un lien portfolio saisi à la main est rendu et cliquable', async ({ page }) => {
