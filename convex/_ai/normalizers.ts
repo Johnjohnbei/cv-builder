@@ -1,5 +1,6 @@
-import { CVDataSchema } from "./schemas";
+import { CVDataSchema, JobRequirementSchema } from "./schemas";
 import type {
+  JobRequirement,
   CVData,
   Experience,
   SkillCategory,
@@ -7,7 +8,49 @@ import type {
   ExperienceDisplayMode,
 } from "../../src/shared/types";
 import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
-import { stripAccents } from "../../src/shared/lib/text";
+import { normalizeForMatch, stripAccents } from "../../src/shared/lib/text";
+
+// ─── Job requirements ────────────────────────────────────────────
+const MAX_REQUIREMENTS = 25;
+
+/**
+ * The requirements the offer actually states, checked one by one. A malformed
+ * item is dropped, not the list. A requirement whose quote is not in the offer
+ * is dropped too: an offer pasted by the user can carry instructions, and the
+ * model can invent. The id is computed from the label, never taken from the
+ * model, so the same requirement keeps the same id.
+ */
+export function normalizeJobRequirements(items: unknown[], jobDescription: string): JobRequirement[] {
+  const offer = normalizeForMatch(jobDescription);
+  const ids = new Set<string>();
+  const requirements: JobRequirement[] = [];
+  for (const item of items) {
+    const parsed = JobRequirementSchema.safeParse(item);
+    if (!parsed.success) continue;
+    const { label, variants, kind, importance, quote, minYears } = parsed.data;
+    const key = normalizeForMatch(label);
+    const id = key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const quoted = normalizeForMatch(quote);
+    if (!id || ids.has(id) || !quoted || !offer.includes(quoted)) continue;
+    // Years are measured from the dates, which needs a number
+    if (kind === "experience_years" && !(typeof minYears === "number" && minYears > 0)) continue;
+    ids.add(id);
+
+    const seen = new Set([key]);
+    const cleanVariants = variants.map(v => v.trim()).filter(v => {
+      const k = normalizeForMatch(v);
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    requirements.push({
+      id, label: label.trim(), variants: cleanVariants, kind, importance, quote: quote.trim(),
+      ...(kind === "experience_years" && { minYears }),
+    });
+    if (requirements.length === MAX_REQUIREMENTS) break;
+  }
+  return requirements;
+}
 
 // ─── User-owned fields: kept away from the model ─────────────────
 /** The CV as the model should see it: no photo, no portfolio link. */

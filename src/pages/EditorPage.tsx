@@ -11,7 +11,7 @@ import { extractKeywords, scoreExperience } from '../features/editor/lib/scoring
 import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
-import { useJobKeywordsAI } from '../features/editor/hooks/useJobKeywordsAI';
+import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
@@ -59,8 +59,8 @@ export default function EditorPage() {
   );
 
   // Initialize jobDescription from loaded data (dashboard → editor flow)
-  // The offer the AI keywords describe: committed on load and when the offer
-  // field loses focus, not at every keystroke (see useJobKeywordsAI).
+  // The offer the AI requirements describe: committed on load and when the offer
+  // field loses focus, not at every keystroke (see useJobRequirements).
   // Each commit gets a new id, same text included: a failed extraction is
   // retried at the next commit, which an identical string alone never triggered.
   const [committed, setCommitted] = useState({ offer: '', id: 0 });
@@ -95,7 +95,13 @@ export default function EditorPage() {
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const aiKeywords = useJobKeywordsAI(analyzedOffer, jobDescription, getCode(), committed.id);
+  const requirements = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  // ponytail: bridge until the requirement score replaces keyword matching.
+  // Years of experience are measured from dates, never matched as text.
+  const aiKeywords = useMemo(
+    () => requirements.filter(r => r.kind !== 'experience_years').map(r => r.label),
+    [requirements],
+  );
   const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user

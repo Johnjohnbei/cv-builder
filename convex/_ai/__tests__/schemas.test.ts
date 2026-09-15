@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   CVDataSchema,
   ExperienceSchema,
-  KeywordListSchema,
+  JobRequirementSchema,
   BulletRewriteSchema,
   CoverLetterSchema,
   BulletSuggestionsSchema,
@@ -66,9 +66,14 @@ describe("ExperienceSchema", () => {
 });
 
 describe("Ancillary schemas", () => {
-  it("KeywordListSchema parses keywords array", () => {
-    const result = KeywordListSchema.parse({ keywords: ["a", "b"] });
-    expect(result.keywords).toEqual(["a", "b"]);
+  it("JobRequirementSchema parses a requirement, variants defaulting to none", () => {
+    const result = JobRequirementSchema.parse({ label: "Figma", kind: "tool", importance: "required", quote: "Figma" });
+    expect(result).toMatchObject({ label: "Figma", kind: "tool", importance: "required", quote: "Figma", variants: [] });
+  });
+
+  it("JobRequirementSchema rejects an unknown kind or importance", () => {
+    expect(JobRequirementSchema.safeParse({ label: "Figma", kind: "skill", importance: "required", quote: "Figma" }).success).toBe(false);
+    expect(JobRequirementSchema.safeParse({ label: "Figma", kind: "tool", importance: "must", quote: "Figma" }).success).toBe(false);
   });
 
   it("BulletRewriteSchema parses rewrites", () => {

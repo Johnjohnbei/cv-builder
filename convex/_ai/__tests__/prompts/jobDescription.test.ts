@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
-  buildJobKeywordsPrompt,
+  buildJobRequirementsPrompt,
 } from "../../prompts/jobDescription";
 
 describe("buildJobDescriptionFromURLPrompt", () => {
@@ -34,20 +34,36 @@ describe("buildJobDescriptionFromPDFPrompt", () => {
   });
 });
 
-describe("buildJobKeywordsPrompt", () => {
+describe("buildJobRequirementsPrompt", () => {
+  const prompt = buildJobRequirementsPrompt({ jobDescription: "Product Designer Senior, Figma requis" });
+
   it("embeds the job description", () => {
-    const prompt = buildJobKeywordsPrompt({ jobDescription: "Senior Designer role" });
-    expect(prompt).toContain("Senior Designer role");
+    expect(prompt).toContain("Product Designer Senior, Figma requis");
   });
 
-  it("asks for keywords JSON output", () => {
-    const prompt = buildJobKeywordsPrompt({ jobDescription: "x" });
-    expect(prompt).toContain("keywords");
+  // What recruiters filter on first was missing from the keyword list:
+  // job title, years of experience, degree, languages.
+  it("asks for every kind of requirement a recruiter filters on", () => {
+    for (const kind of ["title", "hard_skill", "tool", "method", "certification", "domain", "language", "education", "experience_years", "soft_skill"]) {
+      expect(prompt).toContain(kind);
+    }
+  });
+
+  it("asks for importance, variants and the exact quote of the offer", () => {
+    expect(prompt).toContain('"importance"');
+    expect(prompt).toContain('"variants"');
+    expect(prompt).toContain('"quote"');
+    expect(prompt).toContain('"minYears"');
+  });
+
+  it("excludes benefits, company presentation and hiring process", () => {
+    expect(prompt).toMatch(/avantages/i);
+    expect(prompt).toMatch(/présentation de l'entreprise/i);
+    expect(prompt).toMatch(/processus de recrutement/i);
+  });
+
+  it("asks for requirements JSON only", () => {
+    expect(prompt).toContain('"requirements"');
     expect(prompt).toContain("Retourne UNIQUEMENT le JSON");
-  });
-
-  it("excludes generic terms explicitly", () => {
-    const prompt = buildJobKeywordsPrompt({ jobDescription: "x" });
-    expect(prompt).toContain("N'extrais JAMAIS");
   });
 });

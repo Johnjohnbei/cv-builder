@@ -10,7 +10,7 @@ interface SubScoreResult {
 /**
  * Extract keywords from text via frequency analysis (unigrams + bigrams).
  * Same extractor for FR and EN: STOP_WORDS covers both languages, and the
- * AI extraction (extractJobKeywords) provides the high-quality keywords anyway.
+ * AI extraction (extractJobRequirements) provides the high-quality requirements anyway.
  * Memoizes the last (text, language) call: the JD rarely changes between
  * keystrokes in the CV, so per-keystroke re-parsing is skipped entirely.
  * Returns deduplicated array of lowercase keyword strings (>= 3 chars).

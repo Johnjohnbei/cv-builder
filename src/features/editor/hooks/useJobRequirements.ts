@@ -1,51 +1,51 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { JobRequirement } from '@/src/shared/types';
 import {
-  keywordsForOffer, readCachedKeywords, writeCachedKeywords, type AnalyzedOffer,
-} from '../lib/aiKeywordCache';
+  requirementsForOffer, readCachedRequirements, writeCachedRequirements, type AnalyzedOffer,
+} from '../lib/jobRequirementsCache';
 
 /**
- * LLM-extracted keywords of the committed offer, applied to the offer on screen.
+ * LLM-extracted requirements of the committed offer, applied to the offer on screen.
  *
  * `committedOffer` is the offer as last committed (on load, and when the offer
  * field loses focus), never the live text: each call is billed and uses up the
  * access code, and a pause while typing is not a finished offer. Firing on the
  * empty-to-filled transition only left an offer typed in the field without
- * keywords; firing at each 1.5 s pause billed every retouch and made the ATS
- * score jump while typing. The cache covers an offer that comes back.
+ * requirements; firing at each 1.5 s pause billed every retouch and made the
+ * ATS score jump while typing. The cache covers an offer that comes back.
  *
- * Keywords are stored with the offer they were extracted from and returned
+ * Requirements are stored with the offer they were extracted from and returned
  * only while `liveOffer` is that offer: edited or replaced text must never be
- * scored against another offer's keywords, not even for one render.
+ * scored against another offer's requirements, not even for one render.
  *
  * `commitId` changes at every commit, same text included, so a failed
  * extraction is retried at the next one.
  *
- * Failures are silent by design: the ATS panel falls back to the local NLP
- * extraction, which is worse but never blocks the user.
+ * Failures are silent here: the ATS panel shows what it can without them.
  */
-export function useJobKeywordsAI(
+export function useJobRequirements(
   committedOffer: string,
   liveOffer: string,
   accessCode: string | undefined,
   commitId: number,
-): string[] {
-  const extractKeywordsAction = useAction(api.ai.extractJobKeywords);
+): JobRequirement[] {
+  const extractAction = useAction(api.ai.extractJobRequirements);
   // Read through a ref so a new function identity never re-triggers a paid call
-  const actionRef = useRef(extractKeywordsAction);
-  actionRef.current = extractKeywordsAction;
+  const actionRef = useRef(extractAction);
+  actionRef.current = extractAction;
   // Requests in flight, one per offer and code, shared by every run of the
   // effect: the StrictMode remount sent a second call, and so did going back
   // to an offer whose answer had not arrived yet.
-  const inflight = useRef(new Map<string, ReturnType<typeof extractKeywordsAction>>());
-  const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', keywords: [] });
+  const inflight = useRef(new Map<string, ReturnType<typeof extractAction>>());
+  const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', requirements: [] });
 
   useEffect(() => {
     if (!committedOffer.trim()) return;
-    const cached = readCachedKeywords(committedOffer);
+    const cached = readCachedRequirements(committedOffer);
     if (cached) {
-      setAnalyzed({ offer: committedOffer, keywords: cached });
+      setAnalyzed({ offer: committedOffer, requirements: cached });
       return;
     }
     const key = JSON.stringify([committedOffer.trim(), accessCode ?? '']);
@@ -56,7 +56,7 @@ export function useJobKeywordsAI(
       request
         // Cached even when superseded or unmounted: the call is paid, and the
         // offer may come back (reload, return from the dashboard)
-        .then(data => { if (Array.isArray(data.keywords)) writeCachedKeywords(committedOffer, data.keywords); })
+        .then(data => writeCachedRequirements(committedOffer, data.requirements))
         .catch(() => {})
         // Settled: the cache answers from now on, and a failure is retried at the next commit
         .finally(() => inflight.current.delete(key));
@@ -65,14 +65,14 @@ export function useJobKeywordsAI(
     let cancelled = false;
     request
       .then(data => {
-        // A stale response must not overwrite the keywords of a newer offer
-        if (!cancelled && Array.isArray(data.keywords)) setAnalyzed({ offer: committedOffer, keywords: data.keywords });
+        // A stale response must not overwrite the requirements of a newer offer
+        if (!cancelled) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
       })
-      .catch(() => {}); // Falls back to NLP extraction silently
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [committedOffer, accessCode, commitId]);
 
-  return useMemo(() => keywordsForOffer(liveOffer, analyzed), [liveOffer, analyzed]);
+  return useMemo(() => requirementsForOffer(liveOffer, analyzed), [liveOffer, analyzed]);
 }

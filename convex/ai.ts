@@ -19,7 +19,7 @@ import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import {
   buildJobDescriptionFromURLPrompt,
   buildJobDescriptionFromPDFPrompt,
-  buildJobKeywordsPrompt,
+  buildJobRequirementsPrompt,
 } from "./_ai/prompts/jobDescription";
 import { buildKeywordDistributionPrompt } from "./_ai/prompts/distribute";
 import {
@@ -28,10 +28,10 @@ import {
   CoverLetterSchema,
   CompanyMetaSchema,
   ExperienceEnrichmentSchema,
-  KeywordListSchema,
+  JobRequirementsSchema,
   KeywordDistributionSchema,
 } from "./_ai/schemas";
-import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
+import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchPublicPage, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 
 // ─── Input size ─────────────────────────────────────────────────────
@@ -199,7 +199,11 @@ export const extractJobDescriptionFromPDF = action({
   },
 });
 
-export const extractJobKeywords = action({
+/**
+ * The requirements of an offer, each quoted from it. An answer where the offer
+ * states none of them is invalid: thrown inside the transform, it is retried.
+ */
+export const extractJobRequirements = action({
   args: {
     jobDescription: v.string(),
     accessCode: v.optional(v.string()),
@@ -207,9 +211,13 @@ export const extractJobKeywords = action({
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildJobKeywordsPrompt({ jobDescription: args.jobDescription });
-    const data = await chatJSONSchema(prompt, KeywordListSchema, "fast");
-    return { keywords: data.keywords };
+    const prompt = buildJobRequirementsPrompt({ jobDescription: args.jobDescription });
+    const requirements = await chatJSONThen(prompt, (raw) => {
+      const found = normalizeJobRequirements(JobRequirementsSchema.parse(raw).requirements, args.jobDescription);
+      if (found.length === 0) throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
+      return found;
+    }, "fast");
+    return { requirements };
   },
 });
 

@@ -6,7 +6,7 @@ import { expect, type Page } from '@playwright/test';
  * Every Convex action is a paid LLM call. A test suite that fires them is
  * slow, flaky (it depends on a third party being up) and billed on every run —
  * measured on 2026-08-16, the suite alone accounted for ~270 of the 274
- * `extractJobKeywords` calls of the whole retained log window.
+ * `extractJobKeywords` calls (now extractJobRequirements) of the whole retained log window.
  *
  * Two halves, and both are needed:
  *  - seedGuestSession() pre-fills the caches the app reads BEFORE deciding to
@@ -17,8 +17,8 @@ import { expect, type Page } from '@playwright/test';
  * mount would silently start billing and nothing would go red.
  */
 
-/** localStorage key owned by src/features/editor/lib/aiKeywordCache.ts */
-const KEYWORD_CACHE_KEY = 'ai_keywords_cache';
+/** localStorage key owned by src/features/editor/lib/jobRequirementsCache.ts */
+const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache';
 
 /**
  * Keywords a real extraction would plausibly return for the mock offers.
@@ -33,11 +33,16 @@ export const MOCK_JOB_KEYWORDS = [
   'Accessibilité', 'Design Ops', 'Data', 'Shape Up',
 ];
 
+/** Requirements as extractJobRequirements returns them, one per label */
+export function requirementsOf(labels: string[]) {
+  return labels.map(label => ({ id: label, label, variants: [], kind: 'hard_skill', importance: 'required', quote: label }));
+}
+
 export interface SeedOptions {
   cv: unknown;
   /** Job description; omit for the "no offer" cases */
   jd?: string;
-  /** Keywords to serve from cache instead of calling the LLM */
+  /** Requirement labels to serve from cache instead of calling the LLM */
   keywords?: string[];
   /** Pre-seeded cover letter context, so no company extraction fires */
   coverLetter?: { companyName: string; jobDescription: string };
@@ -50,14 +55,14 @@ export interface SeedOptions {
 export async function seedGuestSession(page: Page, opts: SeedOptions): Promise<void> {
   await page.goto('/');
   await page.evaluate(
-    ({ cv, jd, keywords, coverLetter, cacheKey }) => {
+    ({ cv, jd, requirements, coverLetter, cacheKey }) => {
       sessionStorage.setItem('guest_access', 'true');
       localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
       if (jd) {
         localStorage.setItem('guest_last_jd', jd);
-        // Warm the keyword cache for THIS exact offer — the cache compares the
-        // trimmed job description, so it must match byte for byte.
-        localStorage.setItem(cacheKey, JSON.stringify({ jobDescription: jd, keywords }));
+        // Warm the requirements cache for THIS exact offer: the cache compares
+        // the trimmed job description, so it must match byte for byte.
+        localStorage.setItem(cacheKey, JSON.stringify([{ jobDescription: jd, requirements }]));
       } else {
         localStorage.removeItem('guest_last_jd');
       }
@@ -68,9 +73,9 @@ export async function seedGuestSession(page: Page, opts: SeedOptions): Promise<v
     {
       cv: opts.cv,
       jd: opts.jd,
-      keywords: opts.keywords ?? MOCK_JOB_KEYWORDS,
+      requirements: requirementsOf(opts.keywords ?? MOCK_JOB_KEYWORDS),
       coverLetter: opts.coverLetter,
-      cacheKey: KEYWORD_CACHE_KEY,
+      cacheKey: REQUIREMENTS_CACHE_KEY,
     },
   );
   await page.goto('/editor');

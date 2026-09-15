@@ -152,6 +152,29 @@ export interface ATSScoreResult {
   suggestions: string[];
 }
 
+/** Every kind of job requirement: the AI prompt, the server schema and the score read this list. */
+export const REQUIREMENT_KINDS = [
+  'title', 'hard_skill', 'tool', 'method', 'certification',
+  'domain', 'language', 'education', 'experience_years', 'soft_skill',
+] as const;
+export type RequirementKind = typeof REQUIREMENT_KINDS[number];
+
+/** One demand of a job offer, extracted by the AI and checked against the offer text. */
+export interface JobRequirement {
+  /** Stable slug of the label */
+  id: string;
+  /** Exact wording of the offer ("Figma", "Product Designer") */
+  label: string;
+  /** Acronym, long form, synonyms ("UX" / "expérience utilisateur") */
+  variants: string[];
+  kind: RequirementKind;
+  importance: 'required' | 'preferred';
+  /** Excerpt of the offer stating the requirement */
+  quote: string;
+  /** For experience_years only */
+  minYears?: number;
+}
+
 /** Where a missing keyword should be integrated. */
 export interface KeywordPlacement {
   type: 'experience' | 'summary' | 'skill';

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REQUIREMENT_KINDS } from "../../src/shared/types";
 
 // ─── Personal Info ──────────────────────────────────────────────
 export const PersonalInfoSchema = z.object({
@@ -68,8 +69,19 @@ export const CVDataSchema = z.object({
 export type CVDataParsed = z.infer<typeof CVDataSchema>;
 
 // ─── Ancillary AI action schemas ────────────────────────────────
-export const KeywordListSchema = z.object({
-  keywords: z.array(z.string()).default([]),
+/** One requirement as the model writes it; the id is computed by normalizeJobRequirements */
+export const JobRequirementSchema = z.object({
+  label: z.string(),
+  variants: z.array(z.string()).default([]),
+  kind: z.enum(REQUIREMENT_KINDS),
+  importance: z.enum(["required", "preferred"]),
+  quote: z.string(),
+  minYears: z.number().optional(),
+}).passthrough();
+
+/** Items are checked one by one: a single malformed requirement must not reject the list */
+export const JobRequirementsSchema = z.object({
+  requirements: z.array(z.unknown()).default([]),
 }).passthrough();
 
 export const CoverLetterSchema = z.object({

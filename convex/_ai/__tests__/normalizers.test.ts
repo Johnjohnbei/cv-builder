@@ -7,6 +7,7 @@ import {
   normalizeTitle,
   withoutUserOwnedFields,
   restoreUserOwnedFields,
+  normalizeJobRequirements,
 } from "../normalizers";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -308,5 +309,54 @@ describe("normalizeCVData (top-level)", () => {
     expect(result.experience).toEqual([]);
     expect(result.skills).toEqual([]);
     expect(result.languages).toEqual([]);
+  });
+});
+
+describe("normalizeJobRequirements", () => {
+  const OFFER = "Product Designer Senior (H/F). Requis : maîtrise de Figma, 5 ans d'expérience. Anglais courant apprécié.";
+  const req = (over: Record<string, unknown> = {}) => ({
+    label: "Figma", variants: [], kind: "tool", importance: "required", quote: "maîtrise de Figma", ...over,
+  });
+
+  it("keeps a requirement quoted from the offer, accents and spacing aside, with an id from its label", () => {
+    const [figma, ...rest] = normalizeJobRequirements([req({ quote: "MAITRISE  de figma" })], OFFER);
+    expect(rest).toEqual([]);
+    expect(figma).toMatchObject({ id: "figma", label: "Figma", kind: "tool", importance: "required" });
+  });
+
+  // An offer pasted by the user can carry instructions: a requirement the offer
+  // does not state is dropped, whatever the model claims.
+  it("drops a requirement whose quote is not in the offer", () => {
+    expect(normalizeJobRequirements([req({ label: "Kubernetes", quote: "Kubernetes indispensable" })], OFFER)).toEqual([]);
+  });
+
+  it("drops malformed items instead of failing the whole list", () => {
+    const out = normalizeJobRequirements(["Figma", null, req({ kind: "skill" }), req({ label: "  " }), req()], OFFER);
+    expect(out.map(r => r.id)).toEqual(["figma"]);
+  });
+
+  it("keeps the first of two requirements with the same id", () => {
+    const out = normalizeJobRequirements([req(), req({ label: "figma", importance: "preferred" })], OFFER);
+    expect(out).toHaveLength(1);
+    expect(out[0].importance).toBe("required");
+  });
+
+  it("cleans variants: trimmed, deduplicated, never the label itself", () => {
+    const [ux] = normalizeJobRequirements(
+      [req({ label: "Product Designer", kind: "title", quote: "Product Designer Senior", variants: [" UX Designer ", "ux designer", "product designer", ""] })],
+      OFFER,
+    );
+    expect(ux.variants).toEqual(["UX Designer"]);
+  });
+
+  it("keeps years of experience only with a positive minYears", () => {
+    const years = req({ label: "5 ans d'expérience", kind: "experience_years", quote: "5 ans d'expérience" });
+    expect(normalizeJobRequirements([{ ...years, minYears: 5 }], OFFER)[0].minYears).toBe(5);
+    expect(normalizeJobRequirements([years], OFFER)).toEqual([]);
+  });
+
+  it("caps the list at 25 requirements", () => {
+    const many = Array.from({ length: 30 }, (_, i) => req({ label: `Outil ${i}`, quote: "Figma" }));
+    expect(normalizeJobRequirements(many, OFFER)).toHaveLength(25);
   });
 });
