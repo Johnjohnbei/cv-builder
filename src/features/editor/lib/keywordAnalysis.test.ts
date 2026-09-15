@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData, Experience, JobRequirement } from '@/src/shared/types';
 import { EMPTY_CV } from '@/src/shared/types';
-import {
-  computeATSReport, cvSections, matchPhrase, prepareText, stripSimpleSuffixes, yearsOfExperience,
-} from './keywordAnalysis';
+import { computeATSReport, cvSections, yearsOfExperience } from './keywordAnalysis';
 
 // ─── Fixtures ───
 
@@ -35,55 +33,6 @@ const req = (label: string, over: Partial<JobRequirement> = {}): JobRequirement 
 
 const found = (report: ReturnType<typeof computeATSReport>) =>
   report.requirements.filter(r => r.found).map(r => r.requirement.label);
-
-// ─── Text matching ───
-
-describe('matchPhrase', () => {
-  it('matches across accents and plurals', () => {
-    expect(matchPhrase('systeme de design', prepareText('Nos Systèmes de Design partagés'))).toBe(true);
-  });
-
-  it('requires the words to be adjacent', () => {
-    expect(matchPhrase('equipe design', prepareText('Une équipe produit. Le design au cœur.'))).toBe(false);
-  });
-
-  it('never matches an empty phrase', () => {
-    expect(matchPhrase('   ', prepareText('anything'))).toBe(false);
-  });
-
-  it('keeps word boundaries: Java is not JavaScript', () => {
-    expect(matchPhrase('java', prepareText('JavaScript on the backend'))).toBe(false);
-  });
-});
-
-describe('stripSimpleSuffixes', () => {
-  it('strips FR plural -s (designers → designer)', () => {
-    expect(stripSimpleSuffixes('designers')).toBe('designer');
-  });
-  it('strips -es (classes → class)', () => {
-    expect(stripSimpleSuffixes('classes')).toBe('class');
-  });
-  it('gives a -e singular and its -es plural the same stem', () => {
-    expect(stripSimpleSuffixes('systeme')).toBe(stripSimpleSuffixes('systemes'));
-    expect(stripSimpleSuffixes('equipe')).toBe(stripSimpleSuffixes('equipes'));
-  });
-  it('strips -ing (coding → cod)', () => {
-    expect(stripSimpleSuffixes('coding')).toBe('cod');
-  });
-  it('strips -eur profession suffix (coiffeur → coiff)', () => {
-    expect(stripSimpleSuffixes('coiffeur')).toBe('coiff');
-  });
-  it('does NOT handle FR verb conjugations or -tion derivations', () => {
-    expect(stripSimpleSuffixes('gère')).not.toBe(stripSimpleSuffixes('gestion'));
-    expect(stripSimpleSuffixes('gestion')).toBe('gestion');
-  });
-  it('protects short words and leaves stems alone', () => {
-    expect(stripSimpleSuffixes('iOS')).toBe('iOS');
-    expect(stripSimpleSuffixes('UI')).toBe('UI');
-    expect(stripSimpleSuffixes('les')).toBe('les');
-    expect(stripSimpleSuffixes('figma')).toBe('figma');
-  });
-});
 
 // ─── What a recruiter's ATS reads ───
 

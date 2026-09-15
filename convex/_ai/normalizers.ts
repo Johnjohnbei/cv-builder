@@ -8,44 +8,51 @@ import type {
   ExperienceDisplayMode,
 } from "../../src/shared/types";
 import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
-import { normalizeForMatch, stripAccents } from "../../src/shared/lib/text";
+import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
 
 // ─── Job requirements ────────────────────────────────────────────
 const MAX_REQUIREMENTS = 25;
 
-/** `term` in `text` (both normalized), starting on a word boundary; a plural ending still matches */
-function containsTerm(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}`, "u").test(text);
-}
-
-/** Symbols carry meaning in skill names: C++, C# and C must not share an id */
+/** Symbols carry meaning in skill names: C++, C# and C must not share an id. Combining marks are kept (バス is not パス). */
 const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
-  .replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+  .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+
+/** Number words an offer writes years with ("cinq ans", "five years"), from 1 */
+const NUMBER_WORDS = [
+  ["un", "une", "one"], ["deux", "two"], ["trois", "three"], ["quatre", "four"], ["cinq", "five"],
+  ["six"], ["sept", "seven"], ["huit", "eight"], ["neuf", "nine"], ["dix", "ten"],
+  ["onze", "eleven"], ["douze", "twelve"], ["treize", "thirteen"], ["quatorze", "fourteen"], ["quinze", "fifteen"],
+];
+
+/** Whether the quote gives `years` as a number, in digits or in words */
+function statesYears(quote: ReturnType<typeof prepareText>, years: number): boolean {
+  return new RegExp(`(^|\\D)${years}(\\D|$)`).test(quote.normalized)
+    || (NUMBER_WORDS[years - 1] ?? []).some(word => matchPhrase(word, quote));
+}
 
 /**
  * The requirements the offer actually states, checked one by one. A malformed
  * item is dropped, not the list. A requirement is dropped when its quote is not
- * in the offer, or when the quote does not state it: its label or a variant
- * must appear in the quote (a title or a degree may be reworded), and years of
- * experience must be the number the quote gives. Otherwise any label passed by
- * quoting one real word of the offer. Text injected in the offer is quotable
- * too: the prompt fences the offer as data, which this cannot replace.
+ * words of the offer, or when the quote does not state it: its label or a
+ * variant must be words of the quote (a title or a degree may be reworded),
+ * and years of experience must be the number the quote gives. Otherwise any
+ * label passed by quoting a real fragment of the offer. Text injected in the
+ * offer is quotable too: the prompt fences the offer as data.
  * The id is computed from the label, never taken from the model.
  */
 export function normalizeJobRequirements(items: unknown[], jobDescription: string): JobRequirement[] {
-  const offer = normalizeForMatch(jobDescription);
+  const offer = prepareText(jobDescription);
   const ids = new Set<string>();
   const requirements: JobRequirement[] = [];
   for (const item of items) {
-    const parsed = JobRequirementSchema.safeParse(item);
+    const parsed = JobRequirementSchema.safeParse(withoutNulls(item));
     if (!parsed.success) continue;
     const { label, variants, kind, importance, quote, minYears } = parsed.data;
     const key = normalizeForMatch(label);
     const id = slugOf(key);
-    const quoted = normalizeForMatch(quote);
-    if (!id || ids.has(id) || !quoted || !offer.includes(quoted)) continue;
+    const quoted = prepareText(quote);
+    if (!id || ids.has(id) || !quoted.normalized || !matchPhrase(quote, offer)) continue;
 
     const seen = new Set([key]);
     const cleanVariants = variants.map(v => v.trim()).filter(v => {
@@ -57,9 +64,9 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
 
     if (kind === "experience_years") {
       // Years are measured from the dates, which needs the number the offer gives
-      if (!(typeof minYears === "number" && minYears > 0 && new RegExp(`(^|\\D)${minYears}(\\D|$)`).test(quoted))) continue;
+      if (!(typeof minYears === "number" && minYears > 0 && statesYears(quoted, minYears))) continue;
     } else if (kind !== "title" && kind !== "education") {
-      if (![key, ...cleanVariants.map(normalizeForMatch)].some(term => containsTerm(quoted, term))) continue;
+      if (![label, ...cleanVariants].some(term => matchPhrase(term, quoted))) continue;
     }
     ids.add(id);
     requirements.push({
@@ -149,7 +156,7 @@ const PRESENT_END_DATES = new Set([
 
 export function normalizeExperience(raw: any): Experience {
   const endDateRaw = typeof raw.end_date === "string" ? raw.end_date.trim() : "";
-  const endDateKey = stripAccents(endDateRaw.toLowerCase()).replace(/’/g, "'");
+  const endDateKey = normalizeForMatch(endDateRaw);
   // An empty end date only means "current" when the model did not say
   // otherwise: a past role whose end date is unknown is not a current one.
   const isCurrent =

@@ -5,83 +5,8 @@
 import type {
   ATSReport, CVData, CVSection, DesignSettings, Experience, JobRequirement, ReadabilityCheck, RequirementCoverage,
 } from '../../../shared/types';
-import { normalizeForMatch } from '../../../shared/lib/text';
+import { matchPhrase, prepareText, type PreparedText } from '../../../shared/lib/text';
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './displayModes';
-
-// ─── Word-boundary matching ───
-
-/**
- * Test if a keyword is present in text using word-boundary regex.
- * Prevents false positives (e.g., "Java" != "JavaScript"). Case-insensitive.
- */
-function matchKeyword(keyword: string, text: string): boolean {
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(?:^|\\b|\\s)${escaped}(?:\\b|\\s|$)`, 'i');
-  return re.test(text);
-}
-
-/**
- * Strip common FR/EN suffixes for lightweight stemming.
- *
- * Scope (intentionally minimal):
- *   - Plural normalization:  -s / -es / -x
- *   - EN present participle: -ing
- *   - FR profession suffix:  -eur / -eurs
- *
- * NOT covered: FR verb conjugations (gestion ↔ gère), synonyms and
- * abbreviations (React ↔ ReactJS: that is what requirement variants are for),
- * typos.
- *
- * Preserves roots ≥ 3 chars after stripping to avoid over-reduction
- * (e.g., "les" stays "les", "iOS" stays "iOS").
- */
-export function stripSimpleSuffixes(word: string): string {
-  if (word.length < 4) return word;
-  // A trailing -e goes last: without it "systemes" stemmed to "system" but
-  // "systeme" stayed "systeme", so a singular never matched its own plural.
-  const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x', 'e'];
-  for (const suf of suffixes) {
-    if (word.length - suf.length >= 3 && word.endsWith(suf)) {
-      return word.slice(0, -suf.length);
-    }
-  }
-  return word;
-}
-
-/** Stem a normalized phrase token-by-token (skip tokens < 4 chars). */
-function stemPhrase(s: string): string {
-  return s
-    .split(/\s+/)
-    .map(t => (t.length >= 4 ? stripSimpleSuffixes(t) : t))
-    .join(' ');
-}
-
-/**
- * The three views of a haystack needed by matching, built once per text
- * instead of once per (term, text) pair.
- */
-export interface PreparedText {
-  raw: string;
-  normalized: string;
-  stemmed: string;
-}
-
-export function prepareText(text: string): PreparedText {
-  const normalized = normalizeForMatch(text);
-  return { raw: text, normalized, stemmed: stemPhrase(normalized) };
-}
-
-/**
- * Contiguous phrase match, tolerant to accents, typography and plural/suffix
- * variants. Word order and adjacency are kept: "equipe design" must not match
- * an "équipe" in one paragraph and a "design" in another.
- */
-export function matchPhrase(phrase: string, text: PreparedText): boolean {
-  const normalized = normalizeForMatch(phrase);
-  if (!normalized) return false;
-  return matchKeyword(normalized, text.normalized)
-    || matchKeyword(stemPhrase(normalized), text.stemmed);
-}
 
 // ─── What an ATS reads ───
 

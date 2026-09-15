@@ -400,4 +400,45 @@ describe("normalizeJobRequirements", () => {
   it("reads null variants as none", () => {
     expect(normalizeJobRequirements([req({ variants: null })], OFFER)[0].variants).toEqual([]);
   });
+
+  // Models write "minYears": null on requirements that are not years
+  it("reads any null field as absent instead of dropping the requirement", () => {
+    expect(normalizeJobRequirements([req({ minYears: null })], OFFER)).toHaveLength(1);
+  });
+
+  it("drops a quote found only inside a longer word of the offer", () => {
+    expect(normalizeJobRequirements([req({ label: "Java", quote: "Java" })], "Stack : JavaScript, React.")).toEqual([]);
+    expect(normalizeJobRequirements([req({ label: "R", quote: "R" })], "Stack : React.")).toEqual([]);
+    expect(normalizeJobRequirements([req({ label: "Excel", quote: "Excel" })], "Excellent relationnel.")).toEqual([]);
+  });
+
+  it("drops a label found only inside a longer word of its quote", () => {
+    const offer = "Excellent relationnel ; C++ avancé.";
+    expect(normalizeJobRequirements([req({ label: "Excel", quote: "Excellent relationnel" })], offer)).toEqual([]);
+    expect(normalizeJobRequirements([req({ label: "C", quote: "C++ avancé" })], offer)).toEqual([]);
+  });
+
+  it("keeps a label its quote states in a close form", () => {
+    const offer = "Langages : C/C++. Conception d'API. Stack ASP.NET Core. Cinq ans d'expérience minimum.";
+    const out = normalizeJobRequirements([
+      req({ label: "C", quote: "C/C++" }),
+      req({ label: "APIs", quote: "Conception d'API" }),
+      req({ label: ".NET", quote: "ASP.NET Core" }),
+      req({ label: "5 ans d'expérience", kind: "experience_years", quote: "Cinq ans d'expérience minimum", minYears: 5 }),
+    ], offer);
+    expect(out.map(r => r.label)).toEqual(["C", "APIs", ".NET", "5 ans d'expérience"]);
+  });
+
+  it("keeps two labels apart that differ only by a combining mark", () => {
+    const offer = "Mots : バス、パス。";
+    const out = normalizeJobRequirements([req({ label: "バス", quote: "バス" }), req({ label: "パス", quote: "パス" })], offer);
+    expect(new Set(out.map(r => r.id)).size).toBe(2);
+  });
+});
+
+describe("normalizeExperience: current role", () => {
+  it("reads today written with any apostrophe as a current role", () => {
+    const today = `aujourd${String.fromCodePoint(0x2018)}hui`;
+    expect(normalizeExperience({ company: "A", position: "B", start_date: "2020", end_date: today }).current).toBe(true);
+  });
 });

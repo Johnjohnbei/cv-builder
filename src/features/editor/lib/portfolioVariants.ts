@@ -21,7 +21,7 @@
 // `anonUrl` is optional and used when the anonymize toggle is on.
 
 import type { PersonalInfo } from '@/src/shared/types';
-import { matchPhrase, prepareText } from './keywordAnalysis';
+import { matchPhrase, prepareText } from '@/src/shared/lib/text';
 
 export interface PortfolioVariant {
   id: string;
