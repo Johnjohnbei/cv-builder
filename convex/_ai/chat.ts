@@ -42,6 +42,8 @@ function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: stri
 // timeout + capped retry-after + timeout, which must stay under the 10-minute
 // Convex action limit: at 300 s each it reached 620 s and Convex killed the
 // action before our French error could be sent. 270 + 20 + 270 = 560 s.
+// The bound is an abort signal on the whole stream: the SDK's own `timeout`
+// is cleared once the response headers arrive, so it never bounded the body.
 const ANTHROPIC_TIMEOUT_MS = 270_000;
 const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
@@ -154,18 +156,39 @@ function extractAnthropicText(response: Anthropic.Message): string {
 async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<string> {
   // max_tokens 30000 requires streaming — client.messages.create() throws
   // "Streaming is required..." (K004). stream().finalMessage() is mandatory.
-  const client = new Anthropic({
-    apiKey: provider.apiKey,
-    timeout: ANTHROPIC_TIMEOUT_MS,
-    maxRetries: 0,
-  });
-  const stream = client.messages.stream({
-    model: getModel(speed, provider),
-    max_tokens: 30000,
-    temperature: 0.3,
-    messages: [{ role: "user", content: prompt }],
-  });
-  return extractAnthropicText(await stream.finalMessage());
+  // `timeout` still bounds the wait for headers and is sent to the API as
+  // X-Stainless-Timeout; the signal below bounds the body.
+  const client = new Anthropic({ apiKey: provider.apiKey, timeout: ANTHROPIC_TIMEOUT_MS, maxRetries: 0 });
+  const stream = client.messages.stream(
+    {
+      model: getModel(speed, provider),
+      max_tokens: 30000,
+      temperature: 0.3,
+      messages: [{ role: "user", content: prompt }],
+    },
+    { signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS) },
+  );
+  // One parseable line per billed call: cost is read from the Convex logs,
+  // never deduced from the code. Sum the lines: a retry is billed again.
+  // The last snapshot is kept here because stream.currentMessage is already
+  // cleared when a body ends without message_stop.
+  let partial: Anthropic.Message | undefined;
+  stream.on("streamEvent", (_event, snapshot) => { partial = snapshot; });
+  let message: Anthropic.Message;
+  try {
+    message = await stream.finalMessage();
+  } catch (e) {
+    // An interrupted stream (abort, dropped connection) was billed too. Its
+    // output_tokens is usually still the message_start value (the API sends
+    // the real count at the end), so the produced text length is logged beside it.
+    if (partial) {
+      const output_chars = partial.content.reduce((n, b) => n + (b.type === "text" ? b.text.length : 0), 0);
+      console.log("[ai] usage", JSON.stringify({ model: partial.model, usage: partial.usage, output_chars, partial: true }));
+    }
+    throw e;
+  }
+  console.log("[ai] usage", JSON.stringify({ model: message.model, usage: message.usage }));
+  return extractAnthropicText(message);
 }
 
 async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<any> {
