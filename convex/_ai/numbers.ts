@@ -18,7 +18,8 @@ const TENS: [string[], number][] = [
   [["vingt", "vingts", "twenty"], 20], [["trente", "thirty"], 30], [["quarante", "forty"], 40],
   [["cinquante", "fifty"], 50], [["soixante", "sixty"], 60], [["septante", "seventy"], 70],
   [["huitante", "octante", "eighty"], 80], [["nonante", "ninety"], 90],
-  [["dizaine", "dizaines"], 10], [["douzaine", "douzaines", "dozen", "dozens"], 12], [["quinzaine"], 15],
+  // "dozens" translates "dizaines", not "douzaines": the same value either way
+  [["dizaine", "dizaines", "dozens"], 10], [["douzaine", "douzaines", "dozen"], 12], [["quinzaine"], 15],
   [["vingtaine"], 20], [["trentaine"], 30], [["cinquantaine"], 50], [["centaine", "centaines"], 100],
 ];
 const SCALES: [string[], number][] = [
@@ -66,10 +67,11 @@ export function statesYears(quote: PreparedText, years: number): boolean {
 /** A letter other than the x of a multiplier ("x3", "10x") */
 const NAME_LETTER = String.raw`(?![x×])\p{L}`;
 /** Units written against a figure ("40ms", "48h", "3j", "16Go", "15e"): the figure is a number, not the start of a name */
-const UNITS = "ms|sec|min|mn|hrs?|h|s|jrs?|j|go|mo|ko|gb|mb|kb|tb|to|eme|er|e|nd|rd|th|st|pts?|x";
-// The digits are taken whole ((?!\d)): backtracking read "40ms" as 4 and "99designs" as 9
+const UNITS = "ms|sec|min|mn|hrs?|h|s|jrs?|j|jours?|ans?|mois|sem|km|kg|go|mo|ko|gb|mb|kb|tb|to|eme|ere|er|re|nde|e|nd|rd|th|st|pts?|x";
+// The digits are taken whole ((?!\d)): backtracking read "40ms" as 4 and "99designs" as 9.
+// "2h30" reads its hours.
 const FIGURE = new RegExp(
-  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}]))`,
+  String.raw`(?<!${NAME_LETTER})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}])|h\d)`,
   "gu",
 );
 
@@ -100,11 +102,15 @@ function numberReadings(text: string | undefined): string[][][] {
     if (taken.some(([start, end]) => match.index >= start && match.index < end)) return [];
     if (parts.length > 1) {
       if (!parts.some(part => WORD_VALUES.has(part))) return [];
-      return parts.flatMap(part => (COMPOUND_VALUES.has(part) ? [[[String(COMPOUND_VALUES.get(part))]]] : []));
+      // "un", "one", "neuf" only after "et"/"and" or a number word: "vingt-et-un", "twenty-one", "dix-neuf", never "one-hundred" nor "deux-en-un"
+      return parts.flatMap((part, at) => {
+        const counts = WORD_VALUES.has(part) || (at > 0 && (["et", "and"].includes(parts[at - 1]) || WORD_VALUES.has(parts[at - 1])));
+        return counts && COMPOUND_VALUES.has(part) ? [[[String(COMPOUND_VALUES.get(part))]]] : [];
+      });
     }
     const [word] = parts;
     const rest = normalized.slice(match.index + word.length);
-    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^(\.|\s*\d)/.test(rest));
+    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^(\.(?!\s*$)|\s*\d)/.test(rest));
     const value = WORD_VALUES.get(word);
     return value === undefined || notNumber ? [] : [[[String(value)]]];
   });

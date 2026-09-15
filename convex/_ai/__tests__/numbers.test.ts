@@ -27,6 +27,13 @@ describe("numbersOf", () => {
   it("reads a figure written against its unit, never a name starting with digits", () => {
     expect(numbersOf("Latence 40ms, réponse sous 48h, livré en 3j, 5h/semaine, 16Go, 15e")).toEqual(["40", "48", "3", "5", "16", "15"]);
     expect(numbersOf("99designs, 360Learning, vidéo 1080p")).toEqual([]);
+    expect(numbersOf("10ans, 12mois, 30jours, 100km, 1ère, 2h30")).toEqual(["10", "12", "30", "100", "1", "2"]);
+  });
+
+  it("reads « un » in a compound only as a number part, and « sept. » at a sentence end as seven", () => {
+    expect(numbersOf("one-hundred clients, deux-en-un, dix-neuf")).toEqual(["100", "2", "10", "9"]);
+    expect(numbersOf("Encadré une équipe de sept.")).toEqual(["7"]);
+    expect(numbersOf("des dizaines de clients")).toEqual(numbersOf("dozens of clients"));
   });
 
   it("reads approximate numbers and every part of a compound, never the verb seize nor per cent", () => {

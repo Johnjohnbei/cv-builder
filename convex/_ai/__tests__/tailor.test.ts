@@ -243,6 +243,7 @@ describe("tailorPipeline: truth guard", () => {
         { school: "IUT", degree: "Bac+2", field: "Communication", start_date: "2010" },
         { school: "EFAP", degree: "BTS Communication", start_date: "2012" },
         { school: "ENSCI", degree: "Master design", start_date: "2014" },
+        { school: "MIT", degree: "B.A. Computer Science", start_date: "2016" },
       ],
       languages: [{ name: "Anglais", proficiency: "C1" }],
     };
@@ -250,6 +251,7 @@ describe("tailorPipeline: truth guard", () => {
       cv.education[0].degree = "Bac+5";
       cv.education[1].degree = "M.A. Communication";
       cv.education[2] = { ...cv.education[2], degree: "", field: "" };
+      cv.education[3].degree = "B.S. Computer Science";
       cv.languages[0].name = "";
     }, [], source));
     const { cv } = await run([FIGMA], Date.now(), source);

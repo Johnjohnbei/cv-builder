@@ -23,16 +23,20 @@ function mentions(text: string | undefined, requirements: JobRequirement[]): boo
 
 /** Words that say nothing of a skill, a degree or a language ("pour", "with", "degree") */
 const STOP_WORDS = new Set([
-  "s", "d", "l", "j", "n", "c", "qu",
-  "de", "du", "des", "le", "la", "les", "en", "et", "au", "aux", "un", "une", "pour", "avec", "dans", "sans", "chez", "sur",
+  "de","du", "des", "le", "la", "les", "en", "et", "au", "aux", "un", "une", "pour", "avec", "dans", "sans", "chez", "sur",
   "par", "plus", "tout", "tous", "toute", "toutes", "entre", "vers", "sous", "comme", "afin", "leur", "leurs", "cette",
   "ces", "notre", "nos", "votre", "vos", "aupres", "depuis", "pendant", "selon",
   "of", "in", "on", "at", "to", "the", "and", "for", "with", "from", "into", "that", "this", "these", "those", "your",
   "our", "their", "over", "about", "across", "within", "using", "more", "than", "through", "between", "while",
 ]);
 
-/** The stems of the words of `text` that carry meaning: a digit or a letter alone ("Bac+5", "M.A.") is one, an elision ("d'") is not */
+/**
+ * The stems of the words of `text` that carry meaning: a digit or a letter
+ * alone ("Bac+5", "M.A.", "Bac S") is one; an elision ("d'", "l'") or the "'s"
+ * of "Master's" is not, recognized by its apostrophe, never by its letter.
+ */
 const stemsOf = (text: string | undefined) => normalizeForMatch(text ?? "")
+  .replace(/(?<![\p{L}\p{N}])(?:qu|[cdjlmnst])'|'s(?![\p{L}\p{N}])/gu, " ")
   .split(/[^\p{L}\p{N}]+/u)
   .filter(word => word.length > 0 && !STOP_WORDS.has(word))
   .map(word => prepareText(word).stemmed);

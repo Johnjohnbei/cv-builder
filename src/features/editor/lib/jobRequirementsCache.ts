@@ -158,7 +158,7 @@ function track(offer: string, accessCode: string | undefined, answer: Requiremen
     // Settled: the cache answers from now on, and a failure is asked again at the
     // next request. Registered first, so the entry is gone before any waiter
     // reacts: the waiters of a failed tailoring then share one new request.
-    const forget = () => { if (inflight.get(key) === request) inflight.delete(key); };
+    const forget = () => inflight.delete(key);
     request.then(forget, forget);
   }
   return request;
