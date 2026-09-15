@@ -1,7 +1,13 @@
 // ─── Vercel Serverless Function: PDF Generation ───
 // Receives serialized CV HTML+CSS, renders in headless Chrome, returns PDF binary.
 
-import { getPdfCss } from '../src/features/editor/lib/pdfStyles';
+// Explicit `.js`: Vercel runs this function as a native Node ES module, which
+// resolves no extension-less relative import. Without it every production
+// export failed with ERR_MODULE_NOT_FOUND and the editor fell back to printing
+// (broken from 5be7bc9, 2026-08-07, until 2026-09-15). api/tsconfig.json uses
+// NodeNext resolution without allowImportingTsExtensions, so `npm run lint`
+// rejects both an extension-less import (TS2835) and a `.ts` one (TS5097).
+import { getPdfCss } from '../src/features/editor/lib/pdfStyles.js';
 
 interface GeneratePDFRequest {
   html: string;
