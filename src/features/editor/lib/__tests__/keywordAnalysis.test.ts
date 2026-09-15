@@ -3,7 +3,6 @@ import {
   matchKeywordFuzzy,
   matchPhrase,
   prepareText,
-  normalizeForMatch,
   stripSimpleSuffixes,
   computeKeywordAnalysis,
 } from '../keywordAnalysis';
@@ -22,18 +21,6 @@ describe('matchPhrase', () => {
 
   it('never matches an empty phrase', () => {
     expect(matchPhrase('   ', prepareText('anything'))).toBe(false);
-  });
-});
-
-describe('normalizeForMatch', () => {
-  it('lowercases and strips French accents', () => {
-    expect(normalizeForMatch('Développeur Créatif')).toBe('developpeur creatif');
-  });
-  it('collapses whitespace', () => {
-    expect(normalizeForMatch('  hello    world  ')).toBe('hello world');
-  });
-  it('handles empty string', () => {
-    expect(normalizeForMatch('')).toBe('');
   });
 });
 

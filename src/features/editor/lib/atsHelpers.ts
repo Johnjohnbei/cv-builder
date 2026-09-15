@@ -1,4 +1,4 @@
-import { STOP_WORDS } from '@/src/shared/lib/stopWords';
+import { STOP_WORDS } from '@/src/shared/lib/text';
 import type { CVData } from '@/src/shared/types';
 
 /** Internal sub-score result shape (mirrors SubScoreResult in scoring.ts). */

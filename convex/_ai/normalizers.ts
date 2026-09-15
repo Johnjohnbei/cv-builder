@@ -7,6 +7,7 @@ import type {
   ExperienceDisplayMode,
 } from "../../src/shared/types";
 import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
+import { stripAccents } from "../../src/shared/lib/text";
 
 // ─── User-owned fields: kept away from the model ─────────────────
 /** The CV as the model should see it: no photo, no portfolio link. */
@@ -86,7 +87,7 @@ const PRESENT_END_DATES = new Set([
 
 export function normalizeExperience(raw: any): Experience {
   const endDateRaw = typeof raw.end_date === "string" ? raw.end_date.trim() : "";
-  const endDateKey = endDateRaw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/’/g, "'");
+  const endDateKey = stripAccents(endDateRaw.toLowerCase()).replace(/’/g, "'");
   // An empty end date only means "current" when the model did not say
   // otherwise: a past role whose end date is unknown is not a current one.
   const isCurrent =

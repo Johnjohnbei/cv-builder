@@ -1,3 +1,16 @@
+// Text helpers shared by the app and the Convex functions: relative imports
+// only here, the Convex bundler does not resolve the "@/" alias.
+
+/** Without diacritics: "Société Générale" is "Societe Generale". Case and spacing kept. */
+export function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Lowercase, without accents, whitespace collapsed and trimmed: the form two texts are compared in. */
+export function normalizeForMatch(s: string): string {
+  return stripAccents(s.toLowerCase()).replace(/\s+/g, ' ').trim();
+}
+
 /** French + English stop words for keyword extraction filtering. */
 export const STOP_WORDS = new Set([
   // French

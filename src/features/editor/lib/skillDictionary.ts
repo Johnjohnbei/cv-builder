@@ -4,6 +4,7 @@
  */
 
 import type { SkillCategory } from '@/src/shared/types';
+import { normalizeForMatch } from '@/src/shared/lib/text';
 
 export type SkillCategoryKey = 'technical' | 'tools' | 'methodologies' | 'soft_skills' | 'other';
 
@@ -107,18 +108,9 @@ const SKILL_DICTIONARY: Record<string, SkillCategoryKey> = {
 
 // ─── Internal helpers ──────────────────────────────────────────────
 
-/** Strips FR accents and lowercases: e/e/e->e, a/a->a, u/u->u, o/o->o, i/i->i, c->c */
-function normalizeSkill(skill: string): string {
-  return skill
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
 /** Categorize a single skill: exact match, then suffix/prefix stripping, then 'other'. */
 function categorizeSkill(skill: string): SkillCategoryKey {
-  const normalized = normalizeSkill(skill);
+  const normalized = normalizeForMatch(skill);
 
   // Exact match
   if (SKILL_DICTIONARY[normalized]) return SKILL_DICTIONARY[normalized];

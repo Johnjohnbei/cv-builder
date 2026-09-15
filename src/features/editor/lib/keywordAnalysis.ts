@@ -1,5 +1,6 @@
 import type { CVData, KeywordMatch, KeywordAnalysisResult, KeywordPlacement, Experience } from '@/src/shared/types';
 import { extractNLPKeywords } from './atsHelpers';
+import { normalizeForMatch } from '../../../shared/lib/text';
 
 // ─── Acronym detection ───
 
@@ -79,19 +80,6 @@ function matchKeyword(keyword: string, text: string): boolean {
 }
 
 // ─── Fuzzy matching: normalize + stem + word-boundary ───
-
-/**
- * Lowercase + strip diacritics (accents) + collapse whitespace.
- * Pure.
- */
-export function normalizeForMatch(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // strip combining marks
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 /**
  * Strip common FR/EN suffixes for lightweight stemming.

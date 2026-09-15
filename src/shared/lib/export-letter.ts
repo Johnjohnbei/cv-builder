@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver';
 import type { PersonalInfo } from '../types';
 import type { ExportLanguage } from './export-docx';
 import type { CoverLetterData } from '@/src/features/editor/hooks/useCoverLetter';
+import { stripAccents } from './text';
 
 export interface ExportLetterOptions {
   letter: CoverLetterData;
@@ -13,9 +14,6 @@ export interface ExportLetterOptions {
 
 const FONT = 'Calibri';
 const BODY_SIZE = 22; // half-points: 11pt, standard letter body
-
-const stripAccents = (s: string): string =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /** Lettre_<Entreprise>.docx (FR) / Cover_Letter_<Company>.docx (EN), accents removed. */
 export function buildLetterFilename(companyName: string | undefined, language: ExportLanguage = 'fr'): string {

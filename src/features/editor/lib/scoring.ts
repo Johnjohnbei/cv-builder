@@ -2,7 +2,7 @@ import type { Experience, CVData, DesignSettings, ATSScoreResult } from '@/src/s
 import { TEMPLATE_ATS_COMPAT, ATS_SAFE_FONTS, WEAK_VERBS } from './atsRules';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { extractNLPKeywords as _extractNLPKeywords, scoreRelevance as _scoreRelevance } from './atsHelpers';
-import { STOP_WORDS } from '@/src/shared/lib/stopWords';
+import { STOP_WORDS } from '@/src/shared/lib/text';
 
 // --- Keyword Extraction ---
 

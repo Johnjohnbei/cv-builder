@@ -6,6 +6,7 @@ import type { CVData } from '@/src/shared/types';
 import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
+import { stripAccents } from '@/src/shared/lib/text';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
@@ -82,7 +83,7 @@ export function buildCoverLetterText(
 }
 
 const slug = (s: string): string =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  stripAccents(s).toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /** Build a download filename for the cover letter. */
