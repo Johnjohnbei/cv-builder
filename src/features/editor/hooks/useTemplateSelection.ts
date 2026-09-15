@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import type { DesignSettings } from '@/src/shared/types';
+import { TEMPLATES, type TemplateId } from '../lib/pagination/templateLayouts';
 
 // ─── Template defaults ───
 
-export const TEMPLATE_DEFAULTS: Record<string, Partial<DesignSettings>> = {
+export const TEMPLATE_DEFAULTS: Record<TemplateId, Partial<DesignSettings>> = {
   TEMPLATE_C: { fontFamily: 'serif' },
   TEMPLATE_E: { fontFamily: 'outfit' },
 };
@@ -19,8 +20,9 @@ export function mergeTemplateDefaults(
   current: DesignSettings,
   templateId: string,
 ): DesignSettings {
-  const defaults = TEMPLATE_DEFAULTS[templateId];
-  if (!defaults) return { ...current, template: templateId };
+  const known = TEMPLATES.find(t => t.id === templateId);
+  if (!known) return { ...current, template: templateId };
+  const defaults = TEMPLATE_DEFAULTS[known.id];
   return { ...current, ...defaults, template: templateId };
 }
 

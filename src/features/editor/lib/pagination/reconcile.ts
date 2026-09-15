@@ -8,7 +8,7 @@ import { MEASUREMENT_SAFETY_PX } from './types';
 /** Ignore sub-pixel drift below this threshold when checking stability */
 const HEIGHT_DIFF_THRESHOLD_PX = 1;
 
-export interface LiveMeasurements {
+interface LiveMeasurements {
   /** Per-block measured heights (offsetHeight in its rendered context) */
   blockHeights: Map<string, number>;
   /** Per-block sub-block heights, accumulated across every rendered slice */

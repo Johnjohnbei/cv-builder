@@ -21,17 +21,23 @@ const SINGLE_COLUMN: TemplateLayout = {
   page2Plus: { paddingTopMm: PAD_16, paddingBottomMm: PAD_16 },
 };
 
-export const TEMPLATE_LAYOUTS: Record<string, TemplateLayout> = Object.fromEntries(TEMPLATES.map(t => [t.id, SINGLE_COLUMN]));
+export type TemplateId = (typeof TEMPLATES)[number]['id'];
 
-/** The template a CV renders in: a removed or unknown id (TEMPLATE_A, TEMPLATE_B) opens in the default */
-export function knownTemplateId(templateId: string | undefined): string {
-  return templateId && TEMPLATE_LAYOUTS[templateId] ? templateId : DEFAULT_DESIGN.template;
+export const TEMPLATE_LAYOUTS: Record<TemplateId, TemplateLayout> = { TEMPLATE_C: SINGLE_COLUMN, TEMPLATE_E: SINGLE_COLUMN };
+
+/**
+ * The template a CV renders in: a removed or unknown id (TEMPLATE_A, TEMPLATE_B)
+ * opens in the default. Looked up in the registry, not as an object key: an id
+ * such as "constructor" read the object's prototype and crashed the pagination.
+ */
+export function knownTemplateId(templateId: string | undefined): TemplateId {
+  return TEMPLATES.find(t => t.id === templateId)?.id ?? (DEFAULT_DESIGN.template as TemplateId);
 }
 
 /** The name shown for a stored template id, a removed one read as the template it opens in */
 export function templateName(templateId: string | undefined): string {
   const id = knownTemplateId(templateId);
-  return TEMPLATES.find(t => t.id === id)?.name ?? id;
+  return TEMPLATES.find(t => t.id === id)!.name;
 }
 
 /**

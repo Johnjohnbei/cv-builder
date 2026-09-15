@@ -1,10 +1,10 @@
 import type { BlockRendererMap } from '../../lib/pagination/types';
-import { knownTemplateId } from '../../lib/pagination/templateLayouts';
+import { knownTemplateId, type TemplateId } from '../../lib/pagination/templateLayouts';
 import { templateCRenderers } from './templateC';
 import { templateERenderers } from './templateE';
 
-/** Registry of block renderers per template (ids owned by TEMPLATES in templateLayouts.ts) */
-const BLOCK_RENDERERS: Record<string, BlockRendererMap> = {
+/** Registry of block renderers per template (ids owned by TEMPLATES in templateLayouts.ts: a template added there without renderers fails the type check) */
+const BLOCK_RENDERERS: Record<TemplateId, BlockRendererMap> = {
   TEMPLATE_C: templateCRenderers,
   TEMPLATE_E: templateERenderers,
 };

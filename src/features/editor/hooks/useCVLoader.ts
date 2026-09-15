@@ -28,6 +28,22 @@ export function useCVLoader(
   const [isLoading, setIsLoading] = useState(true);
   const [loadedJobDescription, setLoadedJobDescription] = useState('');
 
+  /**
+   * The CV as loaded, its design migrated in the CV too: the AI actions save
+   * the CV with the design it carries, and wrote a removed template or the
+   * "Mode ATS" flag back before the auto-save replaced it.
+   */
+  const applyLoaded = (loaded: CVData) => {
+    if (!loaded.design) {
+      setCvData(loaded);
+      return;
+    }
+    const design = migratedDesign(loaded.design);
+    setCvData({ ...loaded, design });
+    setDesignSettings(design);
+    setSelectedTemplate(design.template);
+  };
+
   // Load data — ONCE at initialization
   const dataLoaded = useRef(false);
   useEffect(() => {
@@ -38,12 +54,7 @@ export function useCVLoader(
         // Strip Convex / table-level fields that leak in from previously-saved
         // cvs records — keeping them would break the next save mutation.
         const clean = stripPersistenceArtifacts(userData.lastGeneratedCV) as CVData;
-        setCvData(clean);
-        if (clean.design) {
-          const design = migratedDesign(clean.design);
-          setDesignSettings(design);
-          setSelectedTemplate(design.template);
-        }
+        applyLoaded(clean);
       }
       if (userData.lastJobDescription) {
         setLoadedJobDescription(userData.lastJobDescription);
@@ -52,15 +63,7 @@ export function useCVLoader(
     } else if (isGuest) {
       dataLoaded.current = true;
       const stored = readStoredJSON<CVData | null>('guest_last_optimized', null);
-      if (stored) {
-        const data = stripPersistenceArtifacts(stored);
-        setCvData(data);
-        if (data.design) {
-          const design = migratedDesign(data.design);
-          setDesignSettings(design);
-          setSelectedTemplate(design.template);
-        }
-      }
+      if (stored) applyLoaded(stripPersistenceArtifacts(stored));
       const storedJD = readStoredText('guest_last_jd');
       if (storedJD) {
         setLoadedJobDescription(storedJD);

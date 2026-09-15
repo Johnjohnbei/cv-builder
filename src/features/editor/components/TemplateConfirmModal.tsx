@@ -3,7 +3,6 @@ import { Button } from '@/src/shared/ui/Button';
 import { Dialog } from '@/src/shared/ui/Dialog';
 import { templateName } from '../lib/pagination/templateLayouts';
 
-
 interface Props {
   pendingTemplate: string | null;
   onConfirm: () => void;

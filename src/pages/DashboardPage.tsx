@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
@@ -208,7 +208,8 @@ export default function DashboardPage() {
       }
       navigate('/editor');
     } catch (error) {
-      console.error('Open draft error:', error);
+      // The failure text names the path (blank CV, saved CV): one log label for both
+      console.error(`Open draft error (${failure}):`, error);
       setNotification({ message: getUserErrorMessage(error, failure), type: 'error' });
     }
   };
@@ -250,8 +251,11 @@ export default function DashboardPage() {
     }
   };
 
-  const baseSize = baseCV ? JSON.stringify(baseCV).length : 0;
-  const estimateSeconds = baseSize < 3000 ? 30 : baseSize < 6000 ? 60 : baseSize < 10000 ? 120 : baseSize < 15000 ? 180 : 240;
+  // Memoized: the generation counter re-renders the page every second
+  const estimateSeconds = useMemo(() => {
+    const baseSize = baseCV ? JSON.stringify(baseCV).length : 0;
+    return baseSize < 3000 ? 30 : baseSize < 6000 ? 60 : baseSize < 10000 ? 120 : baseSize < 15000 ? 180 : 240;
+  }, [baseCV]);
 
   return (
     <div className="stitch-container">

@@ -13,7 +13,7 @@ const loadPdfTools = () => Promise.all([import('@/src/lib/pdfTextExtract'), impo
 /** PDFs above this size are refused at the drop zone, before any parsing */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
-export interface DashboardImportsDeps {
+interface DashboardImportsDeps {
   user: unknown;
   isGuest: boolean;
   jobUrl: string;

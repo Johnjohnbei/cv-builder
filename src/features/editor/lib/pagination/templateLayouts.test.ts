@@ -5,7 +5,8 @@ import type { DesignSettings } from '@/src/shared/types';
 const design: DesignSettings = { template: 'TEMPLATE_C', primaryColor: '#000', secondaryColor: '#fff', fontFamily: 'sans' };
 
 describe('knownTemplateId', () => {
-  it.each(['TEMPLATE_A', 'TEMPLATE_B', 'TEMPLATE_X', undefined])('opens %s in Elegant', (id) => {
+  // "constructor" once read the registry object's prototype and crashed the pagination
+  it.each(['TEMPLATE_A', 'TEMPLATE_B', 'TEMPLATE_X', 'constructor', 'toString', undefined])('opens %s in Elegant', (id) => {
     expect(knownTemplateId(id)).toBe('TEMPLATE_E');
   });
 
