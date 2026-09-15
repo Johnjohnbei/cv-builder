@@ -4,9 +4,8 @@ export type SupportedLanguage = 'fr' | 'en';
 
 const MIN_TEXT_LENGTH = 20;
 
-// Stop-word scoring needs SEPARATE per-language lists; the shared
-// src/shared/lib/text.ts set merges FR+EN into one undifferentiated Set
-// (built for keyword filtering), so it cannot score FR vs EN. These local
+// Stop-word scoring needs SEPARATE per-language lists: a merged FR+EN set
+// cannot score FR vs EN. These local
 // lists keep only high-frequency function words that are unambiguous between
 // the two languages (no 'car', 'son', 'as', 'on', 'an': they exist in both).
 const FR_STOP_WORDS = new Set([

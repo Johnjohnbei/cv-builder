@@ -5,7 +5,7 @@
  * cases where ATS parsers would fail to extract meaningful text.
  */
 import type { CVData } from '@/src/shared/types';
-import { getActionBullets, getIntro, isHidden, isSkillHidden, getVisibleSkills } from './displayModes';
+import { cvSections } from './keywordAnalysis';
 
 // ─── Types ───
 
@@ -22,54 +22,14 @@ const EXTRACTABILITY_THRESHOLD = 0.6;
 // ─── Public API ───
 
 /**
- * Build a plain-text representation of what the CV should contain.
- * Skips hidden experiences and hidden skill categories.
+ * Plain text of what the rendered CV should contain: the contact line, then
+ * every part as the ATS score reads it (display modes applied). One owner of
+ * "what the CV prints" for the score and for this check.
  */
 export function extractExpectedText(cvData: CVData): string {
-  const parts: string[] = [];
-
-  // Personal info
   const pi = cvData.personal_info;
-  if (pi.name) parts.push(pi.name);
-  if (pi.title) parts.push(pi.title);
-  if (pi.email) parts.push(pi.email);
-  if (pi.phone) parts.push(pi.phone);
-  if (pi.location) parts.push(pi.location);
-  if (pi.summary) parts.push(pi.summary);
-
-  // Experiences — only include what's actually rendered (respects displayMode)
-  for (const exp of cvData.experience) {
-    if (isHidden(exp)) continue;
-    parts.push(exp.company);
-    parts.push(exp.position);
-    const intro = getIntro(exp);
-    if (intro) parts.push(intro);
-    for (const bullet of getActionBullets(exp)) {
-      parts.push(bullet);
-    }
-  }
-
-  // Education
-  for (const edu of cvData.education) {
-    parts.push(edu.school);
-    parts.push(edu.degree);
-    if (edu.field) parts.push(edu.field);
-  }
-
-  // Skills — only include visible items (respects displayMode)
-  for (const cat of cvData.skills) {
-    if (isSkillHidden(cat)) continue;
-    for (const item of getVisibleSkills(cat)) {
-      parts.push(item);
-    }
-  }
-
-  // Languages
-  for (const lang of cvData.languages) {
-    parts.push(lang.name);
-  }
-
-  return parts.filter(Boolean).join(' ');
+  const sections = cvSections(cvData, 'rendered');
+  return [pi.name, pi.email, pi.phone, pi.location, ...Object.values(sections).flat()].filter(Boolean).join(' ');
 }
 
 /**
@@ -98,7 +58,7 @@ export function validateCVTextExtractability(
       valid: false,
       ratio: 0,
       warning:
-        'Le PDF exporte ne contient aucun texte extractible. Les systemes ATS ne pourront pas lire votre CV.',
+        'Le PDF exporté ne contient aucun texte extractible. Les systèmes ATS ne pourront pas lire votre CV.',
     };
   }
 
@@ -118,7 +78,7 @@ export function validateCVTextExtractability(
   return {
     valid: false,
     ratio,
-    warning: `Le PDF exporte contient peu de texte extractible (${percent}%). Les systemes ATS pourraient avoir du mal a lire votre CV.`,
+    warning: `Le PDF exporté contient peu de texte extractible (${percent} %). Les systèmes ATS pourraient avoir du mal à lire votre CV.`,
   };
 }
 

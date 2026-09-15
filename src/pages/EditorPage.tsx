@@ -7,7 +7,7 @@ import { readStoredText } from '../shared/lib/storage';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { extractKeywords, scoreExperience } from '../features/editor/lib/scoring';
+import { scoreExperience } from '../features/editor/lib/scoring';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -95,14 +95,9 @@ export default function EditorPage() {
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const requirements = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
-  // ponytail: bridge until the requirement score replaces keyword matching.
-  // Years of experience are measured from dates, never matched as text.
-  const aiKeywords = useMemo(
-    () => requirements.filter(r => r.kind !== 'experience_years').map(r => r.label),
-    [requirements],
-  );
-  const { score: atsScore, keywords: atsKeywords, hasJobDescription } = useATSAnalysis(cvData, designSettings, jobDescription, aiKeywords);
+  const { requirements, status: requirementsStatus } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  const atsReport = useATSAnalysis(cvData, designSettings, requirements);
+  const hasJobDescription = jobDescription.trim().length > 0;
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
   // types in the sidebar (JD textarea, panel toggles...).
@@ -111,9 +106,12 @@ export default function EditorPage() {
     '--secondary': designSettings.secondaryColor,
   } as React.CSSProperties), [designSettings.primaryColor, designSettings.secondaryColor]);
 
+  // Years of experience are measured from dates: no sentence can add them
   const missingKeywordsList = useMemo(
-    () => atsKeywords.keywords.filter(k => !k.found).map(k => k.keyword),
-    [atsKeywords],
+    () => (atsReport?.requirements ?? [])
+      .filter(c => !c.found && c.requirement.kind !== 'experience_years')
+      .map(c => c.requirement.label),
+    [atsReport],
   );
   // Proposals and rewrites belong to the committed offer, like the keywords they
   // are built from: keyed on the live text, a typo fixed in the offer wiped paid
@@ -203,21 +201,18 @@ export default function EditorPage() {
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [isSidebarOpen, activeTab]);
 
   // ─── Memoized computations ───
-  // Le badge de pertinence et le tri auto doivent lire la MÊME liste
-  // d'exigences, sinon le pourcentage affiché ne décrit pas ce que le tri fait.
-  // La liste curée (mots-clés extraits par l'IA + acronymes) est déjà calculée
-  // pour le panneau ATS ; `extractKeywords` produisait à côté un sac de 36 à 60
-  // termes bruts où le bruit noyait les vraies exigences. Repli sur elle
-  // uniquement quand la liste curée n'est pas encore disponible.
-  const jobKeywords = useMemo(() => {
-    const curated = atsKeywords.keywords.map(k => k.keyword);
-    return curated.length > 0 ? curated : extractKeywords(jobDescription);
-  }, [atsKeywords, jobDescription]);
+  // The relevance badge and the fit pass read the SAME requirements as the ATS
+  // score, or the percentage shown would not describe what the fit does. No
+  // local keyword guess while they load: the fit waits for them.
+  const jobKeywords = useMemo(
+    () => requirements.filter(r => r.kind !== 'experience_years').map(r => r.label),
+    [requirements],
+  );
 
   // ─── Fit to the target page count ───
   const targetPages = designSettings.pageLimit ?? 2;
   const fit = useFitToPages({
-    cvData, setCvData, jobKeywords, stablePageCount, targetPages,
+    cvData, setCvData, jobKeywords, jobKeywordsReady: requirementsStatus !== 'loading', stablePageCount, targetPages,
     loadedJobDescription, jobDescription, notify,
   });
 
@@ -259,23 +254,6 @@ export default function EditorPage() {
       </div>
     );
   }
-
-  // Bullet optimization (rewrite/integrate/suggestions) + auto-distribute are in dedicated hooks.
-
-  const handleAddSkill = (skill: string) => {
-    if (!cvData) return;
-    const skills = [...cvData.skills];
-    if (skills.length > 0) {
-      const firstCategory = skills[0];
-      if (!firstCategory.items.includes(skill)) {
-        skills[0] = { ...firstCategory, items: [...firstCategory.items, skill] };
-      }
-    } else {
-      skills.push({ category: 'Autres', items: [skill] });
-    }
-    setCvData(prev => prev ? { ...prev, skills } : null);
-    notify({ message: `Compétence « ${skill} » ajoutée`, type: 'success' });
-  };
 
   return (
     <div className="stitch-container relative">
@@ -334,10 +312,10 @@ export default function EditorPage() {
         onEnrich={ai.enrichExperiences}
         experienceScores={experienceScores}
         weakBullets={weakBullets}
-        atsScore={atsScore}
-        atsKeywords={atsKeywords}
+        atsReport={atsReport}
         hasJobDescription={hasJobDescription}
-        onAddSkill={handleAddSkill}
+        requirementsStatus={requirementsStatus}
+        onRetryAnalysis={commitJobDescription}
         bullets={bullets}
         keywordDistribution={keywordDistribution}
         exports={exports}

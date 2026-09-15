@@ -54,9 +54,10 @@ test.describe('ATS Panel : mode guest', () => {
     expect(score).toBeLessThanOrEqual(100);
   });
 
-  test('les mots-clés trouvés sont affichés en vert', async ({ page }) => {
+  test('les exigences couvertes sont affichées en vert, les écarts listés', async ({ page }) => {
     await page.getByRole('tab', { name: 'ATS' }).click();
     await expect(page.locator('.bg-green-100').first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText(/^Écarts \(\d+\)$/)).toBeVisible();
   });
 
   test('les onglets Contenu/Design/ATS switchent sans erreur', async ({ page }) => {
@@ -78,9 +79,15 @@ test.describe('ATS Panel : régression career-ops integration', () => {
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
   });
 
-  test('les sous-scores Format / Contenu / Pertinence sont affichés', async ({ page }) => {
+  // The score measures one thing, the offer's requirements; readability is a
+  // checklist, not points that could hide an unreadable PDF behind a good score.
+  test('un seul score, sa définition et la checklist de lisibilité', async ({ page }) => {
+    await expect(page.getByText("Part des exigences de l'offre présentes dans votre CV, comme un ATS les recherche.")).toBeVisible();
+    await expect(page.getByText('Lisibilité par les ATS')).toBeVisible();
+    // Scoped to the panel: "Contenu" is also the name of a sidebar tab
+    const panel = page.getByRole('tabpanel');
     for (const label of ['Format', 'Contenu', 'Pertinence']) {
-      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+      await expect(panel.getByText(label, { exact: true })).toHaveCount(0);
     }
   });
 
@@ -106,7 +113,7 @@ test.describe('Offre saisie dans l\'éditeur', () => {
     );
   });
 
-  test('le champ reste ouvert pendant la saisie, puis les mots-clés IA de l\'offre arrivent', async ({ page }) => {
+  test('le champ reste ouvert pendant la saisie, puis les exigences IA de l\'offre arrivent', async ({ page }) => {
     const field = offerField(page);
     await field.click();
     await field.pressSequentially('Offre');
@@ -156,10 +163,13 @@ test.describe('Edge cases : données CV incomplètes', () => {
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
   });
 
-  test('pas de JD : le panel affiche un score sans section pertinence', async ({ page }) => {
+  // A ranking by an ATS is always relative to a position: no offer, no score
+  test('pas de JD : pas de score, une invitation et la checklist de lisibilité', async ({ page }) => {
     await setupGuestEditor(page, MOCK_CV, '');
     await page.getByRole('tab', { name: 'ATS' }).click();
-    await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText("Importez une offre d'emploi pour mesurer la part de ses exigences présentes dans votre CV.")).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('Lisibilité par les ATS')).toBeVisible();
+    await expect(page.getByText('Score ATS')).toHaveCount(0);
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
   });
 });

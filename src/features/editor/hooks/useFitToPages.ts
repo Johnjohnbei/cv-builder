@@ -8,6 +8,12 @@ export interface UseFitToPagesDeps {
   /** Keywords extracted from the job description — drives which roles survive */
   jobKeywords: string[];
   /**
+   * False while the offer's requirements are still being analyzed: fitting a
+   * fresh CV then would rank every experience on recency alone, and a fitted
+   * CV is not fitted again.
+   */
+  jobKeywordsReady: boolean;
+  /**
    * Page count for the current content once measurement converged, null while
    * it is still being measured. Never substitute the raw actualPageCount here:
    * acting on a mid-reconcile estimate condenses several notches too far.
@@ -42,7 +48,7 @@ export interface UseFitToPagesResult {
  */
 export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
   const {
-    cvData, setCvData, jobKeywords, stablePageCount, targetPages,
+    cvData, setCvData, jobKeywords, jobKeywordsReady, stablePageCount, targetPages,
     loadedJobDescription, jobDescription, notify,
   } = deps;
 
@@ -74,8 +80,9 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     // Wait for the stored job description to reach state, otherwise the pass
     // would rank every experience against an empty offer.
     if (loadedJobDescription && !jobDescription) return;
+    if (!jobKeywordsReady) return;
     runFit();
-  }, [cvData, isFitting, loadedJobDescription, jobDescription, runFit]);
+  }, [cvData, isFitting, loadedJobDescription, jobDescription, jobKeywordsReady, runFit]);
 
   useEffect(() => {
     if (!isFitting || stablePageCount === null || !cvData?.experience?.length) return;

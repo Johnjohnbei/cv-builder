@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
 import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
-import type { CVData, DesignSettings, ATSScoreResult, KeywordAnalysisResult } from '@/src/shared/types';
+import type { CVData, DesignSettings, ATSReport } from '@/src/shared/types';
+import type { RequirementsStatus } from '../hooks/useJobRequirements';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
 import { ATSPanel } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
@@ -63,10 +64,10 @@ interface Props {
   experienceScores: number[];
   weakBullets: WeakBulletResult[];
 
-  atsScore: ATSScoreResult | null;
-  atsKeywords: KeywordAnalysisResult;
+  atsReport: ATSReport | null;
   hasJobDescription: boolean;
-  onAddSkill: (skill: string) => void;
+  requirementsStatus: RequirementsStatus;
+  onRetryAnalysis: () => void;
 
   bullets: ReturnType<typeof useBulletOptimization>;
   keywordDistribution: ReturnType<typeof useKeywordDistribution>;
@@ -100,7 +101,7 @@ export function EditorSidebar(props: Props) {
     expandedSection, toggles,
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
-    atsScore, atsKeywords, hasJobDescription, onAddSkill,
+    atsReport, hasJobDescription, requirementsStatus, onRetryAnalysis,
     bullets, keywordDistribution, exports, templateSelection, coverLetter, notify,
   } = props;
 
@@ -253,17 +254,13 @@ export function EditorSidebar(props: Props) {
                 notify={notify}
               />
               <ATSPanel
-                score={atsScore}
-                keywords={atsKeywords}
+                report={atsReport}
                 hasJobDescription={hasJobDescription}
-                onAddSkill={onAddSkill}
-                onIntegrateKeyword={bullets.integrateKeyword}
-                onToggleAtsMode={() => templateSelection.setAtsMode(!designSettings.atsMode)}
+                requirementsStatus={requirementsStatus}
+                onRetryAnalysis={onRetryAnalysis}
                 onOptimizeBullets={bullets.optimize}
                 isOptimizing={bullets.isOptimizing}
                 aiBusy={aiBusy}
-                isAtsMode={designSettings.atsMode}
-                integratingKeyword={bullets.integratingKeyword}
                 onAutoDistribute={keywordDistribution.distribute}
                 isDistributing={keywordDistribution.isDistributing}
                 pendingProposalsCount={keywordDistribution.proposals.length}

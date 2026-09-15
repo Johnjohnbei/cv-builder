@@ -7,6 +7,17 @@ import {
 } from '../lib/jobRequirementsCache';
 
 /**
+ * idle: no offer. loading: the offer is being analyzed, or not committed yet.
+ * ready: requirements known. failed: the last analysis of this offer failed.
+ */
+export type RequirementsStatus = 'idle' | 'loading' | 'ready' | 'failed';
+
+export interface JobRequirementsState {
+  requirements: JobRequirement[];
+  status: RequirementsStatus;
+}
+
+/**
  * LLM-extracted requirements of the committed offer, applied to the offer on screen.
  *
  * `committedOffer` is the offer as last committed (on load, and when the offer
@@ -21,16 +32,15 @@ import {
  * scored against another offer's requirements, not even for one render.
  *
  * `commitId` changes at every commit, same text included, so a failed
- * extraction is retried at the next one.
- *
- * Failures are silent here: the ATS panel shows what it can without them.
+ * extraction is retried at the next one. A failure is reported as a status:
+ * without requirements there is no score, never a local guess.
  */
 export function useJobRequirements(
   committedOffer: string,
   liveOffer: string,
   accessCode: string | undefined,
   commitId: number,
-): JobRequirement[] {
+): JobRequirementsState {
   const extractAction = useAction(api.ai.extractJobRequirements);
   // Read through a ref so a new function identity never re-triggers a paid call
   const actionRef = useRef(extractAction);
@@ -40,6 +50,7 @@ export function useJobRequirements(
   // to an offer whose answer had not arrived yet.
   const inflight = useRef(new Map<string, ReturnType<typeof extractAction>>());
   const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', requirements: [] });
+  const [failedOffer, setFailedOffer] = useState('');
 
   useEffect(() => {
     if (!committedOffer.trim()) return;
@@ -48,6 +59,7 @@ export function useJobRequirements(
       setAnalyzed({ offer: committedOffer, requirements: cached });
       return;
     }
+    setFailedOffer('');
     const key = JSON.stringify([committedOffer.trim(), accessCode ?? '']);
     let request = inflight.current.get(key);
     if (!request) {
@@ -68,11 +80,19 @@ export function useJobRequirements(
         // A stale response must not overwrite the requirements of a newer offer
         if (!cancelled && Array.isArray(data.requirements)) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setFailedOffer(committedOffer); });
     return () => {
       cancelled = true;
     };
   }, [committedOffer, accessCode, commitId]);
 
-  return useMemo(() => requirementsForOffer(liveOffer, analyzed), [liveOffer, analyzed]);
+  return useMemo(() => {
+    const requirements = requirementsForOffer(liveOffer, analyzed);
+    const status: RequirementsStatus = !liveOffer.trim()
+      ? 'idle'
+      : requirements.length > 0
+        ? 'ready'
+        : failedOffer.trim() === liveOffer.trim() ? 'failed' : 'loading';
+    return { requirements, status };
+  }, [liveOffer, analyzed, failedOffer]);
 }

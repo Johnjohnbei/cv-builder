@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   TEMPLATE_ATS_COMPAT,
   SECTION_NAMES,
-  ATS_SAFE_FONTS,
-  ATS_COLOR_CONSTRAINTS,
-  WEAK_VERBS,
   getSectionTitle,
   SKILL_CATEGORY_NAMES,
   getSkillCategoryTitle,
@@ -30,22 +27,6 @@ describe('atsRules', () => {
     expect(Object.keys(SECTION_NAMES.en)).toHaveLength(6);
   });
 
-  it('exports ATS-safe fonts', () => {
-    expect(ATS_SAFE_FONTS.length).toBeGreaterThanOrEqual(3);
-    expect(ATS_SAFE_FONTS).toContain('Arial');
-  });
-
-  it('exports color constraints with minimum contrast', () => {
-    expect(ATS_COLOR_CONSTRAINTS.minContrast).toBe(4.5);
-    expect(ATS_COLOR_CONSTRAINTS.forcedTextColor).toBe('#000');
-  });
-
-  it('exports weak verbs for fr and en with alternatives', () => {
-    expect(WEAK_VERBS.fr.weak.length).toBeGreaterThan(0);
-    expect(WEAK_VERBS.fr.strong.length).toBeGreaterThan(0);
-    expect(WEAK_VERBS.en.weak.length).toBeGreaterThan(0);
-    expect(WEAK_VERBS.en.strong.length).toBeGreaterThan(0);
-  });
 });
 
 describe('getSectionTitle', () => {

@@ -134,24 +134,6 @@ export interface CVData {
   _translations?: Partial<Record<'fr' | 'en', TranslatableContent>>;
 }
 
-/** @deprecated Use ATSScoreResult instead. Will be removed in a future version. */
-export interface ATSResult {
-  score: number;
-  missingKeywords: string[];
-  strengths: string[];
-  improvements: string[];
-  ats_compatibility: 'LOW' | 'MEDIUM' | 'HIGH';
-}
-
-/** ATS score breakdown per D-11 spec. */
-export interface ATSScoreResult {
-  overall: number;
-  format: number;
-  content: number;
-  relevance: number | null;
-  suggestions: string[];
-}
-
 /** Every kind of job requirement: the server schema and the client cache check this list, the prompt guide is typed by it. */
 export const REQUIREMENT_KINDS = [
   'title', 'hard_skill', 'tool', 'method', 'certification',
@@ -178,29 +160,28 @@ export interface JobRequirement {
   minYears?: number;
 }
 
-/** Where a missing keyword should be integrated. */
-export interface KeywordPlacement {
-  type: 'experience' | 'summary' | 'skill';
-  /** For experience: index into cvData.experience */
-  expIndex?: number;
-  /** Short label for the UI, e.g. "Lead Product Design @ TF1" */
-  label: string;
-}
+/** Parts of a CV an ATS reads, in the order they are printed */
+export type CVSection = 'title' | 'summary' | 'experience' | 'skills' | 'education' | 'languages';
 
-/** Keyword match result for JD-to-CV comparison. */
-export interface KeywordMatch {
-  keyword: string;
+/** Whether one requirement of the offer is in the CV, and where. */
+export interface RequirementCoverage {
+  requirement: JobRequirement;
   found: boolean;
-  locations: string[];  // CV sections where keyword was found: 'summary' | 'experience' | 'skills' | 'education'
-  /** Best place to integrate this keyword when missing (null if found) */
-  placement: KeywordPlacement | null;
+  sections: CVSection[];
 }
 
-/** Full keyword analysis result. */
-export interface KeywordAnalysisResult {
-  keywords: KeywordMatch[];
-  matchedCount: number;
-  totalCount: number;
+/** A property a CV parser needs, passed or failed: not a score. */
+export interface ReadabilityCheck {
+  id: 'email' | 'phone' | 'location' | 'titles';
+  passed: boolean;
+}
+
+/** What an ATS makes of a CV against an offer. */
+export interface ATSReport {
+  /** Weighted share of the offer's requirements present, 0 to 100; null without requirements */
+  score: number | null;
+  requirements: RequirementCoverage[];
+  checks: ReadabilityCheck[];
 }
 
 export const DEFAULT_DESIGN: DesignSettings = {

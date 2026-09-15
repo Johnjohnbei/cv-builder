@@ -112,25 +112,3 @@ export function getSkillCategoryTitle(key: SkillCategoryKey, language: 'fr' | 'e
     .join(' ');
 }
 
-// --- ATS-Safe Fonts & Styles ---
-
-export const ATS_SAFE_FONTS = ['Arial', 'Calibri', 'Helvetica', 'Times New Roman', 'Georgia'] as const;
-
-export const ATS_COLOR_CONSTRAINTS = {
-  minContrast: 4.5,        // WCAG AA minimum
-  maxColors: 2,            // primary + text only
-  forcedTextColor: '#000', // Black text for ATS
-} as const;
-
-// --- Weak Verb Patterns ---
-
-export const WEAK_VERBS = {
-  fr: {
-    weak: ['responsable de', 'charge de', 'participe a', 'aide a', 'fait', 'gere'],
-    strong: ['dirige', 'optimise', 'deploye', 'implemente', 'augmente', 'reduit'],
-  },
-  en: {
-    weak: ['responsible for', 'helped', 'worked on', 'assisted', 'participated in', 'managed'],
-    strong: ['led', 'optimized', 'deployed', 'implemented', 'increased', 'reduced'],
-  },
-} as const;

@@ -1,48 +1,20 @@
 import { useMemo } from 'react';
-import type { CVData, DesignSettings, ATSScoreResult, KeywordAnalysisResult } from '@/src/shared/types';
-import { computeATSScore } from '@/src/features/editor/lib/scoring';
-import { computeKeywordAnalysis } from '@/src/features/editor/lib/keywordAnalysis';
-import { getCVLanguage } from '@/src/lib/languageDetection';
-
-export interface ATSAnalysisResult {
-  score: ATSScoreResult | null;
-  keywords: KeywordAnalysisResult;
-  hasJobDescription: boolean;
-}
-
-const EMPTY_KEYWORDS: KeywordAnalysisResult = {
-  keywords: [],
-  matchedCount: 0,
-  totalCount: 0,
-};
+import type { ATSReport, CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
+import { computeATSReport } from '@/src/features/editor/lib/keywordAnalysis';
 
 /**
- * Hook wrapping computeATSScore + computeKeywordAnalysis.
- * Recomputes via useMemo when inputs change (no debounce -- scoring is < 5ms).
- * When aiKeywords are provided (from IA extraction), they replace NLP extraction.
- * Returns null score when cvData is null.
+ * The ATS report of the CV as it is rendered, against the offer's requirements.
+ * Recomputed on every edit (a few milliseconds); null until the CV is loaded.
+ * Without requirements (no offer, or its analysis not available) the report
+ * carries no score, only the readability checks.
  */
 export function useATSAnalysis(
   cvData: CVData | null,
   designSettings: DesignSettings,
-  jobDescription: string,
-  aiKeywords?: string[],
-): ATSAnalysisResult {
-  const language = cvData ? getCVLanguage(cvData) : 'fr';
-  const hasJobDescription = jobDescription.trim().length > 0;
-
-  const score = useMemo(
-    () => (cvData ? computeATSScore(cvData, designSettings, jobDescription) : null),
-    [cvData, designSettings, jobDescription],
+  requirements: JobRequirement[],
+): ATSReport | null {
+  return useMemo(
+    () => (cvData ? computeATSReport(cvData, requirements, { design: designSettings }) : null),
+    [cvData, designSettings, requirements],
   );
-
-  const keywords = useMemo(
-    () =>
-      cvData && hasJobDescription
-        ? computeKeywordAnalysis(cvData, jobDescription, language, aiKeywords)
-        : EMPTY_KEYWORDS,
-    [cvData, jobDescription, language, hasJobDescription, aiKeywords],
-  );
-
-  return { score, keywords, hasJobDescription } as const;
 }
