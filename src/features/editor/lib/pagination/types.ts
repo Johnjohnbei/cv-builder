@@ -16,16 +16,14 @@ export interface SubBlock {
 
 /**
  * A measurable content block — the atomic unit of the pagination engine.
- * Each block has a measured height at two widths (main column + full width)
- * and optional sub-blocks for splitting across pages.
+ * Every page renders at the same width (single-column templates only), so one
+ * measured height is enough; sub-blocks allow splitting across pages.
  */
 export interface ContentBlock {
   id: string;
   type: BlockType;
-  /** Measured height at page-1 main column width */
+  /** Measured height at the page's content width */
   heightPx: number;
-  /** Measured height at full-width (pages 2+) */
-  fullWidthHeightPx: number;
   /** Can this block be split across pages? */
   splittable: boolean;
   /** Sub-blocks for split calculation (experience header + bullets) */
@@ -35,8 +33,6 @@ export interface ContentBlock {
 }
 
 // ─── Page Assignment ───
-
-export type LayoutMode = 'two-column' | 'full-width';
 
 export interface PlacedBlock {
   block: ContentBlock;
@@ -49,38 +45,20 @@ export interface PlacedBlock {
 export interface PageAssignment {
   pageIndex: number;
   blocks: PlacedBlock[];
-  /** Sidebar blocks (only on page 0 for two-column layouts) */
-  sidebarBlocks?: PlacedBlock[];
-  layoutMode: LayoutMode;
   usedHeightPx: number;
 }
 
 // ─── Template Layout Dimensions ───
 
-export type TemplateLayoutType = 'two-column-right' | 'two-column-left' | 'single-column';
-
 export interface PageDimensions {
-  contentWidthMm: number;
   paddingTopMm: number;
   paddingBottomMm: number;
-  paddingLeftMm: number;
-  paddingRightMm: number;
-}
-
-export interface Page1Dimensions extends PageDimensions {
-  mainColumnWidthMm: number;
-  sidebarWidthMm: number;
-  gapMm: number;
 }
 
 export interface TemplateLayout {
-  type: TemplateLayoutType;
-  /** Page 1 has header + optional two-column layout */
-  page1: Page1Dimensions;
-  /** Pages 2+ are full-width with accent color */
+  page1: PageDimensions;
+  /** Pages 2+ carry an accent border */
   page2Plus: PageDimensions;
-  /** Header spans full width above grid (true for A/C/E, false for B where header is in sidebar) */
-  headerFullWidth: boolean;
 }
 
 // ─── Constants ───
@@ -91,7 +69,7 @@ export const A4_HEIGHT_MM = 297;
 export const A4_WIDTH_MM = 210;
 /** Minimum sub-blocks to keep on current page before splitting */
 export const MIN_KEEP_SUB_BLOCKS = 2;
-/** Inter-block gap in px — matches CSS space-y-4 (16px) used in CVPage columns */
+/** Inter-block gap in px — matches CSS gap-4 (16px) used in CVPage */
 export const MEASUREMENT_SAFETY_PX = 16;
 /** Injected section title height in px (text-sm ~20px + pb-2 8px + border 1px + mb-4 16px) */
 export const SECTION_TITLE_HEIGHT_PX = 45;

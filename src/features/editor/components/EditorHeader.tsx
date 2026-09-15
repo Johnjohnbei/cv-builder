@@ -20,8 +20,6 @@ interface Props {
   onLanguageChange: (lang: 'fr' | 'en') => void;
   /** Locks the language switch while an AI call rewrites the CV: its answer would undo the switch */
   isLanguageLocked?: boolean;
-  atsMode: boolean;
-  onAtsModeChange: (enabled: boolean) => void;
   isAnonymous: boolean;
   onToggleAnonymous: () => void;
   /** Auto-save feedback: true while a debounced save runs */
@@ -37,7 +35,6 @@ export function EditorHeader({
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
   currentLanguage, onLanguageChange, isLanguageLocked = false,
-  atsMode, onAtsModeChange,
   isAnonymous, onToggleAnonymous,
   isAutoSaving = false,
   lastAutoSaveAt = null,
@@ -98,18 +95,6 @@ export function EditorHeader({
         </div>
         <div className="flex items-center">
           <LanguageSelector value={currentLanguage} onChange={onLanguageChange} disabled={isLanguageLocked} />
-        </div>
-        <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
-          <button
-            onClick={() => onAtsModeChange(!atsMode)}
-            className={cn(
-              "px-2 py-0.5 rounded text-[10px] font-bold transition-colors",
-              atsMode ? "bg-green-100 text-green-700" : "hover:bg-gray-100 text-gray-500"
-            )}
-            title="Mode compatible ATS : simplifie la mise en page (polices et icônes) pour les logiciels de tri des recruteurs"
-          >
-            {atsMode ? 'Mode ATS : actif' : 'Mode ATS'}
-          </button>
         </div>
         <div className="border-l border-gray-100 pl-3 flex items-center gap-2">
           <button

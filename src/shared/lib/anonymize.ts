@@ -46,6 +46,5 @@ export function maskHeaderBlocks(pages: PageAssignment[], cv: CVData): PageAssig
   return pages.map(page => ({
     ...page,
     blocks: page.blocks.map(swap) as PageAssignment['blocks'],
-    sidebarBlocks: page.sidebarBlocks?.map(swap) as PageAssignment['sidebarBlocks'],
   }));
 }

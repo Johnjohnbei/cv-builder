@@ -106,7 +106,6 @@ export interface DesignSettings {
   showPhoto?: boolean;
   /** Sections shown in the preview, the PDF and the .docx. undefined = all */
   includedSections?: string[];
-  atsMode?: boolean;
 }
 
 /** Subset of CVData that is language-specific. Stored in `_translations` so a

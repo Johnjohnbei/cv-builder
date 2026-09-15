@@ -47,7 +47,8 @@ const designValidator = v.object({
   paperSize: v.optional(v.string()),
   orientation: v.optional(v.string()),
   includedSections: v.optional(v.array(v.string())),
-  // Missing here, every "Enregistrer" failed once the ATS mode had been toggled
+  // The "Mode ATS" toggle was removed on 2026-09-15 (arbitrage Q4): no longer
+  // written, kept optional so documents saved with it still validate
   atsMode: v.optional(v.boolean()),
 });
 

@@ -1,16 +1,3 @@
-// --- Template ATS Compatibility ---
-
-/** Final classifications per D-06 analysis. */
-export const TEMPLATE_ATS_COMPAT: Record<string, 'full' | 'limited'> = {
-  TEMPLATE_A: 'full',     // Simple single-column layout, easy to convert
-  TEMPLATE_B: 'full',     // Header-focused, adaptable
-  TEMPLATE_C: 'full',     // Minimal single-column
-  TEMPLATE_E: 'full',     // Elegant single-column
-};
-
-/** Default fallback template for ATS mode when current template is 'limited' (per D-07). */
-export const ATS_FALLBACK_TEMPLATE = 'TEMPLATE_A';
-
 // --- ATS Section Names ---
 
 export const SECTION_NAMES = {

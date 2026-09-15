@@ -3,8 +3,6 @@ import { Button } from '@/src/shared/ui/Button';
 import { Dialog } from '@/src/shared/ui/Dialog';
 
 const TEMPLATE_NAMES: Record<string, string> = {
-  TEMPLATE_A: 'Classic',
-  TEMPLATE_B: 'Modern',
   TEMPLATE_C: 'Minimal',
   TEMPLATE_E: 'Elegant',
 };

@@ -29,7 +29,7 @@ import { getCVLanguage } from '@/src/lib/languageDetection';
  * reached in 3 iterations:
  *   iter 0: heuristic → render → reconcile measured heights
  *   iter 1: alloc with measured → render → reconcile again (blocks may move
- *           between contexts, e.g. narrow ↔ full-width, causing height shifts)
+ *           between pages, and a split changes what is measured)
  *   iter 2: allocation stabilizes — reconcile matches previous → stable
  * A ceiling of 5 gives safe headroom without letting pathological oscillation
  * loops run unbounded.
@@ -90,20 +90,7 @@ function readLiveDOM(): LiveMeasurements | null {
 
 /**
  * Apply live measurements to source blocks. Returns new array (immutable).
- *
- * Context-aware to prevent oscillation. For two-column templates a block can
- * render in two CSS contexts (page 0 narrow column vs page 2+ full-width) and
- * its offsetHeight differs because text wraps at different widths.
- * ContentBlock stores TWO heights to match:
- *   - block.heightPx          = narrow (page 0) context
- *   - block.fullWidthHeightPx = page 2+ full-width context
- * Reconcile writes to the field matching the block's CURRENT placement so
- * each field only ever captures its own context.
- *
- * Single-column templates render EVERY page at the same width — one context,
- * so both fields track the same measurement. (Without this, blocks placed on
- * pages 2+ would keep their heuristic heightPx forever while the allocator
- * reads it, leaving pages half-empty.)
+ * Every page renders at the same width, so one measured height per block.
  *
  * Split blocks (rendered as multiple partial slices) don't have a meaningful
  * whole offsetHeight. For those, we merge the accumulated sub-block heights
@@ -113,31 +100,22 @@ function reconcileBlocks(
   source: ContentBlock[],
   live: LiveMeasurements,
   pageAssignments: PageAssignment[],
-  singleColumn: boolean,
 ): ContentBlock[] {
-  // Build a map: block.id → placement summary across all pages
-  interface Placement { onPage0: boolean; anySplit: boolean }
-  const placements = new Map<string, Placement>();
-  pageAssignments.forEach(page => {
-    [...page.blocks, ...(page.sidebarBlocks ?? [])].forEach(pb => {
-      const entry = placements.get(pb.block.id) ?? { onPage0: false, anySplit: false };
-      if (page.pageIndex === 0) entry.onPage0 = true;
-      if (pb.startSubBlock !== undefined) entry.anySplit = true;
-      placements.set(pb.block.id, entry);
-    });
-  });
+  // Which placed blocks are rendered as slices
+  const placed = new Set<string>();
+  const split = new Set<string>();
+  pageAssignments.forEach(page => page.blocks.forEach(pb => {
+    placed.add(pb.block.id);
+    if (pb.startSubBlock !== undefined) split.add(pb.block.id);
+  }));
 
   return source.map(block => {
     const liveH = live.blockHeights.get(block.id);
-    if (liveH === undefined) return block;
+    if (liveH === undefined || !placed.has(block.id)) return block;
 
-    const info = placements.get(block.id);
-    if (!info) return block;
-
-    const isNarrowContext = !singleColumn && info.onPage0;
     const liveSubs = live.blockSubBlocks.get(block.id);
 
-    if (info.anySplit) {
+    if (split.has(block.id)) {
       // Partial renders — offsetHeight doesn't represent the full block.
       // Merge the accumulated live sub-block heights and recompute the total
       // from the sum, so the block height converges even though no single
@@ -149,43 +127,19 @@ function reconcileBlocks(
         heightPx: liveMap.get(sb.id) ?? sb.heightPx,
       }));
       const subTotal = mergedSubs.reduce((acc, s) => acc + s.heightPx, 0) + MEASUREMENT_SAFETY_PX;
-      if (singleColumn) {
-        return { ...block, subBlocks: mergedSubs, heightPx: subTotal, fullWidthHeightPx: subTotal };
-      }
-      return isNarrowContext
-        ? { ...block, subBlocks: mergedSubs, heightPx: subTotal }
-        : { ...block, subBlocks: mergedSubs };
+      return { ...block, subBlocks: mergedSubs, heightPx: subTotal };
     }
 
-    // Whole render — write to the field(s) matching the rendering context.
-    // Only carry live sub-blocks over for blocks that model sub-blocks
-    // (experiences); other renderers may tag decorative elements.
+    // Whole render. Only carry live sub-blocks over for blocks that model
+    // sub-blocks (experiences); other renderers may tag decorative elements.
     const nextSubs = block.subBlocks ? (liveSubs ?? block.subBlocks) : undefined;
-
-    if (singleColumn) {
-      return { ...block, heightPx: liveH, fullWidthHeightPx: liveH, subBlocks: nextSubs };
-    }
-    if (isNarrowContext) {
-      return { ...block, heightPx: liveH, subBlocks: nextSubs };
-    }
-    // Full-width context (page 2+): update fullWidthHeightPx only.
-    // Don't touch sub-blocks — their heights at full-width differ from narrow
-    // context, and page-1 splits need narrow-context sub-block heights.
-    return { ...block, fullWidthHeightPx: liveH };
+    return { ...block, heightPx: liveH, subBlocks: nextSubs };
   });
 }
 
-/**
- * Compare both heightPx AND fullWidthHeightPx for stability.
- * The reconcile loop can update either field depending on placement context.
- */
 function blocksStable(a: ContentBlock[], b: ContentBlock[]): boolean {
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (Math.abs(a[i].heightPx - b[i].heightPx) > HEIGHT_DIFF_THRESHOLD_PX) return false;
-    if (Math.abs(a[i].fullWidthHeightPx - b[i].fullWidthHeightPx) > HEIGHT_DIFF_THRESHOLD_PX) return false;
-  }
-  return true;
+  return a.every((block, i) => Math.abs(block.heightPx - b[i].heightPx) <= HEIGHT_DIFF_THRESHOLD_PX);
 }
 
 export function usePaginationFit(
@@ -211,23 +165,17 @@ export function usePaginationFit(
   hasClippedContent: boolean;
 } {
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
-  const singleColumn = layout.type === 'single-column';
 
   const includedSections = designSettings.includedSections;
-  const heuristicBlocks = useMemo(() => {
-    if (!cvData) return [];
-    const blocks = buildBlocks(cvData, includedSections);
-    // Single-column templates have one width context — start from the wide
-    // estimate so the first paint is already close to reality.
-    return singleColumn
-      ? blocks.map(b => ({ ...b, heightPx: b.fullWidthHeightPx }))
-      : blocks;
-  }, [cvData, singleColumn, includedSections]);
+  const heuristicBlocks = useMemo(
+    () => (cvData ? buildBlocks(cvData, includedSections) : []),
+    [cvData, includedSections],
+  );
 
   /**
    * Fingerprint of everything that changes the rendered heights — any change
-   * resets the reconcile loop. Photo, ATS mode, language (dates and labels)
-   * and anonymization change what is painted without touching the estimates:
+   * resets the reconcile loop. Photo, language (dates and labels) and
+   * anonymization change what is painted without touching the estimates:
    * left out, turning the photo on pushed the last block of page 1 past the
    * bottom edge, clipped in the preview and in the PDF.
    */
@@ -235,9 +183,8 @@ export function usePaginationFit(
   const contentKey = useMemo(
     () => heuristicBlocks.map(b => `${b.id}:${b.heightPx}`).join('|')
       + `|${selectedTemplate}|${designSettings.fontFamily}|${designSettings.showPhoto}`
-      + `|${designSettings.atsMode}|${language}|${isAnonymous}`,
-    [heuristicBlocks, selectedTemplate, designSettings.fontFamily, designSettings.showPhoto,
-      designSettings.atsMode, language, isAnonymous],
+      + `|${language}|${isAnonymous}`,
+    [heuristicBlocks, selectedTemplate, designSettings.fontFamily, designSettings.showPhoto, language, isAnonymous],
   );
 
   /** Reconciled blocks: live-measured heights, fed back into allocation */
@@ -302,7 +249,7 @@ export function usePaginationFit(
     const live = readLiveDOM();
     if (!live || live.blockHeights.size === 0) return;
 
-    const nextBlocks = reconcileBlocks(activeBlocks, live, pageAssignments, singleColumn);
+    const nextBlocks = reconcileBlocks(activeBlocks, live, pageAssignments);
 
     const heightsStable = blocksStable(nextBlocks, activeBlocks);
     const titlesStable =
@@ -319,7 +266,7 @@ export function usePaginationFit(
     iterCountRef.current += 1;
     if (!heightsStable) setReconciledBlocks(nextBlocks);
     if (!titlesStable) setSectionTitles(live.sectionTitles);
-  }, [pageAssignments, activeBlocks, sectionTitles, singleColumn]);
+  }, [pageAssignments, activeBlocks, sectionTitles]);
 
   // Computed during render, not in an effect: right after a content change the
   // `isStable` state still holds the PREVIOUS content's verdict, and an effect

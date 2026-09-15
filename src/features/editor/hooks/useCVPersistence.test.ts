@@ -11,7 +11,7 @@ const SAMPLE_CV: CVData = {
 };
 
 const SAMPLE_DESIGN: DesignSettings = {
-  template: 'TEMPLATE_A',
+  template: 'TEMPLATE_C',
   primaryColor: '#000',
   secondaryColor: '#fff',
   fontFamily: 'sans',
@@ -29,17 +29,17 @@ describe('buildPersistedCV', () => {
       personal_info: { name: 'Jane', email: 'jane@example.com' },
       experience: [{ company: 'Acme', position: 'Dev', start_date: '2020', current: true, description: ['bullet'] }],
     };
-    const out = buildPersistedCV(cv, SAMPLE_DESIGN, 'TEMPLATE_A');
+    const out = buildPersistedCV(cv, SAMPLE_DESIGN, 'TEMPLATE_C');
     expect(out.personal_info.name).toBe('Jane');
     expect(out.experience).toHaveLength(1);
   });
 
   it('does not mutate inputs', () => {
     const design = { ...SAMPLE_DESIGN };
-    const out = buildPersistedCV(SAMPLE_CV, design, 'TEMPLATE_B');
+    const out = buildPersistedCV(SAMPLE_CV, design, 'TEMPLATE_E');
     expect(out).not.toBe(SAMPLE_CV);
     expect(out.design).not.toBe(design);
-    expect(design.template).toBe('TEMPLATE_A'); // unchanged
+    expect(design.template).toBe('TEMPLATE_C'); // unchanged
   });
 });
 

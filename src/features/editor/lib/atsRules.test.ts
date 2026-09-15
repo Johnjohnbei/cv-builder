@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  TEMPLATE_ATS_COMPAT,
   SECTION_NAMES,
   getSectionTitle,
   SKILL_CATEGORY_NAMES,
@@ -10,16 +9,6 @@ import type { SectionKey } from './atsRules';
 import type { SkillCategoryKey } from './skillDictionary';
 
 describe('atsRules', () => {
-  it('exports template compatibility for all 4 templates', () => {
-    const keys = Object.keys(TEMPLATE_ATS_COMPAT);
-    expect(keys).toHaveLength(4);
-    expect(keys).toContain('TEMPLATE_A');
-    expect(keys).toContain('TEMPLATE_E');
-    for (const val of Object.values(TEMPLATE_ATS_COMPAT)) {
-      expect(['full', 'limited']).toContain(val);
-    }
-  });
-
   it('exports section names for fr and en', () => {
     expect(SECTION_NAMES.fr.experience).toBe('Expérience professionnelle');
     expect(SECTION_NAMES.en.experience).toBe('Work Experience');

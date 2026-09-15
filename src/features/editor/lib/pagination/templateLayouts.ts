@@ -1,144 +1,32 @@
 // ─── Template Layout Dimensions ───
-// Derived from actual Tailwind classes in each template.
-// 210mm ≈ 794px at 96dpi. 1rem = 16px. Tailwind spacing: p-12=48px, p-16=64px.
-// Conversions: 64px ≈ 16.9mm, 48px ≈ 12.7mm, gap-12=48px ≈ 12.7mm, gap-16=64px ≈ 16.9mm
-//
-// All templates use symmetric safety margins (pt == pb) — uniform breathing room
-// on every side of the page. Templates using p-16 → 16.9mm; templates using p-12 → 12.7mm.
+// Derived from the Tailwind classes of each template: the page padding p-16 is
+// 64px ≈ 16.9mm on every side. Both templates are single-column since the
+// two-column templates A (Classic) and B (Modern) were removed on 2026-09-15
+// (arbitrage Q3).
 
+import { DEFAULT_DESIGN } from '@/src/shared/types';
 import type { TemplateLayout } from './types';
-
-// ─── Shared constants ───
 
 /** Standard padding (p-16 = 64px ≈ 16.9mm) */
 const PAD_16 = 16.9;
-/** Smaller padding (p-12 = 48px ≈ 12.7mm) */
-const PAD_12 = 12.7;
-/** Gap between grid columns (gap-12 = 48px ≈ 12.7mm) */
-const GAP_12 = 12.7;
 
-// ─── Per-Template Layouts ───
-
-/**
- * TemplateA — Classic (sidebar right)
- * Root: p-16
- * Grid: grid-cols-3 gap-12 (main=2fr, sidebar=1fr)
- * Main column ≈ (210 - 2*16.9 - 12.7) * 2/3 = ~109mm
- * Sidebar ≈ ~54mm
- */
-const TEMPLATE_A: TemplateLayout = {
-  type: 'two-column-right',
-  page1: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    mainColumnWidthMm: (210 - 2 * PAD_16 - GAP_12) * (2 / 3),
-    sidebarWidthMm: (210 - 2 * PAD_16 - GAP_12) * (1 / 3),
-    gapMm: GAP_12,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  headerFullWidth: true,
+const SINGLE_COLUMN: TemplateLayout = {
+  page1: { paddingTopMm: PAD_16, paddingBottomMm: PAD_16 },
+  page2Plus: { paddingTopMm: PAD_16, paddingBottomMm: PAD_16 },
 };
-
-/**
- * TemplateB — Modern (sidebar left, bg primary)
- * Left sidebar: p-12, width=1fr
- * Right main: px-16 py-12, width=2fr
- * Grid: grid-cols-[1fr_2fr]
- */
-const TEMPLATE_B: TemplateLayout = {
-  type: 'two-column-left',
-  page1: {
-    contentWidthMm: 210,
-    mainColumnWidthMm: 210 * (2 / 3),
-    sidebarWidthMm: 210 * (1 / 3),
-    gapMm: 0,
-    paddingTopMm: PAD_12,
-    paddingBottomMm: PAD_12,
-    paddingLeftMm: 0,
-    paddingRightMm: 0,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  headerFullWidth: false,
-};
-
-/**
- * TemplateC — Minimal (single column, centered)
- * Root: p-16 space-y-8
- * Skills/edu in grid-cols-2 below experiences
- */
-const TEMPLATE_C: TemplateLayout = {
-  type: 'single-column',
-  page1: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    mainColumnWidthMm: 210 - 2 * PAD_16,
-    sidebarWidthMm: 0,
-    gapMm: 0,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  headerFullWidth: true,
-};
-
-/**
- * TemplateE — Elegant (single column, skills/edu grid)
- * Root: p-16
- * Skills/edu: grid-cols-2 gap-12
- */
-const TEMPLATE_E: TemplateLayout = {
-  type: 'single-column',
-  page1: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    mainColumnWidthMm: 210 - 2 * PAD_16,
-    sidebarWidthMm: 0,
-    gapMm: 0,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  page2Plus: {
-    contentWidthMm: 210 - 2 * PAD_16,
-    paddingTopMm: PAD_16,
-    paddingBottomMm: PAD_16,
-    paddingLeftMm: PAD_16,
-    paddingRightMm: PAD_16,
-  },
-  headerFullWidth: true,
-};
-
-// ─── Registry ───
 
 export const TEMPLATE_LAYOUTS: Record<string, TemplateLayout> = {
-  TEMPLATE_A: TEMPLATE_A,
-  TEMPLATE_B: TEMPLATE_B,
-  TEMPLATE_C: TEMPLATE_C,
-  TEMPLATE_E: TEMPLATE_E,
+  /** Minimal: single column, centered */
+  TEMPLATE_C: SINGLE_COLUMN,
+  /** Elegant: single column, the default */
+  TEMPLATE_E: SINGLE_COLUMN,
 };
 
+/** The template a CV renders in: a removed or unknown id (TEMPLATE_A, TEMPLATE_B) opens in the default */
+export function knownTemplateId(templateId: string | undefined): string {
+  return templateId && TEMPLATE_LAYOUTS[templateId] ? templateId : DEFAULT_DESIGN.template;
+}
+
 export function getTemplateLayout(templateId: string): TemplateLayout {
-  return TEMPLATE_LAYOUTS[templateId] ?? TEMPLATE_A;
+  return TEMPLATE_LAYOUTS[knownTemplateId(templateId)];
 }

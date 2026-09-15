@@ -117,13 +117,7 @@ export default function EditorPage() {
     isGuest,
     notify,
   });
-  const templateSelection = useTemplateSelection({
-    selectedTemplate,
-    setSelectedTemplate,
-    designSettings,
-    setDesignSettings,
-    notify,
-  });
+  const templateSelection = useTemplateSelection({ setSelectedTemplate, setDesignSettings });
   const coverLetter = useCoverLetter({
     cvData,
     jobDescription,
@@ -311,8 +305,6 @@ export default function EditorPage() {
           isSaving={persistence.isSaving}
           isExporting={exports.isExporting}
           hasCvData={!!cvData}
-          atsMode={designSettings.atsMode ?? false}
-          onAtsModeChange={templateSelection.setAtsMode}
           currentLanguage={currentLanguage}
           onLanguageChange={language.handleLanguageChange}
           isLanguageLocked={isRewritingCV}
@@ -328,7 +320,6 @@ export default function EditorPage() {
           designSettings={designSettings}
           language={currentLanguage}
           blockRenderers={blockRenderers}
-          selectedTemplate={selectedTemplate}
           templateStyle={templateStyle}
           firstExperiencePage={firstExperiencePage}
           zoom={zoom}

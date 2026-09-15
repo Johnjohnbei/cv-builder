@@ -18,7 +18,6 @@ function makeExpBlock(bulletCount: number, bulletHeight = 24): ContentBlock {
     id: 'exp-0',
     type: 'experience',
     heightPx: subs.reduce((s, b) => s + b.heightPx, 0),
-    fullWidthHeightPx: subs.reduce((s, b) => s + b.heightPx, 0),
     splittable: true,
     subBlocks: subs,
     data: {} as never,
@@ -59,7 +58,6 @@ describe('splitBlock — experience', () => {
       id: 'header',
       type: 'header',
       heightPx: 200,
-      fullWidthHeightPx: 200,
       splittable: false,
       data: {} as never,
     };
@@ -71,7 +69,6 @@ describe('splitBlock — experience', () => {
       id: 'skill-0',
       type: 'skill-category',
       heightPx: 200,
-      fullWidthHeightPx: 200,
       splittable: false,
       data: {} as never,
     };

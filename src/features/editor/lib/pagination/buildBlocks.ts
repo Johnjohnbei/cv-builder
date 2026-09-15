@@ -9,8 +9,8 @@ import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro, 
 
 // ─── Constants ───
 
-const CHARS_PER_LINE_NARROW = 60;
-const CHARS_PER_LINE_WIDE = 90;
+/** Characters per line at the page's content width (single-column templates) */
+const CHARS_PER_LINE = 90;
 const LINE_HEIGHT = 20;
 const SECTION_TITLE_H = 32;
 const SPACING = 16;
@@ -35,8 +35,7 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
     blocks.push({
       id: 'header',
       type: 'header',
-      heightPx: Math.ceil(100 + titleLines * 24 + 30),
-      fullWidthHeightPx: Math.ceil(100 + titleLines * 24 + 20),
+      heightPx: Math.ceil(100 + titleLines * 24 + 20),
       splittable: false,
       data: cvData.personal_info,
     });
@@ -44,12 +43,10 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
 
   // Summary
   if (shows('summary') && cvData.personal_info?.summary) {
-    const textH = estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_NARROW);
     blocks.push({
       id: 'summary',
       type: 'summary',
-      heightPx: Math.ceil(SECTION_TITLE_H + textH + 16),
-      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE_WIDE) + 16),
+      heightPx: Math.ceil(SECTION_TITLE_H + estimateTextHeight(cvData.personal_info.summary, CHARS_PER_LINE) + 16),
       splittable: false,
       data: cvData.personal_info.summary,
     });
@@ -66,18 +63,13 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
 
     const positionLines = Math.ceil((exp.position?.length || 20) / 35);
     const headerH = positionLines * 22 + 28;
-    const introH = intro ? estimateTextHeight(intro, CHARS_PER_LINE_NARROW) + 8 : 0;
-    const expHeaderH = headerH + introH;
-
-    const bulletHeights = bullets.map(b => {
-      return Math.max(1, Math.ceil(b.length / CHARS_PER_LINE_NARROW)) * LINE_HEIGHT + 6;
-    });
+    const introH = intro ? estimateTextHeight(intro, CHARS_PER_LINE) + 8 : 0;
 
     const subBlocks: SubBlock[] = [
-      { id: `exp-${idx}-header`, heightPx: expHeaderH, type: 'exp-header' },
-      ...bulletHeights.map((bH, bIdx) => ({
+      { id: `exp-${idx}-header`, heightPx: headerH + introH, type: 'exp-header' },
+      ...bullets.map((bullet, bIdx) => ({
         id: `exp-${idx}-bullet-${bIdx}`,
-        heightPx: bH,
+        heightPx: estimateTextHeight(bullet, CHARS_PER_LINE) + 6,
         type: 'bullet' as const,
       })),
     ];
@@ -86,19 +78,10 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
       subBlocks.push({ id: `exp-${idx}-kpi`, heightPx: 28, type: 'kpi' });
     }
 
-    const totalH = subBlocks.reduce((s, b) => s + b.heightPx, 0) + SPACING;
-
-    const introHFull = intro ? estimateTextHeight(intro, CHARS_PER_LINE_WIDE) + 8 : 0;
-    const bulletHFull = bullets.reduce((s, b) => {
-      return s + Math.max(1, Math.ceil(b.length / CHARS_PER_LINE_WIDE)) * LINE_HEIGHT + 6;
-    }, 0);
-    const totalHFull = headerH + introHFull + bulletHFull + (showKpi ? 28 : 0) + SPACING;
-
     blocks.push({
       id: `exp-${idx}`,
       type: 'experience',
-      heightPx: Math.ceil(totalH),
-      fullWidthHeightPx: Math.ceil(totalHFull),
+      heightPx: Math.ceil(subBlocks.reduce((s, b) => s + b.heightPx, 0) + SPACING),
       splittable: bullets.length >= 2,
       subBlocks,
       data: exp,
@@ -115,15 +98,13 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
     const items = getVisibleSkills(cat);
     const titleH = 24;
     const rowH = 28;
-    // In narrow sidebar, ~2 items per row; in wide column, ~4-5
-    const rowsNarrow = Math.ceil(items.length / 2);
-    const rowsWide = Math.ceil(items.length / 5);
+    // About five chips per row at the page's width
+    const rows = Math.ceil(items.length / 5);
 
     blocks.push({
       id: `skill-${idx}`,
       type: 'skill-category',
-      heightPx: Math.ceil(titleH + rowsNarrow * rowH + 8),
-      fullWidthHeightPx: Math.ceil(titleH + rowsWide * rowH + 8),
+      heightPx: Math.ceil(titleH + rows * rowH + 8),
       splittable: false,
       data: cat,
     });
@@ -134,8 +115,7 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 55),
-      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 40),
+      heightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 40),
       splittable: false,
       data: cvData.education,
     });
@@ -147,7 +127,6 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
       id: 'languages',
       type: 'languages',
       heightPx: Math.ceil(SECTION_TITLE_H + cvData.languages.length * 26),
-      fullWidthHeightPx: Math.ceil(SECTION_TITLE_H + cvData.languages.length * 26),
       splittable: false,
       data: cvData.languages,
     });

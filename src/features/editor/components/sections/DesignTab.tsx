@@ -4,7 +4,6 @@ import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Button } from '../../../../shared/ui/Button';
 import { TemplateThumbnail } from '../TemplateThumbnail';
-import { TEMPLATE_ATS_COMPAT } from '../../lib/atsRules';
 import type { DesignSettings } from '../../../../shared/types';
 
 type FontFamily = DesignSettings['fontFamily'];
@@ -49,9 +48,9 @@ export const DesignTab = memo(function DesignTab({
       <section className="stitch-panel">
         <div className="stitch-panel-header">Templates</div>
         <div className="p-4 grid grid-cols-2 gap-3">
+          {/* Both single column, both read in order by an ATS: the two-column
+              Classic and Modern were removed on 2026-09-15 */}
           {[
-            { id: 'TEMPLATE_A', name: 'Classic', desc: 'Minimaliste & Efficace' },
-            { id: 'TEMPLATE_B', name: 'Modern', desc: 'Design & Impact' },
             { id: 'TEMPLATE_C', name: 'Minimal', desc: 'Sérieux & Professionnel' },
             { id: 'TEMPLATE_E', name: 'Elegant', desc: 'Haut de gamme' }
           ].map((tpl) => (
@@ -69,14 +68,7 @@ export const DesignTab = memo(function DesignTab({
             >
               <div className="flex items-center justify-between">
                 <span className={cn("text-[11px] font-bold stitch-mono uppercase", selectedTemplate === tpl.id ? "text-blue-600" : "text-gray-900")}>{tpl.name}</span>
-                <div className="flex items-center gap-1">
-                  {TEMPLATE_ATS_COMPAT[tpl.id] === 'full' ? (
-                    <span className="text-[10px] stitch-mono font-bold px-1 py-0.5 rounded bg-green-100 text-green-800" title="Bien lu par les robots de tri des candidatures (ATS)">ATS</span>
-                  ) : (
-                    <span className="text-[10px] stitch-mono font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-700" title="Mise en page graphique : peut être moins bien lue par les robots de tri (score ATS réduit)">DESIGN</span>
-                  )}
-                  {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
-                </div>
+                {selectedTemplate === tpl.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
               </div>
               <div className="h-16 bg-white border border-gray-100 rounded overflow-hidden">
                 <TemplateThumbnail templateId={tpl.id} primaryColor={designSettings.primaryColor} />

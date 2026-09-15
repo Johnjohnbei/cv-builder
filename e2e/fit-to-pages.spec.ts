@@ -244,7 +244,8 @@ test.describe('Lien portfolio', () => {
     await expect(headerLinks(page)).toHaveCount(0);
   });
 
-  test('le template Modern affiche aussi LinkedIn et le lien portfolio', async ({ page }) => {
+  // Modern (TEMPLATE_B) was removed on 2026-09-15: a CV saved with it opens in Elegant, contacts intact
+  test('un CV enregistré avec le template Modern retiré s’ouvre en Elegant, LinkedIn et portfolio compris', async ({ page }) => {
     await seedGuestSession(page, {
       cv: {
         ...LONG_CV,
@@ -263,6 +264,10 @@ test.describe('Lien portfolio', () => {
     const header = page.locator('[data-cv-section="header"]').first();
     await expect(header).toContainText('linkedin.com/in/marie-dupont', { timeout: 15_000 });
     await expect(header.locator('a')).toHaveAttribute('href', 'https://example.com/portfolio/design-system');
+    await page.getByRole('tab', { name: 'Design' }).click();
+    // The selected template card (its name in blue), not the "Elegant" colour theme
+    await expect(page.getByText('Elegant', { exact: true }).first()).toHaveClass(/text-blue-600/);
+    await expect(page.getByText('Modern', { exact: true })).toHaveCount(0);
   });
 
   test('un lien portfolio saisi à la main est rendu et cliquable', async ({ page }) => {

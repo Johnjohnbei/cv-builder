@@ -25,7 +25,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-full mb-1 border-2 border-gray-100")}
       <h1 className="text-3xl font-light tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
       <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{data?.title}</p>
-      {renderContactInfo(cvDataShim, designSettings.atsMode, "justify-center text-[9px] font-mono text-gray-500 uppercase tracking-widest")}
+      {renderContactInfo(cvDataShim, "justify-center text-[9px] font-mono text-gray-500 uppercase tracking-widest")}
     </header>
   );
 }
@@ -59,7 +59,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
               <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
               <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>
                 {exp.company}
-                <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} language={language} />
+                <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} language={language} />
               </p>
               {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{renderInlineMarkdown(intro)}</p>}
             </div>

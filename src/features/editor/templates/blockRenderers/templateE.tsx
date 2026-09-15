@@ -14,11 +14,11 @@ import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVDa
 
 // ─── Helpers ───
 
-function getSectionHeader(title: string, primaryColor: string, atsMode?: boolean) {
+function getSectionHeader(title: string, primaryColor: string) {
   return (
     <div className="flex items-center gap-4 mb-3">
       <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{title}</h2>
-      <div className="flex-1 h-[2px]" style={{ backgroundColor: atsMode ? '#e5e7eb' : `${primaryColor}20` }} />
+      <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
     </div>
   );
 }
@@ -28,7 +28,6 @@ function getSectionHeader(title: string, primaryColor: string, atsMode?: boolean
 function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const data = block.block.data as PersonalInfo;
   const { primaryColor } = designSettings;
-  const atsMode = designSettings.atsMode;
   const showPhoto = designSettings.showPhoto;
   const cvDataShim = { personal_info: data } as CVData;
 
@@ -44,7 +43,6 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       <div className="text-[10px] text-right space-y-0.5 text-gray-500 shrink-0">
         {getContactEntries(data).map(entry => (
           <p key={entry.key}>
-            {atsMode && <span className="font-semibold">{entry.atsLabel} </span>}
             {renderContactValue(entry, { color: primaryColor })}
           </p>
         ))}
@@ -56,11 +54,10 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
 function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
   const summary = block.block.data as string;
   const { primaryColor } = designSettings;
-  const atsMode = designSettings.atsMode;
 
   return (
     <section data-cv-section="summary">
-      {getSectionHeader(getShortSectionTitle('summary', language), primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('summary', language), primaryColor)}
       <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(summary)}</p>
     </section>
   );
@@ -69,15 +66,14 @@ function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
 function ExperienceBlock({ block, designSettings, language }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor } = designSettings;
-  const atsMode = designSettings.atsMode;
   const { intro, bullets, bulletOffset } = getSlicedBullets(exp, block);
   const isOverflow = (block.startSubBlock ?? 0) > 0;
 
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div className="relative pl-6 border-l-2" style={{ borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
-          {!atsMode && <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
+        <div className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
           <div className="flex justify-between items-start gap-4 mb-2">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
             <div className="text-[10px] font-bold opacity-70 shrink-0 text-right leading-tight">
@@ -87,18 +83,18 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
           </div>
           <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>
             {exp.company}
-            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} atsMode={designSettings.atsMode} language={language} />
+            <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} language={language} />
           </p>
           {intro && <p className="text-sm text-gray-600 leading-relaxed">{renderInlineMarkdown(intro)}</p>}
         </div>
       )}
       {isOverflow && (
-        <div className="relative pl-6 border-l-2" style={{ borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` }}>
+        <div className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
           {/* Continuation of experience from previous page */}
         </div>
       )}
       {bullets.length > 0 && (
-        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: atsMode ? '#d1d5db' : `${secondaryColor}30` } : undefined}>
+        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>
           {bullets.map((bullet, bIdx) => (
             <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
@@ -141,11 +137,10 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
 function EducationBlock({ block, designSettings, language }: BlockRendererProps) {
   const educations = block.block.data as Education[];
   const { primaryColor } = designSettings;
-  const atsMode = designSettings.atsMode;
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      {getSectionHeader(getShortSectionTitle('education', language), primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('education', language), primaryColor)}
       <div className="space-y-4">
         {educations.map((edu, idx) => {
           const lines = getEducationLines(edu, language);
@@ -164,11 +159,10 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 function LanguagesBlock({ block, designSettings, language }: BlockRendererProps) {
   const languages = block.block.data as Language[];
   const { primaryColor } = designSettings;
-  const atsMode = designSettings.atsMode;
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      {getSectionHeader(getShortSectionTitle('languages', language), primaryColor, atsMode)}
+      {getSectionHeader(getShortSectionTitle('languages', language), primaryColor)}
       <div className="flex flex-wrap gap-x-12 gap-y-4">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">

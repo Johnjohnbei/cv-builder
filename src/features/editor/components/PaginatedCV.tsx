@@ -5,77 +5,21 @@ import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { CVPage } from './CVPage';
 import { getFontClass } from '../templates/shared';
 import { getSectionTitle, getContinuationMarker } from '../lib/atsRules';
-import { getContrastTextColor } from '@/src/shared/lib/colorContrast';
 
-/** Per-template grid layout config for CVPage */
-interface TemplateGridConfig {
-  sidebarPosition: 'left' | 'right';
-  gridClass: string;
-  sidebarClassName?: string;
-  mainClassName?: string;
-  /** Padding for page 1 (empty when grid columns handle their own padding) */
-  paddingClass: string;
-  /** Padding for pages 2+ (always needed since no grid on continuation pages) */
-  page2PaddingClass: string;
-  /** Whether the sidebar uses primaryColor as background (affects text contrast) */
-  sidebarHasPrimaryBg?: boolean;
-}
-
-// NOTE: the vertical padding of page 1 must equal what templateLayouts.ts
-// allocates (paddingTopMm/BottomMm), or the last block runs into the margin;
-// PaginatedCV.test.ts checks it. Templates A/C/E use a uniform page-level p-16
-// (64px). Template B pads each column (its sidebar has its own background):
-// 48px vertically on both, the main column keeping 64px horizontally.
-const TEMPLATE_GRID_CONFIGS: Record<string, TemplateGridConfig> = {
-  TEMPLATE_A: {
-    sidebarPosition: 'right',
-    gridClass: 'grid-cols-3 gap-12',
-    mainClassName: 'col-span-2',
-    sidebarClassName: 'col-span-1',
-    paddingClass: 'p-16',
-    page2PaddingClass: 'p-16',
-  },
-  TEMPLATE_B: {
-    sidebarPosition: 'left',
-    gridClass: 'grid-cols-[1fr_2fr]',
-    sidebarClassName: 'p-12',
-    // Vertical padding equal to the sidebar's and to the layout's PAD_12: p-16
-    // gave the main column 32px less than allocated, and its last block ran
-    // into the bottom margin unflagged.
-    mainClassName: 'px-16 py-12',
-    paddingClass: '',
-    page2PaddingClass: 'p-16',
-    sidebarHasPrimaryBg: true,
-  },
-  TEMPLATE_C: {
-    sidebarPosition: 'right',
-    gridClass: 'grid-cols-1',
-    paddingClass: 'p-16',
-    page2PaddingClass: 'p-16',
-  },
-  TEMPLATE_E: {
-    sidebarPosition: 'right',
-    gridClass: 'grid-cols-1',
-    paddingClass: 'p-16',
-    page2PaddingClass: 'p-16',
-  },
-};
-
-export function getTemplateGridConfig(templateId: string): TemplateGridConfig {
-  return TEMPLATE_GRID_CONFIGS[templateId] ?? TEMPLATE_GRID_CONFIGS.TEMPLATE_A;
-}
+/**
+ * Padding of every page of every template: p-16 (64px). It must equal what
+ * templateLayouts.ts allocates, or the last block runs into the margin;
+ * PaginatedCV.test.ts checks it.
+ */
+export const PAGE_PADDING_CLASS = 'p-16';
 
 interface Props {
   pageAssignments: PageAssignment[];
   designSettings: DesignSettings;
   language: SupportedLanguage;
   blockRenderers: BlockRendererMap;
-  /** The selected template ID (e.g. 'TEMPLATE_A') */
-  selectedTemplate: string;
   /** CSS variables for template colors */
   templateStyle?: React.CSSProperties;
-  /** Padding class override per template */
-  paddingClass?: string;
   /** Index of the first page that has experience blocks (for "suite" label) */
   firstExperiencePage?: number;
   /**
@@ -88,12 +32,12 @@ interface Props {
 }
 
 /**
- * Section title rendered before the first experience block on a page.
- * Shows "(suite)" on pages 2+ to indicate continuation.
+ * Section title rendered before the first experience or skill block on a page.
+ * Shows "(suite)" on later pages to indicate continuation.
  *
- * NOTE: no mb-4 — the column's space-y-4 / gap-4 provides the gap to the
- * following sibling. Keeping mb-4 would create a double gap when title and
- * block become separate live-measurable siblings.
+ * NOTE: no mb-4 — the page's gap-4 provides the gap to the following sibling.
+ * Keeping mb-4 would create a double gap when title and block are separate
+ * live-measurable siblings.
  */
 function SectionTitle({ title, color, isContinuation, language }: { title: string; color: string; isContinuation: boolean; language: SupportedLanguage }) {
   return (
@@ -117,20 +61,15 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
     designSettings,
     language,
     blockRenderers,
-    selectedTemplate,
     templateStyle,
-    paddingClass,
     firstExperiencePage = 0,
     renderPageWrapper,
   }, ref) {
     const { primaryColor } = designSettings;
     const fontClass = getFontClass(designSettings.fontFamily);
-    const isTwoColumn = pageAssignments[0]?.layoutMode === 'two-column';
-    const gridConfig = getTemplateGridConfig(selectedTemplate);
     const totalPages = pageAssignments.length;
-    // First page carrying skills, sidebar included: skills on a later page are a continuation
-    const firstSkillsPage = pageAssignments.findIndex(p =>
-      [...p.blocks, ...(p.sidebarBlocks ?? [])].some(pb => pb.block.type === 'skill-category'));
+    // First page carrying skills: skills on a later page are a continuation
+    const firstSkillsPage = pageAssignments.findIndex(p => p.blocks.some(pb => pb.block.type === 'skill-category'));
 
     const renderBlock = (placed: PlacedBlock, pageIndex: number) => {
       const renderer = blockRenderers[placed.block.type];
@@ -148,55 +87,15 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
         {pageAssignments.map((page) => {
           const firstExpIdx = page.blocks.findIndex(pb => pb.block.type === 'experience');
           const firstSkillIdx = page.blocks.findIndex(pb => pb.block.type === 'skill-category');
-          const hasExperiences = firstExpIdx !== -1;
-          const isContinuation = hasExperiences && page.pageIndex > firstExperiencePage;
+          const isContinuation = firstExpIdx !== -1 && page.pageIndex > firstExperiencePage;
 
           const cvPage = (
             <CVPage
               pageIndex={page.pageIndex}
-              twoColumn={isTwoColumn && page.pageIndex === 0}
               accentColor={primaryColor}
               fontClass={fontClass}
               style={templateStyle}
-              paddingClass={paddingClass || (page.pageIndex > 0 ? gridConfig.page2PaddingClass : gridConfig.paddingClass)}
-              sidebarPosition={gridConfig.sidebarPosition}
-              gridClass={gridConfig.gridClass}
-              sidebarClassName={gridConfig.sidebarClassName}
-              mainClassName={gridConfig.mainClassName}
-              sidebarStyle={
-                gridConfig.sidebarHasPrimaryBg
-                  ? { backgroundColor: primaryColor }
-                  : undefined
-              }
-              sidebar={
-                page.sidebarBlocks && page.sidebarBlocks.length > 0
-                  ? (() => {
-                      let skillsTitleShown = false;
-                      const sidebarTitleColor = designSettings.atsMode ? '#000' : gridConfig.sidebarHasPrimaryBg ? getContrastTextColor(primaryColor) : primaryColor;
-                      return page.sidebarBlocks.map((sb, i) => {
-                        const needsSkillsTitle = sb.block.type === 'skill-category' && !skillsTitleShown;
-                        if (needsSkillsTitle) skillsTitleShown = true;
-                        return (
-                          <Fragment key={sb.block.id || i}>
-                            {needsSkillsTitle && (
-                              <div data-live-title="skills">
-                                <SectionTitle
-                                  title={getSectionTitle('skills', language)}
-                                  color={sidebarTitleColor}
-                                  isContinuation={false}
-                                  language={language}
-                                />
-                              </div>
-                            )}
-                            <div data-live-block={sb.block.id}>
-                              {renderBlock(sb, page.pageIndex)}
-                            </div>
-                          </Fragment>
-                        );
-                      });
-                    })()
-                  : undefined
-              }
+              paddingClass={PAGE_PADDING_CLASS}
             >
               {page.blocks.map((pb, i) => (
                 <Fragment key={pb.block.id || i}>
@@ -205,20 +104,19 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
                     <div data-live-title="experience">
                       <SectionTitle
                         title={getSectionTitle('experience', language)}
-                        color={designSettings.atsMode ? '#000' : primaryColor}
+                        color={primaryColor}
                         isContinuation={isContinuation}
                         language={language}
                       />
                     </div>
                   )}
-                  {/* Same for skills outside a sidebar: single-column templates
-                      (Elegant, Minimal) and pages 2+ printed the categories with
-                      no "Compétences" heading, which an ATS needs to find them */}
+                  {/* Same for skills: the categories printed with no "Compétences"
+                      heading, which an ATS needs to find them */}
                   {i === firstSkillIdx && (
                     <div data-live-title="skills">
                       <SectionTitle
                         title={getSectionTitle('skills', language)}
-                        color={designSettings.atsMode ? '#000' : primaryColor}
+                        color={primaryColor}
                         isContinuation={page.pageIndex > firstSkillsPage}
                         language={language}
                       />

@@ -11,7 +11,6 @@ interface Props {
   designSettings: DesignSettings;
   language: 'fr' | 'en';
   blockRenderers: BlockRendererMap;
-  selectedTemplate: string;
   templateStyle: React.CSSProperties;
   firstExperiencePage: number;
   zoom: number;
@@ -32,7 +31,7 @@ interface Props {
 export const EditorPreview = memo(forwardRef<HTMLDivElement, Props>(
   function EditorPreview({
     pageAssignments, hasCvData, designSettings, language, blockRenderers,
-    selectedTemplate, templateStyle, firstExperiencePage, zoom, cvRootRef,
+    templateStyle, firstExperiencePage, zoom, cvRootRef,
   }, scrollRef) {
     const renderPageWrapper = useCallback((cvPage: React.ReactNode, pageIndex: number, totalPages: number) => (
       <div
@@ -83,7 +82,6 @@ export const EditorPreview = memo(forwardRef<HTMLDivElement, Props>(
               designSettings={designSettings}
               language={language}
               blockRenderers={blockRenderers}
-              selectedTemplate={selectedTemplate}
               templateStyle={templateStyle}
               firstExperiencePage={firstExperiencePage}
               renderPageWrapper={renderPageWrapper}

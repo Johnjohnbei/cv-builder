@@ -37,14 +37,6 @@ export function isPageOverfilled(page: PageAssignment, layout: TemplateLayout): 
   return page.usedHeightPx > getUsableHeight(padding.paddingTopMm, padding.paddingBottomMm) + 1;
 }
 
-/** Height of a placed block in the requested width context. Slices always sum their sub-blocks. */
-function placedHeight(pb: PlacedBlock, useFullWidth: boolean): number {
-  if (pb.startSubBlock === undefined || pb.endSubBlock === undefined || !pb.block.subBlocks) {
-    return useFullWidth ? pb.block.fullWidthHeightPx : pb.block.heightPx;
-  }
-  return getPlacedBlockHeight(pb);
-}
-
 // ─── Options ───
 
 /**
@@ -60,10 +52,6 @@ export interface AllocateOptions {
   };
 }
 
-function resolveTitleH(override: number | undefined): number {
-  return override ?? SECTION_TITLE_HEIGHT_PX;
-}
-
 interface TitleHeights {
   experience: number;
   skills: number;
@@ -71,20 +59,16 @@ interface TitleHeights {
 
 function resolveTitles(options: AllocateOptions): TitleHeights {
   return {
-    experience: resolveTitleH(options.sectionTitleHeights?.experience),
-    skills: resolveTitleH(options.sectionTitleHeights?.skills),
+    experience: options.sectionTitleHeights?.experience ?? SECTION_TITLE_HEIGHT_PX,
+    skills: options.sectionTitleHeights?.skills ?? SECTION_TITLE_HEIGHT_PX,
   };
 }
 
 /**
  * Space PaginatedCV adds above the first experience and the first skill
  * category of a page, for its section title. Zero once that title is already
- * on the page, and for untitled block types.
- *
- * Titles are separate siblings in the DOM, so no measured block height
- * includes them. Only page 1 of two-column templates used to reserve them:
- * single-column pages (Elegant is the default) and every page 2+ were
- * allocated one title short and could clip their last block.
+ * on the page, and for untitled block types. Titles are separate siblings in
+ * the DOM, so no measured block height includes them.
  */
 function titleReserve(type: ContentBlock['type'], titled: Set<string>, titles: TitleHeights): number {
   if (titled.has(type)) return 0;
@@ -94,52 +78,29 @@ function titleReserve(type: ContentBlock['type'], titled: Set<string>, titles: T
 }
 
 /**
- * Height a column or page really takes: its blocks at the width they render
- * at, plus the section titles injected above them. Totals used to skip the
- * titles (a block forced onto a page under its title was cut in the PDF with
- * no warning) and to read column-width heights on full-width overflow pages
- * (a false "cut block" warning on templates A and B). MEASUREMENT_SAFETY_PX
- * is the CSS gap between blocks, and the last block of a column has none: a
- * block placed by force that fitted within that gap was reported as cut.
+ * Height a page really takes: its blocks plus the section titles injected
+ * above them. MEASUREMENT_SAFETY_PX is the CSS gap between blocks, and the
+ * last block has none: a block placed by force that fitted within that gap
+ * was reported as cut.
  */
-function usedHeight(blocks: PlacedBlock[], titles: TitleHeights, useFullWidth = false): number {
+function usedHeight(blocks: PlacedBlock[], titles: TitleHeights): number {
   const titled = new Set<string>();
   const withGaps = blocks.reduce((sum, pb) => {
     const titleH = titleReserve(pb.block.type, titled, titles);
     titled.add(pb.block.type);
-    return sum + titleH + placedHeight(pb, useFullWidth) + MEASUREMENT_SAFETY_PX;
+    return sum + titleH + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX;
   }, 0);
   return blocks.length > 0 ? withGaps - MEASUREMENT_SAFETY_PX : 0;
 }
 
-// ─── Block Classification ───
-
-interface ClassifiedBlocks {
-  header: ContentBlock | null;
-  summary: ContentBlock | null;
-  experiences: ContentBlock[];
-  sidebarBlocks: ContentBlock[];  // skills, education, languages
-}
-
-function classifyBlocks(blocks: ContentBlock[]): ClassifiedBlocks {
-  return {
-    header: blocks.find(b => b.type === 'header') ?? null,
-    summary: blocks.find(b => b.type === 'summary') ?? null,
-    experiences: blocks.filter(b => b.type === 'experience'),
-    sidebarBlocks: blocks.filter(b =>
-      b.type === 'skill-category' || b.type === 'education' || b.type === 'languages',
-    ),
-  };
-}
-
 // ─── Main Algorithm ───
 
+const ORDER: ContentBlock['type'][] = ['header', 'summary', 'experience', 'skill-category', 'education', 'languages'];
+
 /**
- * Allocate blocks to pages.
+ * Allocate blocks to pages, in reading order: header, summary, experiences,
+ * skills, education, languages.
  *
- * - Page 1: two-column for sidebar templates (header + summary + experiences in main,
- *   skills/edu/languages in sidebar). Single-column templates put everything sequentially.
- * - Pages 2+: full-width (with accent color border).
  * - Blocks that don't fit are split at bullet level when possible.
  * - Never truncates: adds as many pages as the content needs.
  */
@@ -148,147 +109,35 @@ export function allocatePages(
   layout: TemplateLayout,
   options: AllocateOptions = {},
 ): PageAssignment[] {
-  const { header, summary, experiences, sidebarBlocks } = classifyBlocks(blocks);
-  const isTwoColumn = layout.type !== 'single-column';
-
-  if (isTwoColumn) {
-    return allocateTwoColumn(header, summary, experiences, sidebarBlocks, layout, options);
-  }
-  return allocateSingleColumn(header, summary, experiences, sidebarBlocks, layout, options);
-}
-
-// ─── Two-Column Layout (Templates A, B) ───
-
-function allocateTwoColumn(
-  header: ContentBlock | null,
-  summary: ContentBlock | null,
-  experiences: ContentBlock[],
-  sidebarBlocks: ContentBlock[],
-  layout: TemplateLayout,
-  options: AllocateOptions,
-): PageAssignment[] {
-  const pages: PageAssignment[] = [];
-  const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);
   const titles = resolveTitles(options);
-  const skillsTitleH = titles.skills;
+  const ordered = ORDER.flatMap(type => blocks.filter(b => b.type === type));
 
-  // ─── Page 1: Header + Main Column + Sidebar ───
-
-  const page1Main: PlacedBlock[] = [];
-  const page1Sidebar: PlacedBlock[] = [];
-
-  // Header (spans full width above grid, or is in sidebar for B)
-  if (header) {
-    if (layout.headerFullWidth) {
-      page1Main.push({ block: header });
-    } else {
-      page1Sidebar.push({ block: header });
-    }
-  }
-
-  // Summary (always in main column)
-  if (summary) {
-    page1Main.push({ block: summary });
-  }
-
-  // Sidebar: fill with skills/education/languages
-  // Blocks that don't fit flow to page 2+ as full-width content
-  const sidebarOverflow: PlacedBlock[] = [];
-  // No gap counted after the header: the loop below counts one after the last
-  // block, which the column does not render, so the two cancel out exactly.
-  const headerSidebarH = layout.headerFullWidth ? 0 : (header?.heightPx ?? 0);
-  let sidebarUsed = headerSidebarH;
-  // Reserve space for the "COMPÉTENCES" section title injected by PaginatedCV
-  const hasSkills = sidebarBlocks.some(b => b.type === 'skill-category');
-  if (hasSkills) {
-    sidebarUsed += skillsTitleH + MEASUREMENT_SAFETY_PX;
-  }
-  for (const sb of sidebarBlocks) {
-    if (sidebarUsed + sb.heightPx + MEASUREMENT_SAFETY_PX <= page1Height) {
-      page1Sidebar.push({ block: sb });
-      sidebarUsed += sb.heightPx + MEASUREMENT_SAFETY_PX;
-    } else {
-      sidebarOverflow.push({ block: sb });
-    }
-  }
-
-  // Main column: fill with experiences (fillColumn reserves their section title)
-  const overflowExperiences = fillColumn(experiences, page1Height, page1Main, titles);
-
-  pages.push({
-    pageIndex: 0,
-    blocks: page1Main,
-    sidebarBlocks: page1Sidebar,
-    layoutMode: 'two-column',
-    usedHeightPx: Math.max(usedHeight(page1Main, titles), usedHeight(page1Sidebar, titles)),
-  });
-
-  // ─── Pages 2+: Full-width overflow (experiences + sidebar overflow) ───
-
-  const allOverflow = [...overflowExperiences, ...sidebarOverflow];
-  if (allOverflow.length > 0) {
-    const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    allocateOverflowPages(allOverflow, page2Height, pages, true, titles);
-  }
-
-  return pages;
-}
-
-// ─── Single-Column Layout (Templates C, E) ───
-// Every page renders at the same full width, so heightPx is the single source
-// of truth (usePaginationFit keeps heightPx === fullWidthHeightPx here).
-
-function allocateSingleColumn(
-  header: ContentBlock | null,
-  summary: ContentBlock | null,
-  experiences: ContentBlock[],
-  sidebarBlocks: ContentBlock[],
-  layout: TemplateLayout,
-  options: AllocateOptions,
-): PageAssignment[] {
   const pages: PageAssignment[] = [];
-  const page1Height = getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm);
-  const titles = resolveTitles(options);
-
-  // All blocks flow sequentially: header → summary → experiences → skills → edu → languages
-  const allBlocks: ContentBlock[] = [];
-  if (header) allBlocks.push(header);
-  if (summary) allBlocks.push(summary);
-  allBlocks.push(...experiences);
-  allBlocks.push(...sidebarBlocks);
-
   const page1Blocks: PlacedBlock[] = [];
-  const overflow = fillColumn(allBlocks, page1Height, page1Blocks, titles);
-
-  pages.push({
-    pageIndex: 0,
-    blocks: page1Blocks,
-    layoutMode: 'full-width',
-    usedHeightPx: usedHeight(page1Blocks, titles),
-  });
+  const overflow = fillPage(ordered, getUsableHeight(layout.page1.paddingTopMm, layout.page1.paddingBottomMm), page1Blocks, titles);
+  pages.push({ pageIndex: 0, blocks: page1Blocks, usedHeightPx: usedHeight(page1Blocks, titles) });
 
   if (overflow.length > 0) {
     const page2Height = getUsableHeight(layout.page2Plus.paddingTopMm, layout.page2Plus.paddingBottomMm);
-    allocateOverflowPages(overflow, page2Height, pages, false, titles);
+    allocateOverflowPages(overflow, page2Height, pages, titles);
   }
-
   return pages;
 }
 
-// ─── Column Filling ───
+// ─── Page Filling ───
 
 /**
- * Fill a column with blocks until no more fit.
+ * Fill the first page with blocks until no more fit.
  * Returns the overflow as PlacedBlock slices (whole blocks or split remainders).
  */
-function fillColumn(
+function fillPage(
   blocks: ContentBlock[],
   availablePx: number,
   placed: PlacedBlock[],
   titles: TitleHeights,
 ): PlacedBlock[] {
-  let usedPx = placed.reduce((sum, pb) => sum + getPlacedBlockHeight(pb) + MEASUREMENT_SAFETY_PX, 0);
-  const titled = new Set<string>(placed.map(pb => pb.block.type));
+  let usedPx = 0;
+  const titled = new Set<string>();
   const overflow: PlacedBlock[] = [];
   let overflowStarted = false;
 
@@ -336,7 +185,6 @@ function allocateOverflowPages(
   overflow: PlacedBlock[],
   pageHeightPx: number,
   pages: PageAssignment[],
-  useFullWidthHeight: boolean,
   titles: TitleHeights,
 ): void {
   let remaining = [...overflow];
@@ -354,7 +202,7 @@ function allocateOverflowPages(
         continue;
       }
 
-      const height = placedHeight(pb, useFullWidthHeight);
+      const height = getPlacedBlockHeight(pb);
       const titleH = titleReserve(pb.block.type, titled, titles);
       const space = pageHeightPx - usedPx - titleH;
 
@@ -389,13 +237,7 @@ function allocateOverflowPages(
       overflowStarted = true;
     }
 
-    pages.push({
-      pageIndex: pages.length,
-      blocks: pageBlocks,
-      layoutMode: 'full-width',
-      usedHeightPx: usedHeight(pageBlocks, titles, useFullWidthHeight),
-    });
-
+    pages.push({ pageIndex: pages.length, blocks: pageBlocks, usedHeightPx: usedHeight(pageBlocks, titles) });
     remaining = nextOverflow;
   }
 }
