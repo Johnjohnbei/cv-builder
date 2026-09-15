@@ -152,10 +152,16 @@ describe('stripSimpleSuffixes', () => {
     expect(stripSimpleSuffixes('les')).toBe('les');
     expect(stripSimpleSuffixes('figma')).toBe('figma');
   });
-  it('never strips the s of a double s, nor the x of a short root', () => {
+  it('never strips the s of a double s, and strips x only as a French plural in -aux, -eux, -oux', () => {
     expect(stripSimpleSuffixes('less')).toBe('less');
     expect(stripSimpleSuffixes('access')).toBe('access');
-    expect(stripSimpleSuffixes('unix')).toBe('unix');
     expect(stripSimpleSuffixes('reseaux')).toBe('reseau');
+    expect(stripSimpleSuffixes('jeux')).toBe('jeu');
+    expect(stripSimpleSuffixes('bijoux')).toBe('bijou');
+    for (const name of ['unix', 'linux', 'redux', 'choix', 'flux']) expect(stripSimpleSuffixes(name)).toBe(name);
+  });
+
+  it('matches a French plural in -x', () => {
+    expect(matchPhrase('jeu vidéo', prepareText('Industrie des jeux vidéo'))).toBe(true);
   });
 });

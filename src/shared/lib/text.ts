@@ -71,7 +71,8 @@ export function stripSimpleSuffixes(word: string): string {
   const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x', 'e'];
   for (const suf of suffixes) {
     const root = word.length - suf.length;
-    if (!word.endsWith(suf) || root < (suf === 'x' ? 4 : 3)) continue;
+    // x is a French plural after au, eu, ou (reseaux, jeux, bijoux), never in unix or redux
+    if (!word.endsWith(suf) || root < 3 || (suf === 'x' && !/[aeo]u$/.test(word.slice(0, root)))) continue;
     // A double s is never a plural: "less", "sass" and "access" are names, not "les" or "sas"
     if (suf === 's' && word[root - 1] === 's') return word;
     return word.slice(0, root);

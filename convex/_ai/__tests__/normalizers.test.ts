@@ -369,6 +369,16 @@ describe("normalizeJobRequirements", () => {
     expect(years("At least two (2) years", 2)).toBe(1);
   });
 
+  it("reads the ranges offers write years with", () => {
+    const offer = "Entre 3 et 5 ans d'expérience. Between 3 and 5 years of experience. 3/5 ans en agence. Entre trois et cinq ans.";
+    const kept = (quote: string) =>
+      normalizeJobRequirements([req({ label: "Expérience", kind: "experience_years", quote, minYears: 3 })], offer).length;
+    expect(kept("Entre 3 et 5 ans d'expérience")).toBe(1);
+    expect(kept("Between 3 and 5 years of experience")).toBe(1);
+    expect(kept("3/5 ans en agence")).toBe(1);
+    expect(kept("Entre trois et cinq ans")).toBe(1);
+  });
+
   it("caps the list at 25 requirements", () => {
     const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
     const offer = `Outils : ${labels.join(", ")}.`;

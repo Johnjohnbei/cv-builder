@@ -32,7 +32,8 @@ import {
   KeywordDistributionSchema,
 } from "./_ai/schemas";
 import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
-import { fetchPublicPage, htmlToText, isPublicUrl, JINA_MAX_BYTES, JINA_TIMEOUT_MS, parseHttpUrl, readTextUpTo } from "./_ai/publicUrl";
+import { fetchPublicPage, isPublicUrl, JINA_MAX_BYTES, JINA_TIMEOUT_MS, parseHttpUrl, readTextUpTo } from "./_ai/publicUrl";
+import { htmlToText } from "./_ai/htmlText";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)

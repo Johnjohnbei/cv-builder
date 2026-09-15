@@ -27,12 +27,13 @@ const NUMBER_WORDS = [
 
 /**
  * Whether the quote gives `years` as a number of years, in digits or in words:
- * "3 ans", "trois à cinq années", "5+ years", "two (2) years". The unit is
+ * "3 ans", "trois à cinq années", "entre 3 et 5 ans", "3/5 ans", "5+ years",
+ * "two (2) years". The unit is
  * required, "un" or the 5 of "Bac+5" are in almost every quote.
  */
 function statesYears(quote: ReturnType<typeof prepareText>, years: number): boolean {
   const number = [String(years), ...(NUMBER_WORDS[years - 1] ?? [])].join("|");
-  const range = String.raw`(?:\s*-\s*|\s+(?:a|to|ou|or)\s+)[\p{L}\p{N}]+`;
+  const range = String.raw`(?:\s*[-/]\s*|\s+(?:a|to|ou|or|et|and)\s+)[\p{L}\p{N}]+`;
   const unit = String.raw`\+?(?:\s*\(\s*\d+\s*\))?\s*(?:ans?|annees?|years?|yrs?)(?![\p{L}\p{N}])`;
   return new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:${number})\+?(?:${range})?${unit}`, "u").test(quote.normalized);
 }

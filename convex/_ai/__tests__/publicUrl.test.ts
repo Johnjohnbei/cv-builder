@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchPublicPage, htmlToText, isPublicAddress, isPublicUrl, parseHttpUrl, readTextUpTo, URL_ACTION_BUDGET_MS } from "../publicUrl";
+import { fetchPublicPage, isPublicAddress, isPublicUrl, parseHttpUrl, readTextUpTo, URL_ACTION_BUDGET_MS } from "../publicUrl";
 
 const resolvesTo = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
 
@@ -159,110 +159,6 @@ describe("fetchPublicPage (one deadline for the whole page, redirects included)"
   });
 });
 
-describe("htmlToText", () => {
-  it("drops scripts, styles and page chrome, then decodes entities with &amp; last", () => {
-    const html = "<header>Menu</header><nav>Liens</nav><style>p{}</style>"
-      + "<p>Offre&nbsp;:  Designer &amp;lt;senior&amp;gt;</p><script>track()</script><footer>Pied</footer>";
-    expect(htmlToText(html)).toBe("Offre : Designer &lt;senior&gt;");
-  });
-
-  it("keeps the first 15 000 characters", () => {
-    expect(htmlToText(`<p>${"ab".repeat(10_000)}</p>`)).toBe("ab".repeat(7_500));
-  });
-
-  // Pages with a large inline script or data blob before the offer exist
-  // (Next.js __NEXT_DATA__): a cut in the middle of that script sent code to the model.
-  it("reads the offer after a script larger than a megabyte", () => {
-    const html = `<head><script>${"var x=1;".repeat(160_000)}</script></head><h1>Offre Designer</h1>`;
-    expect(htmlToText(html)).toBe("Offre Designer");
-  });
-
-  it("keeps the text of tags whose attribute contains a less-than sign", () => {
-    expect(htmlToText('<div x-show="a < b">Texte</div>')).toBe("Texte");
-  });
-
-  it("keeps custom elements whose name only starts like a removed block", () => {
-    expect(htmlToText("<header-bar>Titre</header-bar><navigation>Menu</navigation><p>Offre</p>")).toBe("Titre Menu Offre");
-  });
-
-  // Scripts first, like the original cleanup: a nav holding a script whose
-  // string contains "</nav>" closed the nav there and leaked the script
-  it("removes scripts before page chrome and comments", () => {
-    expect(htmlToText("<nav><script>s='</nav>';leak()</script></nav><p>Offre</p>")).toBe("Offre");
-    expect(htmlToText('<script>var s="<!--";</script><p>Offre</p>')).toBe("Offre");
-  });
-
-  it("keeps a less-than sign of running text", () => {
-    expect(htmlToText("<p>a < b</p>")).toBe("a < b");
-  });
-
-  // A byte limit can cut a page inside a script: like a browser, the rest is script, never text
-  it("drops an unclosed script or style to the end, but keeps the text of an unclosed nav", () => {
-    expect(htmlToText("<p>Offre</p><script>var a = 1;")).toBe("Offre");
-    expect(htmlToText("<p>Offre</p><style>p { color: red")).toBe("Offre");
-    expect(htmlToText("<nav>Menu<p>Offre</p>")).toBe("Menu Offre");
-  });
-
-  it("closes a script on </script followed by anything up to >", () => {
-    expect(htmlToText("<script>x()</script foo><p>Offre</p>")).toBe("Offre");
-  });
-
-  it("removes comments, a > inside them included, and an unclosed comment to the end", () => {
-    expect(htmlToText("<!-- a > b --><p>Offre</p><!-- fin")).toBe("Offre");
-  });
-
-  it("keeps a > inside a quoted attribute from ending the tag", () => {
-    expect(htmlToText('<div title="a>b">Texte</div>')).toBe("Texte");
-  });
-
-  // Like a browser tokenizer: a quote only opens a value right after "="
-  it("reads an apostrophe in an unquoted value or a tag name as an ordinary character", () => {
-    expect(htmlToText("<p class=l'offre>Rejoignez l'équipe produit</p><p>Suite</p>")).toBe("Rejoignez l'équipe produit Suite");
-    expect(htmlToText("<img alt=L'équipe src=a.png><p>Offre</p><p>Suite</p>")).toBe("Offre Suite");
-    expect(htmlToText('<a"b>Offre</a"b><p>Suite</p>')).toBe("Offre Suite");
-  });
-
-  // One pass sees comments, attributes and script text the way a browser does
-  it("does not lose the page to markup hidden in a comment or an attribute", () => {
-    expect(htmlToText("<!-- <script> --><p>Offre</p><script>real()</script><p>Suite</p>")).toBe("Offre Suite");
-    expect(htmlToText('<div data-x="<!--">Offre</div><p>Suite</p><!-- vrai -->')).toBe("Offre Suite");
-    expect(htmlToText('<div data-tpl="<style>">Offre</div><p>Suite</p><script>a()</script><p>Fin</p>')).toBe("Offre Suite Fin");
-  });
-
-  it("ends a bogus comment at the first >, quotes or not", () => {
-    expect(htmlToText("<!x ' ><p>Offre</p><p>Suite l'x</p>")).toBe("Offre Suite l'x");
-  });
-
-  it("ends a closing script tag at its >, a < before it included", () => {
-    expect(htmlToText("<script>x()</script\n<p>Offre</p>")).toBe("Offre");
-  });
-
-  it("drops a tag cut by the end of the page, never the text before it", () => {
-    expect(htmlToText('<p>Offre</p><div class="x')).toBe("Offre");
-  });
-
-  it("drops nested page chrome", () => {
-    expect(htmlToText("<nav>A<nav>B</nav>C</nav><p>Offre</p>")).toBe("Offre");
-  });
-
-  // A hostile page must not hold the action: these regexes used to go quadratic
-  // on a few megabytes, past the Convex limit, where no deadline can stop CPU work.
-  it.each([
-    ["unclosed opening brackets", "<".repeat(2_000_000)],
-    ["unclosed script tags", "<script>".repeat(250_000)],
-    ["closing tags without opening ones", "</script".repeat(250_000)],
-    ["an open script followed by unterminated closing tags", "<script>" + "</script ".repeat(250_000)],
-    ["unclosed quotes inside tags", '<a "'.repeat(500_000)],
-    ["unclosed comments", "<!--".repeat(500_000)],
-    ["page chrome after a long text", "a".repeat(1_000_000) + "<nav>x</nav>".repeat(300_000)],
-    ["bogus comments", "<!x>".repeat(500_000)],
-  ])("stays fast on %s", (_name, html) => {
-    const startedAt = performance.now();
-    htmlToText(html);
-    expect(performance.now() - startedAt).toBeLessThan(1_000);
-  });
-});
-
 describe("readTextUpTo", () => {
   const chunked = (chunks: string[]) => {
     const cancel = vi.fn();
@@ -288,6 +184,14 @@ describe("readTextUpTo", () => {
     const head = new TextEncoder().encode('<meta charset="windows-1252"><p>exp');
     const response = new Response(new Uint8Array([...head, 0xe9, 0x72, 0x69, 0x65, 0x6e, 0x63, 0x65]));
     expect(await readTextUpTo(response, 1_000)).toBe(`<meta charset="windows-1252"><p>exp${String.fromCodePoint(0xe9)}rience`);
+  });
+
+  // The HTML standard: a byte order mark wins, and a meta tag cannot declare UTF-16
+  it("trusts a byte order mark over a meta tag, and reads a meta UTF-16 as UTF-8", async () => {
+    const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('<meta charset="iso-8859-1">développeur')]);
+    expect(await readTextUpTo(new Response(withBom), 1_000)).toBe('<meta charset="iso-8859-1">développeur');
+    const ascii = new Response('<meta charset="utf-16"><p>Offre</p>');
+    expect(await readTextUpTo(ascii, 1_000)).toBe('<meta charset="utf-16"><p>Offre</p>');
   });
 
   it("falls back to UTF-8 on an unknown charset", async () => {

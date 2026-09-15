@@ -181,112 +181,21 @@ export async function readTextUpTo(response: Response, maxBytes: number): Promis
 }
 
 /**
- * Decoder for the charset the header declares, else a meta tag of the first
- * chunk, else UTF-8: old job boards still serve Latin-1, whose accents decoded
- * as UTF-8 became U+FFFD.
+ * Decoder in the HTML standard's order: a byte order mark, the charset of the
+ * header, a meta tag of the first chunk (which cannot declare UTF-16), UTF-8.
+ * Old job boards still serve Latin-1, whose accents decoded as UTF-8 became U+FFFD.
  * ponytail: a meta tag past the first chunk is missed; read ahead if one shows up.
  */
 function decoderFor(contentType: string | null, head: Uint8Array): TextDecoder {
+  if (head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) return new TextDecoder("utf-8");
+  if (head[0] === 0xff && head[1] === 0xfe) return new TextDecoder("utf-16le");
+  if (head[0] === 0xfe && head[1] === 0xff) return new TextDecoder("utf-16be");
   const charset = /charset\s*=\s*["']?([\w:.-]+)/i;
-  const label = charset.exec(contentType ?? "")?.[1]
-    ?? charset.exec(new TextDecoder("latin1").decode(head.subarray(0, 2_048)))?.[1];
+  const meta = charset.exec(new TextDecoder("latin1").decode(head.subarray(0, 2_048)))?.[1];
+  const label = charset.exec(contentType ?? "")?.[1] ?? (meta && /^utf-?16/i.test(meta) ? "utf-8" : meta);
   try {
     return new TextDecoder(label ?? "utf-8");
   } catch {
     return new TextDecoder();
   }
-}
-
-/** Page text handed to the model */
-const MAX_PAGE_TEXT_CHARS = 15_000;
-
-/** Index of the ">" ending the tag whose name starts at `from`, or -1 when the page ends first */
-function tagEnd(html: string, from: number): number {
-  // Like a browser tokenizer, a quote opens a value only right after "=":
-  // an apostrophe in a name or an unquoted value (class=l'offre) is a letter
-  let state: "name" | "afterEquals" | "unquoted" | '"' | "'" = "name";
-  for (let i = from; i < html.length; i++) {
-    const ch = html[i];
-    const space = ch === " " || ch === "\n" || ch === "\t" || ch === "\r" || ch === "\f";
-    if (state === '"' || state === "'") {
-      if (ch === state) state = "name";
-    } else if (ch === ">") {
-      return i;
-    } else if (state === "afterEquals") {
-      if (!space) state = ch === '"' || ch === "'" ? ch : "unquoted";
-    } else if (space) {
-      state = "name";
-    } else if (state === "name" && ch === "=") {
-      state = "afterEquals";
-    }
-  }
-  return -1;
-}
-
-const RAW_TEXT_END: Record<string, RegExp> = { script: /<\/script(?=[\s/>])/gi, style: /<\/style(?=[\s/>])/gi };
-const PAGE_CHROME = new Set(["nav", "header", "footer"]);
-
-/**
- * Text of the page without its markup, scripts, styles, comments and page
- * chrome, read in one linear pass the way a browser tokenizes: a hostile page
- * must not hold the action, and no deadline stops CPU work. Separate passes
- * disagreed on what was markup ("<!--" inside an attribute, "<script>" inside
- * a comment) and lost the rest of the page.
- *
- * A page cut by the byte limit ends like in a browser: an unclosed script or
- * style, comment or tag runs to the end; an unclosed nav keeps its text.
- */
-function stripMarkup(html: string): string {
-  const parts: string[] = [];
-  let chromeDepth = 0;
-  let chromeStart = 0; // parts dropped when the outermost chrome closes
-  let i = 0; // start of the text not yet copied
-  for (let lt = html.indexOf("<"); lt !== -1; lt = html.indexOf("<", Math.max(i, lt + 1))) {
-    const next = html[lt + 1] ?? "";
-    const closing = next === "/";
-    const nameStart = closing ? lt + 2 : lt + 1;
-    const comment = html.startsWith("<!--", lt);
-    const tag = !comment && /[A-Za-z]/.test(html[nameStart] ?? "");
-    // "<!doctype", "<?xml", "</ x": bogus comments, up to the first ">"
-    const bogus = !comment && !tag && (next === "!" || next === "?" || (closing && nameStart < html.length));
-    if (!comment && !tag && !bogus) continue; // "a < b" in running text
-    parts.push(html.slice(i, lt));
-    const end = comment ? html.indexOf("-->", lt + 4) : tag ? tagEnd(html, nameStart) : html.indexOf(">", lt + 2);
-    if (end === -1) return parts.join("");
-    if (comment) {
-      i = end + 3;
-      continue;
-    }
-    parts.push(" ");
-    i = end + 1;
-    if (bogus) continue;
-    const name = /^[^\s/>]*/.exec(html.slice(nameStart, Math.min(end, nameStart + 16)))![0].toLowerCase();
-    if (PAGE_CHROME.has(name)) {
-      if (!closing && chromeDepth++ === 0) chromeStart = parts.length;
-      else if (closing && chromeDepth > 0 && --chromeDepth === 0) parts.length = chromeStart;
-    } else if (!closing && RAW_TEXT_END[name]) {
-      const rawEnd = RAW_TEXT_END[name];
-      rawEnd.lastIndex = i;
-      const close = rawEnd.exec(html);
-      if (!close) return parts.join("");
-      i = close.index; // its end tag is read as a tag, so "</script\n<p>" ends at ">"
-    }
-  }
-  return parts.join("") + html.slice(i);
-}
-
-/**
- * Readable text of an HTML page. Entities are decoded after the tags are gone,
- * &amp; last so "&amp;lt;" stays the text "&lt;", and whitespace is collapsed
- * after decoding.
- */
-export function htmlToText(html: string): string {
-  return stripMarkup(html)
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim()
-    .substring(0, MAX_PAGE_TEXT_CHARS);
 }
