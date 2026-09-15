@@ -167,12 +167,45 @@ describe("htmlToText", () => {
     expect(htmlToText("<header-bar>Titre</header-bar><navigation>Menu</navigation><p>Offre</p>")).toBe("Titre Menu Offre");
   });
 
+  // Scripts first, like the original cleanup: a nav holding a script whose
+  // string contains "</nav>" closed the nav there and leaked the script
+  it("removes scripts before page chrome and comments", () => {
+    expect(htmlToText("<nav><script>s='</nav>';leak()</script></nav><p>Offre</p>")).toBe("Offre");
+    expect(htmlToText('<script>var s="<!--";</script><p>Offre</p>')).toBe("Offre");
+  });
+
+  it("keeps a less-than sign of running text", () => {
+    expect(htmlToText("<p>a < b</p>")).toBe("a < b");
+  });
+
+  // A byte limit can cut a page inside a script: like a browser, the rest is script, never text
+  it("drops an unclosed script or style to the end, but keeps the text of an unclosed nav", () => {
+    expect(htmlToText("<p>Offre</p><script>var a = 1;")).toBe("Offre");
+    expect(htmlToText("<p>Offre</p><style>p { color: red")).toBe("Offre");
+    expect(htmlToText("<nav>Menu<p>Offre</p>")).toBe("Menu Offre");
+  });
+
+  it("closes a script on </script followed by anything up to >", () => {
+    expect(htmlToText("<script>x()</script foo><p>Offre</p>")).toBe("Offre");
+  });
+
+  it("removes comments, a > inside them included, and an unclosed comment to the end", () => {
+    expect(htmlToText("<!-- a > b --><p>Offre</p><!-- fin")).toBe("Offre");
+  });
+
+  it("keeps a > inside a quoted attribute from ending the tag", () => {
+    expect(htmlToText('<div title="a>b">Texte</div>')).toBe("Texte");
+  });
+
   // A hostile page must not hold the action: these regexes used to go quadratic
   // on a few megabytes, past the Convex limit, where no deadline can stop CPU work.
   it.each([
     ["unclosed opening brackets", "<".repeat(2_000_000)],
     ["unclosed script tags", "<script>".repeat(250_000)],
     ["closing tags without opening ones", "</script".repeat(250_000)],
+    ["an open script followed by unterminated closing tags", "<script>" + "</script ".repeat(250_000)],
+    ["unclosed quotes inside tags", '<a "'.repeat(500_000)],
+    ["unclosed comments", "<!--".repeat(500_000)],
   ])("stays fast on %s", (_name, html) => {
     const startedAt = performance.now();
     htmlToText(html);
@@ -193,6 +226,27 @@ describe("readTextUpTo", () => {
     });
     return { response: new Response(body), cancel };
   };
+
+  it("reads no body as empty text", async () => {
+    expect(await readTextUpTo(new Response(null), 10)).toBe("");
+  });
+
+  it("keeps a multibyte character split across chunks", async () => {
+    const bytes = new TextEncoder().encode("é€");
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const b of bytes) controller.enqueue(new Uint8Array([b]));
+        controller.close();
+      },
+    });
+    expect(await readTextUpTo(new Response(body), 1_000)).toBe(String.fromCodePoint(0xe9, 0x20ac));
+  });
+
+  // A replacement character would be invented text
+  it("drops a character the byte limit cuts in half", async () => {
+    const response = new Response(String.fromCodePoint(0xe9, 0x20ac));
+    expect(await readTextUpTo(response, 4)).toBe(String.fromCodePoint(0xe9));
+  });
 
   it("reads a small body whole", async () => {
     expect(await readTextUpTo(chunked(["<p>", "Offre", "</p>"]).response, 1_000)).toBe("<p>Offre</p>");

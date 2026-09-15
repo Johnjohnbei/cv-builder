@@ -142,12 +142,17 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
     });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
+      void response.body?.cancel(); // an unread body holds the socket
       const next = parseHttpUrl(new URL(location, url).toString());
       if (!next || !(await isPublicUrl(next))) return "";
       url = next;
       continue;
     }
-    return response.ok ? await readTextUpTo(response, MAX_PAGE_BYTES) : "";
+    if (!response.ok) {
+      void response.body?.cancel();
+      return "";
+    }
+    return await readTextUpTo(response, MAX_PAGE_BYTES);
   }
   return "";
 }
@@ -155,6 +160,7 @@ export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortS
 /**
  * Body of a response as text, read up to `maxBytes`, the rest of the download
  * cancelled: `response.text()` held a page of any size in the action's memory.
+ * A character the limit cuts in half is dropped, never replaced by U+FFFD.
  */
 export async function readTextUpTo(response: Response, maxBytes: number): Promise<string> {
   if (!response.body) return "";
@@ -170,21 +176,25 @@ export async function readTextUpTo(response: Response, maxBytes: number): Promis
     text += decoder.decode(kept, { stream: true });
   }
   await reader.cancel();
-  return text + decoder.decode();
+  return text;
 }
 
 /** Page text handed to the model */
 const MAX_PAGE_TEXT_CHARS = 15_000;
 
+// Every scanner below is linear: a hostile page must not hold the action, and
+// no deadline stops CPU work. Lazy regexes such as <script>[\s\S]*?</script>
+// rescanned the rest of the page from every unclosed opening tag.
+
 /**
- * Remove script, style and page-chrome blocks. A scan rather than a lazy
- * `<script>[\s\S]*?</script>` regex: on unclosed tags that regex rescanned the
- * rest of the page from every opening tag, quadratic on a few megabytes. A tag
- * with no closing tag left is not searched for again. The name must end the
- * tag name, so custom elements such as <header-bar> are kept.
+ * Remove `names` blocks (the name must end the tag name, so <header-bar> is
+ * kept). A browser closes a block on "</name" followed by a space, "/" or ">".
+ * Unclosed: a script or style runs to the end of the page, like in a browser
+ * (a byte limit can cut one); a nav or header keeps its text, and is not
+ * searched for again.
  */
-function dropBlocks(html: string): string {
-  const open = /<(script|style|nav|footer|header)(?=[\s/>])/gi;
+function dropBlocks(html: string, names: string, unclosedRunsToEnd: boolean): string {
+  const open = new RegExp(`<(${names})(?=[\\s/>])`, "gi");
   const unclosed = new Set<string>();
   let text = "";
   let kept = 0;
@@ -192,10 +202,11 @@ function dropBlocks(html: string): string {
   while ((match = open.exec(html))) {
     const tag = match[1].toLowerCase();
     if (unclosed.has(tag)) continue;
-    const close = new RegExp(`</${tag}\\s*>`, "gi");
+    const close = new RegExp(`</${tag}(?=[\\s/>])[^<>]*>`, "gi");
     close.lastIndex = open.lastIndex;
     const found = close.exec(html);
     if (!found) {
+      if (unclosedRunsToEnd) return text + html.slice(kept, match.index);
       unclosed.add(tag);
       continue;
     }
@@ -205,23 +216,60 @@ function dropBlocks(html: string): string {
   return text + html.slice(kept);
 }
 
+/** Remove HTML comments, a ">" inside them included; an unclosed comment runs to the end */
+function dropComments(html: string): string {
+  let text = "";
+  let kept = 0;
+  for (let start = html.indexOf("<!--"); start !== -1; start = html.indexOf("<!--", kept)) {
+    text += html.slice(kept, start);
+    const end = html.indexOf("-->", start + 4);
+    if (end === -1) return text;
+    kept = end + 3;
+  }
+  return text + html.slice(kept);
+}
+
+/** What can follow "<" in a tag: "a < b" in running text is not one */
+const TAG_START = /[A-Za-z/!?]/;
+
 /**
- * A tag is removed up to its closing ">", a "<" inside an attribute included.
- * `<[^>]+>` only goes quadratic on a tail with no ">" left, which is kept as is.
+ * Replace each tag by a space, up to the ">" that ends it outside quotes, so a
+ * "<" or a ">" inside an attribute value does not leak markup. A tag with no
+ * closing ">" left stays text.
  */
 function dropTags(html: string): string {
-  const end = html.lastIndexOf(">") + 1;
-  return html.slice(0, end).replace(/<[^>]+>/g, " ") + html.slice(end);
+  let text = "";
+  let kept = 0;
+  for (let lt = html.indexOf("<"); lt !== -1; lt = html.indexOf("<", lt + 1)) {
+    if (lt < kept || !TAG_START.test(html[lt + 1] ?? "")) continue;
+    let end = lt + 1;
+    let quote = "";
+    for (; end < html.length; end++) {
+      const ch = html[end];
+      if (quote) {
+        if (ch === quote) quote = "";
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === ">") {
+        break;
+      }
+    }
+    if (end === html.length) break;
+    text += html.slice(kept, lt) + " ";
+    kept = end + 1;
+  }
+  return text + html.slice(kept);
 }
 
 /**
  * Readable text of an HTML page. Entities are decoded after the tags are gone,
  * &amp; last so "&amp;lt;" stays the text "&lt;", and whitespace is collapsed
- * after decoding. Linear on any input: a hostile page must not hold the action,
- * and no deadline stops CPU work.
+ * after decoding. Scripts and styles go first, so a string inside them that
+ * looks like "</nav>" or "<!--" is never read as markup.
  */
 export function htmlToText(html: string): string {
-  return dropTags(dropBlocks(html))
+  const withoutScripts = dropBlocks(html, "script|style", true);
+  return dropTags(dropBlocks(dropComments(withoutScripts), "nav|footer|header", false))
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")

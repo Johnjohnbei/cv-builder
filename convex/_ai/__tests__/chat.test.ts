@@ -32,7 +32,8 @@ const interruptedAfter = (snapshot: unknown, error: unknown) => async () => {
   throw error;
 };
 
-import { withRetry, isRetryable, retryDelayMs, safeParseJSON, chatJSONThen } from "../chat";
+import { withRetry, isRetryable, retryDelayMs, safeParseJSON, chatJSONThen, AI_CALL_WORST_CASE_MS } from "../chat";
+import { getProviders } from "../providers";
 import { userError } from "../../_shared/errors";
 
 /** Read the user-facing payload off a thrown error (ConvexError.data). */
@@ -201,6 +202,17 @@ describe("token usage", () => {
 });
 
 describe("call deadline", () => {
+  // Actions budget their other waits against this constant (URL action in publicUrl.ts)
+  it("states the worst case of one call as two timed-out attempts and the longest pause between them", () => {
+    expect(AI_CALL_WORST_CASE_MS).toBe(270_000 + 20_000 + 270_000);
+  });
+
+  // withRetry gives every provider but the last one attempt: a second provider
+  // adds a full timeout, which AI_CALL_WORST_CASE_MS does not count yet
+  it("assumes a single provider", () => {
+    expect(getProviders()).toHaveLength(1);
+  });
+
   // The whole stream is bounded, not only the wait for the response headers:
   // the SDK's own timeout is cleared as soon as the headers arrive.
   it("bounds each call with a 270 s abort signal given to the stream", async () => {

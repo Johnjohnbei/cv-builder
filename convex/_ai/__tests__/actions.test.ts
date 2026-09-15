@@ -84,6 +84,18 @@ describe("extractJobDescriptionFromURL: Jina first, then the page itself", () =>
     expect(prompt).not.toContain("track()");
   });
 
+  it("uses Jina's text when it answers, cut to 15 000 characters", async () => {
+    const page = vi.fn();
+    stubFetch(async () => new Response(`Offre Product Designer ${"x".repeat(20_000)}`, { status: 200 }), page);
+
+    await run("https://jobs.example/offre");
+
+    const prompt = mocks.chatText.mock.calls[0][0] as string;
+    expect(prompt).toContain("Offre Product Designer");
+    expect(prompt).not.toContain("x".repeat(15_000));
+    expect(page).not.toHaveBeenCalled();
+  });
+
   it("reports a page it could not read, instead of sending nothing to the model", async () => {
     stubFetch(async () => new Response("", { status: 429 }), async () => { throw new Error("socket hang up"); });
 

@@ -47,8 +47,13 @@ function toUserFacing(e: unknown): ConvexError<{ userMessage: string; code: stri
 const ANTHROPIC_TIMEOUT_MS = 270_000;
 const LAST_PROVIDER_BACKOFF_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 20_000;
-/** Longest one AI call can take, retry included: what an action must leave room for */
-export const AI_CALL_WORST_CASE_MS = ANTHROPIC_TIMEOUT_MS + MAX_RETRY_AFTER_MS + ANTHROPIC_TIMEOUT_MS;
+/**
+ * Longest one AI call can take, retry included: what an action must leave room
+ * for. Counts one provider (two attempts); a provider added before the last
+ * one adds a full timeout (chat.test.ts checks the count).
+ */
+export const AI_CALL_WORST_CASE_MS =
+  ANTHROPIC_TIMEOUT_MS + Math.max(MAX_RETRY_AFTER_MS, LAST_PROVIDER_BACKOFF_MS) + ANTHROPIC_TIMEOUT_MS;
 
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
