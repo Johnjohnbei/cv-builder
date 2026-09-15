@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { isPublicAddress, isPublicUrl, parseHttpUrl } from "../publicUrl";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { fetchPublicPage, isPublicAddress, isPublicUrl, parseHttpUrl } from "../publicUrl";
 
 const resolvesTo = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
 
@@ -95,5 +95,36 @@ describe("isPublicUrl (DNS, after the access code)", () => {
     expect(await isPublicUrl(url("http://8.8.8.8/"), spy)).toBe(true);
     expect(await isPublicUrl(url("http://8.8.8.8../"), spy)).toBe(true);
     expect(resolved).toEqual([]);
+  });
+});
+
+describe("fetchPublicPage (one deadline for the whole page, redirects included)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // Each hop used to get its own 15 s: four redirects took 60 s before the AI
+  // call, and the URL action could outlive the 10-minute Convex limit.
+  const redirectTo = (location: string) => new Response(null, { status: 302, headers: { location } });
+
+  it("gives every hop the same deadline signal", async () => {
+    const deadline = new AbortController().signal;
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(redirectTo("http://8.8.8.8/offre"))
+      .mockResolvedValueOnce(new Response("<p>Offre</p>", { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    expect(await fetchPublicPage(new URL("http://8.8.4.4/"), deadline)).toBe("<p>Offre</p>");
+    expect(fetch.mock.calls.map(([, init]) => init.signal)).toEqual([deadline, deadline]);
+  });
+
+  it("stops following redirects once the deadline has passed", async () => {
+    const controller = new AbortController();
+    const fetch = vi.fn(async () => {
+      controller.abort();
+      return redirectTo("http://8.8.8.8/suite");
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    expect(await fetchPublicPage(new URL("http://8.8.4.4/"), controller.signal)).toBe("");
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

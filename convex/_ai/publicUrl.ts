@@ -106,10 +106,14 @@ export async function isPublicUrl(url: URL, resolve: Resolve = resolveAll): Prom
  * checked: a public page redirecting to an internal address would otherwise be
  * followed blindly. A non-2xx answer yields "": a 404 or a login wall used to
  * be passed to the model as if it were the offer.
+ *
+ * One deadline covers every hop and redirect check: 15 s per hop let four
+ * redirects take a minute before the AI call, and the URL action could outlive
+ * the 10-minute Convex limit (AI worst case 545 s, see chat.ts).
  */
-export async function fetchPublicPage(start: URL): Promise<string> {
+export async function fetchPublicPage(start: URL, deadline: AbortSignal = AbortSignal.timeout(15_000)): Promise<string> {
   let url = start;
-  for (let hop = 0; hop < 4; hop++) {
+  for (let hop = 0; hop < 4 && !deadline.aborted; hop++) {
     const response = await fetch(url, {
       headers: {
         "User-Agent":
@@ -118,7 +122,7 @@ export async function fetchPublicPage(start: URL): Promise<string> {
         "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
       },
       redirect: "manual",
-      signal: AbortSignal.timeout(15_000),
+      signal: deadline,
     });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
