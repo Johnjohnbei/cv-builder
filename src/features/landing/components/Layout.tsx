@@ -1,22 +1,17 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LayoutDashboard, LogOut } from 'lucide-react';
-import { useClerk, useAuth } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { Logo } from '@/src/shared/ui/Logo';
+import { useLeaveSession } from '@/src/features/auth/useLeaveSession';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const navigate = useNavigate();
-  const { signOut } = useClerk();
   const { isSignedIn } = useAuth();
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/auth');
-  };
+  const handleLogout = useLeaveSession();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">

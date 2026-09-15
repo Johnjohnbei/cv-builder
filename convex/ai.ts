@@ -86,6 +86,24 @@ async function fetchPublicPage(start: URL): Promise<string> {
   return "";
 }
 
+// ─── Input size ─────────────────────────────────────────────────────
+const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
+const MAX_OFFER_CHARS = 20_000; // a job description
+
+/**
+ * Refuse an oversized text before it reaches the model, and before the access
+ * code is used up. Nothing bounded these inputs: a 40-page PDF became a huge
+ * billed prompt.
+ */
+function assertMaxLength(value: string | undefined, max: number) {
+  if (value && value.length > max) {
+    throw userError(
+      `Texte trop long pour l'IA (${Math.ceil(value.length / 1000)} k caractères, maximum ${max / 1000} k) : raccourcissez-le.`,
+      "INPUT_TOO_LONG",
+    );
+  }
+}
+
 // ─── Actions ────────────────────────────────────────────────────────
 
 export const extractCVDataFromPDF = action({
@@ -94,6 +112,7 @@ export const extractCVDataFromPDF = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.pdfText, MAX_DOCUMENT_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildExtractPrompt({ pdfText: args.pdfText });
     return await chatJSONThen(prompt, normalizeCVData);
@@ -107,6 +126,7 @@ export const tailorCV = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     // Strip _translations: the cache is bound to the current content; once we
     // rewrite, it's obsolete. Drop it explicitly so the LLM doesn't see it
@@ -218,6 +238,7 @@ export const extractJobDescriptionFromPDF = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.pdfText, MAX_DOCUMENT_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobDescriptionFromPDFPrompt({ pdfText: args.pdfText });
     return await chatText(prompt, "fast");
@@ -230,6 +251,7 @@ export const extractJobKeywords = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildJobKeywordsPrompt({ jobDescription: args.jobDescription });
     const data = await chatJSONSchema(prompt, KeywordListSchema, "fast");
@@ -245,6 +267,7 @@ export const optimizeCVForPage = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     // Same as tailorCV: drop _translations so the LLM doesn't see the stale
     // cache and we don't return a translation that no longer matches content.
@@ -282,6 +305,7 @@ export const generateCoverLetter = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     // Server-side fallback detection: trust the client's hint when provided,
     // otherwise detect from the job description ourselves so the prompt always
@@ -318,6 +342,7 @@ export const extractCompanyMeta = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const FALLBACK = { companyName: null, domainGuess: null, industry: null, stage: null, businessModel: null };
     if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
@@ -409,6 +434,7 @@ export const improveBulletPoint = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildBulletSuggestionsPrompt({
       bullet: args.bullet,
@@ -438,6 +464,7 @@ export const rewriteBulletsForJob = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildBulletRewritePrompt({
       bullets: args.bullets.map((b) => ({
@@ -463,6 +490,7 @@ export const autoDistributeMissingKeywords = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildKeywordDistributionPrompt({
       cvData: { experience: args.cvData?.experience ?? [] },

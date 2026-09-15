@@ -144,6 +144,13 @@ test.describe('Rendu du CV', () => {
     }
   });
 
+  test('un résumé plus haut qu\'une page est signalé avant l\'export', async ({ page }) => {
+    const longSummary = Array.from({ length: 80 }, (_, i) => `Phrase ${i} du profil, volontairement longue pour dépasser la hauteur d'une page A4 entière.`).join(' ');
+    await setupLongCV(page, { ...TRIAGED_CV, personal_info: { ...TRIAGED_CV.personal_info, summary: longSummary } });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await expect(page.getByText(/plus haut qu'une page et sera coupé/)).toBeVisible({ timeout: 15_000 });
+  });
+
   test('aucun bloc ne dépasse de sa page, y compris après la bascule anonyme', async ({ page }) => {
     await setupLongCV(page, TRIAGED_CV);
     await expect.poll(() => clippedBlocks(page), { timeout: 15_000 }).toEqual([]);

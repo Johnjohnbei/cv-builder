@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, FileText, Sparkles, Zap, ShieldCheck, PenTool, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useDocumentTitle } from '@/src/shared/hooks';
+import { Button } from '@/src/shared/ui/Button';
 
 export default function HomePage() {
   useDocumentTitle('Optimisez votre CV avec l\'IA');
@@ -56,16 +57,18 @@ export default function HomePage() {
                   <span>Commencer gratuitement</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
-                <button
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-full sm:w-auto px-8 py-4 text-gray-700"
                   onClick={() => {
                     // Same guest flow as AuthPage: try the product without an account
                     sessionStorage.setItem('guest_access', 'true');
                     navigate('/dashboard');
                   }}
-                  className="w-full sm:w-auto border border-[#DADCE0] bg-white text-gray-700 flex items-center justify-center gap-2 px-8 py-4 rounded font-mono text-xs font-bold uppercase tracking-wider hover:bg-gray-50 transition-colors"
                 >
-                  <span>Essayer sans compte</span>
-                </button>
+                  Essayer sans compte
+                </Button>
               </motion.div>
 
               <motion.p
@@ -74,7 +77,7 @@ export default function HomePage() {
                 transition={{ delay: 0.4 }}
                 className="mt-4 text-xs text-gray-600"
               >
-                Bêta privée : les fonctions IA nécessitent un code d'accès.
+                Fonctions IA : avec un compte, ou avec un code d'accès en mode invité.
               </motion.p>
             </div>
 

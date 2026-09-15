@@ -140,19 +140,24 @@ async function extractTokens(file: File): Promise<Token[]> {
   const pdf = await pdfjsLib.getDocument({ data }).promise;
   const tokens: Token[] = [];
 
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    for (const item of content.items) {
-      if (!('str' in item) || !item.str.trim()) continue;
-      tokens.push({
-        text:     item.str.trim(),
-        fontSize: Math.round(item.transform[0] * 100) / 100,
-        x:        Math.round(item.transform[4]),
-        y:        Math.round(item.transform[5]),
-        page:     p,
-      });
+  try {
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      for (const item of content.items) {
+        if (!('str' in item) || !item.str.trim()) continue;
+        tokens.push({
+          text:     item.str.trim(),
+          fontSize: Math.round(item.transform[0] * 100) / 100,
+          x:        Math.round(item.transform[4]),
+          y:        Math.round(item.transform[5]),
+          page:     p,
+        });
+      }
     }
+  } finally {
+    // Frees the worker-side document: without it every import kept its PDF in memory
+    await pdf.destroy();
   }
 
   return tokens;
@@ -186,7 +191,12 @@ function isLinkedInPDF(lines: Line[]): boolean {
   const hasKnownSection = lines.some(l =>
     l.role === FontRole.SECTION_HEADER && SECTION_KEY[l.text.toLowerCase().trim()] != null,
   );
-  return hasName && hasKnownSection;
+  // Font sizes alone are not a signature: a Word CV with a 26 pt name and a
+  // 16 pt "Formation" matched, its 11 pt body was read as sidebar links and
+  // dropped, and the near-empty result was accepted. Every LinkedIn export
+  // prints the profile URL in its contact block.
+  const hasProfileUrl = lines.some(l => l.text.includes('linkedin.com/in/'));
+  return hasName && hasKnownSection && hasProfileUrl;
 }
 
 // ─── Step 4: Segment into header + named sections ───────────────────

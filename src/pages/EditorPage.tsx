@@ -68,7 +68,7 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount } = usePaginationFit(
+  const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount, hasClippedContent } = usePaginationFit(
     cvData, designSettings, selectedTemplate, isAnonymous,
   );
   const pageAssignments = useMemo(
@@ -299,6 +299,7 @@ export default function EditorPage() {
         jobDescription={jobDescription}
         onJobDescriptionChange={setJobDescription}
         actualPageCount={actualPageCount}
+        hasClippedContent={hasClippedContent}
         targetPages={targetPages}
         onTargetPagesChange={(n) => setDesignSettings(prev => ({ ...prev, pageLimit: n }))}
         isFitting={fit.isFitting}

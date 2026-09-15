@@ -1,12 +1,20 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Plus, CheckCircle2, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, AlertCircle, X, Sparkles, Settings } from 'lucide-react';
+import { Upload, FileText, Plus, Loader2, User, LayoutDashboard, Calendar, Trash2, ExternalLink, Sparkles, Settings, LogOut } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { getErrorCode, getUserErrorMessage } from '../shared/lib/convexError';
 import { Logo } from '../shared/ui/Logo';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation, useAction, useConvex } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
+import type { FileRejection } from 'react-dropzone';
+import { Button } from '../shared/ui/Button';
+import { Dialog } from '../shared/ui/Dialog';
+import { Input } from '../shared/ui/Input';
+import { Notification } from '../shared/ui/Notification';
+import { AccessCodeDialog } from '../features/auth/components/AccessCodeDialog';
+import { AdminCodesDialog } from '../features/auth/components/AdminCodesDialog';
+import { useLeaveSession } from '../features/auth/useLeaveSession';
 import { api } from "@/convex/_generated/api";
 import { CVData, DesignSettings, EMPTY_CV } from '../shared/types';
 import { readStoredJSON } from '../shared/lib/storage';
@@ -29,7 +37,10 @@ const loadPdfTools = () => Promise.all([
   import('../lib/pdfTextExtract'),
   import('../lib/linkedinParser'),
 ] as const);
-import { useAccessCode, useDocumentTitle } from '../shared/hooks';
+import { useAccessCode, useAutoNotification, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
+
+/** PDFs above this size are refused at the drop zone, before any parsing */
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 import { detectCVLanguage } from '../lib/languageDetection';
 import { attachBilingualCache } from '../lib/bilingual';
 import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
@@ -39,7 +50,7 @@ import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants
 export default function DashboardPage() {
   useDocumentTitle('Dashboard');
   const navigate = useNavigate();
-  const { user, isLoaded: isClerkLoaded } = useUser();
+  const { user } = useUser();
   const isGuest = sessionStorage.getItem('guest_access') === 'true';
   
   const [isUploading, setIsUploading] = useState(false);
@@ -49,27 +60,20 @@ export default function DashboardPage() {
   const [isCrawling, setIsCrawling] = useState(false);
   const [isExtractingJob, setIsExtractingJob] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingSeconds, setGeneratingSeconds] = useState(0);
+  const generatingSeconds = useSecondsCounter(isGenerating);
   const [activeView, setActiveView] = useState<'console' | 'cvs'>('console');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [newCodeDays, setNewCodeDays] = useState(30);
-  const [newCodeUses, setNewCodeUses] = useState(50);
-  const [newCodeLabel, setNewCodeLabel] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
   const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
   const [savedCVs, setSavedCVs] = useState<SavedCVEntry[]>([]);
 
-  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  // Shared owner: errors stay 10 s (the dashboard's own copy cleared every
+  // message after 4 s, before a long one could be read) and are announced.
+  const { notification, notify: setNotification, clearNotification } = useAutoNotification();
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
   const { accessCode, saveCode, getCode, clearCode } = useAccessCode();
-  const [accessEmail, setAccessEmail] = useState('');
   const [showAccessCodePrompt, setShowAccessCodePrompt] = useState(false);
-  const [codeInput, setCodeInput] = useState('');
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
-  const [accessError, setAccessError] = useState('');
-  const [requestSent, setRequestSent] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const convex = useConvex();
+  const leaveSession = useLeaveSession();
 
   /**
    * Run an AI action once the visitor may use it: a signed-in account always
@@ -82,47 +86,29 @@ export default function DashboardPage() {
       action();
     } else {
       setPendingAction(() => action);
-      setCodeInput('');
-      setAccessError('');
-      setRequestSent(false);
       setShowAccessCodePrompt(true);
     }
   };
 
-  const confirmAccessCode = async () => {
-    const code = codeInput.trim();
-    if (!code || isVerifyingCode) return;
-    setIsVerifyingCode(true);
-    try {
-      // Verify against Convex BEFORE saving: an invalid code must fail here,
-      // in the modal, not later inside an AI action with a generic error.
-      const result = await convex.query(api.accessCodes.verify, { code });
-      if (!result.valid) {
-        setAccessError('Code invalide ou expiré');
-        return;
-      }
-      saveCode(code);
-      setShowAccessCodePrompt(false);
-      setAccessError('');
-      if (pendingAction) {
-        pendingAction();
-        setPendingAction(null);
-      }
-    } catch {
-      setAccessError('Vérification impossible. Vérifiez votre connexion et réessayez.');
-    } finally {
-      setIsVerifyingCode(false);
-    }
+  const onAccessGranted = (code: string) => {
+    saveCode(code);
+    setShowAccessCodePrompt(false);
+    pendingAction?.();
+    setPendingAction(null);
   };
 
-  const handleRequestAccess = async () => {
-    if (!accessEmail) return;
-    try {
-      await requestAccessMutation({ email: accessEmail, message: 'Demande depuis Calibre' });
-      setRequestSent(true);
-    } catch (error) {
-      setAccessError(getUserErrorMessage(error, "Erreur lors de l'envoi. Réessayez."));
-    }
+  const closeAccessPrompt = () => {
+    setShowAccessCodePrompt(false);
+    setPendingAction(null);
+  };
+
+  /** A file the drop zone refused (not a PDF, too big) used to start the extraction anyway */
+  const notifyRejectedFile = (rejections: FileRejection[]) => {
+    const tooBig = rejections.some(r => r.errors.some(e => e.code === 'file-too-large'));
+    setNotification({
+      message: tooBig ? 'Fichier trop volumineux : 10 Mo maximum.' : 'Fichier refusé : déposez un PDF.',
+      type: 'error',
+    });
   };
 
   /** Show an AI failure. A code the server refused is forgotten, so the next action asks for a new one. */
@@ -145,10 +131,6 @@ export default function DashboardPage() {
   const translateCVAction = useAction(api.ai.translateCV);
   const extractJobDescriptionFromURL = useAction(api.ai.extractJobDescriptionFromURL);
   const extractJobDescriptionFromPDF = useAction(api.ai.extractJobDescriptionFromPDF);
-  const requestAccessMutation = useMutation(api.accessCodes.requestAccess);
-  const generateCodeMutation = useMutation(api.accessCodes.generate);
-  const adminCodes = useQuery(api.accessCodes.list, isAdmin ? undefined : "skip");
-  const adminRequests = useQuery(api.accessCodes.listRequests, isAdmin ? undefined : "skip");
 
   // A signed-in user reads the account only: falling through to the guest copy
   // while the query loads, or because the tab still carries a guest flag,
@@ -169,22 +151,9 @@ export default function DashboardPage() {
     }
   }, [convexCVs, user, isGuest]);
 
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
-
-  // Live counter while generating
-  useEffect(() => {
-    if (!isGenerating) { setGeneratingSeconds(0); return; }
-    const interval = setInterval(() => setGeneratingSeconds(s => s + 1), 1000);
-    return () => clearInterval(interval);
-  }, [isGenerating]);
-
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
+    if (!file) return; // refused files are reported by onDropRejected
     const doExtract = async () => {
       setIsUploading(true);
       try {
@@ -200,7 +169,9 @@ export default function DashboardPage() {
           // Non-LinkedIn PDF — fall back to AI extraction
           const pdfText = await extractTextFromPDF(file);
           const code = getCode();
-          data = await extractCVDataFromPDF({ pdfText: pdfText.substring(0, 12000), accessCode: code });
+          // Sent whole: cut at 12 000 characters, a dense CV silently lost its
+          // last experiences. The server refuses a text too long, with a message.
+          data = await extractCVDataFromPDF({ pdfText, accessCode: code });
         }
         const imported = { ...data, detectedLanguage: detectCVLanguage(data) };
         setBaseCV(imported);
@@ -227,14 +198,17 @@ export default function DashboardPage() {
     requireAccessCode(doExtract);
   }, [user, storeUser, accessCode]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected: notifyRejectedFile,
     accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1
+    maxFiles: 1,
+    maxSize: MAX_PDF_BYTES,
   });
 
   const onJobDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
+    if (!file) return; // refused files are reported by onDropRejected
     requireAccessCode(async () => {
       setIsExtractingJob(true);
       try {
@@ -255,10 +229,13 @@ export default function DashboardPage() {
     });
   }, [user, accessCode]);
 
-  const { getRootProps: getJobRootProps, getInputProps: getJobInputProps, isDragActive: isJobDragActive } = useDropzone({ 
+  // PDF only: a .txt was accepted here, then failed inside pdf.js with a generic error
+  const { getRootProps: getJobRootProps, getInputProps: getJobInputProps, isDragActive: isJobDragActive } = useDropzone({
     onDrop: onJobDrop,
-    accept: { 'application/pdf': ['.pdf', '.txt'] },
-    maxFiles: 1
+    onDropRejected: notifyRejectedFile,
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    maxSize: MAX_PDF_BYTES,
   });
 
   const crawlJobUrl = async () => {
@@ -344,163 +321,28 @@ export default function DashboardPage() {
   };
 
 
+  const deleteSavedCV = async () => {
+    if (!cvToDelete) return;
+    try {
+      if (user) {
+        await removeCV({ id: cvToDelete as any });
+      } else if (isGuest) {
+        const updatedCVs = readStoredJSON<SavedCVEntry[]>('guest_cvs', []).filter(cv => cv._id !== cvToDelete);
+        localStorage.setItem('guest_cvs', JSON.stringify(updatedCVs));
+        setSavedCVs(updatedCVs);
+      }
+      setNotification({ message: 'CV supprimé.', type: 'success' });
+    } catch (error) {
+      setNotification({ message: getUserErrorMessage(error, 'Erreur lors de la suppression.'), type: 'error' });
+    } finally {
+      setCvToDelete(null);
+    }
+  };
+
   return (
     <div className="stitch-container">
-      {/* Access Code Modal */}
-      {showAccessCodePrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">Accès aux fonctionnalités IA</h3>
-              <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-                Calibre est un outil fonctionnel qui utilise l'IA pour optimiser votre CV. Les coûts d'infrastructure étant significatifs, un code d'accès est nécessaire pour utiliser les fonctionnalités de génération.
-              </p>
-            </div>
-            
-            <input
-              type="text"
-              value={codeInput}
-              onChange={(e) => { setCodeInput(e.target.value); setAccessError(''); }}
-              placeholder="Entrez votre code d'accès..."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-              onKeyDown={(e) => e.key === 'Enter' && codeInput.trim() && confirmAccessCode()}
-              autoFocus
-            />
-            {accessError && <p className="text-xs text-red-500 mb-2">{accessError}</p>}
-
-            <div className="flex gap-3 mb-6">
-              <button
-                onClick={() => { setShowAccessCodePrompt(false); setPendingAction(null); }}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmAccessCode}
-                disabled={!codeInput.trim() || isVerifyingCode}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
-              >
-                {isVerifyingCode ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Vérification…</span>
-                  </>
-                ) : (
-                  'Valider'
-                )}
-              </button>
-            </div>
-
-            <div className="border-t border-gray-100 pt-5">
-              <p className="text-xs text-gray-600 text-center mb-3">
-                Pas de code ? Laissez votre email pour être notifié quand le service sera ouvert, ou pour recevoir un accès anticipé.
-              </p>
-              {requestSent ? (
-                <div className="text-center py-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-700 font-medium">✓ Demande envoyée !</p>
-                  <p className="text-xs text-green-600 mt-1">Vous recevrez un code par email.</p>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={accessEmail}
-                    onChange={(e) => setAccessEmail(e.target.value)}
-                    placeholder="votre@email.com"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    onKeyDown={(e) => e.key === 'Enter' && accessEmail && handleRequestAccess()}
-                  />
-                  <button
-                    onClick={handleRequestAccess}
-                    disabled={!accessEmail}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-40"
-                  >
-                    Envoyer
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Admin Panel Modal */}
-      {showAdminPanel && isAdmin && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Admin : Codes d'accès</h3>
-              <button onClick={() => setShowAdminPanel(false)} className="p-1 text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
-            </div>
-            
-            {/* Generate code */}
-            <div className="border rounded-lg p-4 mb-4 space-y-3">
-              <h4 className="text-sm font-bold text-gray-700">Générer un code</h4>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[11px] text-gray-500 block">Durée (jours)</label>
-                  <input type="number" value={newCodeDays} onChange={e => setNewCodeDays(+e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block">Max utilisations</label>
-                  <input type="number" value={newCodeUses} onChange={e => setNewCodeUses(+e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block">Label</label>
-                  <input type="text" value={newCodeLabel} onChange={e => setNewCodeLabel(e.target.value)} placeholder="beta" className="w-full border rounded px-2 py-1 text-sm" />
-                </div>
-              </div>
-              <button 
-                onClick={async () => {
-                  const result = await generateCodeMutation({ maxUses: newCodeUses, durationDays: newCodeDays, label: newCodeLabel || undefined });
-                  setGeneratedCode(result.code);
-                }}
-                className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                Générer
-              </button>
-              {generatedCode && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                  <p className="text-xs text-green-600 mb-1">Code généré :</p>
-                  <p className="text-lg font-bold font-mono text-green-800 select-all">{generatedCode}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Active codes */}
-            <div className="border rounded-lg p-4 mb-4">
-              <h4 className="text-sm font-bold text-gray-700 mb-2">Codes actifs ({adminCodes?.length || 0})</h4>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {adminCodes?.map((c: any) => (
-                  <div key={c._id} className="flex justify-between items-center text-xs bg-gray-50 rounded px-3 py-2">
-                    <span className="font-mono font-bold">{c.code}</span>
-                    <span className="text-gray-500">{c.usedCount}/{c.maxUses} · {c.label || 'sans label'}</span>
-                    <span className={new Date(c.expiresAt) < new Date() ? 'text-red-500' : 'text-green-600'}>
-                      {new Date(c.expiresAt) < new Date() ? 'Expiré' : `→ ${new Date(c.expiresAt).toLocaleDateString()}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Access requests */}
-            <div className="border rounded-lg p-4">
-              <h4 className="text-sm font-bold text-gray-700 mb-2">Demandes d'accès ({adminRequests?.length || 0})</h4>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {adminRequests?.map((r: any) => (
-                  <div key={r._id} className="flex justify-between items-center text-xs bg-gray-50 rounded px-3 py-2">
-                    <span className="font-medium">{r.email}</span>
-                    <span className="text-gray-600">{new Date(r.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
-                {(!adminRequests || adminRequests.length === 0) && <p className="text-xs text-gray-600">Aucune demande</p>}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AccessCodeDialog open={showAccessCodePrompt} onClose={closeAccessPrompt} onGranted={onAccessGranted} />
+      {isAdmin && <AdminCodesDialog open={showAdminPanel} onClose={() => setShowAdminPanel(false)} />}
       {/* Sidebar */}
       <aside className="stitch-sidebar dashboard-sidebar flex-col w-[320px] shrink-0">
         <div className="stitch-header">
@@ -540,7 +382,7 @@ export default function DashboardPage() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-[#DADCE0]">
+        <div className="p-4 border-t border-[#DADCE0] space-y-3">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
               <User className="w-4 h-4 text-gray-600" />
@@ -550,6 +392,10 @@ export default function DashboardPage() {
               <p className="text-[11px] text-gray-500 truncate">{user?.primaryEmailAddress?.emailAddress || (isGuest ? 'Mode local' : '')}</p>
             </div>
           </div>
+          {/* The dashboard no longer sits inside Layout, whose header held the only sign-out */}
+          <Button variant="ghost" size="sm" mono={false} fullWidth icon={<LogOut className="w-3.5 h-3.5" />} onClick={() => void leaveSession()}>
+            {user ? 'Se déconnecter' : 'Quitter le mode invité'}
+          </Button>
         </div>
       </aside>
 
@@ -562,8 +408,11 @@ export default function DashboardPage() {
             <span className="text-gray-900 font-medium">Optimiseur de CV</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-[11px] stitch-mono text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">
-              Connecté
+            <span className={cn(
+              "text-[11px] stitch-mono px-2 py-0.5 rounded border",
+              user ? "text-green-700 bg-green-50 border-green-100" : "text-gray-600 bg-gray-50 border-gray-200",
+            )}>
+              {user ? 'Connecté' : 'Mode invité'}
             </span>
           </div>
         </header>
@@ -596,13 +445,16 @@ export default function DashboardPage() {
                             </>
                           )}
                         </div>
-                        <button
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                          icon={<Plus className="w-3 h-3" />}
+                          className="border-dashed border-blue-300"
                           onClick={startEmptyCV}
-                          className="w-full py-2 border border-dashed border-blue-300 text-blue-600 text-[11px] font-mono font-bold uppercase tracking-wider hover:bg-blue-50 transition-colors rounded flex items-center justify-center gap-2"
                         >
-                          <Plus className="w-3 h-3" />
                           Créer un CV vide
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -610,12 +462,9 @@ export default function DashboardPage() {
                           <p className="text-xs font-bold">{baseCV.personal_info.name}</p>
                           <p className="text-[11px] text-gray-500">{baseCV.personal_info.title}</p>
                         </div>
-                        <button
-                          onClick={() => setBaseCV(null)}
-                          className="text-[11px] text-blue-600 hover:underline"
-                        >
+                        <Button variant="ghost" size="xs" mono={false} className="text-blue-600" onClick={() => setBaseCV(null)}>
                           Remplacer le CV importé
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -659,23 +508,24 @@ export default function DashboardPage() {
                   <div className="p-4 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-[11px] text-gray-600 uppercase block mb-2">Depuis une URL</label>
-                        <div className="flex space-x-2">
-                          <input 
-                            type="text"
+                        <form
+                          className="flex space-x-2 items-end"
+                          onSubmit={(e) => { e.preventDefault(); handleUrlCrawl(); }}
+                        >
+                          <Input
+                            id="job-url"
+                            label="Depuis une URL"
+                            type="url"
+                            inputSize="sm"
+                            containerClassName="flex-1"
                             value={jobUrl}
                             onChange={(e) => setJobUrl(e.target.value)}
                             placeholder="https://linkedin.com/jobs/..."
-                            className="stitch-input flex-1 stitch-mono text-[11px]"
                           />
-                          <button 
-                            onClick={handleUrlCrawl}
-                            disabled={isCrawling || !jobUrl}
-                            className="stitch-button-secondary px-3 py-1 text-[11px] disabled:opacity-50"
-                          >
-                            {isCrawling ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Importer'}
-                          </button>
-                        </div>
+                          <Button type="submit" variant="secondary" size="sm" loading={isCrawling} disabled={!jobUrl}>
+                            Importer
+                          </Button>
+                        </form>
                         <p className="text-[11px] text-gray-600 italic">Note : Certains sites (LinkedIn, Indeed) bloquent l'accès direct. Copiez-collez le texte si besoin.</p>
                       </div>
                       <div className="space-y-2">
@@ -698,8 +548,9 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[11px] text-gray-600 uppercase block mb-2">Ou collez le texte de l'offre</label>
+                      <label htmlFor="job-description" className="text-[11px] text-gray-600 uppercase block mb-2">Ou collez le texte de l'offre</label>
                       <textarea
+                        id="job-description"
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
                         placeholder="Collez l'offre d'emploi ici..."
@@ -708,23 +559,14 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-4 flex flex-col sm:flex-row sm:justify-end gap-3">
                       <div className="flex flex-col items-end gap-1">
-                        <button
+                        <Button
+                          mono={false}
                           onClick={handleOptimize}
                           disabled={!baseCV || jobDescription.length < 50 || isGenerating}
-                          className="stitch-button-primary flex items-center space-x-2 disabled:opacity-50"
+                          icon={isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                         >
-                          {isGenerating ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Optimisation en cours… {generatingSeconds}s</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4" />
-                              <span>Optimiser mon CV pour cette offre</span>
-                            </>
-                          )}
-                        </button>
+                          {isGenerating ? `Optimisation en cours… ${generatingSeconds}s` : 'Optimiser mon CV pour cette offre'}
+                        </Button>
                         {baseCV && !isGenerating && (() => {
                           const size = JSON.stringify(baseCV).length;
                           const estSeconds = size < 3000 ? 30 : size < 6000 ? 60 : size < 10000 ? 120 : size < 15000 ? 180 : 240;
@@ -746,13 +588,9 @@ export default function DashboardPage() {
                   <h2 className="text-2xl font-bold tracking-tight">Mes CV Sauvegardés</h2>
                   <p className="text-sm text-gray-500">Gérez et éditez vos différentes versions de CV.</p>
                 </div>
-                <button
-                  onClick={startEmptyCV}
-                  className="stitch-button-primary flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Nouveau CV</span>
-                </button>
+                <Button mono={false} icon={<Plus className="w-4 h-4" />} onClick={startEmptyCV}>
+                  Nouveau CV
+                </Button>
               </div>
 
               {savedCVs.length === 0 ? (
@@ -770,9 +608,12 @@ export default function DashboardPage() {
                           <h3 className="font-bold text-sm truncate max-w-[180px]">{cv.personal_info.name}</h3>
                           <p className="text-[11px] text-gray-500 truncate max-w-[180px]">{cv.personal_info.title}</p>
                         </div>
-                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                        {/* Hover-only used to hide it from keyboard and touch users entirely */}
+                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
+                          <button
                             onClick={() => setCvToDelete(cv._id)}
+                            aria-label={`Supprimer le CV ${cv.personal_info.name}`.trim()}
+                            title="Supprimer ce CV"
                             className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -790,9 +631,14 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center text-[11px] text-gray-500 space-x-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          <span className="stitch-mono uppercase">Template: {{ TEMPLATE_A: 'Classic', TEMPLATE_B: 'Modern', TEMPLATE_C: 'Minimal', TEMPLATE_E: 'Elegant' }[cv.design?.template as string] || 'Classic'}</span>
+                          <span className="stitch-mono uppercase">Modèle : {{ TEMPLATE_A: 'Classic', TEMPLATE_B: 'Modern', TEMPLATE_C: 'Minimal', TEMPLATE_E: 'Elegant' }[cv.design?.template as string] || 'Elegant'}</span>
                         </div>
-                        <button 
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                          className="mt-2"
+                          icon={<ExternalLink className="w-3 h-3" />}
                           onClick={async () => {
                             // Strip Convex system fields + table-level metadata before
                             // promoting an archived CV to the working draft, otherwise
@@ -801,15 +647,9 @@ export default function DashboardPage() {
                             // Opening a saved CV overwrites the current working draft
                             // (users.lastGeneratedCV or guest_last_optimized): warn first
                             // if a different draft already exists.
-                            let currentDraft: unknown = null;
-                            if (user) {
-                              currentDraft = convexUser?.lastGeneratedCV ?? null;
-                            } else if (isGuest) {
-                              try {
-                                const stored = localStorage.getItem('guest_last_optimized');
-                                currentDraft = stored ? JSON.parse(stored) : null;
-                              } catch { currentDraft = null; }
-                            }
+                            const currentDraft: unknown = user
+                              ? convexUser?.lastGeneratedCV ?? null
+                              : readStoredJSON<CVData | null>('guest_last_optimized', null);
                             if (
                               currentDraft &&
                               JSON.stringify(stripPersistenceArtifacts(currentDraft as CVData)) !== JSON.stringify(cleanCv) &&
@@ -817,20 +657,22 @@ export default function DashboardPage() {
                             ) {
                               return;
                             }
-                            if (user) {
-                              await storeUser();
-                              await updateLastCV({ cvData: cleanCv });
+                            try {
+                              if (user) {
+                                await storeUser();
+                                await updateLastCV({ cvData: cleanCv });
+                              } else if (isGuest) {
+                                localStorage.setItem('guest_last_optimized', JSON.stringify(cleanCv));
+                              }
                               navigate('/editor');
-                            } else if (isGuest) {
-                              localStorage.setItem('guest_last_optimized', JSON.stringify(cleanCv));
-                              navigate('/editor');
+                            } catch (error) {
+                              console.error('Open CV error:', error);
+                              setNotification({ message: getUserErrorMessage(error, "Impossible d'ouvrir ce CV. Réessayez."), type: 'error' });
                             }
                           }}
-                          className="w-full mt-2 py-2 bg-white border border-[#DADCE0] text-[11px] font-bold stitch-mono hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all flex items-center justify-center space-x-2"
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Ouvrir dans l'éditeur</span>
-                        </button>
+                          Ouvrir dans l'éditeur
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -863,64 +705,32 @@ export default function DashboardPage() {
           <FileText className="w-5 h-5" />
           <span>CV</span>
         </button>
-
+        {/* The sidebar, and its sign-out, are hidden on phones */}
+        <button
+          onClick={() => void leaveSession()}
+          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors min-w-0 text-gray-500"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>{user ? 'Déconnexion' : 'Quitter'}</span>
+        </button>
       </nav>
 
-      {/* Notifications */}
       {notification && (
-        <div className={cn(
-          "fixed bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-3 rounded shadow-lg border animate-in slide-in-from-bottom-4 duration-300",
-          notification.type === 'success' ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
-        )}>
-          {notification.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-          <span className="text-xs font-medium">{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="p-1 hover:bg-black/5 rounded">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
+        <Notification message={notification.message} type={notification.type} onClose={clearNotification} />
       )}
 
-      {/* Delete Confirmation Modal */}
-      {cvToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white stitch-panel max-w-xs w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="stitch-panel-header">CONFIRM_DELETE</div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600 mb-6">Êtes-vous sûr de vouloir supprimer ce CV ? Cette action est irréversible.</p>
-              <div className="flex space-x-3">
-                <button 
-                  onClick={() => setCvToDelete(null)}
-                  className="flex-1 py-2 border border-[#DADCE0] text-[11px] font-bold stitch-mono hover:bg-gray-50 transition-colors"
-                >
-                  ANNULER
-                </button>
-                <button 
-                  onClick={async () => {
-                    try {
-                      if (user) {
-                        await removeCV({ id: cvToDelete as any });
-                      } else if (isGuest) {
-                        const guestCVs = readStoredJSON<SavedCVEntry[]>('guest_cvs', []);
-                        const updatedCVs = guestCVs.filter((cv: any) => cv._id !== cvToDelete);
-                        localStorage.setItem('guest_cvs', JSON.stringify(updatedCVs));
-                        setSavedCVs(updatedCVs);
-                      }
-                      setNotification({ message: 'CV supprimé avec succès.', type: 'success' });
-                    } catch (err) {
-                      setNotification({ message: 'Erreur lors de la suppression.', type: 'error' });
-                    } finally {
-                      setCvToDelete(null);
-                    }
-                  }}
-                  className="flex-1 py-2 bg-red-600 text-white text-[11px] font-bold stitch-mono hover:bg-red-700 transition-colors"
-                >
-                  SUPPRIMER
-                </button>
-              </div>
-            </div>
-          </div>
+      <Dialog
+        open={cvToDelete !== null}
+        onClose={() => setCvToDelete(null)}
+        title="Supprimer ce CV ?"
+        icon={<Trash2 className="w-5 h-5 text-red-600" />}
+      >
+        <p className="text-sm text-gray-600 mb-6">Cette action est définitive : la version enregistrée sera perdue.</p>
+        <div className="flex gap-3">
+          <Button variant="secondary" mono={false} className="flex-1" onClick={() => setCvToDelete(null)}>Annuler</Button>
+          <Button variant="danger" mono={false} className="flex-1" onClick={deleteSavedCV}>Supprimer</Button>
         </div>
-      )}
+      </Dialog>
     </div>
   );
 }

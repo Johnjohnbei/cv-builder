@@ -30,7 +30,8 @@ body {
 .stitch-container {
   display: flex;
   height: 100vh;
-  width: 100vw;
+  /* 100%, not 100vw: 100vw includes the vertical scrollbar and scrolled sideways */
+  width: 100%;
   overflow: hidden;
 }
 

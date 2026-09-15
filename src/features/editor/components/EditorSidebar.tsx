@@ -34,6 +34,7 @@ interface Props {
   jobDescription: string;
   onJobDescriptionChange: (v: string) => void;
   actualPageCount: number;
+  hasClippedContent: boolean;
 
   expandedSection: string | null;
   toggles: Record<'personal' | 'summary' | 'experience' | 'skills' | 'education' | 'languages', () => void>;
@@ -93,7 +94,7 @@ export function EditorSidebar(props: Props) {
   const {
     isOpen, onClose, activeTab, onTabChange,
     cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
-    jobDescription, onJobDescriptionChange, actualPageCount,
+    jobDescription, onJobDescriptionChange, actualPageCount, hasClippedContent,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSection, toggles,
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
@@ -170,6 +171,7 @@ export function EditorSidebar(props: Props) {
                   jobDescription={jobDescription}
                   onJobDescriptionChange={onJobDescriptionChange}
                   actualPageCount={actualPageCount}
+                  hasClippedContent={hasClippedContent}
                   hasCvData={!!cvData}
                   targetPages={targetPages}
                   onTargetPagesChange={onTargetPagesChange}

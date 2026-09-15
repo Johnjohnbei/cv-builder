@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
 import { Lock, User, Globe } from 'lucide-react';
 import { Logo } from '@/src/shared/ui/Logo';
+import { Button } from '@/src/shared/ui/Button';
 import { useDocumentTitle } from '@/src/shared/hooks';
 
 export default function AuthPage() {
@@ -65,14 +66,9 @@ export default function AuthPage() {
           )}
 
           <div className="space-y-4">
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full bg-[#1A73E8] text-white px-4 py-3 rounded font-mono text-xs font-bold uppercase tracking-wider hover:bg-[#174EA6] transition-colors flex items-center justify-center space-x-3 disabled:opacity-50"
-            >
-              <Globe className="w-4 h-4" />
-              <span>{loading ? 'Connexion...' : 'Continuer avec Google'}</span>
-            </button>
+            <Button size="lg" fullWidth disabled={loading} icon={<Globe className="w-4 h-4" />} onClick={handleGoogleLogin}>
+              {loading ? 'Connexion…' : 'Continuer avec Google'}
+            </Button>
 
             <div className="relative py-4">
               <div className="absolute inset-0 flex items-center">
@@ -83,16 +79,19 @@ export default function AuthPage() {
               </div>
             </div>
 
-            <button
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              className="text-gray-700"
+              icon={<User className="w-4 h-4" />}
               onClick={() => {
                 sessionStorage.setItem('guest_access', 'true');
                 navigate('/dashboard');
               }}
-              className="w-full border border-[#DADCE0] bg-white text-gray-700 px-4 py-3 rounded font-mono text-xs font-bold uppercase tracking-wider hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2"
             >
-              <User className="w-4 h-4" />
-              <span>Mode invité</span>
-            </button>
+              Mode invité
+            </Button>
 
             {hasGuestCVs && (
               <p className="text-[11px] text-gray-600 text-center leading-snug">

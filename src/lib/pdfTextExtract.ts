@@ -21,14 +21,18 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   const pages: string[] = [];
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const strings = content.items
-      .filter((item) => 'str' in item)
-      .map((item) => (item as { str: string }).str);
-    pages.push(strings.join(' '));
+  try {
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items
+        .filter((item) => 'str' in item)
+        .map((item) => (item as { str: string }).str);
+      pages.push(strings.join(' '));
+    }
+  } finally {
+    // Frees the worker-side document: without it every import kept its PDF in memory
+    await pdf.destroy();
   }
 
   const fullText = pages.join('\n\n');

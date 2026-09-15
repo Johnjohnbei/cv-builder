@@ -12,6 +12,7 @@ interface Props {
   jobDescription: string;
   onJobDescriptionChange: (value: string) => void;
   actualPageCount: number;
+  hasClippedContent: boolean;
   hasCvData: boolean;
   targetPages: number;
   onTargetPagesChange: (n: number) => void;
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export const OptimizePanel = memo(function OptimizePanel({
-  jobDescription, onJobDescriptionChange, actualPageCount, hasCvData,
+  jobDescription, onJobDescriptionChange, actualPageCount, hasClippedContent, hasCvData,
   targetPages, onTargetPagesChange, isFitting, onFitToPages,
   aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
 }: Props) {
@@ -143,6 +144,7 @@ export const OptimizePanel = memo(function OptimizePanel({
         actualPageCount={actualPageCount}
         targetPages={targetPages}
         hasCvData={hasCvData}
+        hasClippedContent={hasClippedContent}
       />
     </section>
   );

@@ -16,16 +16,28 @@ test.describe('Smoke — pages publiques', () => {
   });
 
   test('la page /auth se charge sans erreur', async ({ page }) => {
-    await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
+    // Listening before navigating: attached after the load, it caught nothing
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
+    await page.goto('/auth');
+    await expect(page.getByRole('heading', { name: 'Bienvenue' })).toBeVisible();
     expect(errors.filter(e => !e.includes('ResizeObserver'))).toHaveLength(0);
   });
 
-  test('une route inconnue affiche la page 404', async ({ page }) => {
+  test('une route inconnue affiche la page 404 et ramène à l\'accueil', async ({ page }) => {
     await page.goto('/cette-page-nexiste-pas');
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Page introuvable' })).toBeVisible();
+    await page.getByRole('button', { name: /Retour à l'accueil/ }).click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test('les métadonnées de partage n\'ont ni tiret cadratin ni nombre de templates faux', async ({ page }) => {
+    await page.goto('/');
+    const description = await page.locator('meta[name="description"]').getAttribute('content');
+    expect(description).toContain('4 templates');
+    for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) {
+      expect(await page.locator(selector).getAttribute('content')).not.toMatch(/[—–]/);
+    }
   });
 
   test('aucune erreur JS console sur la page d\'accueil', async ({ page }) => {

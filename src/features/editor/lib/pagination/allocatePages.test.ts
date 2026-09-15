@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allocatePages } from './allocatePages';
+import { allocatePages, isPageOverfilled } from './allocatePages';
 import type { ContentBlock, TemplateLayout } from './types';
 
 // ─── Test Layout (simplified 2-column) ───
@@ -193,6 +193,18 @@ describe('allocatePages', () => {
 
     expect(pages).toHaveLength(1);
     expect(pages[0].sidebarBlocks?.length).toBe(1);
+  });
+
+  it('flags a page holding a block taller than the page, and only that one', () => {
+    const pages = allocatePages([
+      block('header', 'header', 200),
+      block('summary', 'summary', 1400), // taller than any page, not splittable
+    ], singleColLayout);
+
+    expect(pages.some(p => isPageOverfilled(p, singleColLayout))).toBe(true);
+
+    const normal = allocatePages([block('header', 'header', 200), expBlock('exp-0', 400)], singleColLayout);
+    expect(normal.some(p => isPageOverfilled(p, singleColLayout))).toBe(false);
   });
 
   it('reserves the injected section titles on single-column pages', () => {

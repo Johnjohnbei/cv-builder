@@ -20,13 +20,14 @@ export default function App() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/sso-callback" element={<AuthenticateWithRedirectCallback />} />
 
+          {/* No Layout: the dashboard is a full-screen app shell with its own
+              sidebar and header, like the editor. Wrapped, it showed two
+              headers plus a footer below a 100vh screen. */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Layout>
-                  <DashboardPage />
-                </Layout>
+                <DashboardPage />
               </ProtectedRoute>
             }
           />

@@ -26,6 +26,17 @@ function getUsableHeight(paddingTopMm: number, paddingBottomMm: number): number 
   return mmToPx(A4_HEIGHT_MM - paddingTopMm - paddingBottomMm);
 }
 
+/**
+ * Whether a page was given more than it can hold. Allocation never truncates:
+ * a block taller than a page (a summary of several thousand characters) is
+ * still placed, and its bottom is cut by the page edge in the PDF. This is the
+ * signal the editor needs to warn about it.
+ */
+export function isPageOverfilled(page: PageAssignment, layout: TemplateLayout): boolean {
+  const padding = page.pageIndex === 0 ? layout.page1 : layout.page2Plus;
+  return page.usedHeightPx > getUsableHeight(padding.paddingTopMm, padding.paddingBottomMm) + 1;
+}
+
 /** Height of a placed block in the requested width context. Slices always sum their sub-blocks. */
 function placedHeight(pb: PlacedBlock, useFullWidth: boolean): number {
   if (pb.startSubBlock === undefined || pb.endSubBlock === undefined || !pb.block.subBlocks) {

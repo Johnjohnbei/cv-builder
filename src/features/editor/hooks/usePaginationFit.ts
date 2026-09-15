@@ -3,7 +3,7 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { ContentBlock, PageAssignment, SubBlock, SubBlockType } from '../lib/pagination/types';
 import { MEASUREMENT_SAFETY_PX } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
-import { allocatePages } from '../lib/pagination/allocatePages';
+import { allocatePages, isPageOverfilled } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 
@@ -207,6 +207,8 @@ export function usePaginationFit(
    * make the loop condense several notches too far.
    */
   stablePageCount: number | null;
+  /** A block taller than a page is cut at the page edge: the user must shorten it */
+  hasClippedContent: boolean;
 } {
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
   const singleColumn = layout.type === 'single-column';
@@ -326,5 +328,10 @@ export function usePaginationFit(
   const measuringCurrentContent = lastContentKeyRef.current !== contentKey;
   const stablePageCount = isStable && !measuringCurrentContent ? pageAssignments.length : null;
 
-  return { pageAssignments, actualPageCount: pageAssignments.length, stablePageCount };
+  const hasClippedContent = useMemo(
+    () => pageAssignments.some(page => isPageOverfilled(page, layout)),
+    [pageAssignments, layout],
+  );
+
+  return { pageAssignments, actualPageCount: pageAssignments.length, stablePageCount, hasClippedContent };
 }
