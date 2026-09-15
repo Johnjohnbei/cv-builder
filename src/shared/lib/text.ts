@@ -30,8 +30,9 @@ const TYPOGRAPHIC: [RegExp, string][] = [
  * website or Word carry that punctuation; CVs and AI quotes mostly do not.
  */
 export function normalizeForMatch(s: string): string {
-  const folded = TYPOGRAPHIC.reduce((text, [pattern, plain]) => text.replace(pattern, plain), s);
-  return stripAccents(folded.normalize('NFKD').toLowerCase()).replace(/\s+/g, ' ').trim();
+  const fold = (text: string) => TYPOGRAPHIC.reduce((folded, [pattern, plain]) => folded.replace(pattern, plain), text);
+  // Folded again after: the decomposition also makes marks (U+FE58 is an em dash)
+  return stripAccents(fold(fold(s).normalize('NFKD')).toLowerCase()).replace(/\s+/g, ' ').trim();
 }
 
 // ─── Phrase matching: the owner for the ATS score, the requirement checks and the portfolio suggestion ───
@@ -56,19 +57,18 @@ export function stripSimpleSuffixes(word: string): string {
   // "systeme" stayed "systeme", so a singular never matched its own plural.
   const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x', 'e'];
   for (const suf of suffixes) {
-    if (word.length - suf.length >= 3 && word.endsWith(suf)) {
-      return word.slice(0, -suf.length);
-    }
+    const root = word.length - suf.length;
+    if (!word.endsWith(suf) || root < (suf === 'x' ? 4 : 3)) continue;
+    // A double s is never a plural: "less", "sass" and "access" are names, not "les" or "sas"
+    if (suf === 's' && word[root - 1] === 's') return word;
+    return word.slice(0, root);
   }
   return word;
 }
 
-/** Stem a normalized phrase token by token (tokens under 4 chars kept). */
+/** Stem a normalized phrase word by word (words under 4 chars kept), punctuation left in place: "apis," is "api," */
 function stemPhrase(s: string): string {
-  return s
-    .split(/\s+/)
-    .map(t => (t.length >= 4 ? stripSimpleSuffixes(t) : t))
-    .join(' ');
+  return s.replace(/[\p{L}\p{M}\p{N}]+/gu, w => (w.length >= 4 ? stripSimpleSuffixes(w) : w));
 }
 
 /** The views of a haystack matching needs, built once per text instead of once per term */
@@ -83,19 +83,22 @@ export function prepareText(text: string): PreparedText {
   return { raw: text, normalized, stemmed: stemPhrase(normalized) };
 }
 
-/** What a word of a name is made of, in any script: letters, combining marks, digits, "+" and "#" (C++, C#) */
-const WORD = '[\\p{L}\\p{M}\\p{N}+#]';
+/** A letter, combining mark or digit, in any script */
+const WORD = '[\\p{L}\\p{M}\\p{N}]';
 const STARTS_WITH_WORD = new RegExp(`^${WORD}`, 'u');
 const ENDS_WITH_WORD = new RegExp(`${WORD}$`, 'u');
 
 /**
  * `term` as whole words of `text`, both normalized. A term starting or ending
- * with a symbol (the dot of .NET) needs no boundary on that side.
+ * with a symbol (the dot of .NET) needs no boundary on that side. "+" and "#"
+ * ending a name belong to it (C is not in C++ or C#), not when a word follows
+ * (Bac is in Bac+5). The left boundary consumes a character: a lookbehind is a
+ * SyntaxError before Safari 16.4.
  */
 function containsWords(text: string, term: string): boolean {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const left = STARTS_WITH_WORD.test(term) ? `(?<!${WORD})` : '';
-  const right = ENDS_WITH_WORD.test(term) ? `(?!${WORD})` : '';
+  const left = STARTS_WITH_WORD.test(term) ? `(?:^|[^\\p{L}\\p{M}\\p{N}])` : '';
+  const right = ENDS_WITH_WORD.test(term) ? `(?!${WORD}|[+#]+(?!${WORD}))` : '';
   return new RegExp(`${left}${escaped}${right}`, 'u').test(text);
 }
 

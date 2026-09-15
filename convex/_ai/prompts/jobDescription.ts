@@ -68,13 +68,15 @@ const IMPORTANCE_GUIDE: Record<RequirementImportance, string> = {
 /**
  * The requirements a recruiter filters on in an ATS, each with the excerpt of
  * the offer that states it. The server (normalizeJobRequirements) drops a
- * requirement whose quote is not words of the offer, whose label or variants
- * are not words of its quote (title and education excepted), or whose years
- * are not the number its quote gives: the rules below tell the model so.
+ * requirement whose quote is not words of the offer, none of whose label and
+ * variants are words of its quote (title, education and experience_years
+ * excepted), or whose years are not the number its quote gives: the rules
+ * below tell the model so.
  */
 export function buildJobRequirementsPrompt(ctx: JobRequirementsContext): string {
-  // The offer must not close its own fence and write instructions after it
-  const offer = ctx.jobDescription.replace(/<\/?offre\s*>/gi, "");
+  // The offer must not close its own fence and write instructions after it.
+  // Replaced by a space, never removed: "</of</offre>fre>" rebuilt a delimiter.
+  const offer = ctx.jobDescription.replace(/<\s*\/?\s*offre[^>]*>/gi, " ");
   return `Tu es un recruteur expert des ATS (Applicant Tracking Systems).
 
 MISSION : liste les exigences de cette offre, celles sur lesquelles un recruteur filtre les candidatures dans son ATS.

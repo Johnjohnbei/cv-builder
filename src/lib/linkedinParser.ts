@@ -322,7 +322,10 @@ function buildExperience(b: ExpBuilder): Experience {
   let intro: string | undefined;
 
   if (prose) {
-    const sentences = prose.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+    // Split after . ! or ? followed by whitespace (a lookbehind breaks Safari before 16.4)
+    const sentences = (prose.match(/[\s\S]*?[.!?](?=\s|$)|[\s\S]+/g) ?? [])
+      .map(s => s.trim())
+      .filter(s => s.length > 10);
     intro = sentences.slice(0, 2).join(' ');
     // No truncation — let display modes and autoFit handle visible length
 

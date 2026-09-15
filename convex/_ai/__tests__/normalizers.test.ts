@@ -356,6 +356,19 @@ describe("normalizeJobRequirements", () => {
     expect(normalizeJobRequirements([{ ...years, minYears: 8 }], OFFER)).toEqual([]);
   });
 
+  // "un" or a "5" of "Bac+5" is in almost every quote: the number must count years
+  it("reads years only as a number followed by a year unit", () => {
+    const offer = "Un bon niveau et 3 ans d'expérience. Bac+5. Trois à cinq années en agence. 5+ years of design. At least two (2) years.";
+    const years = (quote: string, minYears: number) =>
+      normalizeJobRequirements([req({ label: "Expérience", kind: "experience_years", quote, minYears })], offer).length;
+    expect(years("Un bon niveau et 3 ans d'expérience", 1)).toBe(0);
+    expect(years("Un bon niveau et 3 ans d'expérience", 3)).toBe(1);
+    expect(years("Bac+5", 5)).toBe(0);
+    expect(years("Trois à cinq années en agence", 3)).toBe(1);
+    expect(years("5+ years of design", 5)).toBe(1);
+    expect(years("At least two (2) years", 2)).toBe(1);
+  });
+
   it("caps the list at 25 requirements", () => {
     const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
     const offer = `Outils : ${labels.join(", ")}.`;
