@@ -1,12 +1,16 @@
 import type { CVData } from '@/src/shared/types';
 import type { PageAssignment } from '@/src/features/editor/lib/pagination/types';
+import { getCVLanguage } from '@/src/lib/languageDetection';
+
+const ANONYMOUS_NAME = { fr: 'Candidat anonyme', en: 'Anonymous candidate' } as const;
 
 export function maskPersonalInfo(cv: CVData): CVData {
+  const anonUrl = cv.personal_info.portfolio_anon_url || '';
   return {
     ...cv,
     personal_info: {
       ...cv.personal_info,
-      name: 'Candidat anonyme',
+      name: ANONYMOUS_NAME[getCVLanguage(cv)],
       email: '',
       phone: '',
       location: '',
@@ -16,7 +20,10 @@ export function maskPersonalInfo(cv: CVData): CVData {
       photo_url: undefined,
       // A nominative portfolio would undo the anonymization, so it only
       // survives if an identity-free variant was provided for it.
-      portfolio_url: cv.personal_info.portfolio_anon_url || '',
+      portfolio_url: anonUrl,
+      // The label is free text and can carry the candidate's name ("Portfolio
+      // Marie Dupont"), so a masked CV prints a neutral one.
+      portfolio_label: anonUrl ? 'Portfolio' : '',
     },
   };
 }

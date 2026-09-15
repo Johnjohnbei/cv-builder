@@ -85,6 +85,23 @@ describe('buildCvDocument (fr, default)', () => {
     expect(xml).toContain('LANGUES');
   });
 
+  it('prints the portfolio as a clickable label, like the PDF header', async () => {
+    const buffer = await Packer.toBuffer(buildCvDocument({
+      ...mockCV,
+      personal_info: {
+        ...mockCV.personal_info,
+        portfolio_url: 'https://example.com/portfolio/ia',
+        portfolio_label: 'Portfolio IA Product',
+      },
+    }));
+    const zip = await JSZip.loadAsync(buffer);
+    const xml = await zip.file('word/document.xml')!.async('string');
+    const rels = await zip.file('word/_rels/document.xml.rels')!.async('string');
+    expect(xml).toMatch(/<w:hyperlink[^>]*>[\s\S]*Portfolio IA Product[\s\S]*<\/w:hyperlink>/);
+    expect(rels).toContain('https://example.com/portfolio/ia');
+    expect(xml).toContain('linkedin.com/in/jean');
+  });
+
   it('uses localized dates and current label', async () => {
     const xml = await toXml(mockCV);
     expect(xml).toContain('Janv. 2020 - Présent');

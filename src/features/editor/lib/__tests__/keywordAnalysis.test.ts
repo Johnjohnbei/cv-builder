@@ -1,11 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import {
   matchKeywordFuzzy,
+  matchPhrase,
+  prepareText,
   normalizeForMatch,
   stripSimpleSuffixes,
   computeKeywordAnalysis,
 } from '../keywordAnalysis';
 import type { CVData } from '@/src/shared/types';
+
+describe('matchPhrase', () => {
+  it('matches across accents and plurals', () => {
+    expect(matchPhrase('systeme de design', prepareText('Nos Systèmes de Design partagés'))).toBe(true);
+  });
+
+  it('requires the words to be adjacent, unlike matchKeywordFuzzy', () => {
+    const text = 'Une équipe produit. Le design au cœur.';
+    expect(matchKeywordFuzzy('equipe design', text)).toBe(true);
+    expect(matchPhrase('equipe design', prepareText(text))).toBe(false);
+  });
+
+  it('never matches an empty phrase', () => {
+    expect(matchPhrase('   ', prepareText('anything'))).toBe(false);
+  });
+});
 
 describe('normalizeForMatch', () => {
   it('lowercases and strips French accents', () => {
@@ -29,6 +47,10 @@ describe('stripSimpleSuffixes', () => {
   it('strips -es (classes → class)', () => {
     expect(stripSimpleSuffixes('classes')).toBe('class');
   });
+  it('gives a -e singular and its -es plural the same stem', () => {
+    expect(stripSimpleSuffixes('systeme')).toBe(stripSimpleSuffixes('systemes'));
+    expect(stripSimpleSuffixes('equipe')).toBe(stripSimpleSuffixes('equipes'));
+  });
   it('strips -ing (coding → cod)', () => {
     expect(stripSimpleSuffixes('coding')).toBe('cod');
   });
@@ -41,7 +63,7 @@ describe('stripSimpleSuffixes', () => {
   it('does NOT handle FR verb conjugations (gère stays gère)', () => {
     // A more aggressive stemmer could map gère ↔ gestion but hand-rolled
     // suffix-strip is too blunt. Deferred to a real FR stemmer library.
-    expect(stripSimpleSuffixes('gère')).toBe('gère');
+    expect(stripSimpleSuffixes('gère')).not.toBe(stripSimpleSuffixes('gestion'));
   });
   it('does NOT handle -tion derivations (gestion stays gestion)', () => {
     // Previously stripped to 'ges' — too aggressive, caused false positives.

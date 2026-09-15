@@ -3,6 +3,7 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { withSuggestedPortfolio } from '../lib/portfolioVariants';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -60,12 +61,16 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     if (!cvData) return;
     setIsOptimizing(true);
     try {
-      const optimizedData = await optimizeCVAction({
-        cvData,
-        pageLimit: designSettings.pageLimit || 2,
-        jobDescription: jobDescription || undefined,
-        accessCode,
-      });
+      // A CV rewritten for an offer comes with the portfolio version that offer calls for
+      const optimizedData = withSuggestedPortfolio(
+        await optimizeCVAction({
+          cvData,
+          pageLimit: designSettings.pageLimit || 2,
+          jobDescription: jobDescription || undefined,
+          accessCode,
+        }),
+        jobDescription,
+      );
       setCvData(optimizedData);
       notify({ message: 'CV optimisé avec succès !', type: 'success' });
       if (user) await storeUser();

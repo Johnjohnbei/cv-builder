@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
-import { maskPersonalInfo, maskHeaderBlocks } from '../shared/lib/anonymize';
+import { maskHeaderBlocks } from '../shared/lib/anonymize';
 import { getUserErrorMessage } from '../shared/lib/convexError';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
@@ -11,7 +11,6 @@ import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBu
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobKeywordsAI } from '../features/editor/hooks/useJobKeywordsAI';
-import { applyVariantToPersonalInfo, type PortfolioVariant } from '../features/editor/lib/portfolioVariants';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
@@ -231,11 +230,6 @@ export default function EditorPage() {
 
   // renderCV replaced by PaginatedCV — block-based pagination engine
 
-  const handleApplyPortfolio = useCallback((variant: PortfolioVariant) => {
-    setCvData(prev => prev ? { ...prev, personal_info: applyVariantToPersonalInfo(prev.personal_info, variant) } : null);
-    notify({ message: `Lien « ${variant.label} » ajouté au CV`, type: 'success' });
-  }, [setCvData, notify]);
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
@@ -307,7 +301,6 @@ export default function EditorPage() {
         onTargetPagesChange={(n) => setDesignSettings(prev => ({ ...prev, pageLimit: n }))}
         isFitting={fit.isFitting}
         onFitToPages={fit.runFit}
-        onApplyPortfolio={handleApplyPortfolio}
         expandedSection={expandedSection}
         toggles={toggles}
         aiBusy={aiBusy}

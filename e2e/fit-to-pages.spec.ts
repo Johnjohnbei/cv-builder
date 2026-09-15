@@ -107,16 +107,71 @@ test.describe('Tri auto sur N pages', () => {
   });
 });
 
+/**
+ * Written the way real offers are: accents and plurals the variant config
+ * (playwright.config.ts) spells without. The exact-regex matcher missed all of
+ * them, which is why no suggestion ever showed up in production.
+ */
+const DS_OFFER = `Lead Product Designer H/F. Vous piloterez notre système de design et garantirez l'accessibilité des composants, avec des tokens partagés entre web et mobile, sur un produit SaaS B2B.`;
+
+const headerLinks = (page: Page) => page.locator('[data-cv-section="header"] a');
+
 test.describe('Lien portfolio', () => {
   guardAICalls();
 
-  test('aucune suggestion de portfolio sans offre chargée', async ({ page }) => {
-    // Without a job description there is nothing to match against, so the block
-    // must stay hidden — same end state as a clone with no variants configured.
+  test('sans offre : les versions sont listées, aucune n\'est suggérée ni ajoutée', async ({ page }) => {
     await seedGuestSession(page, { cv: LONG_CV });
-    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('tab', { name: 'ATS' }).click();
 
-    await expect(page.getByRole('button', { name: /^Ajouter au CV$/i })).toHaveCount(0);
+    await expect(page.getByLabel('Version à lier')).toBeVisible();
+    await expect(page.getByText('Importez une offre pour obtenir une suggestion.')).toBeVisible();
+    await expect(headerLinks(page)).toHaveCount(0);
+  });
+
+  test('une offre accentuée suggère la bonne version, ajoutée en un clic', async ({ page }) => {
+    await seedGuestSession(page, { cv: LONG_CV, jd: DS_OFFER });
+    // The editor lands on the ATS tab when an offer arrives: the panel is there.
+    await expect(page.getByText(/Suggéré pour cette offre/)).toContainText('Portfolio Design System');
+
+    await page.getByRole('button', { name: 'Ajouter au CV' }).click();
+
+    const link = headerLinks(page).filter({ hasText: 'Portfolio Design System' });
+    await expect(link).toHaveAttribute('href', 'https://example.com/portfolio/design-system');
+    await expect(page.getByRole('button', { name: 'Déjà sur le CV' })).toBeDisabled();
+  });
+
+  test('choisir une autre version la remplace, Retirer enlève le lien', async ({ page }) => {
+    await seedGuestSession(page, { cv: LONG_CV, jd: DS_OFFER });
+    await page.getByRole('button', { name: 'Ajouter au CV' }).click();
+
+    await page.getByLabel('Version à lier').selectOption('ia');
+    await page.getByRole('button', { name: 'Remplacer sur le CV' }).click();
+    await expect(headerLinks(page)).toHaveCount(1);
+    await expect(headerLinks(page)).toHaveAttribute('href', 'https://example.com/portfolio/ia');
+
+    await page.getByRole('button', { name: 'Retirer', exact: true }).click();
+    await expect(headerLinks(page)).toHaveCount(0);
+  });
+
+  test('le template Modern affiche aussi LinkedIn et le lien portfolio', async ({ page }) => {
+    await seedGuestSession(page, {
+      cv: {
+        ...LONG_CV,
+        personal_info: {
+          ...LONG_CV.personal_info,
+          portfolio_url: 'https://example.com/portfolio/design-system',
+          portfolio_label: 'Portfolio Design System',
+        },
+        design: {
+          template: 'TEMPLATE_B', primaryColor: '#1A73E8', secondaryColor: '#5F6368',
+          fontFamily: 'sans', pageLimit: 2, showPhoto: true,
+        },
+      },
+    });
+
+    const header = page.locator('[data-cv-section="header"]').first();
+    await expect(header).toContainText('linkedin.com/in/marie-dupont', { timeout: 15_000 });
+    await expect(header.locator('a')).toHaveAttribute('href', 'https://example.com/portfolio/design-system');
   });
 
   test('un lien portfolio saisi à la main est rendu et cliquable', async ({ page }) => {
@@ -153,5 +208,7 @@ test.describe('Lien portfolio', () => {
     await expect(header).toContainText('Candidat anonyme');
     await expect(header).not.toContainText(LONG_CV.personal_info.email);
     await expect(header.locator('a').first()).toHaveAttribute('href', 'https://example.com/cv/ab12');
+    // The free-text label could carry the name: a masked CV prints a neutral one
+    await expect(header.locator('a').first()).toHaveText('Portfolio');
   });
 });

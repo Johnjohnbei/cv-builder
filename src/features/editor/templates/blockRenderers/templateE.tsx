@@ -5,7 +5,7 @@
 import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
-import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, renderPortfolioEntry } from '../shared';
+import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -31,7 +31,6 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
   const atsMode = designSettings.atsMode;
   const showPhoto = designSettings.showPhoto;
   const cvDataShim = { personal_info: data } as CVData;
-  const portfolio = renderPortfolioEntry(cvDataShim);
 
   return (
     <div data-cv-section="header" className="flex justify-between items-start mb-3">
@@ -43,17 +42,12 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
         </div>
       </div>
       <div className="text-[10px] text-right space-y-0.5 text-gray-500 shrink-0">
-        {data?.email && <p>{data.email}</p>}
-        {data?.phone && <p>{data.phone}</p>}
-        {data?.location && <p>{data.location}</p>}
-        {data?.linkedin && <p>{data.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</p>}
-        {portfolio && (
-          <p>
-            <a href={portfolio.href} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: primaryColor }}>
-              {portfolio.text}
-            </a>
+        {getContactEntries(data).map(entry => (
+          <p key={entry.key}>
+            {atsMode && <span className="font-semibold">{entry.atsLabel} </span>}
+            {renderContactValue(entry, { color: primaryColor })}
           </p>
-        )}
+        ))}
       </div>
     </div>
   );

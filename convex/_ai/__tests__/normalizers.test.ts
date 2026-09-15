@@ -5,6 +5,8 @@ import {
   normalizeSkills,
   normalizeProficiency,
   normalizeTitle,
+  withoutUserOwnedFields,
+  restoreUserOwnedFields,
 } from "../normalizers";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -187,6 +189,41 @@ describe("normalizeSkills", () => {
   it("defaults category to 'Compétences' when missing", () => {
     const result = normalizeSkills([{ items: ["a"] }]);
     expect(result[0].category).toBe("Compétences");
+  });
+});
+
+describe("user-owned fields around an AI rewrite", () => {
+  const source = {
+    personal_info: {
+      name: "Jane", email: "j@e.com", title: "Designer",
+      photo_url: "data:image/jpeg;base64,AAAA",
+      portfolio_url: "https://example.com/portfolio/ds",
+      portfolio_label: "Portfolio Design System",
+      portfolio_anon_url: "https://example.com/cv/ab12",
+    },
+    experience: [],
+  };
+
+  it("keeps the photo and the portfolio out of what the model sees", () => {
+    const forModel = withoutUserOwnedFields(source);
+    expect(Object.keys(forModel.personal_info)).toEqual(["name", "email", "title"]);
+    expect(source.personal_info.photo_url).toBeDefined(); // input untouched
+  });
+
+  it("puts them back on the answer even though the normalizer dropped them", () => {
+    const answer = normalizeCVData({ personal_info: { name: "Jane", email: "j@e.com", title: "Lead Designer" } });
+    const restored = restoreUserOwnedFields(answer, source);
+    expect(restored.personal_info.title).toBe("Lead Designer");
+    expect(restored.personal_info.portfolio_url).toBe("https://example.com/portfolio/ds");
+    expect(restored.personal_info.portfolio_label).toBe("Portfolio Design System");
+    expect(restored.personal_info.portfolio_anon_url).toBe("https://example.com/cv/ab12");
+    expect(restored.personal_info.photo_url).toBe("data:image/jpeg;base64,AAAA");
+  });
+
+  it("discards a photo the model made up", () => {
+    const answer = normalizeCVData({ personal_info: { name: "Jane", email: "j@e.com", photo_url: "https://invented.jpg" } });
+    const restored = restoreUserOwnedFields(answer, { personal_info: { name: "Jane", email: "j@e.com" } });
+    expect(restored.personal_info.photo_url).toBeUndefined();
   });
 });
 

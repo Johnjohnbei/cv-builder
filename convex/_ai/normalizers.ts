@@ -6,6 +6,28 @@ import type {
   Language,
   ExperienceDisplayMode,
 } from "../../src/shared/types";
+import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
+
+// ─── User-owned fields: kept away from the model ─────────────────
+/** The CV as the model should see it: no photo, no portfolio link. */
+export function withoutUserOwnedFields<T extends { personal_info?: CVData["personal_info"] }>(cv: T): T {
+  if (!cv?.personal_info) return cv;
+  return { ...cv, personal_info: omitUserOwnedFields(cv.personal_info) as CVData["personal_info"] };
+}
+
+/**
+ * Put the user-owned fields of `source` back on the model's answer. Whatever
+ * the model returned for them is discarded, even a photo it made up.
+ */
+export function restoreUserOwnedFields(result: CVData, source: { personal_info?: CVData["personal_info"] } | undefined): CVData {
+  return {
+    ...result,
+    personal_info: {
+      ...omitUserOwnedFields(result.personal_info),
+      ...pickUserOwnedFields(source?.personal_info),
+    },
+  };
+}
 
 // ─── Proficiency: store RAW, localize at render ──────────────────
 // The backend must NOT freeze proficiency to a localized string. It used to

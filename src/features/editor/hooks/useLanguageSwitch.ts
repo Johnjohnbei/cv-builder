@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import type { CVData } from '@/src/shared/types';
+import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 
@@ -31,12 +31,13 @@ export interface UseLanguageSwitchResult {
 }
 
 /**
- * Snapshot of the translatable content. The photo is excluded: it is
- * identical in both languages and its base64 payload would otherwise be
- * duplicated per cached language in every auto-save (Convex doc cap ~1 MiB).
+ * Snapshot of the translatable content. User-owned fields are excluded: they
+ * are identical in both languages, the photo's base64 payload would otherwise
+ * be duplicated per cached language in every auto-save (Convex doc cap
+ * ~1 MiB), and a cached portfolio link would bring back one the user changed.
  */
 const contentSnapshot = (d: CVData) => ({
-  personal_info: { ...d.personal_info, photo_url: undefined },
+  personal_info: omitUserOwnedFields(d.personal_info),
   experience: d.experience,
   education: d.education,
   skills: d.skills,
@@ -79,8 +80,9 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
     const updated = {
       ...cvData,
       ...cached,
-      // The cached snapshot has no photo: carry the current one over
-      personal_info: { ...cached.personal_info, photo_url: cvData.personal_info.photo_url },
+      // Photo and portfolio are the current ones, never the snapshot's (older
+      // caches still carry them)
+      personal_info: { ...omitUserOwnedFields(cached.personal_info), ...pickUserOwnedFields(cvData.personal_info) },
       _translations: { ...cvData._translations, [currentLang]: contentSnapshot(cvData) },
       detectedLanguage: target,
       languageOverride: target,
@@ -132,10 +134,9 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
         accessCode,
       });
       const translatedSnapshot = contentSnapshot(translatedData);
+      // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {
         ...translatedData,
-        // Keep the current photo whatever the LLM returned for it
-        personal_info: { ...translatedData.personal_info, photo_url: cvData.personal_info.photo_url },
         _translations: {
           ...cvData._translations,
           [currentLang]: currentSnapshot,

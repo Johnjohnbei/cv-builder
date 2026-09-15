@@ -1,10 +1,9 @@
-import { memo, useMemo, useState } from 'react';
-import { Loader2, Sparkles, Zap, Globe } from 'lucide-react';
+import { memo, useState } from 'react';
+import { Loader2, Sparkles, Zap } from 'lucide-react';
 import { Textarea } from '../../../../shared/ui/Textarea';
 import { Button } from '../../../../shared/ui/Button';
 import { cn } from '../../../../shared/lib/cn';
 import { OverflowIndicator } from '../OverflowIndicator';
-import { getPortfolioVariants, pickPortfolioVariant, type PortfolioVariant } from '../../lib/portfolioVariants';
 
 /** Page budgets a recruiter-facing CV realistically uses */
 const PAGE_TARGETS = [1, 2, 3];
@@ -18,7 +17,6 @@ interface Props {
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
-  onApplyPortfolio: (variant: PortfolioVariant) => void;
   aiBusy: boolean;
   isOptimizing: boolean;
   optimizeSeconds: number;
@@ -29,15 +27,8 @@ interface Props {
 export const OptimizePanel = memo(function OptimizePanel({
   jobDescription, onJobDescriptionChange, actualPageCount, hasCvData,
   targetPages, onTargetPagesChange, isFitting, onFitToPages,
-  onApplyPortfolio,
   aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
 }: Props) {
-  // Empty for anyone who has not configured VITE_PORTFOLIO_VARIANTS, which
-  // makes the whole block disappear rather than showing an empty affordance.
-  const portfolioMatch = useMemo(
-    () => pickPortfolioVariant(getPortfolioVariants(), jobDescription),
-    [jobDescription],
-  );
   const [isJDExpanded, setIsJDExpanded] = useState(false);
 
   return (
@@ -89,28 +80,6 @@ export const OptimizePanel = memo(function OptimizePanel({
               Replier l'offre
             </button>
           )}
-        </div>
-      )}
-
-      {/* Portfolio version matching the offer. Hidden unless variants are configured. */}
-      {portfolioMatch && (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2">
-          <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold text-gray-900 truncate">{portfolioMatch.variant.label}</p>
-            <p className="text-[11px] text-gray-600">
-              {portfolioMatch.hits} terme{portfolioMatch.hits > 1 ? 's' : ''} de l'offre en commun
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="shrink-0 text-[11px]"
-            disabled={!hasCvData}
-            onClick={() => onApplyPortfolio(portfolioMatch.variant)}
-          >
-            Ajouter au CV
-          </Button>
         </div>
       )}
 

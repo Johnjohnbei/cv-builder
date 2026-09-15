@@ -6,7 +6,7 @@ import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { getContrastTextColor, getContrastMutedColor } from '@/src/shared/lib/colorContrast';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
-import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets } from '../shared';
+import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
 import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
@@ -36,9 +36,12 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       <p className="text-xs font-medium mb-6 leading-relaxed" style={{ color: mutedColor }}>{data?.title}</p>
       {/* Contact info separator */}
       <div className="border-t pt-4 space-y-1.5 text-[10px]" style={{ borderColor: 'rgba(255,255,255,0.2)', color: mutedColor }}>
-        {data?.email && <p>{data.email}</p>}
-        {data?.phone && <p>{data.phone}</p>}
-        {data?.location && <p>{data.location}</p>}
+        {getContactEntries(data).map(entry => (
+          <p key={entry.key} className="break-words">
+            {designSettings.atsMode && <span className="font-semibold">{entry.atsLabel} </span>}
+            {renderContactValue(entry, { color: textColor })}
+          </p>
+        ))}
       </div>
     </div>
   );

@@ -5,8 +5,8 @@ import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
 import type { CVData, DesignSettings, ATSScoreResult, KeywordAnalysisResult } from '@/src/shared/types';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
-import type { PortfolioVariant } from '../lib/portfolioVariants';
 import { ATSPanel } from './ATSPanel';
+import { PortfolioSuggestion } from './PortfolioSuggestion';
 import { DistributionProposalsPanel } from './DistributionProposalsPanel';
 import {
   OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection,
@@ -49,7 +49,6 @@ interface Props {
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
-  onApplyPortfolio: (variant: PortfolioVariant) => void;
   isEnriching: boolean;
   onEnrich: () => void;
 
@@ -89,7 +88,7 @@ export function EditorSidebar(props: Props) {
     isOpen, onClose, activeTab, onTabChange,
     cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
     jobDescription, onJobDescriptionChange, actualPageCount,
-    targetPages, onTargetPagesChange, isFitting, onFitToPages, onApplyPortfolio,
+    targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSection, toggles,
     aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
@@ -168,7 +167,6 @@ export function EditorSidebar(props: Props) {
                   onTargetPagesChange={onTargetPagesChange}
                   isFitting={isFitting}
                   onFitToPages={onFitToPages}
-                  onApplyPortfolio={onApplyPortfolio}
                   aiBusy={aiBusy}
                   isOptimizing={isOptimizing}
                   optimizeSeconds={optimizeSeconds}
@@ -235,6 +233,13 @@ export function EditorSidebar(props: Props) {
                 onOpenCoverLetter={coverLetter.open}
               />
             ) : (
+              <>
+              <PortfolioSuggestion
+                jobDescription={jobDescription}
+                personalInfo={cvData?.personal_info}
+                setCvData={setCvData}
+                notify={notify}
+              />
               <ATSPanel
                 score={atsScore}
                 keywords={atsKeywords}
@@ -262,6 +267,7 @@ export function EditorSidebar(props: Props) {
                   ) : undefined
                 }
               />
+              </>
             )}
           </div>
         </div>

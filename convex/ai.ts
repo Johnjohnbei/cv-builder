@@ -32,7 +32,7 @@ import {
   KeywordListSchema,
   KeywordDistributionSchema,
 } from "./_ai/schemas";
-import { normalizeCVData } from "./_ai/normalizers";
+import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ export const tailorCV = action({
     void _staleCache;
     const prompt = buildAdaptPrompt({
       mode: "tailor",
-      cvData: contentOnly,
+      cvData: withoutUserOwnedFields(contentOnly),
       jobDescription: args.jobDescription,
       detectedLanguage,
       languageOverride,
@@ -71,7 +71,7 @@ export const tailorCV = action({
     // companyStage / companyBusinessModel come back from this same call — a
     // separate enrichment round-trip used to cost a full extra request to
     // deduce two tags per experience.
-    const normalized = await chatJSONThen(prompt, normalizeCVData);
+    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData), contentOnly);
     // Return the language actually used by the prompt so the UI toggle and
     // section labels match the generated content (JD-first, then user override).
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
@@ -216,13 +216,13 @@ export const optimizeCVForPage = action({
     void _staleCache;
     const prompt = buildAdaptPrompt({
       mode: "optimize",
-      cvData: contentOnly,
+      cvData: withoutUserOwnedFields(contentOnly),
       pageLimit: args.pageLimit,
       jobDescription: args.jobDescription,
       detectedLanguage,
       languageOverride,
     });
-    const normalized = await chatJSONThen(prompt, normalizeCVData);
+    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData), contentOnly);
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
       ...normalized,
@@ -257,7 +257,7 @@ export const generateCoverLetter = action({
     void _design;
     void _staleCache;
     const prompt = buildCoverLetterPrompt({
-      cvData: contentOnly,
+      cvData: withoutUserOwnedFields(contentOnly),
       jobDescription: args.jobDescription,
       companyName: args.companyName,
       companyStage: args.companyStage,
@@ -346,12 +346,12 @@ export const translateCV = action({
     const { design, detectedLanguage, languageOverride, _translations: _existingCache, ...contentOnly } = args.cvData || {};
     void _existingCache;
     const prompt = buildTranslatePrompt({
-      cvData: contentOnly,
+      cvData: withoutUserOwnedFields(contentOnly),
       targetLanguage: args.targetLanguage,
     });
     // "fast" model: a 1:1 translation with an imposed structure needs fidelity,
     // not reasoning. Sonnet was doing word-for-word work at 3x the price.
-    const normalized = await chatJSONThen(prompt, normalizeCVData, "fast");
+    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData, "fast"), contentOnly);
     return {
       ...normalized,
       ...(design && { design }),

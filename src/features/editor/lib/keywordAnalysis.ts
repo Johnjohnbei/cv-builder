@@ -111,7 +111,9 @@ export function normalizeForMatch(s: string): string {
  */
 export function stripSimpleSuffixes(word: string): string {
   if (word.length < 4) return word;
-  const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x'];
+  // A trailing -e goes last: without it "systemes" stemmed to "system" but
+  // "systeme" stayed "systeme", so a singular never matched its own plural.
+  const suffixes = ['ings', 'ing', 'eurs', 'eur', 'es', 's', 'x', 'e'];
   for (const suf of suffixes) {
     if (word.length - suf.length >= 3 && word.endsWith(suf)) {
       return word.slice(0, -suf.length);
@@ -172,6 +174,19 @@ function matchPrepared(keyword: string, text: PreparedText): boolean {
  */
 export function matchKeywordFuzzy(keyword: string, text: string): boolean {
   return matchPrepared(keyword, prepareText(text));
+}
+
+/**
+ * Contiguous phrase match, tolerant to accents and plural/suffix variants.
+ * Unlike matchKeywordFuzzy, word order and adjacency are kept: against a whole
+ * job offer, "equipe design" must not match an "équipe" in one paragraph and a
+ * "design" in another.
+ */
+export function matchPhrase(phrase: string, text: PreparedText): boolean {
+  const normalized = normalizeForMatch(phrase);
+  if (!normalized) return false;
+  return matchKeyword(normalized, text.normalized)
+    || matchKeyword(stemPhrase(normalized), text.stemmed);
 }
 
 // ─── Main analysis ───

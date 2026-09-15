@@ -1,7 +1,8 @@
 import {
-  Document, Packer, Paragraph, TextRun,
+  Document, Packer, Paragraph, TextRun, ExternalHyperlink,
   AlignmentType, BorderStyle,
 } from 'docx';
+import { getContactEntries } from '@/src/features/editor/templates/shared';
 import { saveAs } from 'file-saver';
 import type { CVData } from '../types';
 import {
@@ -39,15 +40,21 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr')
   }
 
   // ── Contact line ──
-  // The portfolio prints as "Label : url" — a .docx opened by a recruiter is
-  // often printed, so the URL has to be readable, not hidden behind a label.
-  const portfolio = personal_info.portfolio_url?.trim()
-    ? [personal_info.portfolio_label?.trim(), personal_info.portfolio_url.trim()].filter(Boolean).join(' : ')
-    : undefined;
-  const contactParts = [personal_info.email, personal_info.phone, personal_info.location, personal_info.linkedin, portfolio].filter(Boolean);
-  if (contactParts.length) {
+  // Same entries as the PDF header (one owner), and the portfolio is the same
+  // clickable label-only hyperlink ("Portfolio Design System") as in the PDF.
+  const contactEntries = getContactEntries(personal_info);
+  if (contactEntries.length) {
+    const contactRun = (text: string) => new TextRun({ text, size: 18, color: '888888', font: 'Calibri' });
     children.push(new Paragraph({
-      children: [new TextRun({ text: contactParts.join('  •  '), size: 18, color: '888888', font: 'Calibri' })],
+      children: contactEntries.flatMap((entry, i) => [
+        ...(i > 0 ? [contactRun('  •  ')] : []),
+        entry.href
+          ? new ExternalHyperlink({
+              link: entry.href,
+              children: [new TextRun({ text: entry.value, size: 18, color: '1A73E8', underline: {}, font: 'Calibri' })],
+            })
+          : contactRun(entry.value),
+      ]),
       spacing: { after: 200 },
     }));
   }

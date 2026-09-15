@@ -1,5 +1,5 @@
 import { Mail, Phone, MapPin, Globe } from 'lucide-react';
-import type { CVData } from '@/src/shared/types';
+import type { CVData, PersonalInfo } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
 import { cn } from '@/src/shared/lib/cn';
 import { getLocalizedStage } from '@/src/shared/constants/companyMeta';
@@ -131,68 +131,76 @@ export function renderPhoto(cvData: CVData, showPhoto?: boolean, className = "w-
   );
 }
 
+/** One contact line of a CV header. */
+export interface ContactEntry {
+  key: 'email' | 'phone' | 'location' | 'linkedin' | 'portfolio';
+  /** Plain-text label printed instead of an icon in ATS mode (universal, not translated) */
+  atsLabel: string;
+  value: string;
+  /** Set when the entry is a real hyperlink, kept clickable by the PDF renderer */
+  href?: string;
+}
+
 /**
- * Shared contact renderer — replaces SVG icons with text labels when atsMode is true.
- * Labels are bilingual-safe (Email/Tel/LinkedIn are universal).
+ * The contact lines of a CV header, in display order. The single owner for
+ * every template: Modern used to hand-pick three fields and silently dropped
+ * LinkedIn and the portfolio link.
  */
+export function getContactEntries(info: PersonalInfo | undefined): ContactEntry[] {
+  if (!info) return [];
+  const entries: ContactEntry[] = [];
+  if (info.email) entries.push({ key: 'email', atsLabel: 'Email:', value: info.email });
+  if (info.phone) entries.push({ key: 'phone', atsLabel: 'Tel:', value: info.phone });
+  if (info.location) entries.push({ key: 'location', atsLabel: 'Location:', value: info.location });
+  if (info.linkedin) {
+    entries.push({ key: 'linkedin', atsLabel: 'LinkedIn:', value: info.linkedin.replace(/^https?:\/\/(www\.)?/, '') });
+  }
+  const url = info.portfolio_url?.trim();
+  if (url) {
+    entries.push({
+      key: 'portfolio',
+      atsLabel: 'Portfolio:',
+      value: info.portfolio_label?.trim() || url.replace(/^https?:\/\/(www\.)?/, ''),
+      href: /^https?:\/\//.test(url) ? url : `https://${url}`,
+    });
+  }
+  return entries;
+}
+
+/** A contact value, as a hyperlink when it has one. */
+export function renderContactValue(entry: ContactEntry, linkStyle?: React.CSSProperties) {
+  if (!entry.href) return entry.value;
+  return (
+    <a href={entry.href} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={linkStyle}>
+      {entry.value}
+    </a>
+  );
+}
+
+const CONTACT_ICONS: Record<ContactEntry['key'], React.ReactNode> = {
+  email: <Mail className="w-3 h-3" />,
+  phone: <Phone className="w-3 h-3" />,
+  location: <MapPin className="w-3 h-3" />,
+  linkedin: <LinkedinIcon className="w-3 h-3" />,
+  portfolio: <Globe className="w-3 h-3" />,
+};
+
+/** Inline contact row with icons, or text labels when atsMode is true. */
 export function renderContactInfo(
   cvData: CVData,
   atsMode?: boolean,
   className?: string,
 ) {
-  const labels = { email: 'Email:', phone: 'Tel:', location: 'Location:', linkedin: 'LinkedIn:', portfolio: 'Portfolio:' };
-
-  // `href` turns the entry into a real hyperlink — clickable in the preview and
-  // preserved by the PDF renderer, which is the whole point of a portfolio link.
-  const items: { label: string; icon: React.ReactNode; value: string; href?: string }[] = [];
-  if (cvData.personal_info?.email) {
-    items.push({ label: labels.email, icon: <Mail className="w-3 h-3" />, value: cvData.personal_info.email });
-  }
-  if (cvData.personal_info?.phone) {
-    items.push({ label: labels.phone, icon: <Phone className="w-3 h-3" />, value: cvData.personal_info.phone });
-  }
-  if (cvData.personal_info?.location) {
-    items.push({ label: labels.location, icon: <MapPin className="w-3 h-3" />, value: cvData.personal_info.location });
-  }
-  if (cvData.personal_info?.linkedin) {
-    items.push({ label: labels.linkedin, icon: <LinkedinIcon className="w-3 h-3" />, value: cvData.personal_info.linkedin.replace(/^https?:\/\/(www\.)?/, '') });
-  }
-
-  const portfolio = renderPortfolioEntry(cvData);
-  if (portfolio) {
-    items.push({
-      label: labels.portfolio,
-      icon: <Globe className="w-3 h-3" />,
-      value: portfolio.text,
-      href: portfolio.href,
-    });
-  }
-
   return (
     <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-sm", className)}>
-      {items.map((item, i) => (
-        <span key={i} className="flex items-center gap-1">
-          {atsMode ? <span className="font-semibold">{item.label}</span> : item.icon}
+      {getContactEntries(cvData.personal_info).map(entry => (
+        <span key={entry.key} className="flex items-center gap-1">
+          {atsMode ? <span className="font-semibold">{entry.atsLabel}</span> : CONTACT_ICONS[entry.key]}
           {' '}
-          {item.href
-            ? <a href={item.href} target="_blank" rel="noreferrer" className="underline underline-offset-2">{item.value}</a>
-            : item.value}
+          {renderContactValue(entry)}
         </span>
       ))}
     </div>
   );
-}
-
-/**
- * The portfolio line as it should appear in a CV header, or null when none is
- * set. Shared by every template so the label fallback and the URL cleanup live
- * in one place.
- */
-export function renderPortfolioEntry(cvData: CVData): { text: string; href: string } | null {
-  const url = cvData.personal_info?.portfolio_url?.trim();
-  if (!url) return null;
-  const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
-  const label = cvData.personal_info?.portfolio_label?.trim();
-  return { text: label || url.replace(/^https?:\/\/(www\.)?/, ''), href };
 }
 

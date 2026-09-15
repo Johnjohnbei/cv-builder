@@ -22,6 +22,29 @@ export interface PersonalInfo {
   portfolio_anon_url?: string;
 }
 
+/**
+ * Personal fields the user owns outright: never handed to the AI to rewrite,
+ * and identical in every language. The photo is a base64 payload worth tens of
+ * thousands of tokens; the portfolio link is a deliberate choice. Sent to the
+ * model, both came back dropped, so a rewrite silently removed the portfolio.
+ */
+export const USER_OWNED_PERSONAL_FIELDS = ['photo_url', 'portfolio_url', 'portfolio_label', 'portfolio_anon_url'] as const;
+type UserOwnedField = typeof USER_OWNED_PERSONAL_FIELDS[number];
+
+const isUserOwned = (key: string) => (USER_OWNED_PERSONAL_FIELDS as readonly string[]).includes(key);
+
+/** The user-owned fields set on `info`, and nothing else. */
+export function pickUserOwnedFields(info: Partial<PersonalInfo> | undefined): Pick<PersonalInfo, UserOwnedField> {
+  return Object.fromEntries(
+    Object.entries(info ?? {}).filter(([key, value]) => isUserOwned(key) && typeof value === 'string'),
+  );
+}
+
+/** `info` without its user-owned fields. */
+export function omitUserOwnedFields<T extends Partial<PersonalInfo>>(info: T): Omit<T, UserOwnedField> {
+  return Object.fromEntries(Object.entries(info).filter(([key]) => !isUserOwned(key))) as Omit<T, UserOwnedField>;
+}
+
 export type ExperienceDisplayMode = 'hidden' | 'compact' | 'normal' | 'extended';
 
 export interface Experience {

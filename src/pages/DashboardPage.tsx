@@ -31,6 +31,7 @@ const loadPdfTools = () => Promise.all([
 import { useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { detectCVLanguage } from '../lib/languageDetection';
 import { attachBilingualCache } from '../lib/bilingual';
+import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
 
 
 
@@ -265,7 +266,11 @@ export default function DashboardPage() {
     setIsGenerating(true);
     
     try {
-      const optimizedData = await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() });
+      // A CV proposed for an offer comes with the portfolio version that offer calls for
+      const optimizedData = withSuggestedPortfolio(
+        await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() }),
+        jobDescription,
+      );
       // Eager bilingual: produce the other language now so the editor toggle is
       // instant and never shows a half-translated mix. Degrades gracefully to
       // the original single language if the translation call fails.
