@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && tsc --noEmit -p api"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

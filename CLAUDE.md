@@ -88,10 +88,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Props interfaces named `Props` in components: `interface Props extends ButtonHTMLAttributes<HTMLButtonElement>`
 ## Code Style
 - No explicit linter configured (ESLint/Prettier not in package.json)
-- TypeScript `--noEmit` for type checking (run via `npm run lint`)
+- TypeScript `--noEmit` for type checking (run via `npm run lint`), twice: the root `tsconfig.json` excludes `api/`, which has its own `api/tsconfig.json`
 - Type annotations on function parameters and return values
 - Explicit type extends for HTML element props: `forwardRef<HTMLButtonElement, Props>`, `InputHTMLAttributes<HTMLInputElement>`
-- Run `npm run lint` (executes `tsc --noEmit`) to check types
+- Run `npm run lint` (executes `tsc --noEmit && tsc --noEmit -p api`) to check types; never `tsc --noEmit` alone, it skips the serverless functions. The Vercel `buildCommand` runs it first, so a type error blocks the deploy (Convex included)
 - No console.log in production code except for errors in catch blocks or critical boundaries
 - console.error usage examples: `console.error('Error optimizing CV:', error)`, `console.error('[ErrorBoundary]', error, info.componentStack)`
 ## Import Organization

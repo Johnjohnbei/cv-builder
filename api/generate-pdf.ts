@@ -77,11 +77,16 @@ async function getBrowser() {
   if (process.env.VERCEL) {
     const chromium = (await import('@sparticuz/chromium')).default;
     const puppeteer = (await import('puppeteer-core')).default;
+    // Launch as the installed @sparticuz/chromium (143) documents it: the
+    // package exports no `headless`, so the `chromium.headless` used here since
+    // the endpoint was created was always undefined (TS2339 in the Vercel build,
+    // unseen locally until `npm run lint` type-checked api/). Chromium still
+    // started, as a headless shell, through the flag in `chromium.args`.
     return puppeteer.launch({
-      args: chromium.args,
+      args: puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
       defaultViewport: { width: 794, height: 1123 },
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: 'shell',
     });
   } else {
     const puppeteer = (await import('puppeteer')).default;
