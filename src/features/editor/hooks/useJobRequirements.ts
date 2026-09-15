@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { JobRequirement } from '@/src/shared/types';
@@ -13,6 +13,12 @@ export interface JobRequirementsState {
   status: RequirementsStatus;
   /** Why the last analysis of the offer on screen failed, for the user */
   error: string;
+  /**
+   * The requirements of `offer`: cached, the analysis already running, or a new
+   * one. The tailoring waits on it: clicking "Adapter" commits the offer, and
+   * both the ATS tab and the server used to pay for the same extraction.
+   */
+  requirementsFor: (offer: string) => Promise<JobRequirement[]>;
 }
 
 const FAILURE_FALLBACK = "L'analyse de l'offre n'a pas abouti.";
@@ -48,9 +54,28 @@ export function useJobRequirements(
   // Requests in flight, one per offer and code, shared by every run of the
   // effect: the StrictMode remount sent a second call, and so did going back
   // to an offer whose answer had not arrived yet.
-  const inflight = useRef(new Map<string, ReturnType<typeof extractAction>>());
+  const inflight = useRef(new Map<string, Promise<JobRequirement[]>>());
   const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', requirements: [] });
   const [failure, setFailure] = useState({ offer: '', message: '' });
+
+  const requirementsFor = useCallback((offer: string): Promise<JobRequirement[]> => {
+    const cached = readCachedRequirements(offer);
+    if (cached) return Promise.resolve(cached);
+    const key = JSON.stringify([offer.trim(), accessCode ?? '']);
+    let request = inflight.current.get(key);
+    if (!request) {
+      request = actionRef.current({ jobDescription: offer, accessCode }).then(data => {
+        // Cached even when superseded or unmounted: the call is paid, and the
+        // offer may come back (reload, return from the dashboard)
+        writeCachedRequirements(offer, data.requirements);
+        return data.requirements;
+      });
+      inflight.current.set(key, request);
+      // Settled: the cache answers from now on, and a failure is retried at the next commit
+      request.catch(() => {}).finally(() => inflight.current.delete(key));
+    }
+    return request;
+  }, [accessCode]);
 
   useEffect(() => {
     if (!committedOffer.trim()) return;
@@ -60,25 +85,11 @@ export function useJobRequirements(
       return;
     }
     setFailure({ offer: '', message: '' });
-    const key = JSON.stringify([committedOffer.trim(), accessCode ?? '']);
-    let request = inflight.current.get(key);
-    if (!request) {
-      request = actionRef.current({ jobDescription: committedOffer, accessCode });
-      inflight.current.set(key, request);
-      request
-        // Cached even when superseded or unmounted: the call is paid, and the
-        // offer may come back (reload, return from the dashboard)
-        .then(data => { if (Array.isArray(data.requirements)) writeCachedRequirements(committedOffer, data.requirements); })
-        .catch(() => {})
-        // Settled: the cache answers from now on, and a failure is retried at the next commit
-        .finally(() => inflight.current.delete(key));
-    }
-
     let cancelled = false;
-    request
-      .then(data => {
+    requirementsFor(committedOffer)
+      .then(requirements => {
         // A stale response must not overwrite the requirements of a newer offer
-        if (!cancelled && Array.isArray(data.requirements)) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
+        if (!cancelled) setAnalyzed({ offer: committedOffer, requirements });
       })
       .catch((error: unknown) => {
         if (!cancelled) setFailure({ offer: committedOffer, message: getUserErrorMessage(error, FAILURE_FALLBACK) });
@@ -86,11 +97,11 @@ export function useJobRequirements(
     return () => {
       cancelled = true;
     };
-  }, [committedOffer, accessCode, commitId]);
+  }, [committedOffer, commitId, requirementsFor]);
 
   return useMemo(() => {
     const requirements = requirementsForOffer(liveOffer, analyzed);
     const status = requirementsStatus({ liveOffer, committedOffer, requirements, failedOffer: failure.offer });
-    return { requirements, status, error: status === 'failed' ? failure.message : '' };
-  }, [liveOffer, committedOffer, analyzed, failure]);
+    return { requirements, status, error: status === 'failed' ? failure.message : '', requirementsFor };
+  }, [liveOffer, committedOffer, analyzed, failure, requirementsFor]);
 }

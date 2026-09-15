@@ -1,4 +1,5 @@
 import type { JobRequirement } from "../../../src/shared/types";
+import { COMPANY_BUSINESS_MODEL_OPTIONS, COMPANY_STAGE_OPTIONS } from "../../../src/shared/constants/companyMeta";
 import {
   FABRICATION_GUARD,
   ACTION_VERBS_FR,
@@ -50,7 +51,7 @@ RÈGLES :
 6. Résumé : 2 à 3 phrases qui visent le poste.
 7. Réécris les puces avec des verbes d'action (${verbs}) ; condense les expériences sans rapport avec l'offre, sans les retirer.
 8. ${intro}
-9. Chaque expérience porte "companyStage" (Startup|Scaleup|PME|Grand groupe|ETI|Agence) et "companyBusinessModel" (B2B|B2C|B2B2C|SaaS|Marketplace|E-commerce|Media|Service), omis seulement s'ils sont indéterminables.
+9. Chaque expérience porte "companyStage" (${COMPANY_STAGE_OPTIONS.join("|")}) et "companyBusinessModel" (${COMPANY_BUSINESS_MODEL_OPTIONS.join("|")}), omis seulement s'ils sont indéterminables.
 10. N'émets JAMAIS "displayMode" : le niveau de détail affiché est décidé en aval, en mesurant la page rendue. Vise environ ${ctx.pageLimit ?? 2} page(s) A4 de contenu.
 11. ${FABRICATION_GUARD}
 

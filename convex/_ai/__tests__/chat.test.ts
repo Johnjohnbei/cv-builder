@@ -260,19 +260,31 @@ describe("call deadline", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const promise = chatJSONThen("prompt", (raw) => raw, "default", 8_000).catch((e: unknown) => e);
+    const promise = chatJSONThen("prompt", (raw) => raw, "fast", 8_000).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(30_000);
 
     expect(dataOf(await promise).code).toBe("AI_UNAVAILABLE");
     expect(sdk.finalMessage).toHaveBeenCalledTimes(1);
   });
 
-  it("makes no call once the deadline has passed", async () => {
+  it("makes no call once the deadline has passed, and says so", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
+    vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await expect(chatJSONThen("prompt", (raw) => raw, "fast", 9_000)).rejects.toMatchObject({ data: { code: "AI_UNAVAILABLE" } });
+    await expect(chatJSONThen("prompt", (raw) => raw, "fast", 9_000)).rejects.toMatchObject({ data: { code: "AI_TIMEOUT" } });
+    expect(sdk.finalMessage).not.toHaveBeenCalled();
+  });
+
+  // A generation of several minutes started with seconds left is billed and cut off
+  it("starts no default call with less than a minute left", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(chatJSONThen("prompt", (raw) => raw, "default", 59_000)).rejects.toMatchObject({ data: { code: "AI_TIMEOUT" } });
     expect(sdk.finalMessage).not.toHaveBeenCalled();
   });
 });

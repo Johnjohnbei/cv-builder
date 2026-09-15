@@ -5,7 +5,8 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolioVariants';
-import { readCachedRequirements, writeCachedRequirements } from '../lib/jobRequirementsCache';
+import { writeCachedRequirements } from '../lib/jobRequirementsCache';
+import type { JobRequirement } from '@/src/shared/types';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -16,6 +17,8 @@ export interface UseEditorAIDeps {
   isGuest: boolean;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
   accessCode: string;
+  /** The offer's requirements from the ATS tab's analysis, waited on rather than paid twice */
+  requirementsFor: (offer: string) => Promise<JobRequirement[]>;
 }
 
 export interface UseEditorAIResult {
@@ -39,7 +42,7 @@ export interface UseEditorAIResult {
 export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   const {
     cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode,
+    jobDescription, user, isGuest, notify, accessCode, requirementsFor,
   } = deps;
 
   const tailorAction = useAction(api.ai.tailorCV);
@@ -65,12 +68,14 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     if (!cvData || !jobDescription.trim()) return;
     setIsOptimizing(true);
     try {
+      // The ATS tab's analysis, finished or running: the server checks them
+      // again, and extracts them itself only if that analysis failed
+      const requirements = await requirementsFor(jobDescription).catch(() => undefined);
       const result = await tailorAction({
         baseData: cvData,
         jobDescription,
         pageLimit: designSettings.pageLimit || 2,
-        // Already paid for by the ATS tab: the server checks them again
-        requirements: readCachedRequirements(jobDescription) ?? undefined,
+        requirements,
         accessCode,
       });
       writeCachedRequirements(jobDescription, result.requirements);
@@ -86,7 +91,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, tailorAction, setCvData, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, requirementsFor, tailorAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;

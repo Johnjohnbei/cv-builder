@@ -6,13 +6,9 @@ export const FABRICATION_GUARD = `RÈGLE ABSOLUE : Ne JAMAIS inventer de chiffre
 
 // ─── Action verbs (FR/EN) ────────────────────────────────────────
 // Used by the tailoring and repair prompts (adapt.ts, distribute.ts)
-export const ACTION_VERBS_FR = `Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige — JAMAIS "Responsable de", "Aide à", "Participe à", "Gère"`;
+export const ACTION_VERBS_FR = `Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige ; JAMAIS "Responsable de", "Aide à", "Participe à", "Gère"`;
 
-export const ACTION_VERBS_EN = `Led, Designed, Orchestrated, Deployed, Optimized, Structured — NEVER "Responsible for", "Helped with", "Participated in"`;
-
-// ─── Weak verbs (also used for bullet detection hints) ──────────
-export const WEAK_VERBS_FR = `"Responsable de", "Aide à", "Participe à", "Gère"`;
-export const WEAK_VERBS_EN = `"Responsible for", "Helped with", "Participated in", "Managed" (when vague)`;
+export const ACTION_VERBS_EN = `Led, Designed, Orchestrated, Deployed, Optimized, Structured; NEVER "Responsible for", "Helped with", "Participated in"`;
 
 // ─── KPI rules (arbitrage Q2 of 2026-09-15: only what the source gives) ───
 // A KPI synthesized from the role was an invention found out in an interview.
@@ -52,6 +48,6 @@ export function LANGUAGE_OUTPUT_INSTRUCTION(isEn: boolean): string {
 // hard stop: every human-readable value in ONE language, no exceptions.
 export function LANGUAGE_LOCK(isEn: boolean): string {
   return isEn
-    ? `⚠️ LANGUAGE LOCK — ABSOLUTE: Some instructions above are written in French, but the OUTPUT CV must be 100% ENGLISH. Every human-readable value (summary, intro, bullets, kpi, position, title, skill category labels) must be English. Do NOT copy any French word from the instructions or examples. A CV mixing French and English is a FAILURE — re-read and fix before returning.`
-    : `⚠️ VERROU DE LANGUE — ABSOLU : le CV de sortie doit être 100% en FRANÇAIS. Chaque valeur lisible (résumé, intro, bullets, kpi, intitulé de poste, titre, libellés de catégories de compétences) doit être en français. Un CV mélangeant français et anglais est un ÉCHEC — relis et corrige avant de répondre.`;
+    ? `⚠️ LANGUAGE LOCK, ABSOLUTE: Some instructions above are written in French, but the OUTPUT CV must be 100% ENGLISH. Every human-readable value (summary, intro, bullets, kpi, position, title, skill category labels) must be English. Do NOT copy any French word from the instructions or examples. A CV mixing French and English is a FAILURE: re-read and fix before returning.`
+    : `⚠️ VERROU DE LANGUE, ABSOLU : le CV de sortie doit être 100% en FRANÇAIS. Chaque valeur lisible (résumé, intro, bullets, kpi, intitulé de poste, titre, libellés de catégories de compétences) doit être en français. Un CV mélangeant français et anglais est un ÉCHEC : relis et corrige avant de répondre.`;
 }

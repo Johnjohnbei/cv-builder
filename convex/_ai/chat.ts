@@ -55,9 +55,10 @@ const MAX_RETRY_AFTER_MS = 20_000;
 export const AI_CALL_WORST_CASE_MS =
   ANTHROPIC_TIMEOUT_MS + Math.max(MAX_RETRY_AFTER_MS, LAST_PROVIDER_BACKOFF_MS) + ANTHROPIC_TIMEOUT_MS;
 
-/** An attempt with less time than this left before its deadline is not started */
-const MIN_ATTEMPT_MS = 5_000;
+/** An attempt with less time than this left before its deadline is not started (and not billed) */
+const MIN_ATTEMPT_MS = { default: 60_000, fast: 5_000 } as const;
 
+const DEADLINE_MSG = "L'IA n'a pas répondu dans le temps imparti. Réessayez dans une minute.";
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
 
@@ -106,9 +107,14 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
 /**
  * `fn` gets the time an attempt may take: the call timeout, cut to what is left
  * before `deadlineAt` (epoch ms), so a pipeline of calls ends before the action
- * limit. No attempt and no retry starts without MIN_ATTEMPT_MS left.
+ * limit. No attempt and no retry starts with less than `minAttemptMs` left:
+ * a long call cut short is billed for nothing.
  */
-export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number) => Promise<T>, deadlineAt = Infinity): Promise<T> {
+export async function withRetry<T>(
+  fn: (provider: AIProvider, timeoutMs: number) => Promise<T>,
+  deadlineAt = Infinity,
+  minAttemptMs: number = MIN_ATTEMPT_MS.fast,
+): Promise<T> {
   let providers: AIProvider[];
   try {
     providers = getProviders();
@@ -118,6 +124,7 @@ export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number)
     throw userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
   }
   let lastError: any;
+  let outOfTime = false;
 
   for (let i = 0; i < providers.length; i++) {
     const provider = providers[i];
@@ -127,8 +134,9 @@ export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number)
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const timeoutMs = Math.min(ANTHROPIC_TIMEOUT_MS, deadlineAt - Date.now());
-      if (timeoutMs < MIN_ATTEMPT_MS) {
+      if (timeoutMs < minAttemptMs) {
         console.log(`[ai] ${name} not called: ${Math.max(0, timeoutMs)}ms left before the deadline`);
+        outOfTime = true;
         break;
       }
       const startedAt = Date.now();
@@ -142,7 +150,7 @@ export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number)
         const elapsed = Date.now() - startedAt;
 
         const delay = retryDelayMs(e);
-        if (isLastProvider && attempt === 0 && isRetryable(e) && Date.now() + delay + MIN_ATTEMPT_MS <= deadlineAt) {
+        if (isLastProvider && attempt === 0 && isRetryable(e) && Date.now() + delay + minAttemptMs <= deadlineAt) {
           console.log(`[ai] ${name} failed (${status}) after ${elapsed}ms, last provider — retrying in ${delay}ms...`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -157,6 +165,7 @@ export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number)
   console.error("[ai] all providers failed:", lastError);
   // Surface the already-French user-facing errors (empty/invalid response),
   // hide raw SDK errors behind a clear generic one.
+  if (outOfTime && !lastError) throw userError(DEADLINE_MSG, "AI_TIMEOUT");
   throw toUserFacing(lastError) ?? userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
 }
 
@@ -235,7 +244,7 @@ export async function chatJSONThen<T>(
   return withRetry(async (provider, timeoutMs) => {
     const raw = await rawChatJSON(provider, prompt, speed, timeoutMs);
     return transform(raw);
-  }, deadlineAt);
+  }, deadlineAt, MIN_ATTEMPT_MS[speed]);
 }
 
 /**

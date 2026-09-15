@@ -126,7 +126,8 @@ export type ExperienceEnrichmentParsed = z.infer<typeof ExperienceEnrichmentSche
 /** The rewritten CV and, per requirement written, the source quote proving it */
 export const GenerationSchema = z.object({
   cv: z.unknown(),
-  evidence: z.array(z.object({ id: z.string(), quote: z.string() }).passthrough()).nullish().transform(v => v ?? []),
+  // Entries read one by one (tailor.ts): a single malformed one must not reject the CV
+  evidence: z.array(z.unknown()).nullish().transform(v => v ?? []),
 }).passthrough();
 
 /** Edits of the targeted repair, applied by code */

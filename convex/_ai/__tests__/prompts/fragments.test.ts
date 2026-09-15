@@ -3,8 +3,6 @@ import {
   FABRICATION_GUARD,
   ACTION_VERBS_FR,
   ACTION_VERBS_EN,
-  WEAK_VERBS_FR,
-  WEAK_VERBS_EN,
   KPI_RULES_FR,
   KPI_RULES_EN,
   INTRO_PRESERVATION_FR,
@@ -69,14 +67,5 @@ describe("LANGUAGE_OUTPUT_INSTRUCTION", () => {
   });
   it("returns French instruction when isEn=false", () => {
     expect(LANGUAGE_OUTPUT_INSTRUCTION(false)).toContain("français");
-  });
-});
-
-describe("WEAK_VERBS", () => {
-  it("FR list is non-empty", () => {
-    expect(WEAK_VERBS_FR.length).toBeGreaterThan(10);
-  });
-  it("EN list is non-empty", () => {
-    expect(WEAK_VERBS_EN.length).toBeGreaterThan(10);
   });
 });

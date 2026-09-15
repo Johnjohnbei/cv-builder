@@ -2,7 +2,9 @@
 
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
 import { computeATSReport, cvSections, isWritable } from "../../src/features/editor/lib/keywordAnalysis";
-import { matchPhrase, prepareText } from "../../src/shared/lib/text";
+import { getSkillCategoryTitle } from "../../src/features/editor/lib/atsRules";
+import type { SkillCategoryKey } from "../../src/features/editor/lib/skillDictionary";
+import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { getLocalizedStage } from "../../src/shared/constants/companyMeta";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
@@ -25,6 +27,8 @@ export const PIPELINE_DEADLINE_MS = 570_000;
 /** The offer analysis leaves the rest of the budget to writing the CV */
 const EXTRACTION_DEADLINE_MS = 120_000;
 export const MAX_REPAIRS = 2;
+/** A proof quote shorter than this ("Designer") proves anything */
+const MIN_QUOTE_WORDS = 3;
 
 const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
 
@@ -81,7 +85,7 @@ interface Generation {
   evidence: Map<string, string>;
 }
 
-/** The model's CV with the source's facts put back: companies, dates and places are never the model's */
+/** The model's CV with the source's facts put back: companies, dates, places and contacts are never the model's */
 function readGeneration(raw: unknown, source: CVData, requirements: JobRequirement[]): Generation {
   const parsed = GenerationSchema.safeParse(raw);
   if (!parsed.success) throw invalidOutput();
@@ -89,62 +93,86 @@ function readGeneration(raw: unknown, source: CVData, requirements: JobRequireme
   // A dropped or added experience would take another one's company and dates
   if (cv.experience.length !== source.experience.length) throw invalidOutput();
   const ids = new Set(requirements.map(r => r.id));
+  const { name, email, phone, location, linkedin, github, website } = source.personal_info;
   return {
     cv: {
       ...cv,
+      personal_info: { ...cv.personal_info, name, email, phone, location, linkedin, github, website },
       experience: cv.experience.map((exp, i) => {
-        const { company, start_date, end_date, current, location } = source.experience[i];
-        return { ...exp, company, start_date, end_date, current, location };
+        const { company, start_date, end_date, current, location: place } = source.experience[i];
+        return { ...exp, company, start_date, end_date, current, location: place };
       }),
     },
-    evidence: new Map(parsed.data.evidence.filter(e => ids.has(e.id)).map(e => [e.id, e.quote])),
+    // One malformed entry must not cost the whole generation
+    evidence: new Map(parsed.data.evidence.flatMap((entry) => {
+      const { id, quote } = (entry ?? {}) as Record<string, unknown>;
+      return typeof id === "string" && typeof quote === "string" && ids.has(id) ? [[id, quote] as const] : [];
+    })),
   };
 }
 
-/** The requirements the source CV proves: it writes them, or the model's quote for them is words of the source */
-function provenIds(requirements: JobRequirement[], source: CVData, evidence: Map<string, string>): Set<string> {
-  const text = prepareText(Object.values(cvSections(source, "content")).flat().join(" | "));
-  const quote = (r: JobRequirement) => evidence.get(r.id);
-  return new Set(requirements
-    .filter(r => termsOf(r).some(term => matchPhrase(term, text)) || Boolean(quote(r) && matchPhrase(quote(r)!, text)))
-    .map(r => r.id));
+/**
+ * The requirements the source CV proves: one of its fields writes them, or
+ * the model's quote for them, of several words, is words of one field.
+ */
+function provenIds(requirements: JobRequirement[], fields: PreparedText[], evidence: Map<string, string>): Set<string> {
+  const written = (phrase: string) => fields.some(field => matchPhrase(phrase, field));
+  const quoted = (r: JobRequirement) => {
+    const quote = evidence.get(r.id);
+    return Boolean(quote && normalizeForMatch(quote).split(" ").length >= MIN_QUOTE_WORDS && written(quote));
+  };
+  return new Set(requirements.filter(r => termsOf(r).some(written) || quoted(r)).map(r => r.id));
 }
 
-/** `text` without its sentences that write one of `requirements` */
-const withoutSentencesMentioning = (text: string | undefined, requirements: JobRequirement[]) =>
-  text === undefined ? text : (text.match(/[^.!?]+(?:[.!?]+|$)/g) ?? []).filter(s => !mentions(s, requirements)).join("").trim();
+const numbersOf = (text?: string) => (text?.match(/\d+(?:[.,]\d+)?/g) ?? []).map(n => n.replace(",", "."));
+
+/** A replaced entry takes the source's at its place; an entry past the source's count is dropped */
+const sourceBacked = <T>(entries: T[], sourceEntries: T[], invented: (entry: T) => boolean) =>
+  sourceEntries.map((src, i) => (entries[i] !== undefined && !invented(entries[i]) ? entries[i] : src));
 
 /**
- * The CV without the requirements nothing in the source proves, wherever the
- * model wrote them: a bullet, a skill or a company tag is removed, a sentence
- * of the summary or an intro too, a KPI emptied, and a title, a position or a
- * degree goes back to the source's.
+ * The CV without what nothing in the source backs: a requirement the source
+ * does not prove, or a number it never gives (FABRICATION_GUARD, KPI of the
+ * arbitrage Q2), wherever the model wrote it. A bullet takes back the source's
+ * bullet at its place, a sentence of the summary or an intro is removed, a KPI
+ * emptied, a skill removed, and a title, position, tag, degree, language or
+ * category name goes back to the source's.
  */
-function removeUnproven(cv: CVData, source: CVData, unproven: JobRequirement[]): CVData {
-  if (unproven.length === 0) return cv;
-  const has = (text?: string) => mentions(text, unproven);
-  const stageWrites = (stage?: string) => has(getLocalizedStage(stage, "fr")) || has(getLocalizedStage(stage, "en"));
+function guard(cv: CVData, source: CVData, unproven: JobRequirement[], sourceNumbers: Set<string>): CVData {
+  const writes = (text?: string) => mentions(text, unproven);
+  const invents = (text?: string) => writes(text) || numbersOf(text).some(n => !sourceNumbers.has(n));
+  const sentencesKept = (text?: string) => text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
+  const localized = (write: (text: string) => string) => writes(write("fr")) || writes(write("en"));
   return {
     ...cv,
     personal_info: {
       ...cv.personal_info,
-      title: has(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
-      summary: withoutSentencesMentioning(cv.personal_info.summary, unproven),
+      title: writes(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
+      summary: sentencesKept(cv.personal_info.summary),
     },
-    experience: cv.experience.map((exp, i) => ({
-      ...exp,
-      position: has(exp.position) ? source.experience[i].position : exp.position,
-      companyStage: stageWrites(exp.companyStage) ? source.experience[i].companyStage : exp.companyStage,
-      companyBusinessModel: has(exp.companyBusinessModel) ? source.experience[i].companyBusinessModel : exp.companyBusinessModel,
-      intro: withoutSentencesMentioning(exp.intro, unproven),
-      kpi: has(exp.kpi) ? "" : exp.kpi,
-      description: exp.description.filter(bullet => !has(bullet)),
-    })),
-    education: cv.education
-      .map((edu, i) => (has(edu.degree) || has(edu.field) ? source.education[i] : edu))
-      .filter(edu => edu !== undefined),
+    experience: cv.experience.map((exp, i) => {
+      const src = source.experience[i];
+      const bullets = exp.description.map((bullet, b) => (invents(bullet) ? src.description[b] : bullet));
+      return {
+        ...exp,
+        position: writes(exp.position) ? src.position : exp.position,
+        companyStage: localized(lang => getLocalizedStage(exp.companyStage, lang as "fr" | "en")) ? src.companyStage : exp.companyStage,
+        companyBusinessModel: writes(exp.companyBusinessModel) ? src.companyBusinessModel : exp.companyBusinessModel,
+        intro: sentencesKept(exp.intro),
+        kpi: invents(exp.kpi) ? "" : exp.kpi,
+        description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
+      };
+    }),
+    education: sourceBacked(cv.education, source.education, edu => [edu.degree, edu.field, edu.school].some(writes)),
+    languages: sourceBacked(cv.languages, source.languages, lang => writes(lang.name)),
     skills: cv.skills
-      .map(cat => ({ ...cat, items: cat.items.filter(item => !has(item)) }))
+      .map((cat, i) => ({
+        ...cat,
+        category: writes(cat.category) || localized(lang => getSkillCategoryTitle(cat.category as SkillCategoryKey, lang as "fr" | "en"))
+          ? source.skills[i]?.category ?? "Compétences"
+          : cat.category,
+        items: cat.items.filter(item => !writes(item)),
+      }))
       // A category emptied here is dropped, one the user left empty is kept
       .filter((cat, i) => cat.items.length > 0 || cv.skills[i].items.length === 0),
   };
@@ -171,9 +199,9 @@ function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
 }
 
 /**
- * The CV rewritten for the offer, every requirement it writes proven by the
- * source, measured like the editor measures it. A repair that fails or scores
- * lower never costs the version already measured.
+ * The CV rewritten for the offer, everything it writes backed by the source,
+ * measured like the editor measures it. A repair that fails or does not score
+ * higher ends the repairs, and never costs the version already measured.
  */
 export async function tailorPipeline(input: TailorInput, startedAt: number = Date.now()): Promise<TailorResult> {
   const source = readSourceCV(input.cv);
@@ -188,10 +216,12 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     "default",
     deadlineAt,
   );
-  const proven = provenIds(requirements, source, generation.evidence);
-  const unproven = requirements.filter(r => isWritable(r) && !proven.has(r.id));
+  const proven = provenIds(requirements, Object.values(cvSections(source, "content")).flat().map(prepareText), generation.evidence);
+  // Years are measured from the dates, never written
+  const unproven = requirements.filter(r => r.kind !== "experience_years" && !proven.has(r.id));
+  const sourceNumbers = new Set(numbersOf(JSON.stringify(source)));
   const measure = (cv: CVData) => {
-    const guarded = removeUnproven(cv, source, unproven);
+    const guarded = guard(cv, source, unproven, sourceNumbers);
     return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
   };
 
@@ -214,7 +244,9 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
       break;
     }
     const candidate = measure(applyRepair(best.cv, edits));
-    if ((candidate.report.score ?? 0) >= (best.report.score ?? 0)) best = candidate;
+    // A repair that did not help would not help twice
+    if ((candidate.report.score ?? 0) <= (best.report.score ?? 0)) break;
+    best = candidate;
   }
-  return { cv: best.cv, requirements, report: best.report, unproven: unproven.map(r => r.id) };
+  return { cv: best.cv, requirements, report: best.report, unproven: unproven.filter(isWritable).map(r => r.id) };
 }

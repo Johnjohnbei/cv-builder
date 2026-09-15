@@ -7,7 +7,7 @@ vi.mock("../chat", () => ({ chatJSONThen: mocks.chat }));
 
 import { tailorPipeline, MAX_REPAIRS, PIPELINE_DEADLINE_MS, REPAIR_CUTOFF_MS } from "../tailor";
 
-const OFFER = "Product Designer. Requis : Figma, recherche utilisateur, maquettes, Kubernetes.";
+const OFFER = "Product Designer. Requis : Figma, Sketch, recherche utilisateur, maquettes, Kubernetes, Node.js, Master, anglais.";
 
 const SOURCE: CVData = {
   personal_info: {
@@ -28,6 +28,7 @@ const FIGMA = requirement("Figma");
 const RESEARCH = requirement("recherche utilisateur", "method");
 const MOCKUPS = requirement("maquettes", "hard_skill");
 const KUBERNETES = requirement("Kubernetes");
+const SKETCH = requirement("Sketch");
 
 /** The source CV as the model rewrites it: `edit` changes a copy */
 const generated = (edit: (cv: CVData) => void, evidence: { id: string; quote: string }[] = []) => {
@@ -107,13 +108,65 @@ describe("tailorPipeline: truth guard", () => {
     expect(result.unproven).toEqual([]);
   });
 
-  it("reads a quote the source CV does not contain as no proof", async () => {
+  // The facts of the bullet survive: the source's bullet at its place comes back
+  it("reads a quote the source CV does not contain as no proof, and puts the source bullet back", async () => {
     answers(generated(cv => {
       cv.experience[0].description[0] = "Conduit la recherche utilisateur : 30 entretiens";
     }, [{ id: "recherche-utilisateur", quote: "Expert en recherche utilisateur" }]));
     const result = await run([FIGMA, RESEARCH]);
     expect(covered(result, "recherche-utilisateur")).toBe(false);
-    expect(result.cv.experience[0].description).toEqual(["Conçu les maquettes"]);
+    expect(result.cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
+  });
+
+  it("reads a one-word quote as no proof: any word of the source would do", async () => {
+    answers(generated(cv => {
+      cv.experience[0].description.push("Déployé Kubernetes en production");
+    }, [{ id: "kubernetes", quote: "Designer" }]));
+    const result = await run([FIGMA, KUBERNETES]);
+    expect(covered(result, "kubernetes")).toBe(false);
+    expect(result.unproven).toEqual(["kubernetes"]);
+  });
+
+  it("puts the source's degrees, languages and category names back when the model invents them", async () => {
+    answers(generated(cv => {
+      cv.education = [{ school: "École", degree: "Master en informatique", start_date: "2012" }];
+      cv.languages = [{ name: "Anglais", proficiency: "C1" }];
+      cv.skills[0].category = "Kubernetes";
+    }));
+    const result = await run([FIGMA, KUBERNETES, requirement("Master", "education"), requirement("anglais", "language")]);
+    expect(result.cv.education).toEqual([]);
+    expect(result.cv.languages).toEqual([]);
+    expect(result.cv.skills[0]).toMatchObject({ category: "Outils", items: ["Figma", "Sketch"] });
+    expect(result.report.requirements.filter(c => c.found).map(c => c.requirement.id)).toEqual(["figma"]);
+    // A degree or a language is not a gap a rewrite can close
+    expect(result.unproven).toEqual(["kubernetes"]);
+  });
+
+  it("removes the whole sentence writing a name with a dot", async () => {
+    answers(generated(cv => { cv.personal_info.summary = "Designer produit en SaaS B2B. Expert Node.js et React."; }));
+    const result = await run([FIGMA, requirement("Node.js")]);
+    expect(result.cv.personal_info.summary).toBe("Designer produit en SaaS B2B.");
+    expect(covered(result, "node-js")).toBe(false);
+  });
+
+  it("reads the well-formed proofs when one is malformed, instead of rejecting the CV", async () => {
+    answers(generated(cv => {
+      cv.experience[0].description[0] = "Conduit la recherche utilisateur : 30 entretiens";
+    }, [{ id: "figma", quote: null }, { id: "recherche-utilisateur", quote: "Mené 30 entretiens utilisateurs" }] as never));
+    const result = await run([FIGMA, RESEARCH]);
+    expect(covered(result, "recherche-utilisateur")).toBe(true);
+  });
+
+  it("keeps the source's contacts, and no number the source never gives", async () => {
+    answers(generated(cv => {
+      cv.personal_info.email = "fake@example.org";
+      cv.experience[0].kpi = "+40 % de conversion";
+      cv.experience[0].description[1] = "Conçu les maquettes de 17 marques";
+    }));
+    const { cv } = await run([FIGMA]);
+    expect(cv.personal_info.email).toBe("alex@example.com");
+    expect(cv.experience[0].kpi).toBe("");
+    expect(cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
   });
 });
 
@@ -130,10 +183,21 @@ describe("tailorPipeline: targeted repair", () => {
   });
 
   it(`stops after ${MAX_REPAIRS} repairs`, async () => {
-    answers(withoutFigma(), { edits: [] }, { edits: [] }, { edits: [] });
-    const result = await run([FIGMA]);
+    const missingThree = generated(cv => {
+      cv.skills[0].items = [];
+      cv.experience[0].description = ["Mené 30 entretiens utilisateurs"];
+    });
+    const add = (text: string) => ({ edits: [{ target: "skills", text }] });
+    answers(missingThree, add("Figma"), add("Sketch"), add("maquettes"));
+    const result = await run([FIGMA, SKETCH, MOCKUPS]);
     expect(mocks.chat).toHaveBeenCalledTimes(1 + MAX_REPAIRS);
-    expect(covered(result, "figma")).toBe(false);
+    expect([covered(result, "figma"), covered(result, "sketch"), covered(result, "maquettes")]).toEqual([true, true, false]);
+  });
+
+  it("stops at a repair that does not raise the score: a second one would not either", async () => {
+    answers(withoutFigma(), { edits: [] }, { edits: [] });
+    await run([FIGMA]);
+    expect(mocks.chat).toHaveBeenCalledTimes(2);
   });
 
   it("starts no repair past its cutoff, and returns the version measured", async () => {
@@ -156,6 +220,7 @@ describe("tailorPipeline: targeted repair", () => {
     const loses = { edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Conçu les maquettes" }] };
     answers(carriesTwo(), loses, loses);
     const result = await run([FIGMA, RESEARCH, MOCKUPS]);
+    expect(mocks.chat).toHaveBeenCalledTimes(2);
     expect(result.cv.experience[0].description[0]).toBe("Conduit la recherche utilisateur sous Figma");
     expect(covered(result, "maquettes")).toBe(false);
   });
