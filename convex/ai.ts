@@ -6,26 +6,16 @@ import { chatJSONSchema, chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
-import { buildAdaptPrompt } from "./_ai/prompts/adapt";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
 import { buildExperienceEnrichmentPrompt } from "./_ai/prompts/experienceEnrichment";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
-import {
-  buildJobDescriptionFromURLPrompt,
-  buildJobDescriptionFromPDFPrompt,
-  buildJobRequirementsPrompt,
-} from "./_ai/prompts/jobDescription";
-import {
-  CoverLetterSchema,
-  CompanyMetaSchema,
-  ExperienceEnrichmentSchema,
-  JobRequirementsSchema,
-} from "./_ai/schemas";
-import { normalizeCVData, normalizeJobRequirements, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
-import { fetchPublicPage, isPublicUrl, JINA_MAX_BYTES, JINA_TIMEOUT_MS, parseHttpUrl, readTextUpTo } from "./_ai/publicUrl";
-import { htmlToText } from "./_ai/htmlText";
+import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
+import { CoverLetterSchema, CompanyMetaSchema, ExperienceEnrichmentSchema } from "./_ai/schemas";
+import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
+import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
+import { extractRequirements, tailorPipeline } from "./_ai/tailor";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
@@ -60,42 +50,49 @@ export const extractCVDataFromPDF = action({
   },
 });
 
+/**
+ * The CV tailored to an offer by the verified pipeline (convex/_ai/tailor.ts),
+ * with the offer's requirements and the ATS report measured on the result.
+ */
 export const tailorCV = action({
   args: {
     baseData: v.any(),
     jobDescription: v.string(),
+    /** Requirements the client already has for this offer: checked again, extracted when none is valid */
+    requirements: v.optional(v.array(v.any())),
+    pageLimit: v.optional(v.number()),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const startedAt = Date.now();
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    // Strip _translations: the cache is bound to the current content; once we
-    // rewrite, it's obsolete. Drop it explicitly so the LLM doesn't see it
-    // (saves tokens) and the return doesn't carry stale translations.
+    // _translations is bound to the content being rewritten: never sent, never returned
     const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.baseData || {};
     void _staleCache;
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: withoutUserOwnedFields(contentOnly),
+    const result = await tailorPipeline({
+      cv: withoutUserOwnedFields(contentOnly),
       jobDescription: args.jobDescription,
+      requirements: args.requirements,
+      pageLimit: args.pageLimit,
       detectedLanguage,
       languageOverride,
-    });
-    // companyStage / companyBusinessModel come back from this same call — a
-    // separate enrichment round-trip used to cost a full extra request to
-    // deduce two tags per experience.
-    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData), contentOnly);
-    // Return the language actually used by the prompt so the UI toggle and
-    // section labels match the generated content (JD-first, then user override).
+    }, startedAt);
+    // The language actually written (offer first, then the user's override),
+    // so the toggle and the section titles match the content
     const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
     return {
-      ...normalized,
-      ...(design && { design }),
-      detectedLanguage: effectiveLanguage,
-      // An override older than the offer must follow the language actually
-      // written: the client reads languageOverride first, so returning the
-      // stale one left an English UI (dates, titles) on a French CV.
-      ...(languageOverride && { languageOverride: effectiveLanguage }),
+      cv: {
+        ...restoreUserOwnedFields(result.cv, contentOnly),
+        ...(design && { design }),
+        detectedLanguage: effectiveLanguage,
+        // An override older than the offer follows the language written: the
+        // client reads it first, and a stale one left English titles on a French CV
+        ...(languageOverride && { languageOverride: effectiveLanguage }),
+      },
+      requirements: result.requirements,
+      report: result.report,
+      unproven: result.unproven,
     };
   },
 });
@@ -119,40 +116,8 @@ export const extractJobDescriptionFromURL = action({
       throw userError("Lien injoignable ou non public : vérifiez l'adresse de l'offre, ou collez son texte.", "URL_UNREACHABLE");
     }
 
-    // Step 1: Try Jina Reader first — renders JS (handles SPAs like WTTJ, LinkedIn),
-    // expands accordions, returns clean markdown. Free, no API key needed.
-    // Anonymous tier is heavily rate-limited (429/402 are routine from cloud
-    // IPs) and can hang — hard timeout, then fall through to direct fetch.
-    let pageText = "";
-    try {
-      const jinaResponse = await fetch(`https://r.jina.ai/${target.toString()}`, {
-        headers: {
-          Accept: "text/plain",
-          "X-Return-Format": "text",
-        },
-        // Part of URL_ACTION_BUDGET_MS: the page fetch and the AI call must fit the 10-minute action
-        signal: AbortSignal.timeout(JINA_TIMEOUT_MS),
-      });
-      if (jinaResponse.ok) {
-        pageText = (await readTextUpTo(jinaResponse, JINA_MAX_BYTES)).substring(0, 15000);
-      } else {
-        jinaResponse.body?.cancel().catch(() => {}); // an unread body holds the socket
-        console.warn(`[extractJobDescriptionFromURL] Jina returned ${jinaResponse.status}, falling back to direct fetch`);
-      }
-    } catch (e: any) {
-      console.warn(`[extractJobDescriptionFromURL] Jina failed (${e?.name === "TimeoutError" ? "timeout" : e?.message?.slice(0, 100)}), falling back to direct fetch`);
-    }
-
-    // Step 2: Fallback to direct fetch if Jina failed (faster, works for simple static sites)
-    if (!pageText || pageText.length < 100) {
-      try {
-        pageText = htmlToText(await fetchPublicPage(target));
-      } catch (e) {
-        pageText = "";
-      }
-    }
-
-    if (!pageText || pageText.length < 50) {
+    const pageText = await fetchOfferText(target);
+    if (pageText.length < 50) {
       throw userError(
         "Impossible d'extraire le contenu de cette URL. Essayez de copier-coller le texte de l'offre manuellement.",
         "URL_EXTRACT_FAILED",
@@ -177,10 +142,7 @@ export const extractJobDescriptionFromPDF = action({
   },
 });
 
-/**
- * The requirements of an offer, each quoted from it. An answer where the offer
- * states none of them is invalid: thrown inside the transform, it is retried.
- */
+/** The requirements of an offer, each quoted from it (the extraction lives in tailor.ts) */
 export const extractJobRequirements = action({
   args: {
     jobDescription: v.string(),
@@ -189,48 +151,7 @@ export const extractJobRequirements = action({
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    const prompt = buildJobRequirementsPrompt({ jobDescription: args.jobDescription });
-    const requirements = await chatJSONThen(prompt, (raw) => {
-      const parsed = JobRequirementsSchema.safeParse(raw);
-      const found = parsed.success ? normalizeJobRequirements(parsed.data.requirements, args.jobDescription) : [];
-      if (found.length === 0) throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
-      return found;
-    }, "fast");
-    return { requirements };
-  },
-});
-
-export const optimizeCVForPage = action({
-  args: {
-    cvData: v.any(),
-    pageLimit: v.number(),
-    jobDescription: v.optional(v.string()),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
-    // Same as tailorCV: drop _translations so the LLM doesn't see the stale
-    // cache and we don't return a translation that no longer matches content.
-    const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.cvData || {};
-    void _staleCache;
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: withoutUserOwnedFields(contentOnly),
-      pageLimit: args.pageLimit,
-      jobDescription: args.jobDescription,
-      detectedLanguage,
-      languageOverride,
-    });
-    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData), contentOnly);
-    const effectiveLanguage = resolveAdaptLanguage(args.jobDescription, languageOverride, detectedLanguage);
-    return {
-      ...normalized,
-      ...(design && { design }),
-      detectedLanguage: effectiveLanguage,
-      // Same as tailorCV: never hand back an override the content no longer matches
-      ...(languageOverride && { languageOverride: effectiveLanguage }),
-    };
+    return { requirements: await extractRequirements(args.jobDescription) };
   },
 });
 
@@ -253,7 +174,7 @@ export const generateCoverLetter = action({
     // matches the JD language even if the caller forgot to pass `language`.
     const language = args.language ?? detectTextLanguage(args.jobDescription);
     console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'}, server-detected=${detectTextLanguage(args.jobDescription)})`);
-    // Same as tailorCV/optimizeCVForPage: drop the translation cache and design
+    // Same as tailorCV: drop the translation cache and design
     // settings before prompting — the LLM doesn't need them (saves tokens).
     const { design: _design, _translations: _staleCache, ...contentOnly } = args.cvData || {};
     void _design;
@@ -333,7 +254,7 @@ export const enrichExperienceMeta = action({
 /**
  * Pure 1:1 translation of a CV to a target language. PRESERVES structure
  * exactly — same number of bullets, same KPIs, same order. Distinct from
- * optimizeCVForPage which rewrites content. Use this when the user wants
+ * tailorCV which rewrites content. Use this when the user wants
  * "same CV, different language", not "regenerated for this language".
  */
 export const translateCV = action({

@@ -5,7 +5,6 @@ import {
   JobRequirementSchema,
   CoverLetterSchema,
   CompanyMetaSchema,
-  KeywordAssignmentSchema,
 } from "../schemas";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -152,33 +151,5 @@ describe("CompanyMetaSchema", () => {
       extraField: "keep me",
     });
     expect((result as any).extraField).toBe("keep me");
-  });
-});
-
-describe("KeywordAssignmentSchema — target field", () => {
-  it("accepts a valid target value (summary|experience|skills)", () => {
-    const result = KeywordAssignmentSchema.parse({
-      keyword: "Figma",
-      expIndex: 0,
-      target: "summary",
-    });
-    expect(result.target).toBe("summary");
-  });
-
-  it("still parses assignments without a target field (existing shape)", () => {
-    const result = KeywordAssignmentSchema.parse({
-      keyword: "Figma",
-      expIndex: 0,
-    });
-    expect(result.target).toBeUndefined();
-  });
-
-  it("rejects target outside the enum (e.g. cover_letter)", () => {
-    const parsed = KeywordAssignmentSchema.safeParse({
-      keyword: "Figma",
-      expIndex: 0,
-      target: "cover_letter",
-    });
-    expect(parsed.success).toBe(false);
   });
 });

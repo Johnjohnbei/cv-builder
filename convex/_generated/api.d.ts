@@ -10,6 +10,7 @@
 
 import type * as _ai_auth from "../_ai/auth.js";
 import type * as _ai_chat from "../_ai/chat.js";
+import type * as _ai_htmlText from "../_ai/htmlText.js";
 import type * as _ai_languageDetection from "../_ai/languageDetection.js";
 import type * as _ai_normalizers from "../_ai/normalizers.js";
 import type * as _ai_prompts_adapt from "../_ai/prompts/adapt.js";
@@ -20,11 +21,11 @@ import type * as _ai_prompts_experienceEnrichment from "../_ai/prompts/experienc
 import type * as _ai_prompts_extract from "../_ai/prompts/extract.js";
 import type * as _ai_prompts_fragments from "../_ai/prompts/fragments.js";
 import type * as _ai_prompts_jobDescription from "../_ai/prompts/jobDescription.js";
-import type * as _ai_prompts_rewrite from "../_ai/prompts/rewrite.js";
 import type * as _ai_prompts_translate from "../_ai/prompts/translate.js";
 import type * as _ai_providers from "../_ai/providers.js";
 import type * as _ai_publicUrl from "../_ai/publicUrl.js";
 import type * as _ai_schemas from "../_ai/schemas.js";
+import type * as _ai_tailor from "../_ai/tailor.js";
 import type * as _shared_errors from "../_shared/errors.js";
 import type * as accessCodes from "../accessCodes.js";
 import type * as ai from "../ai.js";
@@ -41,6 +42,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_ai/auth": typeof _ai_auth;
   "_ai/chat": typeof _ai_chat;
+  "_ai/htmlText": typeof _ai_htmlText;
   "_ai/languageDetection": typeof _ai_languageDetection;
   "_ai/normalizers": typeof _ai_normalizers;
   "_ai/prompts/adapt": typeof _ai_prompts_adapt;
@@ -51,11 +53,11 @@ declare const fullApi: ApiFromModules<{
   "_ai/prompts/extract": typeof _ai_prompts_extract;
   "_ai/prompts/fragments": typeof _ai_prompts_fragments;
   "_ai/prompts/jobDescription": typeof _ai_prompts_jobDescription;
-  "_ai/prompts/rewrite": typeof _ai_prompts_rewrite;
   "_ai/prompts/translate": typeof _ai_prompts_translate;
   "_ai/providers": typeof _ai_providers;
   "_ai/publicUrl": typeof _ai_publicUrl;
   "_ai/schemas": typeof _ai_schemas;
+  "_ai/tailor": typeof _ai_tailor;
   "_shared/errors": typeof _shared_errors;
   accessCodes: typeof accessCodes;
   ai: typeof ai;

@@ -6,6 +6,7 @@ import {
   WEAK_VERBS_FR,
   WEAK_VERBS_EN,
   KPI_RULES_FR,
+  KPI_RULES_EN,
   INTRO_PRESERVATION_FR,
   INTRO_PRESERVATION_EN,
   LANGUAGE_OUTPUT_INSTRUCTION,
@@ -39,11 +40,15 @@ describe("ACTION_VERBS_EN", () => {
   });
 });
 
-describe("KPI_RULES_FR", () => {
-  it("mentions 'kpi' and calibration rules", () => {
+// Arbitrage Q2: a KPI the source does not give is an invention found out in an interview
+describe("KPI_RULES", () => {
+  it("keeps a KPI only from the source, left empty otherwise, never synthesized", () => {
     expect(KPI_RULES_FR.toLowerCase()).toContain("kpi");
     expect(KPI_RULES_FR).toContain("DURÉE");
-    expect(KPI_RULES_FR).toContain("OBLIGATOIRE");
+    expect(KPI_RULES_FR).toMatch(/vide/);
+    expect(KPI_RULES_FR).not.toMatch(/SYNTHÉTISE|OBLIGATOIRE/);
+    expect(KPI_RULES_EN).toMatch(/empty/);
+    expect(KPI_RULES_EN).not.toMatch(/SYNTHESIZE|MANDATORY/);
   });
 });
 

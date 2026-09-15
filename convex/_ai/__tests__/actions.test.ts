@@ -22,7 +22,7 @@ vi.mock("../chat", async (importOriginal) => ({
   chatText: mocks.chatText,
 }));
 
-import { extractJobDescriptionFromURL, extractJobRequirements } from "../../ai";
+import { extractJobDescriptionFromURL, extractJobRequirements, tailorCV } from "../../ai";
 
 const handlerOf = <A, R>(action: unknown) => (action as { _handler: (ctx: unknown, args: A) => Promise<R> })._handler;
 
@@ -127,7 +127,7 @@ describe("extractJobRequirements", () => {
     const { requirements } = await run(OFFER);
 
     expect(requirements.map(r => r.id)).toEqual(["figma"]);
-    expect(mocks.chatJSONThen).toHaveBeenCalledWith(expect.stringContaining(OFFER), expect.any(Function), "fast");
+    expect(mocks.chatJSONThen).toHaveBeenCalledWith(expect.stringContaining(OFFER), expect.any(Function), "fast", undefined);
   });
 
   it("checks the access code before any paid call", async () => {
@@ -149,5 +149,49 @@ describe("extractJobRequirements", () => {
   ])("treats an answer with %s as invalid", async (_case, answer) => {
     mocks.aiAnswer = answer;
     await expect(run(OFFER)).rejects.toMatchObject({ data: { code: "AI_INVALID_OUTPUT" } });
+  });
+});
+
+describe("tailorCV", () => {
+  const OFFER = "Product Designer. Requis : Figma.";
+  const BASE = {
+    personal_info: { name: "Alex", email: "alex@example.com", portfolio_url: "https://alex.design", portfolio_label: "Portfolio" },
+    experience: [{ company: "Acme", position: "Designer", start_date: "2020-01", current: true, description: ["Maquettes Figma"] }],
+    education: [], skills: [], languages: [],
+    design: { template: "TEMPLATE_E" },
+    _translations: { en: { personal_info: { name: "Alex" } } },
+  };
+  const FIGMA = { label: "Figma", kind: "tool", importance: "required", quote: "Figma" };
+  type Result = { cv: Record<string, any>; requirements: { id: string }[]; report: { score: number | null }; unproven: string[] };
+  const run = (args: Record<string, unknown> = {}) =>
+    handlerOf<Record<string, unknown>, Result>(tailorCV)({}, { baseData: BASE, jobDescription: OFFER, requirements: [FIGMA], ...args });
+
+  it("checks the access code before any paid call", async () => {
+    mocks.verifyAccessCode.mockRejectedValue(new Error("ACCESS_CODE_REQUIRED"));
+    await expect(run()).rejects.toThrow("ACCESS_CODE_REQUIRED");
+    expect(mocks.chatJSONThen).not.toHaveBeenCalled();
+  });
+
+  it("refuses an offer too long before the access code is used", async () => {
+    await expect(run({ jobDescription: "x".repeat(20_001) })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
+    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
+  });
+
+  it("sends no portfolio or stale translation to the model, and returns them restored with the design and the report", async () => {
+    const { design: _design, _translations: _stale, ...content } = BASE;
+    mocks.aiAnswer = { cv: { ...content, personal_info: { name: "Alex", email: "alex@example.com" } }, evidence: [] };
+
+    const result = await run();
+
+    const prompt = mocks.chatJSONThen.mock.calls[0][0] as string;
+    expect(prompt).not.toContain("alex.design");
+    expect(prompt).not.toContain("_translations");
+    expect(result.cv.personal_info.portfolio_url).toBe("https://alex.design");
+    expect(result.cv.design).toEqual({ template: "TEMPLATE_E" });
+    expect(result.cv._translations).toBeUndefined();
+    expect(result.cv.detectedLanguage).toBe("fr");
+    expect(result.requirements.map(r => r.id)).toEqual(["figma"]);
+    expect(result.report.score).toBe(100);
+    expect(result.unproven).toEqual([]);
   });
 });

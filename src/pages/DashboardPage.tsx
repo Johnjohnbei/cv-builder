@@ -48,6 +48,7 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
 import { detectCVLanguage } from '../lib/languageDetection';
 import { attachBilingualCache } from '../lib/bilingual';
 import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
+import { writeCachedRequirements } from '../features/editor/lib/jobRequirementsCache';
 
 
 
@@ -274,11 +275,11 @@ export default function DashboardPage() {
     setIsGenerating(true);
 
     try {
+      const result = await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() });
+      // The editor opens on this offer: its requirements are already paid for
+      writeCachedRequirements(jobDescription, result.requirements);
       // A CV proposed for an offer comes with the portfolio version that offer calls for
-      const optimizedData = withSuggestedPortfolio(
-        await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() }),
-        jobDescription,
-      );
+      const optimizedData = withSuggestedPortfolio(result.cv, jobDescription);
       // Eager bilingual: produce the other language now so the editor toggle is
       // instant and never shows a half-translated mix. Degrades gracefully to
       // the original single language if the translation call fails.

@@ -55,6 +55,9 @@ const MAX_RETRY_AFTER_MS = 20_000;
 export const AI_CALL_WORST_CASE_MS =
   ANTHROPIC_TIMEOUT_MS + Math.max(MAX_RETRY_AFTER_MS, LAST_PROVIDER_BACKOFF_MS) + ANTHROPIC_TIMEOUT_MS;
 
+/** An attempt with less time than this left before its deadline is not started */
+const MIN_ATTEMPT_MS = 5_000;
+
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
 
@@ -100,7 +103,12 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
   }
 }
 
-export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Promise<T> {
+/**
+ * `fn` gets the time an attempt may take: the call timeout, cut to what is left
+ * before `deadlineAt` (epoch ms), so a pipeline of calls ends before the action
+ * limit. No attempt and no retry starts without MIN_ATTEMPT_MS left.
+ */
+export async function withRetry<T>(fn: (provider: AIProvider, timeoutMs: number) => Promise<T>, deadlineAt = Infinity): Promise<T> {
   let providers: AIProvider[];
   try {
     providers = getProviders();
@@ -118,9 +126,14 @@ export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Pr
     const maxAttempts = isLastProvider ? 2 : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const timeoutMs = Math.min(ANTHROPIC_TIMEOUT_MS, deadlineAt - Date.now());
+      if (timeoutMs < MIN_ATTEMPT_MS) {
+        console.log(`[ai] ${name} not called: ${Math.max(0, timeoutMs)}ms left before the deadline`);
+        break;
+      }
       const startedAt = Date.now();
       try {
-        const result = await fn(provider);
+        const result = await fn(provider, timeoutMs);
         console.log(`[ai] ${name} ok in ${Date.now() - startedAt}ms`);
         return result;
       } catch (e: any) {
@@ -128,8 +141,8 @@ export async function withRetry<T>(fn: (provider: AIProvider) => Promise<T>): Pr
         const status = errorStatus(e) ?? "no-status";
         const elapsed = Date.now() - startedAt;
 
-        if (isLastProvider && attempt === 0 && isRetryable(e)) {
-          const delay = retryDelayMs(e);
+        const delay = retryDelayMs(e);
+        if (isLastProvider && attempt === 0 && isRetryable(e) && Date.now() + delay + MIN_ATTEMPT_MS <= deadlineAt) {
           console.log(`[ai] ${name} failed (${status}) after ${elapsed}ms, last provider — retrying in ${delay}ms...`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -160,12 +173,12 @@ function extractAnthropicText(response: Anthropic.Message): string {
 
 // ─── Per-provider raw calls ─────────────────────────────────────────
 
-async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<string> {
+async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast", timeoutMs: number): Promise<string> {
   // max_tokens 30000 requires streaming — client.messages.create() throws
   // "Streaming is required..." (K004). stream().finalMessage() is mandatory.
   // `timeout` still bounds the wait for headers and is sent to the API as
   // X-Stainless-Timeout; the signal below bounds the body.
-  const client = new Anthropic({ apiKey: provider.apiKey, timeout: ANTHROPIC_TIMEOUT_MS, maxRetries: 0 });
+  const client = new Anthropic({ apiKey: provider.apiKey, timeout: timeoutMs, maxRetries: 0 });
   const stream = client.messages.stream(
     {
       model: getModel(speed, provider),
@@ -173,7 +186,7 @@ async function rawChatText(provider: AIProvider, prompt: string, speed: "default
       temperature: 0.3,
       messages: [{ role: "user", content: prompt }],
     },
-    { signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS) },
+    { signal: AbortSignal.timeout(timeoutMs) },
   );
   // One parseable line per billed call: cost is read from the Convex logs,
   // never deduced from the code. Sum the lines: a retry is billed again.
@@ -198,8 +211,8 @@ async function rawChatText(provider: AIProvider, prompt: string, speed: "default
   return extractAnthropicText(message);
 }
 
-async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default" | "fast"): Promise<any> {
-  return safeParseJSON(await rawChatText(provider, prompt, speed));
+async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default" | "fast", timeoutMs: number): Promise<any> {
+  return safeParseJSON(await rawChatText(provider, prompt, speed, timeoutMs));
 }
 
 // ─── Public API ─────────────────────────────────────────────────────
@@ -211,16 +224,18 @@ async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default
  * the next provider instead of surfacing the error on the first bad response.
  * Use this (not a chat call followed by an out-of-loop normalize) whenever the
  * shape must be validated, so validation shares the same fallback as the call.
+ * `deadlineAt` (epoch ms) bounds the call, its retry included.
  */
 export async function chatJSONThen<T>(
   prompt: string,
   transform: (raw: any) => T,
-  speed: "default" | "fast" = "default"
+  speed: "default" | "fast" = "default",
+  deadlineAt?: number,
 ): Promise<T> {
-  return withRetry(async (provider) => {
-    const raw = await rawChatJSON(provider, prompt, speed);
+  return withRetry(async (provider, timeoutMs) => {
+    const raw = await rawChatJSON(provider, prompt, speed, timeoutMs);
     return transform(raw);
-  });
+  }, deadlineAt);
 }
 
 /**
@@ -234,8 +249,8 @@ export async function chatJSONSchema<T>(
   schema: ZodType<T>,
   speed: "default" | "fast" = "default"
 ): Promise<T> {
-  return withRetry(async (provider) => {
-    const raw = await rawChatJSON(provider, prompt, speed);
+  return withRetry(async (provider, timeoutMs) => {
+    const raw = await rawChatJSON(provider, prompt, speed, timeoutMs);
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       console.warn("[ai] claude JSON failed schema validation:", parsed.error.message.slice(0, 300));
@@ -246,8 +261,8 @@ export async function chatJSONSchema<T>(
 }
 
 export async function chatText(prompt: string, speed: "default" | "fast" = "default"): Promise<string> {
-  return withRetry(async (provider) => {
-    const text = await rawChatText(provider, prompt, speed);
+  return withRetry(async (provider, timeoutMs) => {
+    const text = await rawChatText(provider, prompt, speed, timeoutMs);
     // An empty answer is a failed call, retried, not a result: it used to reach
     // the dashboard as an empty job offer.
     if (!text.trim()) throw userError("L'IA a retourné une réponse vide. Veuillez réessayer.", "AI_EMPTY_OUTPUT");

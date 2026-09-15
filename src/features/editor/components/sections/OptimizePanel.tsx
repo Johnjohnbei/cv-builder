@@ -155,15 +155,17 @@ export const OptimizePanel = memo(function OptimizePanel({
         className="rounded-lg py-2 px-4 text-[11px] normal-case tracking-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
         icon={isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
         loading={false}
-        disabled={aiBusy}
+        disabled={aiBusy || !jobDescription.trim()}
         onClick={onOptimize}
       >
-        {isOptimizing ? `Réécriture en cours... ${optimizeSeconds}s / ~${optimizeEstimate}s` : 'Réécrire le contenu avec l\'IA'}
+        {isOptimizing ? `Adaptation en cours... ${optimizeSeconds}s / ~${optimizeEstimate}s` : "Adapter le CV à l'offre"}
       </Button>
       <p className="text-[11px] text-gray-600 -mt-1">
         {isOptimizing
-          ? "L'édition reprend dès la fin de la réécriture, pour que rien ne soit écrasé."
-          : `Réécrit vos textes pour coller à l'offre (~${optimizeEstimate}s, remplace le contenu actuel).`}
+          ? "L'édition reprend dès la fin de l'adaptation, pour que rien ne soit écrasé."
+          : jobDescription.trim()
+            ? `Réécrit vos textes pour l'offre sans rien inventer : une exigence n'est écrite que si votre parcours la prouve (~${optimizeEstimate}s, remplace le contenu actuel).`
+            : 'Collez une offre pour adapter le CV.'}
       </p>
 
       {/* Page count indicator */}

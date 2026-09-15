@@ -5,63 +5,31 @@
 export const FABRICATION_GUARD = `RÈGLE ABSOLUE : Ne JAMAIS inventer de chiffres, métriques ou résultats. Si le bullet original ne contient pas de données chiffrées, la version réécrite ne doit pas en ajouter. Tu peux reformuler pour être plus percutant sans fabriquer de données.`;
 
 // ─── Action verbs (FR/EN) ────────────────────────────────────────
-// FR verbs used in tailorCV, optimizeCVForPage, improveBulletPoint, rewriteBulletsForJob
+// Used by the tailoring and repair prompts (adapt.ts, distribute.ts)
 export const ACTION_VERBS_FR = `Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige — JAMAIS "Responsable de", "Aide à", "Participe à", "Gère"`;
 
-// EN verbs used in tailorCV
 export const ACTION_VERBS_EN = `Led, Designed, Orchestrated, Deployed, Optimized, Structured — NEVER "Responsible for", "Helped with", "Participated in"`;
 
 // ─── Weak verbs (also used for bullet detection hints) ──────────
 export const WEAK_VERBS_FR = `"Responsable de", "Aide à", "Participe à", "Gère"`;
 export const WEAK_VERBS_EN = `"Responsible for", "Helped with", "Participated in", "Managed" (when vague)`;
 
-// ─── KPI rules (consolidated from extract & optimize prompts) ───
-export const KPI_RULES_FR = `═══ CHAMP "kpi" — OBLIGATOIRE SUR TOUTES LES EXPÉRIENCES ═══
+// ─── KPI rules (arbitrage Q2 of 2026-09-15: only what the source gives) ───
+// A KPI synthesized from the role was an invention found out in an interview.
+export const KPI_RULES_FR = `═══ CHAMP "kpi" ═══
 
-Chaque expérience DOIT avoir un champ "kpi" (string) rempli, quel que soit son displayMode.
-Le KPI est un résultat chiffré ou un indicateur d'envergure marquant, calibré sur la durée de la mission.
+Le KPI est un résultat chiffré ou un indicateur d'envergure (taille d'équipe, nombre de projets, périmètre, utilisateurs) QUE LE CV SOURCE DONNE DÉJÀ pour cette expérience.
+- Présent dans le texte source de l'expérience : reprends-le, reformulé si besoin, avec la même valeur.
+- Absent : laisse "kpi" vide (""). N'en fabrique jamais un : un indicateur que la source ne donne pas est une invention découverte en entretien.
+- DURÉE : un chiffre ne dépasse jamais la période réelle de la mission (start_date à end_date, ou current=true).`;
 
-RÈGLES DE CALIBRAGE :
-- DURÉE : un stage de 3 mois ne peut pas afficher "+50% de CA sur 3 ans". Adapte l'ampleur
-  du KPI au temps réellement passé sur la mission (start_date → end_date ou current=true).
-- RÉALISME : extrais le KPI du texte source si présent. Sinon, SYNTHÉTISE-le à partir du rôle,
-  du secteur, et du contexte — en restant crédible.
-- PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : quand le source ne fournit pas de métrique,
-  utilise taille d'équipe, nombre de projets, périmètre (marques/marchés/utilisateurs), stack déployée.
-- NE PAS INVENTER de pourcentages précis sans base factuelle.
-- NE JAMAIS laisser "kpi" vide — toujours produire un indicateur d'envergure cohérent.
+// English twin of KPI_RULES_FR, so an English CV is not written from French rules
+export const KPI_RULES_EN = `═══ "kpi" FIELD ═══
 
-EXEMPLES DE BONS KPI :
-- "+35% de trafic organique en 6 mois" (si données existantes dans le source)
-- "Équipe de 8 designers encadrée" (périmètre managérial)
-- "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
-- "12 projets simultanés livrés" (volumétrie)
-- "Stack Notion / Figma / GTM déployée" (scope technique pour une mission courte)`;
-
-// English twin of KPI_RULES_FR. The few-shot examples MUST be in English —
-// a French example set is the main reason a model bleeds French into an
-// English CV (it copies the sample phrasing). Keep both lists in sync.
-export const KPI_RULES_EN = `═══ "kpi" FIELD — MANDATORY ON EVERY EXPERIENCE ═══
-
-Every experience MUST have a filled "kpi" (string), whatever its displayMode.
-The KPI is a quantified result or a striking scope indicator, calibrated to the mission's duration.
-
-CALIBRATION RULES:
-- DURATION: a 3-month internship cannot claim "+50% revenue over 3 years". Scale the KPI
-  to the time actually spent on the mission (start_date → end_date or current=true).
-- REALISM: extract the KPI from the source text if present. Otherwise SYNTHESIZE it from the role,
-  industry and context — staying credible.
-- PREFER SCOPE OVER INVENTED PERCENTAGES: when the source gives no metric,
-  use team size, number of projects, scope (brands/markets/users), deployed stack.
-- DO NOT invent precise percentages without a factual basis.
-- NEVER leave "kpi" empty — always produce a coherent scope indicator.
-
-EXAMPLES OF GOOD KPIs:
-- "+35% organic traffic in 6 months" (if data exists in the source)
-- "Led a team of 8 designers" (managerial scope)
-- "Redesign spanning 5 brands and 30M+ users" (project scope)
-- "12 concurrent projects delivered" (volume)
-- "Notion / Figma / GTM stack deployed" (technical scope for a short mission)`;
+The KPI is a quantified result or a scope indicator (team size, number of projects, scope, users) THAT THE SOURCE CV ALREADY GIVES for this experience.
+- Present in the experience's source text: keep it, reworded if needed, with the same value.
+- Absent: leave "kpi" empty (""). Never make one up: an indicator the source does not give is an invention found out in an interview.
+- DURATION: a figure never exceeds the mission's real period (start_date to end_date, or current=true).`;
 
 export function KPI_RULES(isEn: boolean): string {
   return isEn ? KPI_RULES_EN : KPI_RULES_FR;

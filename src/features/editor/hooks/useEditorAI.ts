@@ -5,6 +5,7 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolioVariants';
+import { readCachedRequirements, writeCachedRequirements } from '../lib/jobRequirementsCache';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -22,7 +23,7 @@ export interface UseEditorAIResult {
   isEnriching: boolean;
   /** Rough duration of a rewrite in seconds, from the CV size (same tiers as the dashboard) */
   optimizeEstimate: number;
-  /** Full AI rewrite of the CV against the job description */
+  /** The CV tailored to the job description by the verified pipeline */
   optimize: () => Promise<void>;
   /** Detect company stage + business model tags for every experience */
   enrichExperiences: () => Promise<void>;
@@ -41,7 +42,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     jobDescription, user, isGuest, notify, accessCode,
   } = deps;
 
-  const optimizeCVAction = useAction(api.ai.optimizeCVForPage);
+  const tailorAction = useAction(api.ai.tailorCV);
   const enrichExperienceAction = useAction(api.ai.enrichExperienceMeta);
   const storeUser = useMutation(api.users.store);
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
@@ -61,30 +62,31 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   }, [user, isGuest, jobDescription, updateLastCV, notify]);
 
   const optimize = useCallback(async () => {
-    if (!cvData) return;
+    if (!cvData || !jobDescription.trim()) return;
     setIsOptimizing(true);
     try {
-      // A CV rewritten for an offer comes with the portfolio version that offer calls for
-      const optimizedData = withSuggestedPortfolio(
-        await optimizeCVAction({
-          cvData,
-          pageLimit: designSettings.pageLimit || 2,
-          jobDescription: jobDescription || undefined,
-          accessCode,
-        }),
+      const result = await tailorAction({
+        baseData: cvData,
         jobDescription,
-      );
+        pageLimit: designSettings.pageLimit || 2,
+        // Already paid for by the ATS tab: the server checks them again
+        requirements: readCachedRequirements(jobDescription) ?? undefined,
+        accessCode,
+      });
+      writeCachedRequirements(jobDescription, result.requirements);
+      // A CV rewritten for an offer comes with the portfolio version that offer calls for
+      const optimizedData = withSuggestedPortfolio(result.cv, jobDescription);
       setCvData(optimizedData);
-      notify({ message: 'CV optimisé avec succès !', type: 'success' });
+      notify({ message: "CV adapté à l'offre.", type: 'success' });
       if (user) await storeUser();
       persist(optimizedData, 'handleOptimize');
     } catch (error) {
       console.error('Error optimizing CV:', error);
-      notify({ message: getUserErrorMessage(error, 'Erreur lors de l\'optimisation du CV.'), type: 'error' });
+      notify({ message: getUserErrorMessage(error, "Erreur lors de l'adaptation du CV."), type: 'error' });
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, optimizeCVAction, setCvData, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, tailorAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;

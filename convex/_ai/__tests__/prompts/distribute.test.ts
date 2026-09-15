@@ -1,118 +1,58 @@
 import { describe, it, expect } from "vitest";
-import { buildKeywordDistributionPrompt } from "../../prompts/distribute";
-import { FABRICATION_GUARD, ACTION_VERBS_FR } from "../../prompts/fragments";
-import {
-  KeywordDistributionSchema,
-  KeywordAssignmentSchema,
-} from "../../schemas";
+import { buildRepairPrompt } from "../../prompts/distribute";
+import { FABRICATION_GUARD } from "../../prompts/fragments";
+import { RepairSchema } from "../../schemas";
 
-const SAMPLE_CTX = {
-  cvData: {
-    experience: [
-      {
-        position: "Senior Designer",
-        company: "Acme",
-        intro: "Leads the design system",
-        description: ["Pilote la refonte", "Gère l'équipe"],
-        kpi: "Équipe de 8",
-      },
-    ],
+const CTX = {
+  cv: {
+    personal_info: { summary: "Designer produit en SaaS." },
+    experience: [{ position: "Senior Designer", company: "Acme", description: ["Pilote la refonte", "Mène les entretiens"] }],
+    skills: [{ category: "Outils", items: ["Sketch"] }],
   },
-  missingKeywords: ["Figma", "Design System"],
-  jobDescription: "Need a senior designer with Figma and design system experience",
-  summary: "Senior UX designer, 10y experience, design systems and research",
+  missing: [{ label: "Figma", evidence: "Maquettes sous Figma" }, { label: "recherche utilisateur" }],
+  language: "fr" as const,
 };
 
-describe("buildKeywordDistributionPrompt", () => {
-  it("embeds the experience summary with position + company + bullets", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain("Senior Designer");
-    expect(prompt).toContain("Acme");
-    expect(prompt).toContain("Pilote la refonte");
+describe("buildRepairPrompt", () => {
+  it("indexes the experiences and their bullets, with the summary and the skills", () => {
+    const prompt = buildRepairPrompt(CTX);
+    expect(prompt).toContain("[0] Senior Designer @ Acme");
+    expect(prompt).toContain("- [1] Mène les entretiens");
+    expect(prompt).toContain("Designer produit en SaaS.");
+    expect(prompt).toContain("Sketch");
   });
 
-  it("lists every missing keyword", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain("- Figma");
-    expect(prompt).toContain("- Design System");
+  it("lists each missing requirement in its exact form, with the proof the source gives", () => {
+    const prompt = buildRepairPrompt(CTX);
+    expect(prompt).toContain('"Figma" (preuve : "Maquettes sous Figma")');
+    expect(prompt).toContain('"recherche utilisateur"');
   });
 
-  it("embeds the job description", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain("Need a senior designer with Figma");
-  });
-
-  it("contains FABRICATION_GUARD, ACTION_VERBS_FR, and the JSON-only instruction", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
+  it("carries the fabrication guard and the stuffing bound", () => {
+    const prompt = buildRepairPrompt(CTX);
     expect(prompt).toContain(FABRICATION_GUARD);
-    expect(prompt).toContain(ACTION_VERBS_FR);
-    expect(prompt).toContain("Retourne UNIQUEMENT le JSON");
+    expect(prompt).toContain("2 exigences");
   });
 
-  it("embeds the CV summary when provided", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain("Senior UX designer, 10y experience");
-  });
-
-  it("omits the summary block when ctx.summary is absent", () => {
-    const { summary: _omit, ...ctxWithoutSummary } = SAMPLE_CTX;
-    const prompt = buildKeywordDistributionPrompt(ctxWithoutSummary);
-    expect(prompt).not.toContain("RÉSUMÉ ACTUEL DU CV");
-  });
-
-  it("teaches the injection hierarchy (summary -> experience -> skills)", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain("HIÉRARCHIE D'INJECTION");
-    expect(prompt).toContain("summary");
-    expect(prompt).toContain("premier bullet");
-    expect(prompt).toContain("skills");
-  });
-
-  it("JSON example includes a target field", () => {
-    const prompt = buildKeywordDistributionPrompt(SAMPLE_CTX);
-    expect(prompt).toContain('"target"');
+  it("locks the language of the CV and ends with the JSON-only instruction", () => {
+    expect(buildRepairPrompt({ ...CTX, language: "en" })).toContain("LANGUAGE LOCK");
+    expect(buildRepairPrompt(CTX).trim().endsWith("Retourne UNIQUEMENT le JSON.")).toBe(true);
   });
 });
 
-describe("KeywordDistributionSchema", () => {
-  it("parses a valid distribution response", () => {
-    const result = KeywordDistributionSchema.parse({
-      assignments: [
-        {
-          keyword: "Figma",
-          expIndex: 0,
-          bulletIndex: 1,
-          originalBullet: "Pilote la refonte",
-          rewrittenBullet: "Pilote la refonte avec Figma",
-          reason: "Contexte cohérent",
-        },
+describe("RepairSchema", () => {
+  it("parses edits, a missing index included", () => {
+    const result = RepairSchema.parse({
+      edits: [
+        { target: "experience", expIndex: 0, bulletIndex: 1, text: "Mène la recherche utilisateur" },
+        { target: "skills", text: "Figma" },
       ],
     });
-    expect(result.assignments).toHaveLength(1);
-    expect(result.assignments[0].keyword).toBe("Figma");
+    expect(result.edits).toHaveLength(2);
   });
 
-  it("accepts null expIndex (unassigned)", () => {
-    const result = KeywordDistributionSchema.parse({
-      assignments: [
-        {
-          keyword: "Kubernetes",
-          expIndex: null,
-          reason: "Aucune expérience crédible",
-        },
-      ],
-    });
-    expect(result.assignments[0].expIndex).toBeNull();
-  });
-
-  it("defaults missing assignments array to []", () => {
-    const result = KeywordDistributionSchema.parse({});
-    expect(result.assignments).toEqual([]);
-  });
-
-  it("rejects assignment without keyword field", () => {
-    expect(() =>
-      KeywordAssignmentSchema.parse({ expIndex: 0 })
-    ).toThrow();
+  it("reads no edits as none, and refuses an unknown target", () => {
+    expect(RepairSchema.parse({}).edits).toEqual([]);
+    expect(RepairSchema.safeParse({ edits: [{ target: "cover_letter", text: "x" }] }).success).toBe(false);
   });
 });

@@ -4,7 +4,7 @@
 // must not hold the action, and no deadline stops CPU work.
 
 /** Page text handed to the model */
-const MAX_PAGE_TEXT_CHARS = 15_000;
+export const MAX_PAGE_TEXT_CHARS = 15_000;
 
 /** Index of the ">" ending the tag whose name starts at `from`, or -1 when the page ends first */
 function tagEnd(html: string, from: number): number {

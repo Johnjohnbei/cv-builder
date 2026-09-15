@@ -3,6 +3,7 @@
 import { lookup } from "dns/promises";
 import { BlockList, isIP } from "net";
 import { AI_CALL_WORST_CASE_MS } from "./chat";
+import { htmlToText, MAX_PAGE_TEXT_CHARS } from "./htmlText";
 
 // ─── Fetching a URL the user pasted ─────────────────────────────────
 // The server fetches it, so the URL is untrusted input: it must never reach
@@ -40,10 +41,10 @@ type Resolve = (hostname: string) => Promise<{ address: string }[]>;
 
 /** A resolver that never answers must not hold the action until its own limit */
 const DNS_TIMEOUT_MS = 5_000;
-/** Jina Reader, tried first by the URL action (convex/ai.ts) */
-export const JINA_TIMEOUT_MS = 15_000;
+/** Jina Reader, tried first by fetchOfferText */
+const JINA_TIMEOUT_MS = 15_000;
 /** Jina already returns text, and the model gets 15 000 characters of it */
-export const JINA_MAX_BYTES = 200_000;
+const JINA_MAX_BYTES = 200_000;
 /** fetchPublicPage, every redirect included */
 const PAGE_DEADLINE_MS = 10_000;
 /** A real offer page, inline scripts included, is far below this */
@@ -114,6 +115,37 @@ export async function isPublicUrl(url: URL, resolve: Resolve = resolveAll): Prom
     return addresses.length > 0 && addresses.every((a) => isPublicAddress(a.address));
   } catch {
     return false; // a name that does not resolve is not a page anyone can read
+  }
+}
+
+/**
+ * Text of the offer at a public URL: Jina Reader first (it renders the
+ * JavaScript pages of Welcome to the Jungle or LinkedIn; its anonymous tier is
+ * often rate-limited from cloud addresses), then the page itself. "" when
+ * neither gives any text. Moved from convex/ai.ts, over its size limit.
+ */
+export async function fetchOfferText(target: URL): Promise<string> {
+  let text = "";
+  try {
+    const jina = await fetch(`https://r.jina.ai/${target.toString()}`, {
+      headers: { Accept: "text/plain", "X-Return-Format": "text" },
+      // Part of URL_ACTION_BUDGET_MS: the page fetch and the AI call must fit the 10-minute action
+      signal: AbortSignal.timeout(JINA_TIMEOUT_MS),
+    });
+    if (jina.ok) {
+      text = (await readTextUpTo(jina, JINA_MAX_BYTES)).substring(0, MAX_PAGE_TEXT_CHARS);
+    } else {
+      jina.body?.cancel().catch(() => {}); // an unread body holds the socket
+      console.warn(`[fetchOfferText] Jina returned ${jina.status}, falling back to direct fetch`);
+    }
+  } catch (e: any) {
+    console.warn(`[fetchOfferText] Jina failed (${e?.name === "TimeoutError" ? "timeout" : e?.message?.slice(0, 100)}), falling back to direct fetch`);
+  }
+  if (text.length >= 100) return text;
+  try {
+    return htmlToText(await fetchPublicPage(target));
+  } catch {
+    return "";
   }
 }
 

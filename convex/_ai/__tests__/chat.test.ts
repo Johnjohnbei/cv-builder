@@ -240,6 +240,41 @@ describe("call deadline", () => {
     expect(sdk.finalMessage).toHaveBeenCalledTimes(2);
   });
 
+  // A pipeline of calls must end before the action limit: each call gets what is left
+  it("gives an attempt only the time left before the deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    sdk.finalMessage.mockResolvedValueOnce({ model: "m", content: [{ type: "text", text: "{}" }], usage: { input_tokens: 1, output_tokens: 1 } });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+
+    await chatJSONThen("prompt", (raw) => raw, "fast", 1_060_000);
+
+    expect(timeout).toHaveBeenCalledWith(60_000);
+  });
+
+  it("does not retry when the retry could not run before the deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    sdk.finalMessage.mockRejectedValue(Object.assign(new Error("overloaded"), { status: 503 }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const promise = chatJSONThen("prompt", (raw) => raw, "default", 8_000).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(dataOf(await promise).code).toBe("AI_UNAVAILABLE");
+    expect(sdk.finalMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes no call once the deadline has passed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(chatJSONThen("prompt", (raw) => raw, "fast", 9_000)).rejects.toMatchObject({ data: { code: "AI_UNAVAILABLE" } });
+    expect(sdk.finalMessage).not.toHaveBeenCalled();
+  });
 });
 
 describe("token usage of an interrupted stream", () => {

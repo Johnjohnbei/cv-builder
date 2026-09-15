@@ -122,19 +122,21 @@ export const ExperienceEnrichmentSchema = z.object({
 }).passthrough();
 export type ExperienceEnrichmentParsed = z.infer<typeof ExperienceEnrichmentSchema>;
 
-// ─── Keyword distribution (Phase 12) ────────────────────────────
-export const KeywordAssignmentSchema = z.object({
-  keyword: z.string(),
-  expIndex: z.number().nullable(),
-  bulletIndex: z.number().nullable().optional(),
-  originalBullet: z.string().nullable().optional(),
-  rewrittenBullet: z.string().nullable().optional(),
-  reason: z.string().default(""),
-  target: z.enum(["summary", "experience", "skills"]).optional(),
+// ─── Tailoring pipeline (tailor.ts) ─────────────────────────────
+/** The rewritten CV and, per requirement written, the source quote proving it */
+export const GenerationSchema = z.object({
+  cv: z.unknown(),
+  evidence: z.array(z.object({ id: z.string(), quote: z.string() }).passthrough()).nullish().transform(v => v ?? []),
 }).passthrough();
 
-export const KeywordDistributionSchema = z.object({
-  assignments: z.array(KeywordAssignmentSchema).default([]),
+/** Edits of the targeted repair, applied by code */
+export const RepairSchema = z.object({
+  edits: z.array(z.object({
+    target: z.enum(["summary", "experience", "skills"]),
+    expIndex: z.number().int().nullish(),
+    bulletIndex: z.number().int().nullish(),
+    text: z.string().trim().min(1),
+  }).passthrough()).default([]),
 }).passthrough();
 
-export type KeywordDistributionParsed = z.infer<typeof KeywordDistributionSchema>;
+export type RepairEdit = z.infer<typeof RepairSchema>["edits"][number];

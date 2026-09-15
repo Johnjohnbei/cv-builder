@@ -1,147 +1,61 @@
 import { describe, it, expect } from "vitest";
 import { buildAdaptPrompt } from "../../prompts/adapt";
-import { FABRICATION_GUARD } from "../../prompts/fragments";
+import { FABRICATION_GUARD, KPI_RULES_EN, KPI_RULES_FR } from "../../prompts/fragments";
+import type { JobRequirement } from "../../../../src/shared/types";
 
-const SAMPLE_CV = { personal_info: { name: "Jane" }, experience: [], skills: [] };
+const CV = { personal_info: { name: "Jane" }, experience: [], skills: [] };
+const REQUIREMENTS: JobRequirement[] = [
+  { id: "figma", label: "Figma", variants: [], kind: "tool", importance: "required", quote: "Figma" },
+  { id: "recherche-utilisateur", label: "recherche utilisateur", variants: ["user research"], kind: "method", importance: "preferred", quote: "recherche utilisateur" },
+];
+const prompt = (over: Partial<Parameters<typeof buildAdaptPrompt>[0]> = {}) =>
+  buildAdaptPrompt({ cvData: CV, jobDescription: "Poste de Product Designer à Paris", requirements: REQUIREMENTS, ...over });
 
-describe("buildAdaptPrompt — tailor mode", () => {
-  it("embeds CV JSON and job description", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Senior Designer with React experience",
-    });
-    expect(prompt).toContain("Jane");
-    expect(prompt).toContain("Senior Designer with React experience");
+describe("buildAdaptPrompt", () => {
+  it("embeds the CV and the offer", () => {
+    expect(prompt()).toContain("Jane");
+    expect(prompt()).toContain("Poste de Product Designer à Paris");
   });
 
-  it("defaults to French language", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Poste en France",
-    });
-    expect(prompt).toContain("français");
+  it("lists every requirement with its id, exact label, kind and importance", () => {
+    expect(prompt()).toContain("figma | Figma | tool | required");
+    expect(prompt()).toContain("recherche-utilisateur | recherche utilisateur | method | preferred");
   });
 
-  it("switches to English when JD contains English keywords", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Responsibilities include managing requirements and skills",
-    });
-    expect(prompt).toContain("English");
+  // The server keeps a placed requirement only with a quote of the source CV proving it
+  it("asks for the source quote proving each requirement placed, and places none without one", () => {
+    expect(prompt()).toContain('"evidence"');
+    expect(prompt()).toContain('"quote"');
+    expect(prompt()).toMatch(/sans preuve/i);
   });
 
-  it("respects explicit languageOverride='en'", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Poste à Paris",
-      languageOverride: "en",
-    });
-    expect(prompt).toContain("English");
+  it("keeps the experiences in order with their companies and dates, and bounds keyword stuffing", () => {
+    expect(prompt()).toMatch(/même ordre/);
+    expect(prompt()).toMatch(/dates/);
+    expect(prompt()).toContain("2 exigences");
+    expect(prompt()).toContain("3 fois");
   });
 
-  it("contains fabrication guard and KPI rules", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "x",
-    });
-    expect(prompt).toContain(FABRICATION_GUARD);
-    expect(prompt).toContain("KPI");
+  it("writes a KPI only when the source gives one", () => {
+    expect(prompt()).toContain(KPI_RULES_FR);
+    expect(prompt({ jobDescription: "Responsibilities include managing requirements and skills" })).toContain(KPI_RULES_EN);
   });
 
-  it("ends with JSON-only instruction", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "x",
-    });
-    expect(prompt.trim().endsWith("Return ONLY the optimized CV JSON.")).toBe(true);
-  });
-});
-
-describe("buildAdaptPrompt — language purity (anti-mix)", () => {
-  it("EN mode uses English KPI examples, not French ones", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Senior Product Manager, requirements and stakeholders",
-      languageOverride: "en",
-    });
-    expect(prompt).toContain("Led a team of 8 designers");
-    expect(prompt).not.toContain("Équipe de 8 designers encadrée");
+  it("carries the fabrication guard, the page budget and the company tags, and forbids displayMode", () => {
+    expect(prompt()).toContain(FABRICATION_GUARD);
+    expect(prompt({ pageLimit: 1 })).toContain("1 page(s) A4");
+    expect(prompt()).toContain("companyStage");
+    expect(prompt()).toMatch(/JAMAIS "displayMode"/);
   });
 
-  it("FR mode keeps French KPI examples", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "tailor",
-      cvData: SAMPLE_CV,
-      jobDescription: "Poste de chef de produit à Paris",
-      languageOverride: "fr",
-    });
-    expect(prompt).toContain("Équipe de 8 designers encadrée");
+  it("writes in the offer's language, the override when the offer is too short to tell", () => {
+    expect(prompt()).toContain("VERROU DE LANGUE");
+    expect(prompt({ jobDescription: "Responsibilities include managing requirements and skills" })).toContain("LANGUAGE LOCK");
+    expect(prompt({ languageOverride: "en" })).toContain("VERROU DE LANGUE");
+    expect(prompt({ jobDescription: "Designer", languageOverride: "en" })).toContain("100% ENGLISH");
   });
 
-  it("EN mode includes the anti-mix language lock", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: SAMPLE_CV,
-      pageLimit: 2,
-      languageOverride: "en",
-    });
-    expect(prompt).toContain("LANGUAGE LOCK");
-    expect(prompt).toContain("100% ENGLISH");
-  });
-
-  it("FR mode includes the French language lock", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: SAMPLE_CV,
-      pageLimit: 2,
-      languageOverride: "fr",
-    });
-    expect(prompt).toContain("VERROU DE LANGUE");
-  });
-});
-
-describe("buildAdaptPrompt — optimize mode", () => {
-  it("includes pageLimit in the constraint block", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: SAMPLE_CV,
-      pageLimit: 1,
-    });
-    expect(prompt).toContain("1 A4 page(s)");
-  });
-
-  it("handles missing JD with recency prioritization", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: SAMPLE_CV,
-      pageLimit: 2,
-    });
-    expect(prompt).toContain("RECENCY");
-  });
-
-  // The model writes the content; how much of it is shown is decided by
-  // measuring the rendered page. Asking the model to guess produced modes that
-  // the fit engine could not override, so the prompt now forbids the field.
-  it("forbids the model from assigning displayMode", () => {
-    const prompt = buildAdaptPrompt({
-      mode: "optimize",
-      cvData: SAMPLE_CV,
-      pageLimit: 2,
-    });
-    expect(prompt).toMatch(/JAMAIS "displayMode"/);
-    expect(prompt).not.toMatch(/ASSIGNE un displayMode/);
-  });
-
-  it("asks for the company tags in the same call", () => {
-    const prompt = buildAdaptPrompt({ mode: "optimize", cvData: SAMPLE_CV, pageLimit: 2 });
-    expect(prompt).toContain("companyStage");
-    expect(prompt).toContain("companyBusinessModel");
+  it("ends with the JSON-only instruction", () => {
+    expect(prompt().trim().endsWith("Retourne UNIQUEMENT l'objet JSON.")).toBe(true);
   });
 });
