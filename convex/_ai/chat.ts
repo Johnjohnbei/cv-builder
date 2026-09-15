@@ -1,6 +1,6 @@
 "use node";
 
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic, { APIConnectionTimeoutError, APIUserAbortError } from "@anthropic-ai/sdk";
 import { ConvexError } from "convex/values";
 import type { ZodType } from "zod";
 import { getProviders, getModel, type AIProvider } from "./providers";
@@ -166,7 +166,10 @@ export async function withRetry<T>(
   // Surface the already-French user-facing errors (empty/invalid response),
   // hide raw SDK errors behind a clear generic one.
   // No attempt could start, or the last one was cut off by the deadline itself
-  const cutByDeadline = /abort|timeout/i.test(String(lastError?.name)) && deadlineAt - Date.now() < minAttemptMs;
+  // The SDK's abort and timeout errors are named "Error": only their class tells them apart
+  const cutOff = lastError instanceof APIUserAbortError || lastError instanceof APIConnectionTimeoutError
+    || ["AbortError", "TimeoutError"].includes(lastError?.name);
+  const cutByDeadline = cutOff && deadlineAt - Date.now() < minAttemptMs;
   if ((outOfTime && !lastError) || cutByDeadline) throw userError(DEADLINE_MSG, "AI_TIMEOUT");
   throw toUserFacing(lastError) ?? userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
 }

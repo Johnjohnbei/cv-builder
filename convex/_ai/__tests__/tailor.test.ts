@@ -193,6 +193,57 @@ describe("tailorPipeline: truth guard", () => {
     expect(cv.languages[0].proficiency).toBe("B2");
   });
 
+  // Pasted back by their place, an invented degree took the source's school and dates
+  it("keeps a degree or a language in the model's words only when they name the source's entry", async () => {
+    const withSchool: CVData = {
+      ...SOURCE,
+      education: [{ school: "ENSCI", degree: "Master design", start_date: "2014", end_date: "2016" }],
+      languages: [{ name: "Anglais", proficiency: "B2" }],
+    };
+    answers(generated(cv => {
+      cv.education = [{ school: "HEC", degree: "MBA", start_date: "2010" }, cv.education[0]];
+      cv.languages = [{ name: "Espagnol", proficiency: "C1" }, cv.languages[0]];
+    }, [], withSchool));
+    expect(await run([FIGMA], Date.now(), withSchool)).toMatchObject({ cv: { education: withSchool.education, languages: withSchool.languages } });
+
+    answers(generated(cv => {
+      cv.education[0].degree = "Master's degree in design";
+      cv.languages[0].name = "English";
+    }, [], withSchool));
+    const { cv } = await run([FIGMA], Date.now(), withSchool);
+    expect(cv.education).toEqual([{ ...withSchool.education[0], degree: "Master's degree in design" }]);
+    expect(cv.languages).toEqual([{ name: "English", proficiency: "B2" }]);
+  });
+
+  it("reads a quote as proof only when the quote itself shares a word with the requirement", async () => {
+    answers(generated(cv => {
+      cv.experience[0].description[0] = "Conduit la recherche utilisateur : 30 entretiens";
+    }, [{ id: "recherche-utilisateur", quote: "Mené 30 entretiens" }]));
+    expect(covered(await run([FIGMA, RESEARCH]), "recherche-utilisateur")).toBe(false);
+  });
+
+  // The client strips the language off the CV it sends: the source always read as French
+  it("puts the source bullet back when the CV stays in the language the client gives for the source", async () => {
+    const sourceEn: CVData = {
+      ...SOURCE,
+      experience: [{ ...SOURCE.experience[0], description: ["Led 30 user interviews", "Designed the mockups"] }, SOURCE.experience[1]],
+    };
+    const offerEn = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
+    answers(generated(cv => { cv.experience[0].description[1] = "Designed mockups for 17 brands"; }, [], sourceEn));
+    const { cv } = await tailorPipeline({ cv: sourceEn, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "en" });
+    expect(cv.experience[0].description).toEqual(["Led 30 user interviews", "Designed the mockups"]);
+  });
+
+  it("keeps a number the source's dates give, and puts back a business model with an invented one", async () => {
+    answers(generated(cv => {
+      cv.personal_info.summary = "Designer produit depuis 2017, 5 ans en SaaS B2B.";
+      cv.experience[0].companyBusinessModel = "SaaS 400 clients";
+    }));
+    const { cv } = await run([FIGMA]);
+    expect(cv.personal_info.summary).toBe("Designer produit depuis 2017, 5 ans en SaaS B2B.");
+    expect(cv.experience[0].companyBusinessModel).toBeUndefined();
+  });
+
   it("keeps the source's contacts, and no number the source never gives", async () => {
     answers(generated(cv => {
       cv.personal_info.email = "fake@example.org";

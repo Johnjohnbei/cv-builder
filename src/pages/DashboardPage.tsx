@@ -20,7 +20,7 @@ import { replacesDraft, stripPersistenceArtifacts } from '../features/editor/hoo
 import { useAccessCode, useAutoNotification, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
 import { attachBilingualCache } from '../lib/bilingual';
 import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
-import { writeCachedRequirements } from '../features/editor/lib/jobRequirementsCache';
+import { adoptRequirements, pendingRequirements } from '../features/editor/lib/jobRequirementsCache';
 import { useDashboardImports } from '../features/dashboard/useDashboardImports';
 import { DashboardSidebar, type DashboardView } from '../features/dashboard/components/DashboardSidebar';
 import { DashboardMobileNav } from '../features/dashboard/components/DashboardMobileNav';
@@ -130,9 +130,12 @@ export default function DashboardPage() {
     setIsGenerating(true);
 
     try {
-      const result = await tailorCV({ baseData: baseCV, jobDescription, accessCode: getCode() });
+      // An offer analyzed before is not paid for again
+      const requirements = await pendingRequirements(jobDescription, getCode())?.catch(() => undefined);
+      const tailoring = tailorCV({ baseData: baseCV, jobDescription, requirements, accessCode: getCode() });
       // The editor opens on this offer: its requirements are already paid for
-      writeCachedRequirements(jobDescription, result.requirements);
+      adoptRequirements(jobDescription, getCode(), tailoring);
+      const result = await tailoring;
       // A CV proposed for an offer comes with the portfolio version that offer calls for
       const optimizedData = withSuggestedPortfolio(result.cv, jobDescription);
       // Eager bilingual: produce the other language now so the editor toggle is

@@ -137,38 +137,71 @@ describe('requirements cache', () => {
     expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();
   });
 
-  describe('createRequirementsRequester', () => {
+  describe('one analysis per offer', () => {
     const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+    const never = () => new Promise<{ requirements: unknown }>(() => {});
 
     it('sends one request for an offer asked twice while it runs, then answers from the cache', async () => {
       const tab = await loadModule();
       let answer!: (value: { requirements: unknown }) => void;
       const extract = vi.fn(() => new Promise<{ requirements: unknown }>(resolve => { answer = resolve; }));
-      const requester = tab.createRequirementsRequester(extract);
 
-      const first = requester.request('Offre A', 'code');
-      const second = requester.request(' Offre A ', 'code');
+      const first = tab.requestRequirements('Offre A', 'code', extract);
+      const second = tab.requestRequirements(' Offre A ', 'code', extract);
       answer({ requirements: [R('Figma')] });
 
       expect(await first).toEqual([R('Figma')]);
       expect(await second).toEqual([R('Figma')]);
-      expect(await requester.request('Offre A', 'code')).toEqual([R('Figma')]);
+      expect(await tab.requestRequirements('Offre A', 'code', extract)).toEqual([R('Figma')]);
       expect(extract).toHaveBeenCalledTimes(1);
+    });
+
+    // The editor and the dashboard each hold their own hook
+    it('shares a running request between callers', async () => {
+      const tab = await loadModule();
+      const editor = vi.fn(async () => ({ requirements: [R('Figma')] }));
+      const dashboard = vi.fn(async () => ({ requirements: [R('Figma')] }));
+      const running = tab.requestRequirements('Offre A', 'code', editor);
+      expect(await tab.requestRequirements('Offre A', 'code', dashboard)).toEqual([R('Figma')]);
+      await running;
+      expect(dashboard).not.toHaveBeenCalled();
     });
 
     // "Adapter" waits on the ATS tab's analysis, it never pays for one
     it('waits on a running request when asked what is pending, and never starts one', async () => {
       const tab = await loadModule();
       const extract = vi.fn(async () => ({ requirements: [R('Figma')] }));
-      const requester = tab.createRequirementsRequester(extract);
 
-      expect(requester.pending('Offre A', 'code')).toBeUndefined();
+      expect(tab.pendingRequirements('Offre A', 'code')).toBeUndefined();
       expect(extract).not.toHaveBeenCalled();
 
-      const running = requester.request('Offre A', 'code');
-      expect(await requester.pending('Offre A', 'code')).toEqual([R('Figma')]);
+      const running = tab.requestRequirements('Offre A', 'code', extract);
+      expect(await tab.pendingRequirements('Offre A', 'code')).toEqual([R('Figma')]);
       await running;
       expect(extract).toHaveBeenCalledTimes(1);
+    });
+
+    // The server extracts while it tailors: a commit of the same offer meanwhile paid a second time
+    it('reads a running tailoring as the analysis of its offer, and caches its requirements', async () => {
+      const tab = await loadModule();
+      let tailored!: (value: { requirements: unknown }) => void;
+      tab.adoptRequirements('Offre A', 'code', new Promise(resolve => { tailored = resolve; }));
+      const extract = vi.fn(never);
+
+      const waiting = tab.requestRequirements('Offre A', 'code', extract);
+      tailored({ requirements: [R('Figma')] });
+
+      expect(await waiting).toEqual([R('Figma')]);
+      expect(extract).not.toHaveBeenCalled();
+      expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('Figma')]);
+    });
+
+    it('asks again after a failed tailoring', async () => {
+      const tab = await loadModule();
+      tab.adoptRequirements('Offre A', 'code', Promise.reject(new Error('AI_UNAVAILABLE')));
+      await settle();
+      const extract = vi.fn(async () => ({ requirements: [R('SAP')] }));
+      expect(await tab.requestRequirements('Offre A', 'code', extract)).toEqual([R('SAP')]);
     });
 
     it('asks again after a failure, and reads an answer without requirements as one', async () => {
@@ -177,22 +210,20 @@ describe('requirements cache', () => {
         .mockRejectedValueOnce(new Error('AI_UNAVAILABLE'))
         .mockResolvedValueOnce({ requirements: null })
         .mockResolvedValueOnce({ requirements: [R('SAP')] });
-      const requester = tab.createRequirementsRequester(extract);
 
-      await expect(requester.request('Offre A')).rejects.toThrow();
+      await expect(tab.requestRequirements('Offre A', undefined, extract)).rejects.toThrow();
       await settle();
-      await expect(requester.request('Offre A')).rejects.toThrow();
+      await expect(tab.requestRequirements('Offre A', undefined, extract)).rejects.toThrow();
       await settle();
-      expect(await requester.request('Offre A')).toEqual([R('SAP')]);
+      expect(await tab.requestRequirements('Offre A', undefined, extract)).toEqual([R('SAP')]);
       expect(extract).toHaveBeenCalledTimes(3);
     });
 
     it('keeps one request per access code', async () => {
       const tab = await loadModule();
-      const extract = vi.fn(() => new Promise<{ requirements: unknown }>(() => {}));
-      const requester = tab.createRequirementsRequester(extract);
-      void requester.request('Offre A', 'code-1');
-      void requester.request('Offre A', 'code-2');
+      const extract = vi.fn(never);
+      void tab.requestRequirements('Offre A', 'code-1', extract);
+      void tab.requestRequirements('Offre A', 'code-2', extract);
       expect(extract).toHaveBeenCalledTimes(2);
     });
   });

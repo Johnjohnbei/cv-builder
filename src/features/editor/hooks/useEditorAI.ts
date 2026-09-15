@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import type { CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
+import type { CVData, DesignSettings } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolioVariants';
-import { writeCachedRequirements } from '../lib/jobRequirementsCache';
+import { adoptRequirements, pendingRequirements } from '../lib/jobRequirementsCache';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -16,8 +16,6 @@ export interface UseEditorAIDeps {
   isGuest: boolean;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
   accessCode: string;
-  /** The ATS tab's analysis of the offer, cached or running: waited on, never started */
-  pendingRequirementsFor: (offer: string) => Promise<JobRequirement[]> | undefined;
 }
 
 export interface UseEditorAIResult {
@@ -41,7 +39,7 @@ export interface UseEditorAIResult {
 export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   const {
     cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode, pendingRequirementsFor,
+    jobDescription, user, isGuest, notify, accessCode,
   } = deps;
 
   const tailorAction = useAction(api.ai.tailorCV);
@@ -69,15 +67,17 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     try {
       // The ATS tab's analysis, cached or running, never a second paid one: the
       // server checks it again, and extracts itself only when there is none
-      const requirements = await pendingRequirementsFor(jobDescription)?.catch(() => undefined);
-      const result = await tailorAction({
+      const requirements = await pendingRequirements(jobDescription, accessCode)?.catch(() => undefined);
+      const tailoring = tailorAction({
         baseData: cvData,
         jobDescription,
         pageLimit: designSettings.pageLimit || 2,
         requirements,
         accessCode,
       });
-      writeCachedRequirements(jobDescription, result.requirements);
+      // Its requirements are the offer's analysis: the ATS tab waits on them, and they are cached
+      adoptRequirements(jobDescription, accessCode, tailoring);
+      const result = await tailoring;
       // A CV rewritten for an offer comes with the portfolio version that offer calls for
       const optimizedData = withSuggestedPortfolio(result.cv, jobDescription);
       setCvData(optimizedData);
@@ -90,7 +90,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, pendingRequirementsFor, tailorAction, setCvData, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, tailorAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;

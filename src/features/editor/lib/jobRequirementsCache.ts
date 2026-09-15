@@ -123,48 +123,53 @@ export function readCachedRequirements(jobDescription: string): JobRequirement[]
   return valid.length > 0 ? valid : null;
 }
 
-type ExtractRequirements = (args: { jobDescription: string; accessCode?: string }) => Promise<{ requirements: unknown }>;
+// ─── One analysis per offer ───
+// The one owner of "extract the requirements of an offer": a single request per
+// offer and access code at a time in the tab, cached once answered. The
+// StrictMode remount and a return to an offer still being analyzed each sent a
+// second request; "Adapter" only waits on a running one, and while the server
+// tailors (extracting when none ran), its answer is the running analysis.
 
-export interface RequirementsRequester {
-  /** Cached, already running, or a new request for `offer` */
-  request(offer: string, accessCode?: string): Promise<JobRequirement[]>;
-  /** Cached or already running, never a new (billed) request: undefined otherwise */
-  pending(offer: string, accessCode?: string): Promise<JobRequirement[]> | undefined;
+type RequirementsAnswer = Promise<{ requirements: unknown }>;
+type ExtractRequirements = (args: { jobDescription: string; accessCode?: string }) => RequirementsAnswer;
+
+/** Module-wide: the editor's and the dashboard's hooks share the analyses running */
+const inflight = new Map<string, Promise<JobRequirement[]>>();
+const inflightKey = (offer: string, accessCode?: string) => JSON.stringify([normalize(offer), accessCode ?? '']);
+
+/** Cached or already running, never a new (billed) request: undefined otherwise */
+export function pendingRequirements(offer: string, accessCode?: string): Promise<JobRequirement[]> | undefined {
+  const cached = readCachedRequirements(offer);
+  return cached ? Promise.resolve(cached) : inflight.get(inflightKey(offer, accessCode));
 }
 
-/**
- * The one owner of "extract the requirements of an offer": a single request
- * per offer and access code at a time, cached once answered. The StrictMode
- * remount and a return to an offer still being analyzed each sent a second
- * request; "Adapter" only waits on a running one, and the server extracts
- * when none runs, instead of both paying for the same offer.
- */
-export function createRequirementsRequester(extract: ExtractRequirements): RequirementsRequester {
-  const inflight = new Map<string, Promise<JobRequirement[]>>();
-  const keyOf = (offer: string, accessCode?: string) => JSON.stringify([normalize(offer), accessCode ?? '']);
-  const pending = (offer: string, accessCode?: string) => {
-    const cached = readCachedRequirements(offer);
-    return cached ? Promise.resolve(cached) : inflight.get(keyOf(offer, accessCode));
-  };
-  return {
-    pending,
-    request(offer, accessCode) {
-      const running = pending(offer, accessCode);
-      if (running) return running;
-      const key = keyOf(offer, accessCode);
-      const request = extract({ jobDescription: offer, accessCode }).then(data => {
-        const requirements = Array.isArray(data.requirements) ? data.requirements.filter(isRequirement) : [];
-        if (requirements.length === 0) throw new Error('No requirement in the answer');
-        // Cached even when superseded or unmounted: the call is paid, and the offer may come back
-        writeCachedRequirements(offer, requirements);
-        return requirements;
-      });
-      inflight.set(key, request);
-      // Settled: the cache answers from now on, and a failure is asked again at the next request
-      request.catch(() => {}).finally(() => inflight.delete(key));
-      return request;
-    },
-  };
+/** `answer` read as the requirements of `offer`: cached once valid, the running analysis while none other runs */
+function track(offer: string, accessCode: string | undefined, answer: RequirementsAnswer): Promise<JobRequirement[]> {
+  const request = answer.then(data => {
+    const requirements = Array.isArray(data.requirements) ? data.requirements.filter(isRequirement) : [];
+    if (requirements.length === 0) throw new Error('No requirement in the answer');
+    // Cached even when superseded or unmounted: the call is paid, and the offer may come back
+    writeCachedRequirements(offer, requirements);
+    return requirements;
+  });
+  const key = inflightKey(offer, accessCode);
+  if (!inflight.has(key)) {
+    inflight.set(key, request);
+    // Settled: the cache answers from now on, and a failure is asked again at the next request
+    request.catch(() => {}).finally(() => inflight.delete(key));
+  }
+  return request;
+}
+
+/** Cached, already running, or a new request for `offer` */
+export function requestRequirements(offer: string, accessCode: string | undefined, extract: ExtractRequirements): Promise<JobRequirement[]> {
+  return pendingRequirements(offer, accessCode) ?? track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
+}
+
+/** A tailoring running for `offer` answers its requirements: nothing asks for them again meanwhile */
+export function adoptRequirements(offer: string, accessCode: string | undefined, tailoring: RequirementsAnswer): void {
+  // The caller reports a failed tailoring
+  track(offer, accessCode, tailoring).catch(() => {});
 }
 
 export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {

@@ -97,7 +97,7 @@ export default function EditorPage() {
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const { requirements, status: requirementsStatus, error: requirementsError, pendingRequirementsFor } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
   const atsReport = useATSAnalysis(cvData, designSettings, requirements);
   const hasJobDescription = jobDescription.trim().length > 0;
 
@@ -150,7 +150,7 @@ export default function EditorPage() {
   });
   const ai = useEditorAI({
     cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode: getCode(), pendingRequirementsFor,
+    jobDescription, user, isGuest, notify, accessCode: getCode(),
   });
   const { isAutoSaving, lastAutoSaveAt, saveFailed } = useAutoSaveDraft({
     cvData, designSettings, selectedTemplate, jobDescription,

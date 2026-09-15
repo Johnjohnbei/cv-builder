@@ -8,7 +8,9 @@ const sdk = vi.hoisted(() => ({
   onStreamEvent: undefined as ((event: unknown, snapshot: unknown) => void) | undefined,
   streamOptions: undefined as { signal?: AbortSignal } | undefined,
 }));
-vi.mock("@anthropic-ai/sdk", () => ({
+// The SDK's error classes stay real: chat.ts tells an abort from a failure by its class
+vi.mock("@anthropic-ai/sdk", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@anthropic-ai/sdk")>()),
   default: class {
     messages = {
       stream: (_body: unknown, options?: { signal?: AbortSignal }) => {
@@ -32,6 +34,7 @@ const interruptedAfter = (snapshot: unknown, error: unknown) => async () => {
   throw error;
 };
 
+import { APIConnectionTimeoutError, APIUserAbortError } from "@anthropic-ai/sdk";
 import { withRetry, isRetryable, retryDelayMs, safeParseJSON, chatJSONThen, AI_CALL_WORST_CASE_MS } from "../chat";
 import { getProviders } from "../providers";
 import { userError } from "../../_shared/errors";
@@ -228,8 +231,7 @@ describe("call deadline", () => {
 
   it("answers the French unavailability message when both attempts are aborted", async () => {
     vi.useFakeTimers();
-    const aborted = Object.assign(new Error("Request was aborted."), { name: "APIUserAbortError" });
-    sdk.finalMessage.mockRejectedValue(aborted);
+    sdk.finalMessage.mockRejectedValue(new APIUserAbortError());
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -277,12 +279,16 @@ describe("call deadline", () => {
     expect(sdk.finalMessage).not.toHaveBeenCalled();
   });
 
-  it("says the deadline cut the call, not that the service is down", async () => {
+  // The SDK names both errors "Error": a check on the name never matched
+  it.each([
+    ["an abort", () => new APIUserAbortError()],
+    ["a timeout", () => new APIConnectionTimeoutError()],
+  ])("says the deadline cut the call, not that the service is down, on %s", async (_, error) => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     sdk.finalMessage.mockImplementation(async () => {
       vi.setSystemTime(7_000);
-      throw Object.assign(new Error("Request was aborted."), { name: "APIUserAbortError" });
+      throw error();
     });
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});

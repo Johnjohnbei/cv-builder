@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { JobRequirement } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import {
-  createRequirementsRequester, requirementsForOffer, requirementsStatus, readCachedRequirements,
+  requestRequirements, requirementsForOffer, requirementsStatus, readCachedRequirements,
   type AnalyzedOffer, type RequirementsStatus,
 } from '../lib/jobRequirementsCache';
 
@@ -13,12 +13,6 @@ export interface JobRequirementsState {
   status: RequirementsStatus;
   /** Why the last analysis of the offer on screen failed, for the user */
   error: string;
-  /**
-   * The requirements of `offer` when cached or being analyzed, undefined
-   * otherwise: never a new request. "Adapter" waits on it instead of letting
-   * the server pay again for an extraction already running.
-   */
-  pendingRequirementsFor: (offer: string) => Promise<JobRequirement[]> | undefined;
 }
 
 const FAILURE_FALLBACK = "L'analyse de l'offre n'a pas abouti.";
@@ -51,7 +45,6 @@ export function useJobRequirements(
   // Read through a ref so a new function identity never re-triggers a paid call
   const actionRef = useRef(extractAction);
   actionRef.current = extractAction;
-  const requester = useMemo(() => createRequirementsRequester(args => actionRef.current(args)), []);
   const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', requirements: [] });
   const [failure, setFailure] = useState({ offer: '', message: '' });
 
@@ -64,7 +57,7 @@ export function useJobRequirements(
     }
     setFailure({ offer: '', message: '' });
     let cancelled = false;
-    requester.request(committedOffer, accessCode)
+    requestRequirements(committedOffer, accessCode, args => actionRef.current(args))
       .then(requirements => {
         // A stale response must not overwrite the requirements of a newer offer
         if (!cancelled) setAnalyzed({ offer: committedOffer, requirements });
@@ -75,13 +68,11 @@ export function useJobRequirements(
     return () => {
       cancelled = true;
     };
-  }, [committedOffer, accessCode, commitId, requester]);
-
-  const pendingRequirementsFor = useCallback((offer: string) => requester.pending(offer, accessCode), [requester, accessCode]);
+  }, [committedOffer, accessCode, commitId]);
 
   return useMemo(() => {
     const requirements = requirementsForOffer(liveOffer, analyzed);
     const status = requirementsStatus({ liveOffer, committedOffer, requirements, failedOffer: failure.offer });
-    return { requirements, status, error: status === 'failed' ? failure.message : '', pendingRequirementsFor };
-  }, [liveOffer, committedOffer, analyzed, failure, pendingRequirementsFor]);
+    return { requirements, status, error: status === 'failed' ? failure.message : '' };
+  }, [liveOffer, committedOffer, analyzed, failure]);
 }
