@@ -1,12 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import type { CVData, DesignSettings } from '@/src/shared/types';
+import type { CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
 import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolioVariants';
 import { writeCachedRequirements } from '../lib/jobRequirementsCache';
-import type { JobRequirement } from '@/src/shared/types';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -17,8 +16,8 @@ export interface UseEditorAIDeps {
   isGuest: boolean;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
   accessCode: string;
-  /** The offer's requirements from the ATS tab's analysis, waited on rather than paid twice */
-  requirementsFor: (offer: string) => Promise<JobRequirement[]>;
+  /** The ATS tab's analysis of the offer, cached or running: waited on, never started */
+  pendingRequirementsFor: (offer: string) => Promise<JobRequirement[]> | undefined;
 }
 
 export interface UseEditorAIResult {
@@ -42,7 +41,7 @@ export interface UseEditorAIResult {
 export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   const {
     cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode, requirementsFor,
+    jobDescription, user, isGuest, notify, accessCode, pendingRequirementsFor,
   } = deps;
 
   const tailorAction = useAction(api.ai.tailorCV);
@@ -68,9 +67,9 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     if (!cvData || !jobDescription.trim()) return;
     setIsOptimizing(true);
     try {
-      // The ATS tab's analysis, finished or running: the server checks them
-      // again, and extracts them itself only if that analysis failed
-      const requirements = await requirementsFor(jobDescription).catch(() => undefined);
+      // The ATS tab's analysis, cached or running, never a second paid one: the
+      // server checks it again, and extracts itself only when there is none
+      const requirements = await pendingRequirementsFor(jobDescription)?.catch(() => undefined);
       const result = await tailorAction({
         baseData: cvData,
         jobDescription,
@@ -91,7 +90,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, requirementsFor, tailorAction, setCvData, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, pendingRequirementsFor, tailorAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;

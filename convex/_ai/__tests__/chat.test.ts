@@ -277,6 +277,19 @@ describe("call deadline", () => {
     expect(sdk.finalMessage).not.toHaveBeenCalled();
   });
 
+  it("says the deadline cut the call, not that the service is down", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    sdk.finalMessage.mockImplementation(async () => {
+      vi.setSystemTime(7_000);
+      throw Object.assign(new Error("Request was aborted."), { name: "APIUserAbortError" });
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(chatJSONThen("prompt", (raw) => raw, "fast", 8_000)).rejects.toMatchObject({ data: { code: "AI_TIMEOUT" } });
+  });
+
   // A generation of several minutes started with seconds left is billed and cut off
   it("starts no default call with less than a minute left", async () => {
     vi.useFakeTimers();

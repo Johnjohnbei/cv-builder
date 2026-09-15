@@ -9,6 +9,7 @@ import type {
 } from "../../src/shared/types";
 import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
 import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
+import { statesYears } from "./numbers";
 
 // ─── Job requirements ────────────────────────────────────────────
 const MAX_REQUIREMENTS = 25;
@@ -17,29 +18,6 @@ const MAX_REQUIREMENTS = 25;
 const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
   .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
-
-/** Number words an offer writes years with ("cinq ans", "five years"), from 1 */
-const NUMBER_WORDS = [
-  ["un", "une", "one"], ["deux", "two"], ["trois", "three"], ["quatre", "four"], ["cinq", "five"],
-  ["six"], ["sept", "seven"], ["huit", "eight"], ["neuf", "nine"], ["dix", "ten"],
-  ["onze", "eleven"], ["douze", "twelve"], ["treize", "thirteen"], ["quatorze", "fourteen"], ["quinze", "fifteen"],
-];
-
-/**
- * Whether the quote gives `years` as a number of years, in digits or in words:
- * "3 ans", "trois à cinq années", "entre 3 et 5 ans", "3/5 ans", "5+ years",
- * "two (2) years". The unit is
- * required, "un" or the 5 of "Bac+5" are in almost every quote.
- */
-function statesYears(quote: ReturnType<typeof prepareText>, years: number): boolean {
-  const number = [String(years), ...(NUMBER_WORDS[years - 1] ?? [])].join("|");
-  // "et"/"and" only after "entre"/"between": "Bac+5 et 3 ans", "Master 2 et 5 ans" give no years of 5 or 2
-  const between = String.raw`(?:entre|between)\s+(?:${number})\s+(?:et|and)\s+[\p{L}\p{N}]+`;
-  const range = String.raw`(?:${number})\+?(?:(?:\s*[-/]\s*|\s+(?:a|to|ou|or)\s+)[\p{L}\p{N}]+)?`;
-  const unit = String.raw`\+?(?:\s*\(\s*\d+\s*\))?\s*(?:ans?|annees?|years?|yrs?)(?![\p{L}\p{N}])`;
-  // Not after "+": the 5 of "Bac+5" is a degree
-  return new RegExp(String.raw`(?:^|[^\p{L}\p{N}+])(?:${between}|${range})${unit}`, "u").test(quote.normalized);
-}
 
 /**
  * The requirements the offer actually states, checked one by one. A malformed

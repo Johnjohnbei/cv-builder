@@ -13,6 +13,7 @@ import type * as _ai_chat from "../_ai/chat.js";
 import type * as _ai_htmlText from "../_ai/htmlText.js";
 import type * as _ai_languageDetection from "../_ai/languageDetection.js";
 import type * as _ai_normalizers from "../_ai/normalizers.js";
+import type * as _ai_numbers from "../_ai/numbers.js";
 import type * as _ai_prompts_adapt from "../_ai/prompts/adapt.js";
 import type * as _ai_prompts_companyExtraction from "../_ai/prompts/companyExtraction.js";
 import type * as _ai_prompts_coverLetter from "../_ai/prompts/coverLetter.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/htmlText": typeof _ai_htmlText;
   "_ai/languageDetection": typeof _ai_languageDetection;
   "_ai/normalizers": typeof _ai_normalizers;
+  "_ai/numbers": typeof _ai_numbers;
   "_ai/prompts/adapt": typeof _ai_prompts_adapt;
   "_ai/prompts/companyExtraction": typeof _ai_prompts_companyExtraction;
   "_ai/prompts/coverLetter": typeof _ai_prompts_coverLetter;

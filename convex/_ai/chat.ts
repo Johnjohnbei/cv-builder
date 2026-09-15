@@ -165,7 +165,9 @@ export async function withRetry<T>(
   console.error("[ai] all providers failed:", lastError);
   // Surface the already-French user-facing errors (empty/invalid response),
   // hide raw SDK errors behind a clear generic one.
-  if (outOfTime && !lastError) throw userError(DEADLINE_MSG, "AI_TIMEOUT");
+  // No attempt could start, or the last one was cut off by the deadline itself
+  const cutByDeadline = /abort|timeout/i.test(String(lastError?.name)) && deadlineAt - Date.now() < minAttemptMs;
+  if ((outOfTime && !lastError) || cutByDeadline) throw userError(DEADLINE_MSG, "AI_TIMEOUT");
   throw toUserFacing(lastError) ?? userError(ALL_PROVIDERS_FAILED_MSG, "AI_UNAVAILABLE");
 }
 

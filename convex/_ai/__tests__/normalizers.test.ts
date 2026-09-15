@@ -390,6 +390,16 @@ describe("normalizeJobRequirements", () => {
     expect(kept("Bac+3/5 ans", 3)).toBe(0);
   });
 
+  it("reads years written with a leading plus, and not the number of a licence or a master", () => {
+    const offer = "+5 ans d'expérience. Licence 3 ou 2 ans en agence. M2 et 4 ans.";
+    const kept = (quote: string, minYears: number) =>
+      normalizeJobRequirements([req({ label: "Expérience", kind: "experience_years", quote, minYears })], offer).length;
+    expect(kept("+5 ans d'expérience", 5)).toBe(1);
+    expect(kept("Licence 3 ou 2 ans en agence", 3)).toBe(0);
+    expect(kept("Licence 3 ou 2 ans en agence", 2)).toBe(1);
+    expect(kept("M2 et 4 ans", 4)).toBe(1);
+  });
+
   it("caps the list at 25 requirements", () => {
     const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
     const offer = `Outils : ${labels.join(", ")}.`;

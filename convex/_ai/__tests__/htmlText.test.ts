@@ -113,9 +113,9 @@ describe("htmlToText", () => {
     expect(htmlToText('<script><!-- document.write("<script>x()</script>"); --></script><p>Offre</p>')).toBe("Offre");
   });
 
-  // Fetched without JavaScript, a page shows "enable JavaScript" there: not the offer
-  it("drops noscript content, like a browser running scripts", () => {
-    expect(htmlToText("<noscript>Activez JavaScript</noscript><p>Offre</p>")).toBe("Offre");
+  // Fetched without JavaScript, a single-page app may hold its only copy of the offer there
+  it("keeps noscript content", () => {
+    expect(htmlToText("<div id=root></div><noscript><h1>Product Designer</h1><p>Offre</p></noscript>")).toBe("Product Designer Offre");
   });
 
   // Old Latin-1 sites write the Windows apostrophe as &#146;, which the HTML standard reads as windows-1252

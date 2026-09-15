@@ -30,10 +30,11 @@ function tagEnd(html: string, from: number): number {
 }
 
 const SCRIPT_TOKENS = /<!--|-->|<(\/?)script(?=[\s/>])/gi;
-/** noscript is raw text for a browser running scripts: fetched without them, it says "enable JavaScript" */
-const RAW_TEXT_END = { style: /<\/style(?=[\s/>])/gi, noscript: /<\/noscript(?=[\s/>])/gi };
+// noscript is kept: the page is fetched without JavaScript, and a single-page
+// app may put its only copy of the offer there
+const RAW_TEXT_END = { style: /<\/style(?=[\s/>])/gi };
 type RawTextElement = "script" | keyof typeof RAW_TEXT_END;
-const isRawText = (name: string): name is RawTextElement => name === "script" || name === "style" || name === "noscript";
+const isRawText = (name: string): name is RawTextElement => name === "script" || name === "style";
 
 /**
  * Index of the end tag of the raw text that starts at `from`, -1 when the

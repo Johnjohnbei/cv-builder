@@ -127,7 +127,7 @@ describe("extractJobRequirements", () => {
     const { requirements } = await run(OFFER);
 
     expect(requirements.map(r => r.id)).toEqual(["figma"]);
-    expect(mocks.chatJSONThen).toHaveBeenCalledWith(expect.stringContaining(OFFER), expect.any(Function), "fast", undefined);
+    expect(mocks.chatJSONThen).toHaveBeenCalledWith(expect.stringContaining(OFFER), expect.any(Function), "fast", expect.any(Number));
   });
 
   it("checks the access code before any paid call", async () => {

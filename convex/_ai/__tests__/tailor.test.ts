@@ -31,8 +31,8 @@ const KUBERNETES = requirement("Kubernetes");
 const SKETCH = requirement("Sketch");
 
 /** The source CV as the model rewrites it: `edit` changes a copy */
-const generated = (edit: (cv: CVData) => void, evidence: { id: string; quote: string }[] = []) => {
-  const cv: CVData = structuredClone(SOURCE);
+const generated = (edit: (cv: CVData) => void, evidence: { id: string; quote: string }[] = [], base: CVData = SOURCE) => {
+  const cv: CVData = structuredClone(base);
   edit(cv);
   return { cv, evidence };
 };
@@ -45,8 +45,8 @@ const answers = (...raws: unknown[]) =>
     return transform(typeof next === "function" ? next() : next);
   });
 
-const run = (requirements: unknown[] | undefined, startedAt = Date.now()) =>
-  tailorPipeline({ cv: SOURCE, jobDescription: OFFER, requirements }, startedAt);
+const run = (requirements: unknown[] | undefined, startedAt = Date.now(), source: CVData = SOURCE, offer = OFFER) =>
+  tailorPipeline({ cv: source, jobDescription: offer, requirements }, startedAt);
 
 const covered = (result: Awaited<ReturnType<typeof run>>, id: string) =>
   result.report.requirements.find(c => c.requirement.id === id)?.found;
@@ -155,6 +155,42 @@ describe("tailorPipeline: truth guard", () => {
     }, [{ id: "figma", quote: null }, { id: "recherche-utilisateur", quote: "Mené 30 entretiens utilisateurs" }] as never));
     const result = await run([FIGMA, RESEARCH]);
     expect(covered(result, "recherche-utilisateur")).toBe(true);
+  });
+
+  it("reads a quote that shares no word with the requirement as no proof", async () => {
+    answers(generated(cv => { cv.skills[0].items.push("Kubernetes"); }, [{ id: "kubernetes", quote: "Conçu les maquettes" }]));
+    const result = await run([FIGMA, KUBERNETES]);
+    expect(result.cv.skills[0].items).toEqual(["Figma", "Sketch"]);
+    expect(result.unproven).toEqual(["kubernetes"]);
+  });
+
+  // The templates print "**Kuber**netes" as Kubernetes: the guard reads what they print
+  it("finds a requirement split by markdown", async () => {
+    answers(generated(cv => { cv.experience[0].description.push("Déployé **Kuber**netes en production"); }));
+    const result = await run([FIGMA, KUBERNETES]);
+    expect(JSON.stringify(result.cv)).not.toContain("netes");
+  });
+
+  it("drops an invented bullet rather than putting back a source bullet in another language", async () => {
+    const offerEn = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
+    answers(generated(cv => { cv.experience[0].description = ["Led 30 user interviews", "Designed mockups for 17 brands"]; }));
+    const { cv } = await run([FIGMA], Date.now(), SOURCE, offerEn);
+    expect(cv.experience[0].description).toEqual(["Led 30 user interviews"]);
+  });
+
+  it("puts the source's schools, their dates and the language levels back", async () => {
+    const withSchool: CVData = {
+      ...SOURCE,
+      education: [{ school: "ENSCI", degree: "Master design", start_date: "2014", end_date: "2016" }],
+      languages: [{ name: "Anglais", proficiency: "B2" }],
+    };
+    answers(generated(cv => {
+      cv.education[0] = { ...cv.education[0], school: "HEC Paris", start_date: "2013" };
+      cv.languages[0] = { ...cv.languages[0], proficiency: "C2 bilingue" };
+    }, [], withSchool));
+    const { cv } = await run([FIGMA], Date.now(), withSchool);
+    expect(cv.education[0]).toMatchObject({ school: "ENSCI", start_date: "2014", end_date: "2016" });
+    expect(cv.languages[0].proficiency).toBe("B2");
   });
 
   it("keeps the source's contacts, and no number the source never gives", async () => {

@@ -15,7 +15,7 @@ import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } fr
 import { CoverLetterSchema, CompanyMetaSchema, ExperienceEnrichmentSchema } from "./_ai/schemas";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
-import { extractRequirements, tailorPipeline } from "./_ai/tailor";
+import { EXTRACTION_DEADLINE_MS, extractRequirements, tailorPipeline } from "./_ai/tailor";
 
 // ─── Input size ─────────────────────────────────────────────────────
 const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
@@ -151,7 +151,8 @@ export const extractJobRequirements = action({
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    return { requirements: await extractRequirements(args.jobDescription) };
+    // Bounded like in tailorCV: "Adapter" in the editor waits on this analysis
+    return { requirements: await extractRequirements(args.jobDescription, Date.now() + EXTRACTION_DEADLINE_MS) };
   },
 });
 
