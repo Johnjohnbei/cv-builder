@@ -12,11 +12,12 @@
 // extended, that one compact" and it under-filled badly: scoreExperience
 // divides keyword hits by the whole keyword list, so against a real job
 // description almost every role lands under 50 and the CV started already
-// condensed, with nothing left for the loop to give back. Relative ranking is
+// condensed, with nothing left for the loop to give back (measured then on
+// keyword lists; the requirement lists keep the same rule). Relative ranking is
 // what the score is good at; absolute calibration is what the page budget is
 // for.
 
-import type { Experience, ExperienceDisplayMode } from '@/src/shared/types';
+import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
 import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
@@ -55,7 +56,7 @@ export function expandToMax(experiences: Experience[]): Experience[] {
  * Returns null when every experience is hidden — the caller stops and reports
  * the real page count rather than looping.
  */
-export function condenseOneStep(experiences: Experience[], jobKeywords: string[]): Experience[] | null {
+export function condenseOneStep(experiences: Experience[], requirements: JobRequirement[]): Experience[] | null {
   const visible = experiences
     .map((exp, index) => ({ index, current: rung(exp.displayMode) }))
     .filter(c => c.current < HIDDEN_RUNG);
@@ -65,7 +66,7 @@ export function condenseOneStep(experiences: Experience[], jobKeywords: string[]
   const richest = Math.min(...visible.map(c => c.current));
   const wave = visible
     .filter(c => c.current === richest)
-    .map(c => ({ ...c, score: scoreExperience(experiences[c.index], jobKeywords) }));
+    .map(c => ({ ...c, score: scoreExperience(experiences[c.index], requirements) }));
 
   const victim = wave.reduce((best, c) => {
     if (c.score !== best.score) return c.score < best.score ? c : best;

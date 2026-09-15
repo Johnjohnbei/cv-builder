@@ -5,8 +5,13 @@
 import type {
   ATSReport, CVData, CVSection, DesignSettings, Experience, JobRequirement, ReadabilityCheck, RequirementCoverage,
 } from '../../../shared/types';
-import { matchPhrase, prepareText, type PreparedText } from '../../../shared/lib/text';
+import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from '../../../shared/lib/text';
+import { getLocalizedStage } from '../../../shared/constants/companyMeta';
+import { getCVLanguage, type SupportedLanguage } from '../../../lib/languageDetection';
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './displayModes';
+import { getSkillCategoryTitle } from './atsRules';
+import type { SkillCategoryKey } from './skillDictionary';
+import { parseMonthYear } from './formatting';
 
 // ─── What an ATS reads ───
 
@@ -17,21 +22,29 @@ import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, 
  */
 export type CVTextView = 'rendered' | 'content';
 
-/** The Design toggle (includedSections) each part of the CV belongs to */
-const SECTION_TOGGLE: Record<CVSection, string> = {
-  title: 'personal', summary: 'summary', experience: 'experience',
-  skills: 'skills', education: 'education', languages: 'languages',
+/** The Design toggle (includedSections) each part of the CV belongs to; the header is always printed */
+const SECTION_TOGGLE: Record<Exclude<CVSection, 'title'>, string> = {
+  summary: 'summary', experience: 'experience', skills: 'skills', education: 'education', languages: 'languages',
 };
 
 type IncludedSections = Pick<DesignSettings, 'includedSections'>;
 
 const isShown = (section: CVSection, design?: IncludedSections) =>
-  !design?.includedSections || design.includedSections.includes(SECTION_TOGGLE[section]);
+  section === 'title' || !design?.includedSections || design.includedSections.includes(SECTION_TOGGLE[section]);
 
-function experienceText(exp: Experience, view: CVTextView): (string | undefined)[] {
-  if (view === 'content') return [exp.position, exp.company, exp.intro, ...exp.description, exp.kpi];
-  if (isHidden(exp)) return [];
-  return [exp.position, exp.company, getIntro(exp) ?? undefined, ...getActionBullets(exp), shouldShowKPI(exp) ? exp.kpi : undefined];
+/**
+ * Text of one experience as the templates print it: position, company, its
+ * company tags (CompanyTags), intro, bullets and KPI. The ATS score and the
+ * per-experience relevance badge read the same text.
+ */
+export function experienceText(exp: Experience, view: CVTextView, language: SupportedLanguage = 'fr'): string[] {
+  const tags = [getLocalizedStage(exp.companyStage, language), exp.companyBusinessModel];
+  const parts = view === 'content'
+    ? [exp.position, exp.company, ...tags, exp.intro, ...exp.description, exp.kpi]
+    : isHidden(exp)
+      ? []
+      : [exp.position, exp.company, ...tags, getIntro(exp) ?? undefined, ...getActionBullets(exp), shouldShowKPI(exp) ? exp.kpi : undefined];
+  return parts.filter((text): text is string => Boolean(text?.trim()));
 }
 
 /** The experiences whose dates and positions the CV prints */
@@ -45,13 +58,15 @@ function experiencesInView(cv: CVData, view: CVTextView, design?: IncludedSectio
  * score reads it, and so does the PDF text check (pdfValidation).
  */
 export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSections): Record<CVSection, string[]> {
+  const language = getCVLanguage(cv);
+  const categoryTitle = (category: string) => getSkillCategoryTitle(category as SkillCategoryKey, language);
   const raw: Record<CVSection, (string | undefined)[]> = {
     title: [cv.personal_info.title],
     summary: [cv.personal_info.summary],
-    experience: cv.experience.flatMap(exp => experienceText(exp, view)),
+    experience: cv.experience.flatMap(exp => experienceText(exp, view, language)),
     skills: cv.skills.flatMap(cat => {
-      if (view === 'content') return [cat.category, ...cat.items];
-      return isSkillHidden(cat) ? [] : [cat.category, ...getVisibleSkills(cat)];
+      if (view === 'content') return [categoryTitle(cat.category), ...cat.items];
+      return isSkillHidden(cat) ? [] : [categoryTitle(cat.category), ...getVisibleSkills(cat)];
     }),
     education: cv.education.flatMap(edu => [edu.degree, edu.field, edu.school]),
     languages: cv.languages.map(lang => lang.name),
@@ -67,27 +82,32 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
 
 // ─── Years of experience ───
 
-/** "2019", "2019-03" or "2019-3" as a month count, null when there is no year */
-function monthIndex(date: string | undefined): number | null {
-  const m = date?.match(/(\d{4})(?:-(\d{1,2}))?/);
-  return m ? Number(m[1]) * 12 + (m[2] ? Number(m[2]) - 1 : 0) : null;
+/** A month count, the year's first (start) or last (end) month when only the year is known */
+function monthIndex(date: string | undefined, side: 'start' | 'end'): number | null {
+  const parsed = parseMonthYear(date);
+  if (!parsed) return null;
+  return parsed.year * 12 + (parsed.month ?? (side === 'start' ? 1 : 12)) - 1;
 }
 
-/** Years covered by these roles, overlaps counted once, a current role until `now`. */
+/**
+ * Years covered by these roles, as a CV reads them: the start and end months
+ * both count ("January 2015 to December 2019" is five years), overlaps count
+ * once, a current role runs through this month.
+ */
 export function yearsOfExperience(experiences: Experience[], now: Date = new Date()): number {
   const nowMonth = now.getFullYear() * 12 + now.getMonth();
   const spans = experiences
     .flatMap(exp => {
-      const start = monthIndex(exp.start_date);
-      const end = exp.current ? nowMonth : monthIndex(exp.end_date);
-      return start !== null && end !== null && end > start ? [[start, end] as const] : [];
+      const start = monthIndex(exp.start_date, 'start');
+      const end = exp.current ? nowMonth : monthIndex(exp.end_date, 'end');
+      return start !== null && end !== null && end >= start ? [[start, end] as const] : [];
     })
     .sort((a, b) => a[0] - b[0]);
   let months = 0;
   let reached = -Infinity;
   for (const [start, end] of spans) {
-    const from = Math.max(start, reached);
-    if (end > from) months += end - from;
+    const from = Math.max(start, reached + 1);
+    if (end >= from) months += end - from + 1;
     reached = Math.max(reached, end);
   }
   return months / 12;
@@ -96,13 +116,21 @@ export function yearsOfExperience(experiences: Experience[], now: Date = new Dat
 // ─── The score ───
 
 /** A title filters candidates first; a soft skill is never what decides */
-function weightOf(r: JobRequirement): number {
+export function weightOf(r: JobRequirement): number {
   if (r.kind === 'soft_skill') return 1;
   return r.kind === 'title' || r.importance === 'required' ? 3 : 1;
 }
 
-/** "Sr.", "Mgr", "Dev.": a parser matching job titles misses them */
-const ABBREVIATED_TITLE = /\b(sr|jr|mgr|dir|asst)\b\.?|\bdev\./i;
+/**
+ * Whether rewriting the CV can cover this requirement: a degree, a language or
+ * a number of years is a fact of the candidate's past, never a wording.
+ */
+export function isWritable(r: JobRequirement): boolean {
+  return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years';
+}
+
+/** "Sr.", "Mgr", "Dév.", "Resp.": a parser matching job titles misses them (read normalized, accents gone) */
+const ABBREVIATED_TITLE = /\b(sr|jr|mgr|dir|asst|resp)\b\.?|\bdev\./;
 
 export interface ATSReportOptions {
   view?: CVTextView;
@@ -113,7 +141,7 @@ export interface ATSReportOptions {
 /**
  * Weighted share of the offer's requirements present in the CV, as an ATS
  * searches them, plus the checks a parser needs. No correction factor: the
- * score can be recounted by hand from the list.
+ * score is recounted by hand from the weights and points it returns.
  */
 export function computeATSReport(cv: CVData, requirements: JobRequirement[], options: ATSReportOptions = {}): ATSReport {
   const { view = 'rendered', design, now } = options;
@@ -144,24 +172,27 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       default:
         found = where(['title', 'summary', 'experience', 'skills', 'education', 'languages']);
     }
-    return { requirement, found: found.length > 0, sections: found };
+    return { requirement, found: found.length > 0, sections: found, weight: weightOf(requirement) };
   });
 
-  const total = requirements.reduce((sum, r) => sum + weightOf(r), 0);
-  const covered = coverage.reduce((sum, c) => sum + (c.found ? weightOf(c.requirement) : 0), 0);
+  const total = coverage.reduce((sum, c) => sum + c.weight, 0);
+  const covered = coverage.reduce((sum, c) => sum + (c.found ? c.weight : 0), 0);
 
-  const header = isShown('title', design);
   const { email = '', phone = '', location = '', title = '' } = cv.personal_info;
   const checks: ReadabilityCheck[] = [
-    { id: 'email', passed: header && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) },
-    { id: 'phone', passed: header && phone.replace(/\D/g, '').length >= 7 },
-    { id: 'location', passed: header && location.trim().length > 0 },
-    { id: 'titles', passed: ![title, ...experiences.map(exp => exp.position)].some(t => ABBREVIATED_TITLE.test(t ?? '')) },
+    { id: 'email', passed: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) },
+    { id: 'phone', passed: phone.replace(/\D/g, '').length >= 7 },
+    { id: 'location', passed: location.trim().length > 0 },
+    {
+      id: 'titles',
+      passed: ![title, ...experiences.map(exp => exp.position)].some(t => ABBREVIATED_TITLE.test(normalizeForMatch(t ?? ''))),
+    },
   ];
 
   return {
     score: total > 0 ? Math.round((100 * covered) / total) : null,
     requirements: coverage,
+    points: { covered, total },
     checks,
   };
 }

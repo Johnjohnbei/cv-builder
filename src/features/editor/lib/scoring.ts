@@ -1,29 +1,24 @@
-import type { Experience } from '@/src/shared/types';
+import type { Experience, JobRequirement } from '@/src/shared/types';
+import { matchPhrase, prepareText } from '@/src/shared/lib/text';
+import { experienceText, isWritable } from './keywordAnalysis';
 
 // ─── Relevance of one experience to the offer ───
 // Orders the fit-to-pages condensing and colours the per-experience badge. The
-// ATS score of the whole CV lives in keywordAnalysis.ts (computeATSReport).
+// ATS score of the whole CV lives in keywordAnalysis.ts (computeATSReport), and
+// both read the same requirements with the same matching.
 
 /**
  * Display bands for the per-experience relevance badge.
  *
- * Deliberately far lower than they look, and measured rather than guessed. The
- * score answers "what share of the offer's requirements does THIS experience
- * evidence", and no single experience covers a whole posting. Across two real
- * offers, run through the real keyword pipeline:
- *
- *   - a perfectly on-target experience lands at 38-47 %
- *     (38 % against the 21-term AI list, 47 % against the 40-term NLP fallback:
- *      the AI terms are multi-word and harder to match literally)
- *   - an off-target experience lands at 9-15 %, carried only by its recency
- *
- * With the usual 70/40 bands the best experience for the job rendered red. A
- * first attempt at 55 was calibrated on a hand-picked keyword list, which is the
- * same selection bias that produced a wrong diagnosis on the provider chain the
- * day before: bands belong on measured distributions, not on convenient ones.
+ * The score answers "what share of the requirements an experience can prove
+ * does THIS experience evidence". First calibrated on keyword lists (an
+ * on-target role at 38-47 %, an off-target one at 9-15 % carried by recency);
+ * requirement lists are shorter and all provable, so an on-target role lands
+ * higher. The bands are kept low on purpose, and a test locks a representative
+ * offer: on-target role high, off-target current role low.
  *
  * This calibrates the DISPLAY only. No factor is injected into the score, which
- * stays verifiable by counting matches against the keyword list. Keep it so.
+ * stays verifiable by counting matched requirements. Keep it so.
  */
 export const RELEVANCE_BAND_HIGH = 35;
 export const RELEVANCE_BAND_MEDIUM = 18;
@@ -58,30 +53,26 @@ const RELEVANCE_WEIGHT = 0.85;
  * Without an offer there is no fit to measure, so recency and duration are all
  * that is left to rank on.
  */
-export function scoreExperience(exp: Experience, jobKeywords: string[]): number {
+export function scoreExperience(exp: Experience, requirements: JobRequirement[]): number {
   const recency = computeRecency(exp);
-  if (jobKeywords.length === 0) {
+  if (!requirements.some(isWritable)) {
     return Math.round(recency * 0.6 + computeDuration(exp) * 0.4);
   }
-  const relevance = computeKeywordMatch(exp, jobKeywords);
+  const relevance = computeRequirementMatch(exp, requirements);
   return Math.round(relevance * RELEVANCE_WEIGHT + recency * (1 - RELEVANCE_WEIGHT));
 }
 
 /**
- * Match experience text against keywords using word-boundary regex.
- * Handles special characters (C++, C#, .NET, Node.js) via regex escaping.
+ * Share of the requirements an experience can prove (not a degree, a language
+ * or a number of years) that its whole text evidences, with the matching of
+ * the ATS score: variants, accents, plurals, word boundaries.
  */
-export function computeKeywordMatch(exp: Experience, keywords: string[]): number {
-  const text = [exp.position, exp.company, ...(exp.description || [])].join(' ').toLowerCase();
-  let hits = 0;
-  for (const kw of keywords) {
-    // Escape regex special chars (handles C++, C#, .NET, Node.js)
-    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Word-boundary matching: \b for ASCII, lookaround for accented chars
-    const re = new RegExp(`(?:^|\\b|\\s)${escaped}(?:\\b|\\s|$)`, 'i');
-    if (re.test(text)) hits++;
-  }
-  return Math.min(100, Math.round((hits / Math.max(1, keywords.length)) * 100));
+export function computeRequirementMatch(exp: Experience, requirements: JobRequirement[]): number {
+  const provable = requirements.filter(isWritable);
+  if (provable.length === 0) return 0;
+  const text = prepareText(experienceText(exp, 'content').join(' | '));
+  const hits = provable.filter(r => [r.label, ...r.variants].some(term => matchPhrase(term, text))).length;
+  return Math.round((hits / provable.length) * 100);
 }
 
 /** Score based on how recent the experience is (0-100). */

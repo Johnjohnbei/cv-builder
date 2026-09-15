@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { expandToMax, condenseOneStep, maxCondenseSteps } from './fitToPages';
-import type { Experience, ExperienceDisplayMode } from '@/src/shared/types';
+import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
 
-const KEYWORDS = ['figma', 'design', 'system', 'saas'];
+const req = (label: string): JobRequirement => ({
+  id: label, label, variants: [], kind: 'hard_skill', importance: 'required', quote: label,
+});
+const REQUIREMENTS = [req('figma'), req('design system'), req('saas'), req('design ops')];
 
 function makeExp(over: Partial<Experience> = {}): Experience {
   return {
@@ -25,7 +28,7 @@ const strong = makeExp({
   description: ['Design system Figma', 'SaaS design', 'design ops', 'figma tokens'],
 });
 
-/** No keyword match, old, short → bottom of the score band */
+/** No requirement match, old, short → bottom of the score band */
 const weak = makeExp({
   position: 'Stagiaire',
   company: 'Vieille Boite',
@@ -44,7 +47,7 @@ function condenseUntil(
   let cur = expandToMax(experiences);
   let steps = 0;
   while (!fits(cur) && steps <= maxCondenseSteps(experiences)) {
-    const next = condenseOneStep(cur, KEYWORDS);
+    const next = condenseOneStep(cur, REQUIREMENTS);
     if (!next) break;
     cur = next;
     steps++;
@@ -69,19 +72,19 @@ describe('expandToMax', () => {
 describe('condenseOneStep', () => {
   it('condenses the weakest experience first', () => {
     const start = expandToMax([strong, weak]);
-    expect(modes(condenseOneStep(start, KEYWORDS)!)).toEqual(['extended', 'normal']);
+    expect(modes(condenseOneStep(start, REQUIREMENTS)!)).toEqual(['extended', 'normal']);
   });
 
   it('moves exactly one experience by exactly one rung', () => {
     const start = expandToMax([strong, weak, mid]);
-    const next = condenseOneStep(start, KEYWORDS)!;
+    const next = condenseOneStep(start, REQUIREMENTS)!;
     expect(next.filter((e, i) => e.displayMode !== start[i].displayMode)).toHaveLength(1);
   });
 
   it('finishes a wave before starting the next: no role drops two rungs ahead', () => {
     let cur = expandToMax([strong, mid, weak]);
     for (let i = 0; i < 9; i++) {
-      const next = condenseOneStep(cur, KEYWORDS);
+      const next = condenseOneStep(cur, REQUIREMENTS);
       if (!next) break;
       cur = next;
       const rungs = modes(cur).map(m => ['extended', 'normal', 'compact', 'hidden'].indexOf(m));
@@ -92,7 +95,7 @@ describe('condenseOneStep', () => {
   it('never hides anything while some experience still has bullets', () => {
     let cur = expandToMax([strong, mid, weak]);
     for (let i = 0; i < 12; i++) {
-      const next = condenseOneStep(cur, KEYWORDS);
+      const next = condenseOneStep(cur, REQUIREMENTS);
       if (!next) break;
       cur = next;
       if (modes(cur).includes('hidden')) {
@@ -104,7 +107,7 @@ describe('condenseOneStep', () => {
   it('hides the weakest experience before the strongest', () => {
     let cur = expandToMax([strong, weak]);
     for (let i = 0; i < 12; i++) {
-      const next = condenseOneStep(cur, KEYWORDS);
+      const next = condenseOneStep(cur, REQUIREMENTS);
       if (!next) break;
       cur = next;
       if (modes(cur).includes('hidden')) break;
@@ -115,10 +118,10 @@ describe('condenseOneStep', () => {
 
   it('returns null once everything is hidden', () => {
     const allHidden = [strong, weak].map(e => ({ ...e, displayMode: 'hidden' as const }));
-    expect(condenseOneStep(allHidden, KEYWORDS)).toBeNull();
+    expect(condenseOneStep(allHidden, REQUIREMENTS)).toBeNull();
   });
 
-  it('works without a job description (no keywords)', () => {
+  it('works without a job description (no requirements)', () => {
     expect(condenseOneStep(expandToMax([strong, weak]), [])).not.toBeNull();
   });
 });

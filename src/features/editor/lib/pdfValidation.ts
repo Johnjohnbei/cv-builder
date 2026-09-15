@@ -4,7 +4,8 @@
  * Compares rendered DOM text against expected CV content to detect
  * cases where ATS parsers would fail to extract meaningful text.
  */
-import type { CVData } from '@/src/shared/types';
+import type { CVData, DesignSettings } from '@/src/shared/types';
+import { stripInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import { cvSections } from './keywordAnalysis';
 
 // ─── Types ───
@@ -23,13 +24,17 @@ const EXTRACTABILITY_THRESHOLD = 0.6;
 
 /**
  * Plain text of what the rendered CV should contain: the contact line, then
- * every part as the ATS score reads it (display modes applied). One owner of
- * "what the CV prints" for the score and for this check.
+ * every part as the ATS score reads it (display modes and Design sections
+ * applied), inline markdown markers removed as the renderer removes them. One
+ * owner of "what the CV prints" for the score and for this check.
  */
-export function extractExpectedText(cvData: CVData): string {
+export function extractExpectedText(cvData: CVData, design?: Pick<DesignSettings, 'includedSections'>): string {
   const pi = cvData.personal_info;
-  const sections = cvSections(cvData, 'rendered');
-  return [pi.name, pi.email, pi.phone, pi.location, ...Object.values(sections).flat()].filter(Boolean).join(' ');
+  const sections = cvSections(cvData, 'rendered', design);
+  return [pi.name, pi.email, pi.phone, pi.location, ...Object.values(sections).flat()]
+    .filter(Boolean)
+    .map(text => stripInlineMarkdown(text))
+    .join(' ');
 }
 
 /**

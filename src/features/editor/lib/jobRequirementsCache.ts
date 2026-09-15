@@ -34,6 +34,26 @@ export interface AnalyzedOffer {
 
 const NO_REQUIREMENTS: JobRequirement[] = [];
 
+/**
+ * idle: no offer. pending: the offer on screen is not committed yet (nothing
+ * runs until the field loses focus). loading: the committed offer is being
+ * analyzed. ready: requirements known. failed: the analysis of this offer failed.
+ */
+export type RequirementsStatus = 'idle' | 'pending' | 'loading' | 'ready' | 'failed';
+
+export function requirementsStatus(state: {
+  liveOffer: string;
+  committedOffer: string;
+  requirements: JobRequirement[];
+  failedOffer: string;
+}): RequirementsStatus {
+  const live = state.liveOffer.trim();
+  if (!live) return 'idle';
+  if (state.requirements.length > 0) return 'ready';
+  if (live !== state.committedOffer.trim()) return 'pending';
+  return state.failedOffer.trim() === live ? 'failed' : 'loading';
+}
+
 /** The requirements when `liveOffer` is the offer they describe, none otherwise. */
 export function requirementsForOffer(liveOffer: string, analyzed: AnalyzedOffer): JobRequirement[] {
   const jd = normalize(liveOffer);

@@ -77,28 +77,57 @@ describe('cvSections', () => {
     expect(skills).toContain('Cobol');
   });
 
-  it('a section switched off in Design reads as empty', () => {
-    const sections = cvSections(cv(), 'rendered', { includedSections: ['personal', 'experience'] });
+  it('a section switched off in Design reads as empty; the header with the title is always printed', () => {
+    const sections = cvSections(cv(), 'rendered', { includedSections: ['experience'] });
     expect(sections.skills).toEqual([]);
     expect(sections.summary).toEqual([]);
     expect(sections.title).toEqual(['Product Designer']);
+  });
+
+  it('reads the skill category titles and company tags as the templates print them', () => {
+    const printed = cv({
+      skills: [{ category: 'technical', items: ['React'] }],
+      experience: [exp({ companyStage: 'Scaleup', companyBusinessModel: 'SaaS', displayMode: 'normal' })],
+    });
+    const { skills, experience } = cvSections(printed, 'rendered');
+    expect(skills).toEqual(['Compétences techniques', 'React']);
+    expect(experience).toContain('SaaS');
+    expect(experience).toContain('Scaleup');
   });
 });
 
 describe('yearsOfExperience', () => {
   const NOW = new Date('2022-01-15');
 
-  it('merges overlapping roles and counts a current role until now', () => {
+  // Both months count: "January 2015 to December 2019" is five years on a CV
+  it('counts the start and end months, as a CV reads', () => {
+    expect(yearsOfExperience([exp({ start_date: '2015-01', end_date: '2019-12' })], NOW)).toBe(5);
+    expect(yearsOfExperience([exp({ start_date: 'Décembre 2015', end_date: 'Janvier 2016' })], NOW)).toBeCloseTo(2 / 12, 5);
+  });
+
+  it('reads the "Mois YYYY" dates the import writes', () => {
+    expect(yearsOfExperience([exp({ start_date: 'Septembre 2016', end_date: 'Mars 2019' })], NOW)).toBeCloseTo(31 / 12, 5);
+  });
+
+  it('merges overlapping roles and counts a current role until this month', () => {
     const years = yearsOfExperience([
       exp({ start_date: '2015-01', end_date: '2018-01' }),
       exp({ start_date: '2017-01', end_date: '2019-01' }),
       exp({ start_date: '2020-01', end_date: '', current: true }),
     ], NOW);
-    expect(years).toBeCloseTo(6, 1);
+    expect(years).toBeCloseTo((49 + 25) / 12, 5);
   });
 
-  it('reads a bare year and ignores a role without a start date', () => {
-    expect(yearsOfExperience([exp({ start_date: '2019', end_date: '2021' }), exp({ start_date: '' })], NOW)).toBeCloseTo(2, 1);
+  it('reads a bare year as a whole year', () => {
+    expect(yearsOfExperience([exp({ start_date: '2019', end_date: '2021' })], NOW)).toBe(3);
+  });
+
+  it('ignores a role without a start date, with an unreadable date, or ending before it starts', () => {
+    expect(yearsOfExperience([
+      exp({ start_date: '' }),
+      exp({ start_date: '2019-00', end_date: '2020-01' }),
+      exp({ start_date: '2021-06', end_date: '2020-01' }),
+    ], NOW)).toBe(0);
   });
 });
 
@@ -121,6 +150,25 @@ describe('computeATSReport', () => {
     ]);
     // found: title 3 + Figma 3 ; total: 3 + 3 + 1 + 1
     expect(report.score).toBe(75);
+    // The panel shows the points the score is made of, so it can be recounted
+    expect(report.requirements.map(r => r.weight)).toEqual([3, 3, 1, 1]);
+    expect(report.points).toEqual({ covered: 6, total: 8 });
+  });
+
+  // The plan's guard: the old score gave a well-matched CV 35 and a weak one 59
+  it('scores the CV that proves the offer above a CV that only shares its common words', () => {
+    const requirements = [
+      req('Product Designer', { kind: 'title' }), req('Figma'), req('design system', { kind: 'hard_skill' }),
+      req('recherche utilisateur', { kind: 'method' }), req('SaaS', { kind: 'domain', importance: 'preferred' }),
+    ];
+    const relevant = cv({ experience: [exp({ description: ['Construit le design system Figma du SaaS', 'Mené la recherche utilisateur'] })] });
+    const weak = cv({
+      personal_info: { name: 'B', email: 'b@b.fr', title: 'Responsable administratif' },
+      experience: [exp({ position: 'Assistant', description: ["Travail en équipe dans l'entreprise", 'Gestion de projets'] })],
+      skills: [{ category: 'Outils', items: ['Word'] }],
+    });
+    expect(computeATSReport(relevant, requirements).score).toBeGreaterThanOrEqual(90);
+    expect(computeATSReport(weak, requirements).score).toBeLessThan(20);
   });
 
   it('matches a variant, accents and plurals, and tells where', () => {
@@ -166,9 +214,9 @@ describe('computeATSReport', () => {
       .toEqual({ email: false, phone: false, location: false, titles: false });
   });
 
-  it('fails the contact checks when the header is switched off', () => {
-    const report = computeATSReport(cv(), [], { design: { includedSections: ['experience'] } });
-    expect(report.checks.filter(c => !c.passed).map(c => c.id)).toEqual(['email', 'phone', 'location']);
+  it.each(['Dév. front', 'Resp. marketing', 'Mgr produit'])('flags the abbreviated title %s', (position) => {
+    const report = computeATSReport(cv({ experience: [exp({ position })] }), []);
+    expect(report.checks.find(c => c.id === 'titles')?.passed).toBe(false);
   });
 
   it('does not crash on an empty CV', () => {

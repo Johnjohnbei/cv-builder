@@ -2,20 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { JobRequirement } from '@/src/shared/types';
+import { getUserErrorMessage } from '@/src/shared/lib/convexError';
 import {
-  requirementsForOffer, readCachedRequirements, writeCachedRequirements, type AnalyzedOffer,
+  requirementsForOffer, requirementsStatus, readCachedRequirements, writeCachedRequirements,
+  type AnalyzedOffer, type RequirementsStatus,
 } from '../lib/jobRequirementsCache';
-
-/**
- * idle: no offer. loading: the offer is being analyzed, or not committed yet.
- * ready: requirements known. failed: the last analysis of this offer failed.
- */
-export type RequirementsStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 export interface JobRequirementsState {
   requirements: JobRequirement[];
   status: RequirementsStatus;
+  /** Why the last analysis of the offer on screen failed, for the user */
+  error: string;
 }
+
+const FAILURE_FALLBACK = "L'analyse de l'offre n'a pas abouti.";
 
 /**
  * LLM-extracted requirements of the committed offer, applied to the offer on screen.
@@ -32,8 +32,8 @@ export interface JobRequirementsState {
  * scored against another offer's requirements, not even for one render.
  *
  * `commitId` changes at every commit, same text included, so a failed
- * extraction is retried at the next one. A failure is reported as a status:
- * without requirements there is no score, never a local guess.
+ * extraction is retried at the next one. A failure is reported as a status and
+ * a message: without requirements there is no score, never a local guess.
  */
 export function useJobRequirements(
   committedOffer: string,
@@ -50,7 +50,7 @@ export function useJobRequirements(
   // to an offer whose answer had not arrived yet.
   const inflight = useRef(new Map<string, ReturnType<typeof extractAction>>());
   const [analyzed, setAnalyzed] = useState<AnalyzedOffer>({ offer: '', requirements: [] });
-  const [failedOffer, setFailedOffer] = useState('');
+  const [failure, setFailure] = useState({ offer: '', message: '' });
 
   useEffect(() => {
     if (!committedOffer.trim()) return;
@@ -59,7 +59,7 @@ export function useJobRequirements(
       setAnalyzed({ offer: committedOffer, requirements: cached });
       return;
     }
-    setFailedOffer('');
+    setFailure({ offer: '', message: '' });
     const key = JSON.stringify([committedOffer.trim(), accessCode ?? '']);
     let request = inflight.current.get(key);
     if (!request) {
@@ -80,7 +80,9 @@ export function useJobRequirements(
         // A stale response must not overwrite the requirements of a newer offer
         if (!cancelled && Array.isArray(data.requirements)) setAnalyzed({ offer: committedOffer, requirements: data.requirements });
       })
-      .catch(() => { if (!cancelled) setFailedOffer(committedOffer); });
+      .catch((error: unknown) => {
+        if (!cancelled) setFailure({ offer: committedOffer, message: getUserErrorMessage(error, FAILURE_FALLBACK) });
+      });
     return () => {
       cancelled = true;
     };
@@ -88,11 +90,7 @@ export function useJobRequirements(
 
   return useMemo(() => {
     const requirements = requirementsForOffer(liveOffer, analyzed);
-    const status: RequirementsStatus = !liveOffer.trim()
-      ? 'idle'
-      : requirements.length > 0
-        ? 'ready'
-        : failedOffer.trim() === liveOffer.trim() ? 'failed' : 'loading';
-    return { requirements, status };
-  }, [liveOffer, analyzed, failedOffer]);
+    const status = requirementsStatus({ liveOffer, committedOffer, requirements, failedOffer: failure.offer });
+    return { requirements, status, error: status === 'failed' ? failure.message : '' };
+  }, [liveOffer, committedOffer, analyzed, failure]);
 }

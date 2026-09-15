@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { JobRequirement } from '@/src/shared/types';
-import { requirementsForOffer } from './jobRequirementsCache';
+import { requirementsForOffer, requirementsStatus } from './jobRequirementsCache';
 
 const R = (label: string): JobRequirement => ({
   id: label.toLowerCase(), label, variants: [], kind: 'tool', importance: 'required', quote: label,
@@ -24,6 +24,35 @@ describe('requirementsForOffer', () => {
   it('applies none to an empty field, even when nothing was analyzed', () => {
     expect(requirementsForOffer('', ANALYZED)).toEqual([]);
     expect(requirementsForOffer('', { offer: '', requirements: [R('x')] })).toEqual([]);
+  });
+});
+
+describe('requirementsStatus', () => {
+  const base = { liveOffer: 'Offre A', committedOffer: 'Offre A', requirements: [] as JobRequirement[], failedOffer: '' };
+
+  it('is idle without an offer', () => {
+    expect(requirementsStatus({ ...base, liveOffer: '  ' })).toBe('idle');
+  });
+
+  it('is ready once the offer on screen has requirements', () => {
+    expect(requirementsStatus({ ...base, requirements: [R('Figma')] })).toBe('ready');
+  });
+
+  // Nothing runs until the field loses focus: "analysis in progress" would lie
+  it('is pending while the offer typed has not been committed', () => {
+    expect(requirementsStatus({ ...base, liveOffer: 'Offre A modifiée' })).toBe('pending');
+  });
+
+  it('is loading while the committed offer is being analyzed', () => {
+    expect(requirementsStatus(base)).toBe('loading');
+  });
+
+  it('is failed when the analysis of this very offer failed, whitespace aside', () => {
+    expect(requirementsStatus({ ...base, failedOffer: ' Offre A\n' })).toBe('failed');
+  });
+
+  it('is pending again when the failed offer is edited', () => {
+    expect(requirementsStatus({ ...base, liveOffer: 'Offre B', failedOffer: 'Offre A' })).toBe('pending');
   });
 });
 

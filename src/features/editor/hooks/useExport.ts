@@ -49,7 +49,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
 
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;
-    const expectedText = cvData ? extractExpectedText(cvData) : '';
+    const expectedText = cvData ? extractExpectedText(cvData, designSettings) : '';
     await serverlessPDF(cvRef.current, designSettings, {
       expectedText,
       fileBaseName,
@@ -88,7 +88,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;
-    const expectedText = cvData ? extractExpectedText(cvData) : '';
+    const expectedText = cvData ? extractExpectedText(cvData, designSettings) : '';
     renderPDF(cvRef.current, designSettings, {
       expectedText,
       onValidation: (result) => {

@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CVData } from '@/src/shared/types';
+import type { CVData, JobRequirement } from '@/src/shared/types';
 import { condenseOneStep, expandToMax, maxCondenseSteps } from '../lib/fitToPages';
 
 export interface UseFitToPagesDeps {
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  /** Keywords extracted from the job description — drives which roles survive */
-  jobKeywords: string[];
+  /** The offer's requirements: drive which roles keep their detail */
+  requirements: JobRequirement[];
   /**
-   * False while the offer's requirements are still being analyzed: fitting a
-   * fresh CV then would rank every experience on recency alone, and a fitted
-   * CV is not fitted again.
+   * False while the offer's requirements are still expected: fitting a fresh
+   * CV then would rank every experience on recency alone, and a fitted CV is
+   * not fitted again.
    */
-  jobKeywordsReady: boolean;
+  requirementsReady: boolean;
   /**
    * Page count for the current content once measurement converged, null while
    * it is still being measured. Never substitute the raw actualPageCount here:
@@ -48,16 +48,16 @@ export interface UseFitToPagesResult {
  */
 export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
   const {
-    cvData, setCvData, jobKeywords, jobKeywordsReady, stablePageCount, targetPages,
+    cvData, setCvData, requirements, requirementsReady, stablePageCount, targetPages,
     loadedJobDescription, jobDescription, notify,
   } = deps;
 
   const [isFitting, setIsFitting] = useState(false);
   const stepsRef = useRef(0);
   // Read inside the effect without making it a dependency: re-running the loop
-  // on every keystroke-driven jobKeywords identity change would fight the user.
-  const keywordsRef = useRef(jobKeywords);
-  keywordsRef.current = jobKeywords;
+  // on every requirements identity change would fight the user.
+  const requirementsRef = useRef(requirements);
+  requirementsRef.current = requirements;
 
   const runFit = useCallback(() => {
     if (!cvData?.experience?.length) return;
@@ -80,9 +80,9 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     // Wait for the stored job description to reach state, otherwise the pass
     // would rank every experience against an empty offer.
     if (loadedJobDescription && !jobDescription) return;
-    if (!jobKeywordsReady) return;
+    if (!requirementsReady) return;
     runFit();
-  }, [cvData, isFitting, loadedJobDescription, jobDescription, jobKeywordsReady, runFit]);
+  }, [cvData, isFitting, loadedJobDescription, jobDescription, requirementsReady, runFit]);
 
   useEffect(() => {
     if (!isFitting || stablePageCount === null || !cvData?.experience?.length) return;
@@ -96,7 +96,7 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     }
 
     const exhausted = stepsRef.current >= maxCondenseSteps(cvData.experience);
-    const next = exhausted ? null : condenseOneStep(cvData.experience, keywordsRef.current);
+    const next = exhausted ? null : condenseOneStep(cvData.experience, requirementsRef.current);
     if (!next) {
       setIsFitting(false);
       notify({

@@ -4,7 +4,7 @@ import { cn } from '@/src/shared/lib/cn';
 import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
 import type { CVData, DesignSettings, ATSReport } from '@/src/shared/types';
-import type { RequirementsStatus } from '../hooks/useJobRequirements';
+import type { RequirementsStatus } from '../lib/jobRequirementsCache';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
 import { ATSPanel } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
@@ -67,6 +67,8 @@ interface Props {
   atsReport: ATSReport | null;
   hasJobDescription: boolean;
   requirementsStatus: RequirementsStatus;
+  /** Why the analysis of the offer failed */
+  requirementsError: string;
   onRetryAnalysis: () => void;
 
   bullets: ReturnType<typeof useBulletOptimization>;
@@ -101,7 +103,7 @@ export function EditorSidebar(props: Props) {
     expandedSection, toggles,
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
-    atsReport, hasJobDescription, requirementsStatus, onRetryAnalysis,
+    atsReport, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis,
     bullets, keywordDistribution, exports, templateSelection, coverLetter, notify,
   } = props;
 
@@ -257,6 +259,7 @@ export function EditorSidebar(props: Props) {
                 report={atsReport}
                 hasJobDescription={hasJobDescription}
                 requirementsStatus={requirementsStatus}
+                requirementsError={requirementsError}
                 onRetryAnalysis={onRetryAnalysis}
                 onOptimizeBullets={bullets.optimize}
                 isOptimizing={bullets.isOptimizing}

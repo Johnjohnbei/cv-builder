@@ -93,6 +93,15 @@ describe('extractExpectedText', () => {
     expect(text).not.toContain('Node.js');
     expect(text).not.toContain('Python');
   });
+
+  // The rendered text has neither: expecting them flagged a good PDF as unreadable
+  it('skips a section switched off in Design, and inline markdown markers', () => {
+    const cv = { ...fullCV, experience: [{ ...fullCV.experience[0], description: ['Built **microservices** architecture'] }] };
+    const text = extractExpectedText(cv, { includedSections: ['personal', 'experience'] });
+    expect(text).not.toContain('Universite Paris-Saclay');
+    expect(text).not.toContain('**');
+    expect(text).toContain('Built microservices architecture');
+  });
 });
 
 // ─── validateCVTextExtractability ───

@@ -168,6 +168,8 @@ export interface RequirementCoverage {
   requirement: JobRequirement;
   found: boolean;
   sections: CVSection[];
+  /** Points it weighs in the score */
+  weight: number;
 }
 
 /** A property a CV parser needs, passed or failed: not a score. */
@@ -181,6 +183,8 @@ export interface ATSReport {
   /** Weighted share of the offer's requirements present, 0 to 100; null without requirements */
   score: number | null;
   requirements: RequirementCoverage[];
+  /** The points the score is the share of, so it can be recounted from the list */
+  points: { covered: number; total: number };
   checks: ReadabilityCheck[];
 }
 

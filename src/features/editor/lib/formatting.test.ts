@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { formatDateShort, getCurrentLabel, normalizeProficiency } from './formatting';
+import { formatDateShort, getCurrentLabel, normalizeProficiency, parseMonthYear } from './formatting';
+
+// ─── parseMonthYear ───
+
+// One parser for every date the app stores: the AI import writes "Mois YYYY",
+// LinkedIn "Month YYYY", the editor accepts "MM/YYYY" and "YYYY-MM"
+describe('parseMonthYear', () => {
+  it.each([
+    ['Septembre 2016', { year: 2016, month: 9 }],
+    ['Sept. 2021', { year: 2021, month: 9 }],
+    ['Août 2020', { year: 2020, month: 8 }],
+    ['January 2024', { year: 2024, month: 1 }],
+    ['03/2019', { year: 2019, month: 3 }],
+    ['2019-03', { year: 2019, month: 3 }],
+    ['2019', { year: 2019, month: null }],
+  ])('reads %s', (date, expected) => {
+    expect(parseMonthYear(date)).toEqual(expected);
+  });
+
+  it.each(['', 'bientôt', '2019-00', '13/2019', 'Brumaire 2019'])('refuses %s', (date) => {
+    expect(parseMonthYear(date)).toBeNull();
+  });
+});
 
 // ─── formatDateShort ───
 

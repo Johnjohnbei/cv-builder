@@ -142,6 +142,23 @@ test.describe('Offre saisie dans l\'éditeur', () => {
   });
 });
 
+test.describe('Analyse de l\'offre indisponible', () => {
+  // The only action this test lets through: without an account or an access
+  // code, the server refuses it before any AI call, so nothing is billed.
+  test('sans code d\'accès : pas de score, la raison et Réessayer', async ({ page }) => {
+    const calls = watchAICalls(page);
+    await setupGuestEditor(page, MOCK_CV, '');
+    await page.getByPlaceholder(/Collez l'offre d'emploi ici/).fill("Offre jamais analysée : Product Designer, Figma, design system, recherche utilisateur.");
+    await page.getByRole('tab', { name: 'ATS' }).click();
+
+    await expect(page.getByText("Analyse de l'offre indisponible pour le moment.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Code d'accès requis/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Réessayer' })).toBeVisible();
+    await expect(page.getByText('Score ATS')).toHaveCount(0);
+    expect(calls.every(name => name === 'extractJobRequirements')).toBe(true);
+  });
+});
+
 test.describe('Edge cases : données CV incomplètes', () => {
   guardAICalls();
 

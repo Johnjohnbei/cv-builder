@@ -28,6 +28,25 @@ const MONTHS_SHORT_EN: ReadonlyArray<string> = [
 
 export type DateLanguage = 'fr' | 'en';
 
+/**
+ * Year and month of a stored date, whatever the format the app writes: "Mois
+ * YYYY" (AI import, LinkedIn), "MM/YYYY", "YYYY-MM", or a bare year (month
+ * null). Null when the date cannot be read, an impossible month included.
+ * Single parser for display and for the years of experience the score measures.
+ */
+export function parseMonthYear(date?: string): { year: number; month: number | null } | null {
+  const d = date?.trim() ?? '';
+  if (/^\d{4}$/.test(d)) return { year: Number(d), month: null };
+  const valid = (year: string, month: number) => (month >= 1 && month <= 12 ? { year: Number(year), month } : null);
+  const monthYear = d.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
+  if (monthYear) return valid(monthYear[2], MONTH_TO_INDEX[monthYear[1].toLowerCase()] ?? 0);
+  const slash = d.match(/^(\d{1,2})[/-](\d{4})$/);
+  if (slash) return valid(slash[2], Number(slash[1]));
+  const iso = d.match(/^(\d{4})-(\d{1,2})$/);
+  if (iso) return valid(iso[1], Number(iso[2]));
+  return null;
+}
+
 /** Returns the localized abbreviation for "current job" — "Présent" or "Present". */
 export function getCurrentLabel(language: DateLanguage): string {
   return language === 'en' ? 'Present' : 'Présent';
@@ -57,33 +76,10 @@ export function formatDateShort(date?: string, language: DateLanguage = 'fr'): s
   if (!date) return '';
   const d = date.trim();
   const months = language === 'en' ? MONTHS_SHORT_EN : MONTHS_SHORT_FR;
-
-  // Pure year — nothing to localize
-  if (/^\d{4}$/.test(d)) return d;
-
-  // "Month Year" or "Month. Year" — locale-agnostic parse
-  const monthYearMatch = d.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
-  if (monthYearMatch) {
-    const monthKey = monthYearMatch[1].toLowerCase();
-    const idx = MONTH_TO_INDEX[monthKey];
-    if (idx) return `${months[idx - 1]} ${monthYearMatch[2]}`;
-  }
-
-  // "MM/YYYY" or "MM-YYYY"
-  const slashMatch = d.match(/^(\d{1,2})[/\-](\d{4})$/);
-  if (slashMatch) {
-    const monthNum = parseInt(slashMatch[1], 10);
-    return `${months[monthNum - 1] || ''} ${slashMatch[2]}`;
-  }
-
-  // "YYYY-MM" (ISO partial)
-  const isoMatch = d.match(/^(\d{4})-(\d{1,2})$/);
-  if (isoMatch) {
-    const monthNum = parseInt(isoMatch[2], 10);
-    return `${months[monthNum - 1] || ''} ${isoMatch[1]}`;
-  }
-
-  return d; // return as-is if no pattern matches
+  const parsed = parseMonthYear(d);
+  // Unreadable dates are shown as typed; a bare year has nothing to localize
+  if (!parsed || parsed.month === null) return d;
+  return `${months[parsed.month - 1]} ${parsed.year}`;
 }
 
 // --- Language proficiency normalization ---

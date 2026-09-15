@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExperience, relevanceBand, computeKeywordMatch, computeRecency, computeDuration } from './scoring';
-import type { Experience } from '@/src/shared/types';
+import { scoreExperience, relevanceBand, computeRequirementMatch, computeRecency, computeDuration } from './scoring';
+import type { Experience, JobRequirement } from '@/src/shared/types';
 
 // ─── Helpers ───
 
@@ -16,41 +16,42 @@ function makeExp(overrides: Partial<Experience> = {}): Experience {
   };
 }
 
-// ─── computeKeywordMatch (word-boundary fix per D-07) ───
+const req = (label: string, over: Partial<JobRequirement> = {}): JobRequirement => ({
+  id: label, label, variants: [], kind: 'hard_skill', importance: 'required', quote: label, ...over,
+});
+const reqs = (...labels: string[]) => labels.map(label => req(label));
 
-describe('computeKeywordMatch', () => {
-  it('does NOT match substring keywords (java vs javascript)', () => {
+// ─── computeRequirementMatch: the same matching as the ATS score ───
+
+describe('computeRequirementMatch', () => {
+  it('does NOT match inside a longer word (java vs javascript)', () => {
     const exp = makeExp({ position: 'JavaScript Developer', description: ['Built JavaScript apps'] });
-    // "java" must NOT match "javascript"
-    expect(computeKeywordMatch(exp, ['java'])).toBe(0);
+    expect(computeRequirementMatch(exp, reqs('java'))).toBe(0);
   });
 
-  it('matches exact word keywords', () => {
-    const exp = makeExp({ position: 'Java Developer', description: ['Built Java apps'] });
-    expect(computeKeywordMatch(exp, ['java'])).toBeGreaterThan(0);
-  });
-
-  it('handles special characters in keywords (c++)', () => {
+  it('matches names with symbols (c++)', () => {
     const exp = makeExp({ position: 'C++ Developer', description: ['C++ programming'] });
-    expect(computeKeywordMatch(exp, ['c++'])).toBeGreaterThan(0);
+    expect(computeRequirementMatch(exp, reqs('c++'))).toBe(100);
   });
 
-  it('is case-insensitive', () => {
-    const exp = makeExp({ position: 'React Developer' });
-    expect(computeKeywordMatch(exp, ['react'])).toBeGreaterThan(0);
+  it('reads the intro, the KPI, accents, plurals and variants, like the score', () => {
+    const exp = makeExp({ intro: 'Lead Figma', kpi: 'Systèmes de design', description: ['Mené des entretiens utilisateurs'] });
+    const found = [req('figma'), req('systeme de design'), req('user research', { variants: ['entretien utilisateur'] })];
+    expect(computeRequirementMatch(exp, found)).toBe(100);
+  });
+
+  // An experience cannot prove a degree, a language or a number of years
+  it('only counts the requirements an experience can prove', () => {
+    const exp = makeExp({ position: 'React Developer', description: ['Master en anglais'] });
+    const mixed = [req('react'), req('Master', { kind: 'education' }), req('anglais', { kind: 'language' }), req('5 ans', { kind: 'experience_years', minYears: 5 })];
+    expect(computeRequirementMatch(exp, mixed)).toBe(100);
   });
 
   it('returns 0 for no matches', () => {
     const exp = makeExp({ position: 'Chef', description: ['Cooking'] });
-    expect(computeKeywordMatch(exp, ['react', 'java'])).toBe(0);
-  });
-
-  it('returns 100 when all keywords match', () => {
-    const exp = makeExp({ position: 'React Java Developer', description: ['Built stuff'] });
-    expect(computeKeywordMatch(exp, ['react', 'java'])).toBe(100);
+    expect(computeRequirementMatch(exp, reqs('react', 'java'))).toBe(0);
   });
 });
-
 // ─── computeRecency ───
 
 describe('computeRecency', () => {
@@ -90,7 +91,7 @@ describe('scoreExperience', () => {
   // actuel affichait 46 % contre 53 % pour un poste parfaitement ciblé mais
   // ancien. Sept points d'écart, donc un tri qui les traitait en quasi-égaux.
   it('un poste hors sujet mais récent reste loin derrière un poste ciblé ancien', () => {
-    const kw = ['design system', 'design tokens', 'storybook', 'gouvernance'];
+    const kw = reqs('design system', 'design tokens', 'storybook', 'gouvernance');
     const cibleAncien = makeExp({
       position: 'Lead Design System', current: false, start_date: '2015-01', end_date: '2018-01',
       description: ['Industrialisé le design system : design tokens, composants, Storybook', 'Gouvernance des composants'],
@@ -105,7 +106,7 @@ describe('scoreExperience', () => {
 
   // La récence garde son rôle, mais seulement à pertinence comparable.
   it('à pertinence égale, la plus récente passe devant', () => {
-    const kw = ['react'];
+    const kw = reqs('react');
     const base = { position: 'React Developer', description: ['Built React apps'] };
     const recent = makeExp({ ...base, current: true, end_date: '' });
     const ancien = makeExp({ ...base, current: false, start_date: '2010-01', end_date: '2012-01' });
@@ -114,7 +115,7 @@ describe('scoreExperience', () => {
 
   it('boosts score with matching keywords', () => {
     const exp = makeExp({ position: 'React Developer', description: ['Built React apps'] });
-    const withKw = scoreExperience(exp, ['react', 'developer']);
+    const withKw = scoreExperience(exp, reqs('react', 'developer'));
     const withoutKw = scoreExperience(exp, []);
     expect(withKw).toBeGreaterThan(0);
     expect(withoutKw).toBeGreaterThan(0);
@@ -122,7 +123,7 @@ describe('scoreExperience', () => {
 
   it('returns 0-100 range', () => {
     const exp = makeExp();
-    const score = scoreExperience(exp, ['react']);
+    const score = scoreExperience(exp, reqs('react'));
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(100);
   });
@@ -151,5 +152,24 @@ describe('relevanceBand', () => {
   it('garde une bande intermédiaire pour les expériences partiellement pertinentes', () => {
     expect(relevanceBand(25)).toBe('medium');
     expect(relevanceBand(31)).toBe('medium');
+  });
+});
+
+// The bands read the same requirement matching as the score: an on-target
+// role must land in the high band and an off-target one in the low band
+describe('relevanceBand on a representative offer', () => {
+  const offer = [
+    req('design system'), req('Figma', { kind: 'tool' }), req('recherche utilisateur', { kind: 'method' }),
+    req('Storybook', { kind: 'tool' }), req('accessibilité'), req('SaaS', { kind: 'domain' }),
+    req('Product Designer', { kind: 'title' }), req('Master', { kind: 'education' }), req('anglais', { kind: 'language' }),
+  ];
+  it('an on-target role is high, an off-target current role is low', () => {
+    const onTarget = makeExp({
+      position: 'Lead Product Designer', current: false, start_date: '2016', end_date: '2019',
+      description: ['Construit le design system Figma et Storybook', 'Mené la recherche utilisateur du SaaS'],
+    });
+    const offTarget = makeExp({ position: 'Head of Marketing', current: true, end_date: '', description: ["Piloté la stratégie d'acquisition"] });
+    expect(relevanceBand(scoreExperience(onTarget, offer))).toBe('high');
+    expect(relevanceBand(scoreExperience(offTarget, offer))).toBe('low');
   });
 });

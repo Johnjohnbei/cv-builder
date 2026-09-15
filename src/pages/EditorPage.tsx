@@ -8,6 +8,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { scoreExperience } from '../features/editor/lib/scoring';
+import { isWritable } from '../features/editor/lib/keywordAnalysis';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useKeywordDistribution, useBulletOptimization, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -95,7 +96,7 @@ export default function EditorPage() {
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const { requirements, status: requirementsStatus } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
   const atsReport = useATSAnalysis(cvData, designSettings, requirements);
   const hasJobDescription = jobDescription.trim().length > 0;
 
@@ -106,10 +107,10 @@ export default function EditorPage() {
     '--secondary': designSettings.secondaryColor,
   } as React.CSSProperties), [designSettings.primaryColor, designSettings.secondaryColor]);
 
-  // Years of experience are measured from dates: no sentence can add them
+  // Only the gaps a rewrite can cover: a degree, a language or years are facts
   const missingKeywordsList = useMemo(
     () => (atsReport?.requirements ?? [])
-      .filter(c => !c.found && c.requirement.kind !== 'experience_years')
+      .filter(c => !c.found && isWritable(c.requirement))
       .map(c => c.requirement.label),
     [atsReport],
   );
@@ -200,28 +201,21 @@ export default function EditorPage() {
   // pagination reconcile.
   useEffect(() => { if (isAutoZoom) recomputeZoom(); }, [isSidebarOpen, activeTab]);
 
-  // ─── Memoized computations ───
-  // The relevance badge and the fit pass read the SAME requirements as the ATS
-  // score, or the percentage shown would not describe what the fit does. No
-  // local keyword guess while they load: the fit waits for them.
-  const jobKeywords = useMemo(
-    () => requirements.filter(r => r.kind !== 'experience_years').map(r => r.label),
-    [requirements],
-  );
-
   // ─── Fit to the target page count ───
+  // The relevance badge and the fit pass read the SAME requirements, with the
+  // same matching, as the ATS score. No local guess while they are expected:
+  // the fit waits for them (an offer being typed or analyzed).
   const targetPages = designSettings.pageLimit ?? 2;
   const fit = useFitToPages({
-    cvData, setCvData, jobKeywords, jobKeywordsReady: requirementsStatus !== 'loading', stablePageCount, targetPages,
-    loadedJobDescription, jobDescription, notify,
+    cvData, setCvData, requirements,
+    requirementsReady: requirementsStatus !== 'loading' && requirementsStatus !== 'pending',
+    stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
   });
 
-  // One score per experience, recomputed only when experiences or keywords
-  // change: inline calls in the JSX ran keywords.length regexes per experience
-  // on every keystroke.
+  // One score per experience, recomputed only when experiences or requirements change
   const experienceScores = useMemo(
-    () => (cvData?.experience ?? []).map(exp => scoreExperience(exp, jobKeywords)),
-    [cvData?.experience, jobKeywords],
+    () => (cvData?.experience ?? []).map(exp => scoreExperience(exp, requirements)),
+    [cvData?.experience, requirements],
   );
 
   const weakBullets = useMemo(
@@ -315,6 +309,7 @@ export default function EditorPage() {
         atsReport={atsReport}
         hasJobDescription={hasJobDescription}
         requirementsStatus={requirementsStatus}
+        requirementsError={requirementsError}
         onRetryAnalysis={commitJobDescription}
         bullets={bullets}
         keywordDistribution={keywordDistribution}
@@ -371,7 +366,7 @@ export default function EditorPage() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[300]">
           <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="text-sm text-gray-700">Generation du PDF...</span>
+            <span className="text-sm text-gray-700">Génération du PDF...</span>
           </div>
         </div>
       )}
