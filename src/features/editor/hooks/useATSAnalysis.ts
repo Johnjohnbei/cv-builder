@@ -10,6 +10,22 @@ import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
 const KEY = 'dismissed_gaps';
 const MAX_OFFERS = 5;
 
+/**
+ * An offer as this list names it: a short fingerprint, not the offer itself.
+ * Five offers of 20 000 characters each were ~100 kB in one localStorage key,
+ * in an app already fighting the quota for the guest's CV.
+ */
+export function offerKey(offer: string): string {
+  const text = offer.trim();
+  if (!text) return '';
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${text.length.toString(36)}-${(hash >>> 0).toString(36)}`;
+}
+
 export type DismissedGaps = [offer: string, ids: string[]][];
 
 const NO_IDS: string[] = [];
@@ -73,7 +89,7 @@ export function useATSAnalysis(deps: UseATSAnalysisDeps): ATSAnalysis {
   const proveAction = useAction(api.ai.proveRequirement);
   const [entries, setEntries] = useState(() => parseDismissedGaps(readStoredJSON<unknown>(KEY, [])));
   const [provingId, setProvingId] = useState<string | null>(null);
-  const key = offer.trim();
+  const key = offerKey(offer);
   const dismissed = entries.find(([o]) => o === key)?.[1] ?? NO_IDS;
 
   const report = useMemo(
@@ -96,12 +112,13 @@ export function useATSAnalysis(deps: UseATSAnalysisDeps): ATSAnalysis {
     setProvingId(requirement.id);
     try {
       const result = await proveAction({ cvData, jobDescription: offer, requirements, requirementId: requirement.id, proof, accessCode });
-      setCvData(result.cv);
-      const covered = result.report.requirements.some(c => c.requirement.id === requirement.id && c.found);
-      notify(covered
+      // The CV is replaced only when the server wrote something: a failed
+      // placement used to change the CV while telling the user nothing happened
+      if (result.written) setCvData(result.cv);
+      notify(result.written
         ? { message: `« ${requirement.label} » ajouté au CV.`, type: 'success' }
-        : { message: `« ${requirement.label} » n'a pas pu être placé : précisez où vous l'avez mis en œuvre.`, type: 'error' });
-      return covered;
+        : { message: `« ${requirement.label} » n'a pas pu être placé : précisez où vous l'avez mis en œuvre, chez quel employeur.`, type: 'error' });
+      return result.written;
     } catch (error) {
       console.error('Error proving requirement:', error);
       notify({ message: getUserErrorMessage(error, "Erreur lors de l'ajout au CV."), type: 'error' });

@@ -15,7 +15,7 @@ import { companyMetaOf, experienceMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 import { EXTRACTION_DEADLINE_MS, extractRequirements, provePipeline, tailorPipeline } from "./_ai/tailor";
-import { assertMaxLength, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
+import { assertBoundedPrompt, assertMaxLength, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -48,12 +48,14 @@ export const tailorCV = action({
   handler: async (ctx, args) => {
     const startedAt = Date.now();
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
     // _translations is bound to the content being rewritten: never sent, never returned
     const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.baseData || {};
     void _staleCache;
+    const cv = withoutUserOwnedFields(contentOnly);
+    assertBoundedPrompt(cv, args.requirements);
+    await verifyAccessCode(ctx, args.accessCode);
     const result = await tailorPipeline({
-      cv: withoutUserOwnedFields(contentOnly),
+      cv,
       jobDescription: args.jobDescription,
       requirements: args.requirements,
       pageLimit: args.pageLimit,
@@ -97,12 +99,17 @@ export const proveRequirement = action({
     const startedAt = Date.now();
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     assertMaxLength(args.proof, MAX_PROOF_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
-    // Same fields as tailorCV: the translation cache is bound to the content being rewritten
+    // The translation cache is dropped like in tailorCV: the CV it mirrors has
+    // just changed, and a cached other language missing the requirement just
+    // written would be exported as the CV. The next language switch pays for a
+    // fresh translation (arbitrage: a stale bilingual CV is worse than a call).
     const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.cvData || {};
     void _staleCache;
+    const cv = withoutUserOwnedFields(contentOnly);
+    assertBoundedPrompt(cv, args.requirements);
+    await verifyAccessCode(ctx, args.accessCode);
     const result = await provePipeline({
-      cv: withoutUserOwnedFields(contentOnly),
+      cv,
       jobDescription: args.jobDescription,
       requirements: args.requirements,
       requirementId: args.requirementId,
@@ -119,6 +126,7 @@ export const proveRequirement = action({
       },
       requirements: result.requirements,
       report: result.report,
+      written: result.written,
     };
   },
 });

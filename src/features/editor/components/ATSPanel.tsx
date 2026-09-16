@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
+import { useRef, useState } from 'react';
+import type { ATSReport, CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
 import { MAX_PROOF_CHARS } from '@/src/shared/types';
 import { isWritable } from '../lib/keywordAnalysis';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
@@ -35,6 +35,25 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
 };
 
 const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
+export const GAP_TITLE = 'text-[11px] font-mono text-red-600';
+
+/** The requirements of the offer the CV does not write */
+export const gapsOf = (report: ATSReport): RequirementCoverage[] => report.requirements.filter(c => !c.found);
+
+/**
+ * The score and what it measures. One owner: the editor's ATS tab and the
+ * dashboard's result panel say it in the same words, or they are two scores.
+ */
+export function ScoreSummary({ score }: { score: number }) {
+  return (
+    <>
+      <ScoreGauge score={score} size={120} label="Score ATS" />
+      <p className="text-[11px] text-gray-500 text-center mt-2 leading-snug max-w-[240px]">
+        Part des exigences de l'offre présentes dans votre CV, comme un ATS les recherche.
+      </p>
+    </>
+  );
+}
 
 const points = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
 
@@ -93,14 +112,32 @@ function GapItem({ coverage, onProve, onDismiss, proving, disabled }: GapProps) 
             autoFocus
           />
           <div className="flex gap-1.5">
-            <Button type="submit" size="sm" mono={false} loading={proving} disabled={disabled || !proof.trim()}>Écrire dans le CV</Button>
+            <Button type="submit" size="sm" mono={false} loading={proving} disabled={disabled || !proof.trim()}>
+              {`Écrire « ${requirement.label} » dans le CV`}
+            </Button>
             <Button type="button" variant="ghost" size="sm" mono={false} disabled={proving} onClick={() => setIsOpen(false)}>Annuler</Button>
           </div>
         </form>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {onProve && <Button variant="secondary" size="sm" mono={false} disabled={disabled} onClick={() => setIsOpen(true)}>J'ai cette compétence</Button>}
-          <Button variant="ghost" size="sm" mono={false} disabled={disabled} onClick={onDismiss}>Je ne l'ai pas</Button>
+          {/* The label is in the accessible name: a screen reader lists one set of
+              buttons per gap, and they all read alike without it */}
+          {onProve && (
+            <Button
+              variant="secondary" size="sm" mono={false} disabled={disabled}
+              aria-label={`${requirement.label} : j'ai cette compétence`}
+              onClick={() => setIsOpen(true)}
+            >
+              J'ai cette compétence
+            </Button>
+          )}
+          <Button
+            variant="ghost" size="sm" mono={false} disabled={disabled}
+            aria-label={`${requirement.label} : je ne l'ai pas`}
+            onClick={onDismiss}
+          >
+            Je ne l'ai pas
+          </Button>
         </div>
       )}
     </div>
@@ -116,29 +153,26 @@ export function ATSPanel({
   aiBusy = false,
 }: ATSPanelProps) {
   const { report, dismissed, dismiss, restore, prove, provingId } = analysis;
+  // Where the focus goes when a gap is written and its item leaves the list
+  const statusRef = useRef<HTMLDivElement>(null);
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
   const covered = report.requirements.filter(r => r.found);
-  const missing = report.requirements.filter(r => !r.found);
+  const missing = gapsOf(report);
   const gaps = missing.filter(r => !dismissed.includes(r.requirement.id));
   const setAside = missing.filter(r => dismissed.includes(r.requirement.id));
 
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
       {/* ─── Score, or why there is none ─── */}
-      <div className="flex flex-col items-center" role="status" aria-live="polite">
+      <div className="flex flex-col items-center" role="status" aria-live="polite" tabIndex={-1} ref={statusRef}>
         {!hasJobDescription ? (
           <p className="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 leading-relaxed">
             Importez une offre d'emploi pour mesurer la part de ses exigences présentes dans votre CV.
           </p>
         ) : report.score !== null ? (
-          <>
-            <ScoreGauge score={report.score} size={120} label="Score ATS" />
-            <p className="text-[11px] text-gray-500 text-center mt-2 leading-snug max-w-[240px]">
-              Part des exigences de l'offre présentes dans votre CV, comme un ATS les recherche.
-            </p>
-          </>
+          <ScoreSummary score={report.score} />
         ) : requirementsStatus === 'failed' ? (
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-xs text-gray-700">Analyse de l'offre indisponible pour le moment.</p>
@@ -175,12 +209,19 @@ export function ATSPanel({
 
           {gaps.length > 0 && (
             <div className="flex flex-col gap-1.5 mt-2">
-              <span className="text-[11px] font-mono text-red-600">Écarts ({gaps.length})</span>
+              <span className={GAP_TITLE}>Écarts ({gaps.length})</span>
               {gaps.map(c => (
                 <GapItem
                   key={c.requirement.id}
                   coverage={c}
-                  onProve={isWritable(c.requirement) ? (proof: string) => prove(c.requirement, proof) : undefined}
+                  onProve={isWritable(c.requirement)
+                    ? async (proof: string) => {
+                      const written = await prove(c.requirement, proof);
+                      // The item is about to unmount: the focus would fall on <body>
+                      if (written) statusRef.current?.focus();
+                      return written;
+                    }
+                    : undefined}
                   onDismiss={() => dismiss(c.requirement.id)}
                   proving={provingId === c.requirement.id}
                   disabled={aiBusy || provingId !== null}

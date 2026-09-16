@@ -24,7 +24,8 @@ describe("buildRepairPrompt", () => {
 
   it("lists each missing requirement in its exact form, with the proof the source gives", () => {
     const prompt = buildRepairPrompt(CTX);
-    expect(prompt).toContain('"Figma" (preuve : "Maquettes sous Figma")');
+    // The quote is written as data: its own quotes would close the block it sits in
+    expect(prompt).toContain('"Figma" (preuve : Maquettes sous Figma)');
     expect(prompt).toContain('"recherche utilisateur"');
   });
 

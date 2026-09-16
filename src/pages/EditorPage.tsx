@@ -100,7 +100,9 @@ export default function EditorPage() {
   const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
   const atsAnalysis = useATSAnalysis({
     cvData, setCvData, designSettings, requirements,
-    offer: jobDescription, accessCode: getCode(), notify,
+    // The offer the requirements were extracted from, never the live text: a
+    // proof sent against an edited offer had its requirements refused server-side
+    offer: analyzedOffer, accessCode: getCode(), notify,
   });
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
@@ -160,9 +162,10 @@ export default function EditorPage() {
   });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
-  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching || coverLetter.isGenerating;
+  const isProving = atsAnalysis.provingId !== null;
+  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching || coverLetter.isGenerating || isProving;
   // These calls answer with a whole CV that replaces the current one
-  const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching;
+  const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching || isProving;
   const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
 
   // Recompute zoom when the available width changes (sidebar toggle, tab).

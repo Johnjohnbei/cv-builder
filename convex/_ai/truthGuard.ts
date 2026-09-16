@@ -110,14 +110,19 @@ export interface GuardContext {
 export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage }: GuardContext): CVData {
   const writes = (text?: string) => mentions(text, unproven);
   const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers);
-  const sentencesKept = (text?: string) => text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
+  // A text left empty by the filter is a text the CV no longer carries: the
+  // source's comes back, as it does for a title or a position
+  const sentencesKept = (text: string | undefined, fallback: string | undefined) => {
+    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
+    return kept?.trim() ? kept : text?.trim() ? fallback : kept;
+  };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
   return {
     ...cv,
     personal_info: {
       ...cv.personal_info,
       title: invents(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
-      summary: sentencesKept(cv.personal_info.summary),
+      summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary),
     },
     experience: cv.experience.map((exp, i) => {
       const src = source.experience[i];
@@ -128,7 +133,7 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
         position: invents(exp.position) ? src.position : exp.position,
         companyStage: localized(lang => getLocalizedStage(exp.companyStage, lang)) ? src.companyStage : exp.companyStage,
         companyBusinessModel: invents(exp.companyBusinessModel) ? src.companyBusinessModel : exp.companyBusinessModel,
-        intro: sentencesKept(exp.intro),
+        intro: sentencesKept(exp.intro, src.intro),
         kpi: invents(exp.kpi) ? "" : exp.kpi,
         description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
       };

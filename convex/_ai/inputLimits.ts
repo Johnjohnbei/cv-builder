@@ -8,12 +8,30 @@ export { MAX_PROOF_CHARS };
 
 export const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
 export const MAX_OFFER_CHARS = 20_000; // a job description
+export const MAX_CV_CHARS = 60_000; // a CV as the prompt writes it, photo and portfolio already out
+/** An offer states a couple of dozen requirements; each one sent is read and matched */
+export const MAX_REQUIREMENTS_SENT = 100;
 
 /**
  * Refuse an oversized text before it reaches the model, and before the access
  * code is used up. Nothing bounded these inputs: a 40-page PDF became a huge
  * billed prompt.
  */
+/**
+ * Bound what a CV action puts in a prompt, the pasted texts aside: the CV
+ * itself, and the requirements the client sends back. Both travel as `v.any()`,
+ * so nothing else bounds them, and both are read in full on every call.
+ */
+export function assertBoundedPrompt(cv: unknown, requirements: unknown[] | undefined) {
+  assertMaxLength(JSON.stringify(cv ?? null), MAX_CV_CHARS);
+  if (requirements && requirements.length > MAX_REQUIREMENTS_SENT) {
+    throw userError(
+      `Trop d'exigences envoyées (${requirements.length}, maximum ${MAX_REQUIREMENTS_SENT}) : relancez l'analyse de l'offre.`,
+      "INPUT_TOO_LONG",
+    );
+  }
+}
+
 export function assertMaxLength(value: string | undefined, max: number) {
   if (value && value.length > max) {
     throw userError(
