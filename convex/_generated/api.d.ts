@@ -10,7 +10,9 @@
 
 import type * as _ai_auth from "../_ai/auth.js";
 import type * as _ai_chat from "../_ai/chat.js";
+import type * as _ai_companyMeta from "../_ai/companyMeta.js";
 import type * as _ai_htmlText from "../_ai/htmlText.js";
+import type * as _ai_inputLimits from "../_ai/inputLimits.js";
 import type * as _ai_languageDetection from "../_ai/languageDetection.js";
 import type * as _ai_normalizers from "../_ai/normalizers.js";
 import type * as _ai_numbers from "../_ai/numbers.js";
@@ -44,7 +46,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_ai/auth": typeof _ai_auth;
   "_ai/chat": typeof _ai_chat;
+  "_ai/companyMeta": typeof _ai_companyMeta;
   "_ai/htmlText": typeof _ai_htmlText;
+  "_ai/inputLimits": typeof _ai_inputLimits;
   "_ai/languageDetection": typeof _ai_languageDetection;
   "_ai/normalizers": typeof _ai_normalizers;
   "_ai/numbers": typeof _ai_numbers;

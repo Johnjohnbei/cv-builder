@@ -47,9 +47,10 @@ const designValidator = v.object({
   paperSize: v.optional(v.string()),
   orientation: v.optional(v.string()),
   includedSections: v.optional(v.array(v.string())),
-  // The "Mode ATS" toggle was removed on 2026-09-15 (arbitrage Q4): no longer
-  // written, kept optional so documents saved with it still validate
-  atsMode: v.optional(v.boolean()),
+  // The "Mode ATS" toggle (removed 2026-09-15, arbitrage Q4) is gone from here
+  // too: the snapshots of both deployments carry it in no document (measured
+  // 2026-09-16, `npx convex export`, 17 documents each). A design read from a
+  // guest's browser can still carry it, and migratedDesign drops it there.
 });
 
 // ─── Schema ───
