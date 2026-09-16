@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import type { ATSReport, CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
+import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
 import { MAX_PROOF_CHARS } from '@/src/shared/types';
-import { isWritable } from '../lib/keywordAnalysis';
+import { gapsOf, isProvable } from '../lib/keywordAnalysis';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
-import { ScoreGauge } from '@/src/shared/ui/ScoreGauge';
+import { GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 import { Textarea } from '@/src/shared/ui/Textarea';
 
@@ -35,25 +35,6 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
 };
 
 const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
-export const GAP_TITLE = 'text-[11px] font-mono text-red-600';
-
-/** The requirements of the offer the CV does not write */
-export const gapsOf = (report: ATSReport): RequirementCoverage[] => report.requirements.filter(c => !c.found);
-
-/**
- * The score and what it measures. One owner: the editor's ATS tab and the
- * dashboard's result panel say it in the same words, or they are two scores.
- */
-export function ScoreSummary({ score }: { score: number }) {
-  return (
-    <>
-      <ScoreGauge score={score} size={120} label="Score ATS" />
-      <p className="text-[11px] text-gray-500 text-center mt-2 leading-snug max-w-[240px]">
-        Part des exigences de l'offre présentes dans votre CV, comme un ATS les recherche.
-      </p>
-    </>
-  );
-}
 
 const points = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
 
@@ -214,7 +195,7 @@ export function ATSPanel({
                 <GapItem
                   key={c.requirement.id}
                   coverage={c}
-                  onProve={isWritable(c.requirement)
+                  onProve={isProvable(c.requirement)
                     ? async (proof: string) => {
                       const written = await prove(c.requirement, proof);
                       // The item is about to unmount: the focus would fall on <body>

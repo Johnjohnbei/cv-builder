@@ -5,7 +5,8 @@ import type { CVData } from "../../../src/shared/types";
 const mocks = vi.hoisted(() => ({ chat: vi.fn() }));
 vi.mock("../chat", () => ({ chatJSONThen: mocks.chat }));
 
-import { tailorPipeline, provePipeline, MAX_REPAIRS, PIPELINE_DEADLINE_MS, PROOF_DEADLINE_MS, REPAIR_CUTOFF_MS } from "../tailor";
+import { tailorPipeline, MAX_REPAIRS, PIPELINE_DEADLINE_MS, PROOF_DEADLINE_MS, REPAIR_CUTOFF_MS } from "../tailor";
+import { provePipeline } from "../prove";
 
 const OFFER = "Product Designer. Requis : Figma, Sketch, recherche utilisateur, maquettes, Kubernetes, Node.js, Master, anglais.";
 
@@ -322,6 +323,14 @@ describe("tailorPipeline: truth guard", () => {
     expect(cv.experience[0].intro).toBe(SOURCE.experience[0].intro);
   });
 
+  // A French summary in an English CV is worse than no summary at all
+  it("leaves the summary empty rather than putting a French one back in an English CV", async () => {
+    const offerEn = "Product Designer. Required: Figma, Kubernetes, user research for our design team.";
+    answers(generated(cv => { cv.personal_info.summary = "Certified Kubernetes expert."; }));
+    const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: offerEn, requirements: [KUBERNETES], detectedLanguage: "fr" });
+    expect(cv.personal_info.summary).toBe("");
+  });
+
   it("keeps the source's contacts, and no number the source never gives", async () => {
     answers(generated(cv => {
       cv.personal_info.email = "fake@example.org";
@@ -465,6 +474,20 @@ describe("provePipeline: a requirement the user says they have", () => {
     const other = await prove(ACME);
     expect(other.cv.skills[0].items).toEqual(["Figma", "Sketch"]);
     expect(other.written).toBe(false);
+
+    // A variant is the extraction's word, checked against the offer only with
+    // the label beside it: the CV writes the label the offer states
+    const withVariant = { ...KUBERNETES, variants: ["K8s"] };
+    answers({ edits: [{ target: "skills", text: "K8s" }] });
+    const variant = await provePipeline({ cv: SOURCE, jobDescription: OFFER, requirements: [withVariant], requirementId: "kubernetes", proof: ACME }, 1_000);
+    expect(variant.cv.skills[0].items).toEqual(["Figma", "Sketch"]);
+  });
+
+  it("refuses a job title without paying: the CV's own titles are the user's", async () => {
+    const title = { label: "Product Designer", variants: [], kind: "title", importance: "required", quote: "Product Designer" };
+    await expect(prove("Je suis product designer chez Acme", "product-designer", [title]))
+      .rejects.toMatchObject({ data: { code: "REQUIREMENT_NOT_WRITABLE" } });
+    expect(mocks.chat).not.toHaveBeenCalled();
   });
 
   it("keeps the CV it was given when the score does not rise", async () => {
@@ -474,6 +497,42 @@ describe("provePipeline: a requirement the user says they have", () => {
     expect(result.cv.experience.map(e => e.description)).toEqual(SOURCE.experience.map(e => e.description));
     expect(result.cv.skills).toEqual(SOURCE.skills);
     expect(result.cv.personal_info.summary).toBe(SOURCE.personal_info.summary);
+  });
+
+  it("writes only words the proof, the experience or the offer gives", async () => {
+    // Everything around the requirement is free text otherwise: the model wrote
+    // a role and an employer nobody stated
+    answers({ edits: [{ target: "skills", text: "Kubernetes" }, { target: "experience", expIndex: 0, text: "Défini l'architecture cloud du groupe LVMH" }] });
+    const result = await prove(ACME);
+    expect(result.cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
+    expect(result.cv.skills[0].items).toEqual(["Figma", "Sketch", "Kubernetes"]);
+  });
+
+  it("reads the employer the proof names before the position it mentions", async () => {
+    const proof = "J'ai déployé Kubernetes chez Beta, en tant que product designer";
+    // "Product Designer" is the position of Acme: the employer decides
+    answers({ edits: [{ target: "experience", expIndex: 1, text: "Déployé Kubernetes" }] });
+    const beta = await prove(proof);
+    expect(beta.cv.experience[1].description).toEqual(["Dessiné les écrans mobiles", "Déployé Kubernetes"]);
+
+    answers({ edits: [{ target: "experience", expIndex: 0, text: "Déployé Kubernetes" }] });
+    const acme = await prove(proof);
+    expect(acme.written).toBe(false);
+    expect(acme.cv.experience[0].description).toEqual(SOURCE.experience[0].description);
+  });
+
+  it("lets the model say which of two roles at the same employer the proof is about", async () => {
+    const twice: CVData = {
+      ...SOURCE,
+      experience: [
+        { ...SOURCE.experience[0], company: "Acme", position: "Product Designer" },
+        { ...SOURCE.experience[1], company: "Acme", position: "UI Designer" },
+      ],
+    };
+    answers({ edits: [{ target: "experience", expIndex: 1, text: "Déployé Kubernetes" }] });
+    const result = await provePipeline({ cv: twice, jobDescription: OFFER, requirements: [KUBERNETES], requirementId: "kubernetes", proof: ACME }, 1_000);
+    expect(result.cv.experience[1].description).toEqual(["Dessiné les écrans mobiles", "Déployé Kubernetes"]);
+    expect(result.cv.experience[0].description).toEqual(SOURCE.experience[0].description);
   });
 
   it("refuses without paying: an unknown requirement, one no rewrite writes, a proof that says nothing", async () => {

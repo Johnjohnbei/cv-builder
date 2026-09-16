@@ -32,7 +32,7 @@ export const MAX_REPAIRS = 2;
 /** A proof shorter than this ("oui") says nothing of where the requirement was put in practice */
 const MIN_PROOF_WORDS = 4;
 
-const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
+export const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
 
 /** The requirements an offer states, each quoted from it. An answer with none is invalid: thrown inside the transform, it is retried. */
 export async function extractRequirements(jobDescription: string, deadlineAt?: number): Promise<JobRequirement[]> {
@@ -65,7 +65,7 @@ export interface TailorResult {
 }
 
 /** The CV the client sends, read like an answer: it comes from outside the server */
-function readSourceCV(raw: unknown): CVData {
+export function readSourceCV(raw: unknown): CVData {
   try {
     return normalizeCVData(raw);
   } catch {
@@ -117,7 +117,7 @@ function sourceNumbersOf(source: CVData, contents: string[]): Set<string> {
 }
 
 /** The repair's edits applied where they point; an edit pointing nowhere is ignored */
-function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
+export function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
   return edits.reduce<CVData>((next, edit) => {
     if (edit.target === "summary") return { ...next, personal_info: { ...next.personal_info, summary: edit.text } };
     if (edit.target === "skills") {
@@ -137,7 +137,7 @@ function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
 }
 
 /** The edits the fast model answers with, for the pipeline's repair and for a proof */
-function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadlineAt: number): Promise<RepairEdit[]> {
+export function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadlineAt: number): Promise<RepairEdit[]> {
   return chatJSONThen(buildRepairPrompt(ctx), (raw) => {
     const parsed = RepairSchema.safeParse(raw);
     if (!parsed.success) throw invalidOutput();
@@ -146,12 +146,12 @@ function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadlineAt: n
 }
 
 /** The fields of the CV an ATS reads, as the guard and the proofs read them */
-function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
+export function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
   return Object.values(cvSections({ ...source, detectedLanguage: language }, "content")).flat().map(prepareText);
 }
 
 /** What the guard is allowed to keep: the source, the requirements it proves, the numbers it gives */
-function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean, extraNumbers: string[] = []): GuardContext {
+export function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean, extraNumbers: string[] = []): GuardContext {
   return {
     source,
     // Years are measured from the dates, never written
@@ -162,7 +162,7 @@ function guardContext(source: CVData, requirements: JobRequirement[], proven: Se
 }
 
 /** A CV guarded then measured, the one pair the pipeline compares versions with */
-const measuredBy = (context: GuardContext, requirements: JobRequirement[]) => (cv: CVData) => {
+export const measuredBy = (context: GuardContext, requirements: JobRequirement[]) => (cv: CVData) => {
   const guarded = guard(cv, context);
   return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
 };
@@ -212,103 +212,4 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     best = candidate;
   }
   return { cv: best.cv, requirements, report: best.report, unproven: context.unproven.filter(isWritable).map(r => r.id) };
-}
-
-
-export interface ProveInput {
-  /** The CV on screen, as the client holds it */
-  cv: unknown;
-  jobDescription: string;
-  /** The offer's requirements the client already has: a proof never pays for an extraction */
-  requirements?: unknown[];
-  /** The requirement the user says they have */
-  requirementId: string;
-  /** The user's own words: where they put the requirement in practice */
-  proof: string;
-  detectedLanguage?: "fr" | "en";
-  languageOverride?: "fr" | "en";
-}
-
-export interface ProveResult {
-  cv: CVData;
-  report: ATSReport;
-  requirements: JobRequirement[];
-  /** False when nothing was written: the CV returned is then the one given */
-  written: boolean;
-}
-
-/**
- * Where a proof allows writing: the experience it names, by its employer or by
- * the position held there. A proof about Acme never writes a line under another
- * employer.
- */
-function experienceNamedBy(source: CVData, proof: PreparedText): number {
-  return source.experience.findIndex(exp => [exp.company, exp.position]
-    .some(name => name && name.trim().length > 2 && matchPhrase(name, proof)));
-}
-
-/**
- * The edits a proof may carry, the model's answer read strictly (plan section
- * 5.2): a bullet ADDED to the experience the proof names, never one rewritten
- * (the bullet it replaced would be lost), and a skill under the offer's own
- * name. The summary is no place for a proof: a whole rewritten summary was the
- * answer the prompt invited, and nothing put the user's back.
- */
-function provableEdits(edits: RepairEdit[], requirement: JobRequirement, expIndex: number): RepairEdit[] {
-  const names = [requirement.label, ...requirement.variants];
-  const kept = edits.flatMap<RepairEdit>((edit) => {
-    if (edit.target === "skills") {
-      const written = prepareText(edit.text);
-      return names.some(name => matchPhrase(name, written) && matchPhrase(edit.text, prepareText(name))) ? [edit] : [];
-    }
-    if (edit.target !== "experience" || edit.expIndex !== expIndex || expIndex < 0) return [];
-    // bulletIndex dropped: the bullet is added, the ones already written stay
-    return [{ ...edit, bulletIndex: undefined }];
-  });
-  // One place, the one the proof points at: a second bullet would write elsewhere
-  const bullet = kept.find(edit => edit.target === "experience");
-  return [...kept.filter(edit => edit.target === "skills"), ...(bullet ? [bullet] : [])];
-}
-
-/**
- * One requirement written into the CV from the user's own proof (plan section
- * 5.2). The proof is theirs, so it backs what it states: its numbers are added
- * to the source's and the requirement counts as proven. Everything else stays
- * under the same guard as the tailoring, and the result is kept only when it
- * scores higher than the CV given: a proof never costs the user a line.
- */
-export async function provePipeline(input: ProveInput, startedAt: number = Date.now()): Promise<ProveResult> {
-  const source = readSourceCV(input.cv);
-  const { jobDescription, requirementId, proof, detectedLanguage, languageOverride } = input;
-  // Every refusal is decided here, without the model: none of them is billed
-  if (proof.trim().split(/\s+/).filter(Boolean).length < MIN_PROOF_WORDS) {
-    throw userError("Précisez où vous l'avez mis en œuvre : une mission, un projet, un employeur.", "PROOF_TOO_SHORT");
-  }
-  // Never extracted here: the editor has already paid for this offer's requirements
-  const requirements = normalizeJobRequirements(input.requirements ?? [], jobDescription);
-  const target = requirements.find(r => r.id === requirementId);
-  if (!target) {
-    throw userError("Cette exigence n'est plus celle de l'offre affichée. Relancez l'analyse de l'offre.", "REQUIREMENT_UNKNOWN");
-  }
-  if (!isWritable(target)) {
-    throw userError("Un diplôme, une langue ou des années d'expérience s'ajoutent dans l'onglet Contenu, pas par une réécriture.", "REQUIREMENT_NOT_WRITABLE");
-  }
-
-  const language = languageOverride ?? detectedLanguage ?? detectCVLanguage(source);
-  const fields = preparedFields(source, language);
-  // The proof proves its own requirement, and the CV proves what it already writes
-  const proven = new Set([...provenIds(requirements, fields, new Map()), target.id]);
-  const context = guardContext(source, requirements, proven, fields, true, numbersOf(proof));
-  const measure = measuredBy(context, requirements);
-  const before = measure(source);
-
-  const expIndex = experienceNamedBy(source, prepareText(proof));
-  const answered = await repairEdits(
-    { cv: source, missing: [{ label: target.label, evidence: proof }], language, from: "candidate" },
-    startedAt + PROOF_DEADLINE_MS,
-  );
-  const after = measure(applyRepair(source, provableEdits(answered, target, expIndex)));
-  // A CV that scores no higher is a CV the proof did not help: the user keeps theirs
-  const written = (after.report.score ?? 0) > (before.report.score ?? 0);
-  return { ...(written ? after : before), requirements, written };
 }

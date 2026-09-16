@@ -30,11 +30,18 @@ export type DismissedGaps = [offer: string, ids: string[]][];
 
 const NO_IDS: string[] = [];
 
-/** Storage is outside the app's control: an entry of another shape is skipped */
+/**
+ * Storage is outside the app's control: an entry of another shape is skipped.
+ * An entry written before the offers were named by a fingerprint carries the
+ * whole offer as its key; it is named again here, so a gap dismissed then is
+ * still dismissed now.
+ */
 export function parseDismissedGaps(raw: unknown): DismissedGaps {
   return Array.isArray(raw)
-    ? raw.filter((e): e is [string, string[]] =>
-      Array.isArray(e) && typeof e[0] === 'string' && Array.isArray(e[1]) && e[1].every(id => typeof id === 'string'))
+    ? raw
+      .filter((e): e is [string, string[]] =>
+        Array.isArray(e) && typeof e[0] === 'string' && Array.isArray(e[1]) && e[1].every(id => typeof id === 'string'))
+      .map(([offer, ids]) => [/^[0-9a-z]+-[0-9a-z]+$/.test(offer) ? offer : offerKey(offer), ids])
     : [];
 }
 

@@ -11,6 +11,7 @@
 import type * as _ai_auth from "../_ai/auth.js";
 import type * as _ai_chat from "../_ai/chat.js";
 import type * as _ai_companyMeta from "../_ai/companyMeta.js";
+import type * as _ai_coverLetter from "../_ai/coverLetter.js";
 import type * as _ai_htmlText from "../_ai/htmlText.js";
 import type * as _ai_inputLimits from "../_ai/inputLimits.js";
 import type * as _ai_languageDetection from "../_ai/languageDetection.js";
@@ -25,6 +26,7 @@ import type * as _ai_prompts_extract from "../_ai/prompts/extract.js";
 import type * as _ai_prompts_fragments from "../_ai/prompts/fragments.js";
 import type * as _ai_prompts_jobDescription from "../_ai/prompts/jobDescription.js";
 import type * as _ai_prompts_translate from "../_ai/prompts/translate.js";
+import type * as _ai_prove from "../_ai/prove.js";
 import type * as _ai_providers from "../_ai/providers.js";
 import type * as _ai_publicUrl from "../_ai/publicUrl.js";
 import type * as _ai_schemas from "../_ai/schemas.js";
@@ -47,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/auth": typeof _ai_auth;
   "_ai/chat": typeof _ai_chat;
   "_ai/companyMeta": typeof _ai_companyMeta;
+  "_ai/coverLetter": typeof _ai_coverLetter;
   "_ai/htmlText": typeof _ai_htmlText;
   "_ai/inputLimits": typeof _ai_inputLimits;
   "_ai/languageDetection": typeof _ai_languageDetection;
@@ -61,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   "_ai/prompts/fragments": typeof _ai_prompts_fragments;
   "_ai/prompts/jobDescription": typeof _ai_prompts_jobDescription;
   "_ai/prompts/translate": typeof _ai_prompts_translate;
+  "_ai/prove": typeof _ai_prove;
   "_ai/providers": typeof _ai_providers;
   "_ai/publicUrl": typeof _ai_publicUrl;
   "_ai/schemas": typeof _ai_schemas;

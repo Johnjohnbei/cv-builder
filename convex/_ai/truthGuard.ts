@@ -48,7 +48,7 @@ function shareStem(a: string, b: string): boolean {
 }
 
 /** Every meaningful word of `entry` is a word of `source`, or one of `alike` ("Master's degree in design" of "Master design") */
-function namesOnly(entry: string, source: string, alike: (stem: string) => string[] = () => []): boolean {
+export function namesOnly(entry: string, source: string, alike: (stem: string) => string[] = () => []): boolean {
   const allowed = new Set(stemsOf(source).flatMap(stem => [stem, ...alike(stem)]));
   const words = stemsOf(entry);
   // An emptied entry names nothing: the source's comes back
@@ -111,10 +111,11 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
   const writes = (text?: string) => mentions(text, unproven);
   const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers);
   // A text left empty by the filter is a text the CV no longer carries: the
-  // source's comes back, as it does for a title or a position
+  // source's comes back, as it does for a title or a position. Only in the
+  // source's language: a French summary in an English CV is worse than none.
   const sentencesKept = (text: string | undefined, fallback: string | undefined) => {
     const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
-    return kept?.trim() ? kept : text?.trim() ? fallback : kept;
+    return kept?.trim() || !text?.trim() ? kept : sameLanguage ? fallback : kept;
   };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
   return {

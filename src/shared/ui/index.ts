@@ -11,4 +11,5 @@ export { Dropzone } from './Dropzone';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Logo, CalibreSymbol } from './Logo';
 export { ScoreGauge } from './ScoreGauge';
+export { ScoreSummary, GAP_TITLE } from './ScoreSummary';
 export { Dialog } from './Dialog';

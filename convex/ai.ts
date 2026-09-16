@@ -2,19 +2,19 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { chatJSONSchema, chatJSONThen, chatText } from "./_ai/chat";
+import { chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
-import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
+import { coverLetterOf } from "./_ai/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
-import { CoverLetterSchema } from "./_ai/schemas";
 import { companyMetaOf, experienceMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
-import { EXTRACTION_DEADLINE_MS, extractRequirements, provePipeline, tailorPipeline } from "./_ai/tailor";
+import { EXTRACTION_DEADLINE_MS, extractRequirements, tailorPipeline } from "./_ai/tailor";
+import { provePipeline } from "./_ai/prove";
 import { assertBoundedPrompt, assertMaxLength, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -203,6 +203,7 @@ export const generateCoverLetter = action({
   },
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
+    assertBoundedPrompt(args.cvData);
     await verifyAccessCode(ctx, args.accessCode);
     // Server-side fallback detection: trust the client's hint when provided,
     // otherwise detect from the job description ourselves so the prompt always
@@ -214,7 +215,7 @@ export const generateCoverLetter = action({
     const { design: _design, _translations: _staleCache, ...contentOnly } = args.cvData || {};
     void _design;
     void _staleCache;
-    const prompt = buildCoverLetterPrompt({
+    return await coverLetterOf({
       cvData: withoutUserOwnedFields(contentOnly),
       jobDescription: args.jobDescription,
       companyName: args.companyName,
@@ -223,13 +224,6 @@ export const generateCoverLetter = action({
       tone: args.tone,
       language,
     });
-    const data = await chatJSONSchema(prompt, CoverLetterSchema, "fast");
-    return {
-      subject: data.subject,
-      greeting: data.greeting,
-      body: data.body,
-      closing: data.closing,
-    };
   },
 });
 
@@ -261,6 +255,7 @@ export const enrichExperienceMeta = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertBoundedPrompt(args.experiences);
     await verifyAccessCode(ctx, args.accessCode);
     return { results: await experienceMetaOf(args.experiences) };
   },
@@ -279,6 +274,7 @@ export const translateCV = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertBoundedPrompt(args.cvData);
     await verifyAccessCode(ctx, args.accessCode);
     // Strip the meta-fields the LLM doesn't need to see (design + language hints
     // + the cache itself — the client rebuilds _translations after the call).

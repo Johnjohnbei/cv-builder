@@ -42,7 +42,8 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
           <p className="text-sm font-medium tracking-wide uppercase text-gray-700">{data?.title}</p>
         </div>
       </div>
-      <div className="text-[10px] text-right space-y-0.5 text-gray-500 shrink-0">
+      {/* gray-600, not gray-500: 10px text below 4.5:1 is unreadable printed */}
+      <div className="text-[10px] text-right space-y-0.5 text-gray-600 shrink-0">
         {getContactEntries(data).map(entry => (
           <p key={entry.key}>
             {renderContactValue(entry, { color: primaryColor })}
@@ -127,7 +128,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
 
   return (
     <div data-measure-id={block.block.id}>
-      <p className="text-[10px] font-bold uppercase mb-1 text-gray-500">
+      <p className="text-[10px] font-bold uppercase mb-1 text-gray-600">
         {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -174,7 +175,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">{lang.name}</span>
-            <span className="text-[10px] font-bold uppercase text-gray-500">{normalizeProficiency(lang.proficiency, language)}</span>
+            <span className="text-[10px] font-bold uppercase text-gray-600">{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}
       </div>

@@ -147,6 +147,22 @@ export function isWritable(r: JobRequirement): boolean {
   return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years';
 }
 
+/**
+ * Whether a proof from the user can put this requirement in the CV: a rewrite
+ * writes a skill or a bullet, and neither is a job title. The title of the CV
+ * and the positions held are the user's own words, edited in the Contenu tab.
+ */
+export function isProvable(r: JobRequirement): boolean {
+  return isWritable(r) && r.kind !== 'title';
+}
+
+/** Whether these fields, as the CV prints them, write the requirement */
+export const writesRequirement = (fields: PreparedText[], r: JobRequirement): boolean =>
+  [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field)));
+
+/** The requirements of the offer the CV does not write */
+export const gapsOf = (report: ATSReport): RequirementCoverage[] => report.requirements.filter(c => !c.found);
+
 /** "Sr.", "Mgr", "Dév.", "Resp.": a parser matching job titles misses them (read normalized, accents gone) */
 const ABBREVIATED_TITLE = /\b(sr|jr|mgr|dir|asst|resp)\b\.?|\bdev\./;
 
@@ -172,7 +188,7 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
   const years = yearsOfExperience(experiences, now);
 
   const coverage = requirements.map((requirement): RequirementCoverage => {
-    const has = (text: PreparedText) => [requirement.label, ...requirement.variants].some(term => matchPhrase(term, text));
+    const has = (text: PreparedText) => writesRequirement([text], requirement);
     const where = (candidates: CVSection[]) => candidates.filter(section => has(prepared[section]));
     let found: CVSection[];
     switch (requirement.kind) {

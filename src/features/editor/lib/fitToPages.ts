@@ -17,10 +17,10 @@
 // what the score is good at; absolute calibration is what the page budget is
 // for.
 
-import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
+import type { CVData, Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
-import { matchPhrase, prepareText } from '@/src/shared/lib/text';
-import { experienceText } from './keywordAnalysis';
+import { prepareText } from '@/src/shared/lib/text';
+import { cvSections, experienceText, isProvable, writesRequirement } from './keywordAnalysis';
 import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
@@ -46,9 +46,21 @@ export function expandToMax(experiences: Experience[]): Experience[] {
 /** The requirements one experience writes as the CV prints it at its current rung */
 function writtenBy(exp: Experience, requirements: JobRequirement[], language: SupportedLanguage): Set<string> {
   const fields = experienceText(exp, 'rendered', language).map(prepareText);
-  return new Set(requirements
-    .filter(r => [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field))))
-    .map(r => r.id));
+  return new Set(requirements.filter(r => writesRequirement(fields, r)).map(r => r.id));
+}
+
+/**
+ * Requirements the CV writes somewhere condensing never reaches: the summary,
+ * the skills, the title. Protecting their last mention in an experience would
+ * spare a role for a mention the CV keeps anyway.
+ */
+export function writtenOutsideExperience(cv: CVData, requirements: JobRequirement[]): Set<string> {
+  const sections = cvSections(cv, 'rendered');
+  const fields = (Object.keys(sections) as (keyof typeof sections)[])
+    .filter(section => section !== 'experience')
+    .flatMap(section => sections[section])
+    .map(prepareText);
+  return new Set(requirements.filter(r => writesRequirement(fields, r)).map(r => r.id));
 }
 
 /**
@@ -71,6 +83,8 @@ export function condenseOneStep(
   experiences: Experience[],
   requirements: JobRequirement[],
   language: SupportedLanguage = 'fr',
+  /** Requirements the rest of the CV writes: condensing an experience cannot take them away */
+  writtenElsewhere: Set<string> = new Set(),
 ): Experience[] | null {
   const visible = experiences
     .map((exp, index) => ({ index, current: rung(exp.displayMode) }))
@@ -87,7 +101,10 @@ export function condenseOneStep(
   // offer demands must not leave the CV while another experience can come down
   // instead. Condensing is ordered by relevance; this is the one thing that
   // outranks it, and only for a required requirement.
-  const required = requirements.filter(r => r.importance === 'required');
+  // Only what the score counts from an experience: a title is read in the
+  // positions, a degree in the education, and neither moves with a rung
+  const required = requirements.filter(r =>
+    r.importance === 'required' && isProvable(r) && !writtenElsewhere.has(r.id));
   const written = experiences.map(exp => writtenBy(exp, required, language));
   const mentions = new Map(required.map(r => [r.id, written.filter(ids => ids.has(r.id)).length]));
   const dropsTheLastMention = (candidate: { index: number; current: number }) => {

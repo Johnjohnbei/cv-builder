@@ -48,7 +48,7 @@ for (const template of ['TEMPLATE_C', 'TEMPLATE_E'] as const) {
         return index;
       };
 
-      // The header an ATS reads first, on the first page
+      // The header an ATS reads first, on the first page and before the roles
       for (const value of [info.name, info.email, info.phone, info.location, info.title]) at(value);
       expect(squash(pages[0])).toContain(squash(info.name));
 
@@ -57,15 +57,20 @@ for (const template of ['TEMPLATE_C', 'TEMPLATE_E'] as const) {
       // before reading what was done there
       const firstRole = at(experience[0].company);
       const secondRole = at(experience[1].company);
+      expect(at(info.email)).toBeLessThan(firstRole);
       expect(firstRole).toBeLessThan(secondRole);
-      expect(at(experience[0].position)).toBeLessThan(at(experience[0].description[0]));
       for (const bullet of experience[0].description.slice(0, 2)) {
         expect(at(bullet)).toBeGreaterThan(firstRole);
         expect(at(bullet)).toBeLessThan(secondRole);
       }
       expect(at(experience[1].intro!)).toBeGreaterThan(secondRole);
-      // Dates, degrees and skills: what a parser fills its fields with
-      expect(text).toContain(squash('Janv. 2021'));
+      // The dates of a role are announced with it, never after its bullets.
+      // (The position is not asserted here: the mock CV gives the first role the
+      // very title of the CV, so its index would be the header's, always first.)
+      expect(at('Janv. 2021')).toBeLessThan(at(experience[0].description[0]));
+      expect(at('Mars 2018')).toBeGreaterThan(firstRole);
+      expect(at('Mars 2018')).toBeLessThan(at(experience[1].description[0]));
+      // Degrees and skills: what a parser fills its remaining fields with
       at(education[0].degree);
       at(skills[0].items[0]);
     });

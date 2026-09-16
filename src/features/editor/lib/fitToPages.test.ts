@@ -183,6 +183,18 @@ describe('condenseOneStep: the last mention of a required requirement', () => {
     expect(modes(condenseOneStep(expandToMax([carrier]), requirements)!)).toEqual(['normal']);
   });
 
+  it('protects nothing for a requirement the rest of the CV writes too', () => {
+    // Condensing an experience never takes a skill or the summary away
+    const elsewhere = new Set(['kubernetes']);
+    expect(modes(condenseOneStep(expandToMax([rich, carrier]), requirements, 'fr', elsewhere)!)).toEqual(['extended', 'normal']);
+  });
+
+  it('protects nothing for a kind the score never reads in an experience', () => {
+    // A title is counted from the positions, a degree from the education
+    const title = [req('figma'), { ...kubernetes, kind: 'title' as const }];
+    expect(modes(condenseOneStep(expandToMax([rich, carrier]), title)!)).toEqual(['extended', 'normal']);
+  });
+
   it('protects nothing for a requirement the offer only prefers', () => {
     const preferred = [req('figma'), { ...kubernetes, importance: 'preferred' as const }];
     expect(modes(condenseOneStep(expandToMax([rich, carrier]), preferred)!)).toEqual(['extended', 'normal']);

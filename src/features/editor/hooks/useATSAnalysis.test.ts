@@ -4,7 +4,14 @@ import { offerKey, parseDismissedGaps, withDismissed, type DismissedGaps } from 
 describe('parseDismissedGaps', () => {
   it('reads the entries of the right shape and skips every other one', () => {
     const raw = [['offre A', ['figma']], 'cassé', ['offre B', 'figma'], [42, ['x']], ['offre C', ['a', 2]], ['offre D', []]];
-    expect(parseDismissedGaps(raw)).toEqual([['offre A', ['figma']], ['offre D', []]]);
+    expect(parseDismissedGaps(raw)).toEqual([[offerKey('offre A'), ['figma']], [offerKey('offre D'), []]]);
+  });
+
+  it('names again an entry written when the offers were kept whole', () => {
+    const offer = 'Product Designer. Requis : Figma.';
+    expect(parseDismissedGaps([[offer, ['figma']]])).toEqual([[offerKey(offer), ['figma']]]);
+    // A fingerprint is left alone, never fingerprinted twice
+    expect(parseDismissedGaps([[offerKey(offer), ['figma']]])).toEqual([[offerKey(offer), ['figma']]]);
   });
 
   it('reads anything that is not a list as no gap dismissed', () => {

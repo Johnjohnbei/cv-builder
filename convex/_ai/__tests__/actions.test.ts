@@ -22,7 +22,10 @@ vi.mock("../chat", async (importOriginal) => ({
   chatText: mocks.chatText,
 }));
 
-import { extractJobDescriptionFromURL, extractJobRequirements, proveRequirement, tailorCV } from "../../ai";
+import {
+  enrichExperienceMeta, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter,
+  proveRequirement, tailorCV, translateCV,
+} from "../../ai";
 
 const handlerOf = <A, R>(action: unknown) => (action as { _handler: (ctx: unknown, args: A) => Promise<R> })._handler;
 
@@ -208,6 +211,29 @@ describe("tailorCV", () => {
     expect(result.requirements.map(r => r.id)).toEqual(["figma"]);
     expect(result.report.score).toBe(100);
     expect(result.unproven).toEqual([]);
+  });
+});
+
+describe("bounds on every action that puts a CV in a prompt", () => {
+  const CV = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };
+  const huge = { ...CV, personal_info: { ...CV.personal_info, summary: "x".repeat(60_001) } };
+
+  it("refuses an oversized CV before the access code, on the letter, the translation and the enrichment", async () => {
+    await expect(handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData: huge, jobDescription: "Designer" }))
+      .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
+    await expect(handlerOf<Record<string, unknown>, unknown>(translateCV)({}, { cvData: huge, targetLanguage: "en" }))
+      .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
+    await expect(handlerOf<Record<string, unknown>, unknown>(enrichExperienceMeta)({}, {
+      experiences: [{ company: "Acme", position: "Designer", intro: "x".repeat(60_001) }],
+    })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
+    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
+  });
+
+  // The arguments travel as v.any(): a value JSON cannot write is not a crash
+  it("reads a CV it cannot even serialise as an unreadable CV", async () => {
+    await expect(handlerOf<Record<string, unknown>, unknown>(translateCV)({}, {
+      cvData: { personal_info: { name: 1n } }, targetLanguage: "en",
+    })).rejects.toMatchObject({ data: { code: "CV_INVALID" } });
   });
 });
 

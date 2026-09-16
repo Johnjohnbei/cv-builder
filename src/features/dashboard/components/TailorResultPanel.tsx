@@ -1,6 +1,6 @@
 import type { ATSReport } from '@/src/shared/types';
-import { isWritable } from '@/src/features/editor/lib/keywordAnalysis';
-import { GAP_TITLE, ScoreSummary, gapsOf } from '@/src/features/editor/components/ATSPanel';
+import { gapsOf, isProvable } from '@/src/features/editor/lib/keywordAnalysis';
+import { GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 
 interface Props {
@@ -17,7 +17,7 @@ export function TailorResultPanel({ report, onOpenEditor }: Props) {
   const gaps = gapsOf(report);
   // A degree, a language or years of experience: no rewrite writes those, so the
   // editor offers nothing for them and the hint must not send the user looking
-  const writable = gaps.filter(c => isWritable(c.requirement));
+  const writable = gaps.filter(c => isProvable(c.requirement));
   return (
     <section className="stitch-panel" aria-labelledby="tailor-result-title">
       <div id="tailor-result-title" className="stitch-panel-header">CV adapté à l'offre</div>
