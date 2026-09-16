@@ -1,12 +1,13 @@
 import { userError } from "../_shared/errors";
+import { MAX_PROOF_CHARS } from "../../src/shared/types";
+
+export { MAX_PROOF_CHARS };
 
 // ─── Input size ─────────────────────────────────────────────────────
 // Extracted from ai.ts, over its size limit once proveRequirement was added.
 
 export const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
 export const MAX_OFFER_CHARS = 20_000; // a job description
-/** A proof is a sentence or two: where the user put the requirement in practice */
-export const MAX_PROOF_CHARS = 500;
 
 /**
  * Refuse an oversized text before it reaches the model, and before the access

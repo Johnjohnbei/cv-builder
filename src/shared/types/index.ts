@@ -173,6 +173,9 @@ export interface RequirementCoverage {
   years?: number;
 }
 
+/** A proof is a sentence or two: where the user put the requirement in practice */
+export const MAX_PROOF_CHARS = 500;
+
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {
   id: 'email' | 'phone' | 'location' | 'titles' | 'dates';

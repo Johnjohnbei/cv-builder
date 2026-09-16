@@ -98,8 +98,10 @@ export default function EditorPage() {
   }, [pageAssignments]);
 
   const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
-  const atsReport = useATSAnalysis(cvData, designSettings, requirements);
-  const hasJobDescription = jobDescription.trim().length > 0;
+  const atsAnalysis = useATSAnalysis({
+    cvData, setCvData, designSettings, requirements,
+    offer: jobDescription, accessCode: getCode(), notify,
+  });
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
   // types in the sidebar (JD textarea, panel toggles...).
@@ -276,11 +278,14 @@ export default function EditorPage() {
         onEnrich={ai.enrichExperiences}
         experienceScores={experienceScores}
         weakBullets={weakBullets}
-        atsReport={atsReport}
-        hasJobDescription={hasJobDescription}
-        requirementsStatus={requirementsStatus}
-        requirementsError={requirementsError}
-        onRetryAnalysis={commitJobDescription}
+        ats={{
+          analysis: atsAnalysis,
+          hasJobDescription: jobDescription.trim().length > 0,
+          requirementsStatus,
+          requirementsError,
+          onRetryAnalysis: commitJobDescription,
+          aiBusy,
+        }}
         exports={exports}
         templateSelection={templateSelection}
         coverLetter={coverLetter}

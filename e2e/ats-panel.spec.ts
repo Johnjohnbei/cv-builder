@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION } from './fixtures/mock-cv';
-import { seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf } from './fixtures/hermetic';
+import { answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf, type RoutedAICalls } from './fixtures/hermetic';
 
 const setupGuestEditor = (page: Page, cv: unknown = MOCK_CV, jd?: string) =>
   seedGuestSession(page, { cv, jd: jd === undefined ? MOCK_JOB_DESCRIPTION : jd });
@@ -188,5 +188,67 @@ test.describe('Edge cases : données CV incomplètes', () => {
     await expect(page.getByText('Lisibilité par les ATS')).toBeVisible();
     await expect(page.getByText('Score ATS')).toHaveCount(0);
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
+  });
+});
+
+test.describe('ATS Panel : actions sur un écart', () => {
+  // Kubernetes is in no mock CV: a gap on every run, and the only one
+  const LABELS = ['Figma', 'Kubernetes'];
+  let calls: RoutedAICalls;
+
+  test.beforeEach(async ({ page }) => {
+    // The proof is a paid action: answered here, so the flow is tested without one
+    calls = await answerAIActions(page, {
+      proveRequirement: (args: any) => {
+        const [first, ...rest] = args.cvData.skills;
+        const cv = { ...args.cvData, skills: [{ ...first, items: [...first.items, 'Kubernetes'] }, ...rest] };
+        return {
+          cv,
+          requirements: args.requirements,
+          report: {
+            score: 100,
+            points: { covered: 6, total: 6 },
+            checks: [],
+            requirements: args.requirements.map((r: any) => ({ requirement: r, found: true, sections: ['skills'], weight: 3 })),
+          },
+        };
+      },
+    });
+    await seedGuestSession(page, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION, requirementLabels: LABELS });
+    await page.getByRole('tab', { name: 'ATS' }).click();
+  });
+
+  test("« Je ne l'ai pas » écarte l'exigence, « Remettre » la ramène, sans appel IA", async ({ page }) => {
+    await expect(page.getByText('Écarts (1)')).toBeVisible({ timeout: 8_000 });
+    await page.getByRole('button', { name: "Je ne l'ai pas" }).click();
+    await expect(page.getByText('Écartées (1)')).toBeVisible();
+    await expect(page.getByText('Écarts (1)')).toHaveCount(0);
+    // The score does not move: an ATS looks for the requirement anyway
+    await expect(atsScore(page)).toContainText(/\d{1,3}/);
+
+    await page.getByRole('button', { name: 'Remettre' }).click();
+    await expect(page.getByText('Écarts (1)')).toBeVisible();
+    expect(calls).toEqual({ answered: [], forwarded: [] });
+  });
+
+  test("« J'ai cette compétence » écrit l'exigence dans le CV depuis la preuve", async ({ page }) => {
+    await page.getByRole('button', { name: "J'ai cette compétence" }).click();
+    await page.getByLabel("Où l'avez-vous mis en œuvre ?").fill("J'ai opéré nos clusters Kubernetes chez TechCorp");
+    await page.getByRole('button', { name: 'Écrire dans le CV' }).click();
+
+    // The requirement leaves the gaps: the CV the action answered carries it
+    await expect(page.getByText('Écarts (1)')).toHaveCount(0, { timeout: 8_000 });
+    await expect(page.getByText('« Kubernetes » ajouté au CV.')).toBeVisible();
+    // The CV the action answered is the one on screen now
+    await expect(page.locator('.cv-page').getByText('Kubernetes')).toBeVisible();
+    expect(calls).toEqual({ answered: ['proveRequirement'], forwarded: [] });
+  });
+
+  test("le champ de preuve est obligatoire avant l'envoi", async ({ page }) => {
+    await page.getByRole('button', { name: "J'ai cette compétence" }).click();
+    await expect(page.getByRole('button', { name: 'Écrire dans le CV' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Annuler' }).click();
+    await expect(page.getByRole('button', { name: "J'ai cette compétence" })).toBeVisible();
+    expect(calls).toEqual({ answered: [], forwarded: [] });
   });
 });

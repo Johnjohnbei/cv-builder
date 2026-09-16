@@ -104,6 +104,51 @@ export function watchAICalls(page: Page): string[] {
   return calls;
 }
 
+export interface RoutedAICalls {
+  /** Actions answered here, in the order the page sent them */
+  answered: string[];
+  /** Actions that went through to the deployment: every one of them is billed */
+  forwarded: string[];
+}
+
+/**
+ * Answer AI actions in place of the server, so a flow that ends in a paid call
+ * (a proof, a tailoring) is tested without one. Convex sends actions over its
+ * WebSocket, which page.route cannot see: the socket is routed instead, the
+ * named actions answered here, every other message passed through. Call before
+ * the first navigation.
+ *
+ * A routed socket is invisible to watchAICalls (Playwright answers it in
+ * place of the browser, so no frame is ever "sent"): the returned lists are
+ * what a test asserts on instead, `forwarded` being the one that must stay empty.
+ */
+export async function answerAIActions(page: Page, answers: Record<string, (args: any) => unknown>): Promise<RoutedAICalls> {
+  const calls: RoutedAICalls = { answered: [], forwarded: [] };
+  await page.routeWebSocket(/convex\.cloud/, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => {
+      const sent = typeof message === 'string' ? JSON.parse(message) : null;
+      const action = sent?.type === 'Action' ? String(sent.udfPath).replace(/^ai:/, '') : undefined;
+      const answer = action === undefined ? undefined : answers[action];
+      if (!answer) {
+        if (action !== undefined) calls.forwarded.push(action);
+        server.send(message);
+        return;
+      }
+      calls.answered.push(action!);
+      let response;
+      try {
+        response = { success: true, result: answer(sent.args[0]) };
+      } catch (error) {
+        response = { success: false, result: (error as Error).message };
+      }
+      ws.send(JSON.stringify({ type: 'ActionResponse', requestId: sent.requestId, logLines: [], ...response }));
+    });
+    server.onMessage((message) => ws.send(message));
+  });
+  return calls;
+}
+
 /** Fail the test if any paid AI call escaped. */
 export function expectNoAICalls(calls: string[]): void {
   expect(calls, `aucun appel IA ne doit partir en test (reçu : ${calls.join(', ')})`).toEqual([]);

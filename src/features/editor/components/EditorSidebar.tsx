@@ -3,10 +3,9 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
 import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
-import type { CVData, DesignSettings, ATSReport } from '@/src/shared/types';
-import type { RequirementsStatus } from '../lib/jobRequirementsCache';
+import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { WeakBulletResult } from '../lib/weakBulletDetection';
-import { ATSPanel } from './ATSPanel';
+import { ATSPanel, type ATSPanelProps } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
 import {
   OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection,
@@ -60,12 +59,8 @@ interface Props {
   experienceScores: number[];
   weakBullets: WeakBulletResult[];
 
-  atsReport: ATSReport | null;
-  hasJobDescription: boolean;
-  requirementsStatus: RequirementsStatus;
-  /** Why the analysis of the offer failed */
-  requirementsError: string;
-  onRetryAnalysis: () => void;
+  /** Everything the ATS tab shows and acts on, straight from useATSAnalysis */
+  ats: ATSPanelProps;
 
   exports: ReturnType<typeof useExport>;
   templateSelection: ReturnType<typeof useTemplateSelection>;
@@ -97,8 +92,7 @@ export function EditorSidebar(props: Props) {
     expandedSection, toggles,
     aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
     isEnriching, onEnrich, experienceScores, weakBullets,
-    atsReport, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis,
-    exports, templateSelection, coverLetter, notify,
+    ats, exports, templateSelection, coverLetter, notify,
   } = props;
 
   return (
@@ -247,14 +241,7 @@ export function EditorSidebar(props: Props) {
                 setCvData={setCvData}
                 notify={notify}
               />
-              <ATSPanel
-                report={atsReport}
-                hasJobDescription={hasJobDescription}
-                requirementsStatus={requirementsStatus}
-                requirementsError={requirementsError}
-                onRetryAnalysis={onRetryAnalysis}
-                aiBusy={aiBusy}
-              />
+              <ATSPanel {...ats} />
               </>
             )}
             </fieldset>

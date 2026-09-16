@@ -1,17 +1,23 @@
-import type { ATSReport, CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
+import { useState } from 'react';
+import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
+import { MAX_PROOF_CHARS } from '@/src/shared/types';
+import { isWritable } from '../lib/keywordAnalysis';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
+import type { ATSAnalysis } from '../hooks/useATSAnalysis';
 import { ScoreGauge } from '@/src/shared/ui/ScoreGauge';
 import { Button } from '@/src/shared/ui/Button';
+import { Textarea } from '@/src/shared/ui/Textarea';
 
-interface ATSPanelProps {
-  report: ATSReport | null;
+export interface ATSPanelProps {
+  /** The report and the actions on its gaps */
+  analysis: ATSAnalysis;
   hasJobDescription: boolean;
   requirementsStatus: RequirementsStatus;
   /** Why the analysis of the offer failed, shown with the retry button */
   requirementsError?: string;
   /** Analyze the offer again after a failure */
   onRetryAnalysis: () => void;
-  /** True while ANY AI action runs: the retry is disabled */
+  /** True while ANY AI action runs: the retry and the gap actions are disabled */
   aiBusy?: boolean;
 }
 
@@ -40,19 +46,83 @@ const measuredYears = ({ years }: RequirementCoverage) =>
 const yearsHint = ({ years }: RequirementCoverage) =>
   years === undefined ? undefined : "Mois de début et de fin compris. Une année écrite sans mois compte à partir de son milieu : précisez les mois pour un calcul exact.";
 
+interface GapProps {
+  coverage: RequirementCoverage;
+  /** Absent for what a rewrite cannot write: a degree, a language, years of experience */
+  onProve?: (proof: string) => Promise<boolean>;
+  onDismiss: () => void;
+  /** This gap is being written */
+  proving: boolean;
+  /** Another AI action runs */
+  disabled: boolean;
+}
+
+/**
+ * A requirement of the offer the CV does not cover (plan § 5.2): the user has
+ * it and says where, or does not and takes it out of the reminder.
+ */
+function GapItem({ coverage, onProve, onDismiss, proving, disabled }: GapProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [proof, setProof] = useState('');
+  const { requirement } = coverage;
+
+  const submit = async () => {
+    if (!onProve || !(await onProve(proof.trim()))) return;
+    setIsOpen(false);
+    setProof('');
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold text-red-800">{requirement.label}</span>
+        <span className="text-gray-600 shrink-0" title={yearsHint(coverage)}>{points(coverage.weight)}{measuredYears(coverage)}</span>
+      </div>
+      {isOpen && onProve ? (
+        <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <Textarea
+            id={`proof-${requirement.id}`}
+            label="Où l'avez-vous mis en œuvre ?"
+            mono={false}
+            inputSize="sm"
+            rows={2}
+            maxLength={MAX_PROOF_CHARS}
+            value={proof}
+            onChange={(e) => setProof(e.target.value)}
+            placeholder="Ex. : maquettes de l'application mobile chez Acme"
+            autoFocus
+          />
+          <div className="flex gap-1.5">
+            <Button type="submit" size="sm" mono={false} loading={proving} disabled={disabled || !proof.trim()}>Écrire dans le CV</Button>
+            <Button type="button" variant="ghost" size="sm" mono={false} disabled={proving} onClick={() => setIsOpen(false)}>Annuler</Button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {onProve && <Button variant="secondary" size="sm" mono={false} disabled={disabled} onClick={() => setIsOpen(true)}>J'ai cette compétence</Button>}
+          <Button variant="ghost" size="sm" mono={false} disabled={disabled} onClick={onDismiss}>Je ne l'ai pas</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ATSPanel({
-  report,
+  analysis,
   hasJobDescription,
   requirementsStatus,
   requirementsError,
   onRetryAnalysis,
   aiBusy = false,
 }: ATSPanelProps) {
+  const { report, dismissed, dismiss, restore, prove, provingId } = analysis;
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
   const covered = report.requirements.filter(r => r.found);
-  const gaps = report.requirements.filter(r => !r.found);
+  const missing = report.requirements.filter(r => !r.found);
+  const gaps = missing.filter(r => !dismissed.includes(r.requirement.id));
+  const setAside = missing.filter(r => dismissed.includes(r.requirement.id));
 
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
@@ -107,9 +177,26 @@ export function ATSPanel({
             <div className="flex flex-col gap-1.5 mt-2">
               <span className="text-[11px] font-mono text-red-600">Écarts ({gaps.length})</span>
               {gaps.map(c => (
-                <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
-                  <span className="font-semibold text-red-800">{c.requirement.label}</span>
-                  <span className="text-gray-600 shrink-0" title={yearsHint(c)}>{points(c.weight)}{measuredYears(c)}</span>
+                <GapItem
+                  key={c.requirement.id}
+                  coverage={c}
+                  onProve={isWritable(c.requirement) ? (proof: string) => prove(c.requirement, proof) : undefined}
+                  onDismiss={() => dismiss(c.requirement.id)}
+                  proving={provingId === c.requirement.id}
+                  disabled={aiBusy || provingId !== null}
+                />
+              ))}
+            </div>
+          )}
+
+          {setAside.length > 0 && (
+            <div className="flex flex-col gap-1.5 mt-2">
+              <span className={SECTION_TITLE}>Écartées ({setAside.length})</span>
+              <p className="text-[11px] text-gray-500">Toujours comptées dans le score : un ATS les cherche quand même.</p>
+              {setAside.map(c => (
+                <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                  <span className="text-gray-600">{c.requirement.label}</span>
+                  <Button variant="ghost" size="sm" mono={false} onClick={() => restore(c.requirement.id)}>Remettre</Button>
                 </div>
               ))}
             </div>

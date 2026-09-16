@@ -12,7 +12,7 @@ import { AccessCodeDialog } from '../features/auth/components/AccessCodeDialog';
 import { AdminCodesDialog } from '../features/auth/components/AdminCodesDialog';
 import { useLeaveSession } from '../features/auth/useLeaveSession';
 import { api } from "@/convex/_generated/api";
-import { CVData, EMPTY_CV } from '../shared/types';
+import { CVData, EMPTY_CV, type ATSReport } from '../shared/types';
 import {
   readStoredJSON, readStoredText, STORAGE_FAILED_MESSAGE, writeStoredText, writeStoredTexts,
 } from '../shared/lib/storage';
@@ -27,6 +27,7 @@ import { DashboardMobileNav } from '../features/dashboard/components/DashboardMo
 import { CvImportPanel } from '../features/dashboard/components/CvImportPanel';
 import { JobOfferPanel } from '../features/dashboard/components/JobOfferPanel';
 import { SavedCVsView, type SavedCVEntry } from '../features/dashboard/components/SavedCVsView';
+import { TailorResultPanel } from '../features/dashboard/components/TailorResultPanel';
 
 export default function DashboardPage() {
   useDocumentTitle('Dashboard');
@@ -38,6 +39,10 @@ export default function DashboardPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [jobUrl, setJobUrl] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  /** What the tailoring measured, shown until the offer changes: the editor opens from there */
+  const [tailorResult, setTailorResult] = useState<ATSReport | null>(null);
+  /** A new offer, typed or imported, leaves the previous result behind */
+  const showOffer = (text: string) => { setTailorResult(null); setJobDescription(text); };
   const generatingSeconds = useSecondsCounter(isGenerating);
   const [activeView, setActiveView] = useState<DashboardView>('console');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -98,7 +103,7 @@ export default function DashboardPage() {
 
   const imports = useDashboardImports({
     user, isGuest, jobUrl, getCode, requireAccessCode, reportAIError,
-    notify: setNotification, setBaseCV, setJobDescription,
+    notify: setNotification, setBaseCV, setJobDescription: showOffer,
   });
 
   // A signed-in user reads the account only: falling through to the guest copy
@@ -146,15 +151,16 @@ export default function DashboardPage() {
       if (user) {
         await storeUser();
         await updateLastCV({ cvData: bilingualData, jobDescription });
-        navigate('/editor');
       } else if (isGuest) {
         // After paid calls: a full storage must say so, not "réessayez" (and pay again)
         if (!writeStoredTexts([['guest_last_optimized', JSON.stringify(bilingualData)], ['guest_last_jd', jobDescription]])) {
           setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
           return;
         }
-        navigate('/editor');
       }
+      // The score and its gaps are read here, where the offer is: the editor
+      // opens from the panel, not before the result has been seen
+      setTailorResult(result.report);
     } catch (error) {
       console.error('Optimization error:', error);
       reportAIError(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.');
@@ -305,6 +311,9 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="col-span-12 lg:col-span-8 space-y-6">
+                {tailorResult && (
+                  <TailorResultPanel report={tailorResult} onOpenEditor={() => navigate('/editor')} />
+                )}
                 <JobOfferPanel
                   jobUrl={jobUrl}
                   onJobUrlChange={setJobUrl}
@@ -313,7 +322,7 @@ export default function DashboardPage() {
                   jobDropzone={imports.jobDropzone}
                   isExtractingJob={imports.isExtractingJob}
                   jobDescription={jobDescription}
-                  onJobDescriptionChange={setJobDescription}
+                  onJobDescriptionChange={showOffer}
                   hasBaseCV={Boolean(baseCV)}
                   onOptimize={handleOptimize}
                   isGenerating={isGenerating}
