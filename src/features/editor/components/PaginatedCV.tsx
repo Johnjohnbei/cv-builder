@@ -13,6 +13,18 @@ import { getSectionTitle, getContinuationMarker } from '../lib/atsRules';
  */
 export const PAGE_PADDING_CLASS = 'p-16';
 
+/**
+ * Every block is a stacking context of its own, so the PDF carries the CV in
+ * the order it is written. A positioned element (the timeline dot's `relative`
+ * parent, in template E) is painted after ALL the in-flow content of its
+ * stacking context: Chrome then wrote the positions, employers and dates at the
+ * very END of the PDF's text, after every bullet — an ATS read the bullets of a
+ * job before knowing whose job it was. `z-0` keeps each block's positioned
+ * descendants inside the block (measured 2026-09-16 with pdfjs on the real
+ * export; e2e/pdf-legibility.spec.ts is the guard).
+ */
+const BLOCK_ORDER = 'relative z-0';
+
 interface Props {
   pageAssignments: PageAssignment[];
   designSettings: DesignSettings;
@@ -101,7 +113,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
                 <Fragment key={pb.block.id || i}>
                   {/* Inject section title before the first experience on each page */}
                   {i === firstExpIdx && (
-                    <div data-live-title="experience">
+                    <div data-live-title="experience" className={BLOCK_ORDER}>
                       <SectionTitle
                         title={getSectionTitle('experience', language)}
                         color={primaryColor}
@@ -113,7 +125,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
                   {/* Same for skills: the categories printed with no "Compétences"
                       heading, which an ATS needs to find them */}
                   {i === firstSkillIdx && (
-                    <div data-live-title="skills">
+                    <div data-live-title="skills" className={BLOCK_ORDER}>
                       <SectionTitle
                         title={getSectionTitle('skills', language)}
                         color={primaryColor}
@@ -122,7 +134,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
                       />
                     </div>
                   )}
-                  <div data-live-block={pb.block.id}>
+                  <div data-live-block={pb.block.id} className={BLOCK_ORDER}>
                     {renderBlock(pb, page.pageIndex)}
                   </div>
                 </Fragment>

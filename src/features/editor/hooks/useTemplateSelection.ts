@@ -51,6 +51,8 @@ export interface UseTemplateSelectionResult {
  *
  * The "Mode ATS" toggle is gone (arbitrage Q4, 2026-09-15): both remaining
  * templates are read in order by an ATS, the export needs no special mode.
+ * Measured, not claimed: e2e/pdf-legibility.spec.ts extracts the text of the
+ * real PDF with pdfjs and checks the order each template comes out in.
  */
 export function useTemplateSelection(
   deps: UseTemplateSelectionDeps,

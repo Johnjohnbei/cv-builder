@@ -37,7 +37,9 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
         {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-xl border-2 border-gray-100")}
         <div className="space-y-0.5">
           <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
-          <p className="text-sm font-medium tracking-wide uppercase opacity-80">{data?.title}</p>
+          {/* A colour, never opacity: a transparent box is painted after its
+              in-flow siblings, and the PDF then carries its text out of order */}
+          <p className="text-sm font-medium tracking-wide uppercase text-gray-700">{data?.title}</p>
         </div>
       </div>
       <div className="text-[10px] text-right space-y-0.5 text-gray-500 shrink-0">
@@ -72,11 +74,16 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
-          <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+          {/* The timeline dot hangs off an empty box of its own: positioning the
+              header itself made the PDF carry the position, employer and dates
+              after every bullet of the job */}
+          <div className="relative">
+            <div className="absolute -left-[29px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+          </div>
           <div className="flex justify-between items-start gap-4 mb-2">
             <h3 className="font-bold text-gray-900">{exp.position}</h3>
-            <div className="text-[10px] font-bold opacity-70 shrink-0 text-right leading-tight">
+            <div className="text-[10px] font-bold text-gray-600 shrink-0 text-right leading-tight">
               <div>{formatDateShort(exp.start_date, language)}</div>
               <div>{exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}</div>
             </div>
@@ -89,7 +96,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
         </div>
       )}
       {isOverflow && (
-        <div className="relative pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
+        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
           {/* Continuation of experience from previous page */}
         </div>
       )}
@@ -120,7 +127,7 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
 
   return (
     <div data-measure-id={block.block.id}>
-      <p className="text-[10px] font-bold uppercase mb-1 opacity-60">
+      <p className="text-[10px] font-bold uppercase mb-1 text-gray-500">
         {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -167,7 +174,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">{lang.name}</span>
-            <span className="text-[10px] font-bold uppercase opacity-60">{normalizeProficiency(lang.proficiency, language)}</span>
+            <span className="text-[10px] font-bold uppercase text-gray-500">{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}
       </div>
