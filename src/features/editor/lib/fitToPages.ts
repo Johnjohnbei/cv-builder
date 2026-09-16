@@ -19,6 +19,8 @@
 
 import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import { matchPhrase, prepareText } from '@/src/shared/lib/text';
+import { experienceText } from './keywordAnalysis';
 import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
@@ -39,6 +41,14 @@ function rung(mode: ExperienceDisplayMode | undefined): number {
  */
 export function expandToMax(experiences: Experience[]): Experience[] {
   return experiences.map(exp => ({ ...exp, displayMode: LADDER[0] }));
+}
+
+/** The requirements one experience writes as the CV prints it at its current rung */
+function writtenBy(exp: Experience, requirements: JobRequirement[], language: SupportedLanguage): Set<string> {
+  const fields = experienceText(exp, 'rendered', language).map(prepareText);
+  return new Set(requirements
+    .filter(r => [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field))))
+    .map(r => r.id));
 }
 
 /**
@@ -73,7 +83,22 @@ export function condenseOneStep(
     .filter(c => c.current === richest)
     .map(c => ({ ...c, score: scoreExperience(experiences[c.index], requirements, language) }));
 
-  const victim = wave.reduce((best, c) => {
+  // How many experiences write each requirement right now: a requirement the
+  // offer demands must not leave the CV while another experience can come down
+  // instead. Condensing is ordered by relevance; this is the one thing that
+  // outranks it, and only for a required requirement.
+  const required = requirements.filter(r => r.importance === 'required');
+  const written = experiences.map(exp => writtenBy(exp, required, language));
+  const mentions = new Map(required.map(r => [r.id, written.filter(ids => ids.has(r.id)).length]));
+  const dropsTheLastMention = (candidate: { index: number; current: number }) => {
+    const next = writtenBy({ ...experiences[candidate.index], displayMode: LADDER[candidate.current + 1] }, required, language);
+    return [...written[candidate.index]].some(id => !next.has(id) && mentions.get(id) === 1);
+  };
+  const sparing = wave.filter(c => !dropsTheLastMention(c));
+  // Every candidate carries one: the CV cannot fit without losing a requirement
+  const candidates = sparing.length > 0 ? sparing : wave;
+
+  const victim = candidates.reduce((best, c) => {
     if (c.score !== best.score) return c.score < best.score ? c : best;
     return c.index > best.index ? c : best;
   });

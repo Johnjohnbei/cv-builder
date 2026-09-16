@@ -146,3 +146,52 @@ describe('the driving loop', () => {
     expect(steps).toBeLessThanOrEqual(maxCondenseSteps(exps));
   });
 });
+
+describe('condenseOneStep: the last mention of a required requirement', () => {
+  const kubernetes = req('kubernetes');
+  const requirements = [req('figma'), kubernetes];
+
+  /** The weakest of the two, and the only one writing Kubernetes — in a bullet 'normal' drops */
+  const carrier = makeExp({
+    position: 'Stagiaire',
+    company: 'Vieille Boite',
+    start_date: '2005-01',
+    end_date: '2005-06',
+    description: ['Courses', 'Photocopies', 'Classement', 'Migration Kubernetes'],
+  });
+  /** Scores high: Figma, current, a matching title */
+  const rich = makeExp({
+    position: 'Lead Design System Figma',
+    company: 'SaaS Corp',
+    start_date: '2018-01',
+    current: true,
+    description: ['Design system Figma', 'SaaS design', 'figma tokens', 'design ops'],
+  });
+
+  it('condenses a stronger experience of the wave rather than dropping it', () => {
+    const wave = expandToMax([rich, carrier]);
+    // On the score alone the weakest goes first, and Kubernetes leaves the CV
+    expect(modes(condenseOneStep(wave, requirements)!)).toEqual(['normal', 'extended']);
+  });
+
+  it('keeps taking the lowest score when no candidate writes it alone', () => {
+    const twice = expandToMax([{ ...rich, description: [...rich.description.slice(0, 3), 'Migration Kubernetes'] }, carrier]);
+    expect(modes(condenseOneStep(twice, requirements)!)).toEqual(['extended', 'normal']);
+  });
+
+  it('condenses it anyway when it is the only candidate of the wave', () => {
+    expect(modes(condenseOneStep(expandToMax([carrier]), requirements)!)).toEqual(['normal']);
+  });
+
+  it('protects nothing for a requirement the offer only prefers', () => {
+    const preferred = [req('figma'), { ...kubernetes, importance: 'preferred' as const }];
+    expect(modes(condenseOneStep(expandToMax([rich, carrier]), preferred)!)).toEqual(['extended', 'normal']);
+  });
+
+  it('protects the mention only while it is written: once dropped, the wave goes on as before', () => {
+    const wave = expandToMax([rich, carrier]);
+    const once = condenseOneStep(wave, requirements)!;
+    // rich came down first; the next step has no reason left to spare the carrier
+    expect(modes(condenseOneStep(once, requirements)!)).toEqual(['normal', 'normal']);
+  });
+});
