@@ -261,6 +261,16 @@ describe("tailorPipeline: truth guard", () => {
     expect(cv.languages).toEqual(source.languages);
   });
 
+  // "à" says nothing of a degree, like "au" and "to" next to it in the stop words
+  it("keeps the model's wording when the only word it adds is « à »", async () => {
+    const source: CVData = {
+      ...SOURCE,
+      education: [{ school: "ENSCI", degree: "Master design", start_date: "2014" }],
+    };
+    answers(generated(cv => { cv.education[0].degree = "Master à design"; }, [], source));
+    expect((await run([FIGMA], Date.now(), source)).cv.education[0].degree).toBe("Master à design");
+  });
+
   it("reads a quote that shares only a word like « pour » with the requirement as no proof", async () => {
     const source: CVData = { ...SOURCE, personal_info: { ...SOURCE.personal_info, summary: "Designer produit pour le SaaS B2B." } };
     const offer = `${OFFER} Passion pour la data.`;

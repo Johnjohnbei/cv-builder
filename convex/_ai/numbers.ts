@@ -18,8 +18,8 @@ const TENS: [string[], number][] = [
   [["vingt", "vingts", "twenty"], 20], [["trente", "thirty"], 30], [["quarante", "forty"], 40],
   [["cinquante", "fifty"], 50], [["soixante", "sixty"], 60], [["septante", "seventy"], 70],
   [["huitante", "octante", "eighty"], 80], [["nonante", "ninety"], 90],
-  // One approximate value: "dizaines" translates as "dozens", "douzaine" as "dozen", and each pair must back the other
-  [["dizaine", "dizaines", "douzaine", "douzaines", "dozen", "dozens"], 10], [["quinzaine"], 15],
+  // "dozens" translates "dizaines", not "douzaines": each reads as the other's value
+  [["dizaine", "dizaines", "dozens"], 10], [["douzaine", "douzaines", "dozen"], 12], [["quinzaine"], 15],
   [["vingtaine"], 20], [["trentaine"], 30], [["cinquantaine"], 50], [["centaine", "centaines"], 100],
 ];
 const SCALES: [string[], number][] = [
@@ -44,6 +44,16 @@ const WORD_VALUES = new Map<string, number>([
 /** Inside a number compound ("vingt-et-un", "dix-neuf", "twenty-one"), the excluded words are numbers too */
 // (read only after "et"/"and" or a number word: see numberReadings)
 const COMPOUND_VALUES = new Map([...WORD_VALUES, ["un", 1], ["une", 1], ["one", 1], ["neuf", 9]]);
+/**
+ * Words giving an order of magnitude, read apart from the figure they are near
+ * ("~10"): "une dizaine" is not the exact "10", and "10" does not back it.
+ */
+const APPROXIMATE = new Set([
+  "dizaine", "dizaines", "dozens", "douzaine", "douzaines", "dozen", "quinzaine",
+  "vingtaine", "trentaine", "cinquantaine", "centaine", "centaines",
+]);
+/** A word's number as it is compared: an approximate word never matches an exact figure */
+const reading = (word: string, value: number) => (APPROXIMATE.has(word) ? `~${value}` : String(value));
 const SCALE_VALUES = new Map(SCALES.flatMap(([words, value]) => words.map(word => [word, value] as const)));
 const SCALE = SCALES.flatMap(([words]) => words).sort((a, b) => b.length - a.length).join("|");
 
@@ -65,15 +75,51 @@ export function statesYears(quote: PreparedText, years: number): boolean {
   return new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:${between}|${range})${unit}`, "u").test(quote.normalized);
 }
 
-/** Units written against a figure ("40ms", "48h", "3j", "16Go", "15e"): the figure is a number, not the start of a name */
-const UNITS = "ms|sec|min|mn|hrs?|h|s|jrs?|j|jours?|ans?|mois|sem|km|kg|go|mo|ko|gb|mb|kb|tb|to|eme|ere|er|re|nde|e|nd|rd|th|st|pts?|x";
 // The digits are taken whole ((?!\d)): backtracking read "40ms" as 4 and "99designs" as 9.
-// A letter before the digits makes them a name ("B2B", "iOS17"), except the x of a
-// multiplier ("x3") and the h of "2h30", whose minutes are read as well as its hours.
+// A unit glued to the figure leaves it a number, whatever the unit is ("40ms",
+// "30fps", "5L", "1080p"): up to five letters, past which it is a name
+// ("99designs", "360Learning"). A closed list of units read "120fps" as no
+// number at all, and an invented one passed the guard.
+// A letter BEFORE the digits also makes a name ("B2B", "iOS17", "Linux3",
+// "H.264"), except the x of a multiplier ("x3", "10x") and the h of "2h30",
+// whose minutes are read as well as its hours.
 const FIGURE = new RegExp(
-  String.raw`(?<!(?<!\d)h|(?![x×h])\p{L})(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=(?:${UNITS})?(?![\p{L}\p{N}])|h\d)`,
+  String.raw`(?<!(?<!\d)h|(?![x×h])\p{L}|\p{L}[x×h]|\p{L}\.)(?<!\p{N})(\d{1,3}(?:[\s,.]\d{3})+(?!\d)|\d+(?:[.,]\d+)?(?!\d))(?:\s?(${SCALE})(?!\p{L}))?(?=\p{L}{0,5}(?![\p{L}\p{N}])|h\d)`,
   "gu",
 );
+
+/** Months as a date abbreviates them, in French and in English, accents gone */
+const MONTHS = "janv|jan|fevr|feb|mars|mar|avr|apr|mai|may|juin|jun|juil|jul|aout|aug|sept|sep|oct|nov|dec";
+/**
+ * What follows "sept" when it abbreviates September: a year, or a range ending
+ * on another month ("sept. 2019", "de sept. à déc. 2019", "sept.-déc."). The
+ * rest reads as seven, the point included ("équipe de sept.", "sept à dix
+ * personnes", "sept. Au total"): a point is the end of a sentence far more
+ * often than the mark of a month.
+ */
+const SEPTEMBER = new RegExp(String.raw`^\.?\s*(?:\d{4}(?!\d)|(?:[-/]|(?:a|au|to)\s+)\s*(?:${MONTHS}))`, "u");
+
+/** The month "sept." and the "cent" of "pour cent" are no numbers, wherever they are read from */
+function notNumberWord(word: string, before: string, rest: string): boolean {
+  if (word === "cent") return ["pour", "per"].includes(before);
+  return word === "sept" && SEPTEMBER.test(rest);
+}
+
+/**
+ * Digits every reading below expects: those of another script read as their
+ * value ("٣"), and a fraction NFKD leaves as digits around a slash ("½" is
+ * "1⁄2") read as the number it is.
+ */
+const OTHER_ZEROS = [0x0660, 0x06f0, 0x0966, 0x09e6, 0x0e50];
+function plainDigits(text: string): string {
+  return text
+    .replace(/\p{Nd}/gu, (digit) => {
+      const code = digit.codePointAt(0)!;
+      const zero = OTHER_ZEROS.find(start => code >= start && code < start + 10);
+      return zero === undefined ? digit : String(code - zero);
+    })
+    .replace(/(\d+)⁄(\d+)/g, (all, top, bottom) => (Number(bottom) ? String(Number(top) / Number(bottom)) : all));
+}
 
 /**
  * The numbers a text gives, each with the ways it can be read, a way being the
@@ -85,34 +131,43 @@ const FIGURE = new RegExp(
  */
 function numberReadings(text: string | undefined): string[][][] {
   if (!text) return [];
-  const normalized = normalizeForMatch(stripInlineMarkdown(text));
-  const taken: [number, number][] = [];
+  const normalized = plainDigits(normalizeForMatch(stripInlineMarkdown(text)));
+  // One flag per character, not a list of spans scanned again for every word:
+  // the scan was quadratic, and an offer of 240 kB took four seconds
+  const taken = new Uint8Array(normalized.length);
   const figures = [...normalized.matchAll(FIGURE)].map((match) => {
     const [all, figure, scale] = match;
-    taken.push([match.index, match.index + all.length]);
+    taken.fill(1, match.index, match.index + all.length);
     const parts = figure.split(/[\s,.]/);
-    const whole = Number(parts.join("")) * (scale ? SCALE_VALUES.get(scale)! : 1);
-    return [[String(whole)], ...(parts.length > 1 && !scale ? [parts.map(part => String(Number(part)))] : [])];
+    // A separator followed by three digits groups thousands ("1 500", "1,500");
+    // anything else is a decimal ("1,5 M" is 1 500 000, never 1 and 5 000 000)
+    const grouped = parts.length > 1 && parts.slice(1).every(part => part.length === 3);
+    const base = grouped ? Number(parts.join("")) : Number(figure.replace(",", "."));
+    const whole = base * (scale ? SCALE_VALUES.get(scale)! : 1);
+    return [[String(whole)], ...(grouped && !scale ? [parts.map(part => String(Number(part)))] : [])];
   });
   let previous = "";
   const words = [...normalized.matchAll(/\p{L}+(?:-\p{L}+)*/gu)].flatMap((match): string[][][] => {
     const parts = match[0].split("-");
     const before = previous;
     previous = parts[parts.length - 1];
-    if (taken.some(([start, end]) => match.index >= start && match.index < end)) return [];
+    if (taken[match.index]) return [];
+    const after = normalized.slice(match.index + match[0].length);
     if (parts.length > 1) {
       if (!parts.some(part => WORD_VALUES.has(part))) return [];
       // "un", "one", "neuf" only after "et"/"and" or a number word: "vingt-et-un", "twenty-one", "dix-neuf", never "one-hundred" nor "deux-en-un"
       return parts.flatMap((part, at) => {
         const counts = WORD_VALUES.has(part) || (at > 0 && (["et", "and"].includes(parts[at - 1]) || WORD_VALUES.has(parts[at - 1])));
-        return counts && COMPOUND_VALUES.has(part) ? [[[String(COMPOUND_VALUES.get(part))]]] : [];
+        // The words of a compound are read one by one: "sept-oct 2020" and
+        // "pour-cent" write a month and a share there too
+        const rest = parts.slice(at + 1).map(next => `-${next}`).join("") + after;
+        if (!counts || !COMPOUND_VALUES.has(part) || notNumberWord(part, at > 0 ? parts[at - 1] : before, rest)) return [];
+        return [[[reading(part, COMPOUND_VALUES.get(part)!)]]];
       });
     }
     const [word] = parts;
-    const rest = normalized.slice(match.index + word.length);
-    const notNumber = (word === "cent" && ["pour", "per"].includes(before)) || (word === "sept" && /^\.?\s*(\d|(a|au|to)\s|-)/.test(rest));
     const value = WORD_VALUES.get(word);
-    return value === undefined || notNumber ? [] : [[[String(value)]]];
+    return value === undefined || notNumberWord(word, before, after) ? [] : [[[reading(word, value)]]];
   });
   return [...figures, ...words];
 }
