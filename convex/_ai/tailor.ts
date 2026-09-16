@@ -2,7 +2,7 @@
 
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
 import { computeATSReport, cvSections, isWritable, yearsOfExperience } from "../../src/features/editor/lib/keywordAnalysis";
-import { prepareText } from "../../src/shared/lib/text";
+import { prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/languageDetection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
@@ -26,7 +26,11 @@ export const REPAIR_CUTOFF_MS = 240_000;
 export const PIPELINE_DEADLINE_MS = 570_000;
 /** An offer analysis ends before this, leaving the rest of the budget to writing the CV */
 export const EXTRACTION_DEADLINE_MS = 120_000;
+/** Writing one requirement from the user's proof is one short call */
+export const PROOF_DEADLINE_MS = 120_000;
 export const MAX_REPAIRS = 2;
+/** A proof shorter than this ("oui") says nothing of where the requirement was put in practice */
+const MIN_PROOF_WORDS = 4;
 
 const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
 
@@ -132,6 +136,28 @@ function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
   }, cv);
 }
 
+/** The fields of the CV an ATS reads, as the guard and the proofs read them */
+function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
+  return Object.values(cvSections({ ...source, detectedLanguage: language }, "content")).flat().map(prepareText);
+}
+
+/** What the guard is allowed to keep: the source, the requirements it proves, the numbers it gives */
+function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean, extraNumbers: string[] = []): GuardContext {
+  return {
+    source,
+    // Years are measured from the dates, never written
+    unproven: requirements.filter(r => r.kind !== "experience_years" && !proven.has(r.id)),
+    sourceNumbers: new Set([...sourceNumbersOf(source, fields.map(field => field.raw)), ...extraNumbers]),
+    sameLanguage,
+  };
+}
+
+/** A CV guarded then measured, the one pair the pipeline compares versions with */
+const measuredBy = (context: GuardContext, requirements: JobRequirement[]) => (cv: CVData) => {
+  const guarded = guard(cv, context);
+  return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
+};
+
 /**
  * The CV rewritten for the offer, everything it writes backed by the source,
  * measured like the editor measures it. A repair that fails or does not score
@@ -152,20 +178,11 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   );
   // The language the source is written in: the client strips it off the CV it sends
   const sourceLanguage = languageOverride ?? detectedLanguage ?? detectCVLanguage(source);
-  const fields = Object.values(cvSections({ ...source, detectedLanguage: sourceLanguage }, "content")).flat().map(prepareText);
+  const fields = preparedFields(source, sourceLanguage);
   const proven = provenIds(requirements, fields, generation.evidence);
   const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
-  const context: GuardContext = {
-    source,
-    // Years are measured from the dates, never written
-    unproven: requirements.filter(r => r.kind !== "experience_years" && !proven.has(r.id)),
-    sourceNumbers: sourceNumbersOf(source, fields.map(field => field.raw)),
-    sameLanguage: sourceLanguage === language,
-  };
-  const measure = (cv: CVData) => {
-    const guarded = guard(cv, context);
-    return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
-  };
+  const context = guardContext(source, requirements, proven, fields, sourceLanguage === language);
+  const measure = measuredBy(context, requirements);
 
   let best = measure(generation.cv);
   for (let repair = 0; repair < MAX_REPAIRS && Date.now() - startedAt < REPAIR_CUTOFF_MS; repair++) {
@@ -190,4 +207,61 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     best = candidate;
   }
   return { cv: best.cv, requirements, report: best.report, unproven: context.unproven.filter(isWritable).map(r => r.id) };
+}
+
+
+export interface ProveInput {
+  /** The CV on screen, as the client holds it */
+  cv: unknown;
+  jobDescription: string;
+  /** The offer's requirements the client already has, checked again against it */
+  requirements?: unknown[];
+  /** The requirement the user says they have */
+  requirementId: string;
+  /** The user's own words: where they put the requirement in practice */
+  proof: string;
+  detectedLanguage?: "fr" | "en";
+  languageOverride?: "fr" | "en";
+}
+
+/**
+ * One requirement written into the CV from the user's own proof (plan § 5.2).
+ * The proof is theirs, so it backs what it states: its numbers are added to the
+ * source's and the requirement counts as proven. Everything else stays under
+ * the same guard as the tailoring, the same measure ends it.
+ */
+export async function provePipeline(input: ProveInput, startedAt: number = Date.now()): Promise<{ cv: CVData; report: ATSReport; requirements: JobRequirement[] }> {
+  const source = readSourceCV(input.cv);
+  const { jobDescription, requirementId, proof, detectedLanguage, languageOverride } = input;
+  const checked = normalizeJobRequirements(input.requirements ?? [], jobDescription);
+  const requirements = checked.length > 0 ? checked : await extractRequirements(jobDescription, startedAt + EXTRACTION_DEADLINE_MS);
+  const target = requirements.find(r => r.id === requirementId);
+  if (!target) {
+    throw userError("Cette exigence n'est plus celle de l'offre affichée. Relancez l'analyse de l'offre.", "REQUIREMENT_UNKNOWN");
+  }
+  if (!isWritable(target)) {
+    throw userError("Un diplôme, une langue ou des années d'expérience s'ajoutent dans l'onglet Contenu, pas par une réécriture.", "REQUIREMENT_NOT_WRITABLE");
+  }
+  if (proof.trim().split(/\s+/).filter(Boolean).length < MIN_PROOF_WORDS) {
+    throw userError("Précisez où vous l'avez mis en œuvre : une mission, un projet, un employeur.", "PROOF_TOO_SHORT");
+  }
+
+  const language = languageOverride ?? detectedLanguage ?? detectCVLanguage(source);
+  const fields = preparedFields(source, language);
+  // The proof proves its own requirement, and the CV proves what it already writes
+  const proven = new Set([...provenIds(requirements, fields, new Map()), target.id]);
+  const context = guardContext(source, requirements, proven, fields, true, numbersOf(proof));
+
+  const edits = await chatJSONThen(
+    buildRepairPrompt({ cv: source, missing: [{ label: target.label, evidence: proof }], language }),
+    (raw) => {
+      const parsed = RepairSchema.safeParse(raw);
+      if (!parsed.success) throw invalidOutput();
+      return parsed.data.edits;
+    },
+    "fast",
+    startedAt + PROOF_DEADLINE_MS,
+  );
+  const { cv, report } = measuredBy(context, requirements)(applyRepair(source, edits));
+  return { cv, report, requirements };
 }

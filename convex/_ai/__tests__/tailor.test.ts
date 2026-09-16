@@ -5,7 +5,7 @@ import type { CVData } from "../../../src/shared/types";
 const mocks = vi.hoisted(() => ({ chat: vi.fn() }));
 vi.mock("../chat", () => ({ chatJSONThen: mocks.chat }));
 
-import { tailorPipeline, MAX_REPAIRS, PIPELINE_DEADLINE_MS, REPAIR_CUTOFF_MS } from "../tailor";
+import { tailorPipeline, provePipeline, MAX_REPAIRS, PIPELINE_DEADLINE_MS, PROOF_DEADLINE_MS, REPAIR_CUTOFF_MS } from "../tailor";
 
 const OFFER = "Product Designer. Requis : Figma, Sketch, recherche utilisateur, maquettes, Kubernetes, Node.js, Master, anglais.";
 
@@ -388,5 +388,53 @@ describe("tailorPipeline: targeted repair", () => {
     const result = await run([FIGMA]);
     expect(mocks.chat).toHaveBeenCalledTimes(2);
     expect(result.cv.skills[0].items).toEqual(["Sketch"]);
+  });
+});
+
+describe("provePipeline: a requirement the user says they have", () => {
+  const prove = (proof: string, requirementId = "kubernetes", requirements: unknown[] = [KUBERNETES], offer = OFFER) =>
+    provePipeline({ cv: SOURCE, jobDescription: offer, requirements, requirementId, proof }, 1_000);
+
+  it("writes the requirement where the proof puts it, on the fast model, and measures it covered", async () => {
+    answers({ edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Déployé les maquettes sur Kubernetes" }] });
+    const result = await prove("J'ai déployé nos environnements sur Kubernetes chez Acme");
+    expect(mocks.chat).toHaveBeenCalledTimes(1);
+    expect(mocks.chat.mock.calls[0][2]).toBe("fast");
+    expect(mocks.chat.mock.calls[0][3]).toBe(1_000 + PROOF_DEADLINE_MS);
+    // The user's own words are the evidence the repair prompt writes from
+    expect(mocks.chat.mock.calls[0][0]).toContain("déployé nos environnements sur Kubernetes chez Acme");
+    expect(result.cv.experience[0].description[0]).toBe("Déployé les maquettes sur Kubernetes");
+    expect(result.report.requirements.find(c => c.requirement.id === "kubernetes")?.found).toBe(true);
+  });
+
+  it("keeps a number the proof gives, and removes one neither the CV nor the proof gives", async () => {
+    answers({ edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Opéré 12 clusters Kubernetes" }] });
+    expect((await prove("J'ai opéré 12 clusters Kubernetes chez Acme")).cv.experience[0].description[0])
+      .toBe("Opéré 12 clusters Kubernetes");
+
+    answers({ edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Opéré 40 clusters Kubernetes" }] });
+    // The bullet the source carries at that place comes back, never an invented count
+    expect((await prove("J'ai opéré des clusters Kubernetes chez Acme")).cv.experience[0].description[0])
+      .toBe("Mené 30 entretiens utilisateurs");
+  });
+
+  it("removes an edit writing another requirement the CV does not prove", async () => {
+    answers({ edits: [{ target: "skills", text: "Kubernetes" }, { target: "skills", text: "Node.js" }] });
+    const result = await prove("J'administre nos clusters Kubernetes", "kubernetes", [KUBERNETES, requirement("Node.js")]);
+    expect(result.cv.skills[0].items).toEqual(["Figma", "Sketch", "Kubernetes"]);
+  });
+
+  it("refuses a requirement the offer does not state, and one a rewrite cannot write", async () => {
+    await expect(prove("Je l'ai fait", "rust", [KUBERNETES])).rejects.toMatchObject({ data: { code: "REQUIREMENT_UNKNOWN" } });
+    // Years are measured from the dates: no rewrite writes them
+    const offerYears = `${OFFER} 5 ans d'expérience.`;
+    const years = { label: "Expérience", variants: [], kind: "experience_years", importance: "required", quote: "5 ans d'expérience", minYears: 5 };
+    await expect(prove("J'ai bien ce niveau", "experience", [years], offerYears)).rejects.toMatchObject({ data: { code: "REQUIREMENT_NOT_WRITABLE" } });
+    expect(mocks.chat).not.toHaveBeenCalled();
+  });
+
+  it("refuses a proof too short to say where the requirement was put in practice", async () => {
+    await expect(prove("oui")).rejects.toMatchObject({ data: { code: "PROOF_TOO_SHORT" } });
+    expect(mocks.chat).not.toHaveBeenCalled();
   });
 });

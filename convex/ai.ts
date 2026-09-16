@@ -8,32 +8,14 @@ import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { buildCoverLetterPrompt } from "./_ai/prompts/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
-import { buildCompanyExtractionPrompt } from "./_ai/prompts/companyExtraction";
-import { buildExperienceEnrichmentPrompt } from "./_ai/prompts/experienceEnrichment";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
-import { CoverLetterSchema, CompanyMetaSchema, ExperienceEnrichmentSchema } from "./_ai/schemas";
+import { CoverLetterSchema } from "./_ai/schemas";
+import { companyMetaOf, experienceMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, restoreUserOwnedFields, withoutUserOwnedFields } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
-import { EXTRACTION_DEADLINE_MS, extractRequirements, tailorPipeline } from "./_ai/tailor";
-
-// ─── Input size ─────────────────────────────────────────────────────
-const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
-const MAX_OFFER_CHARS = 20_000; // a job description
-
-/**
- * Refuse an oversized text before it reaches the model, and before the access
- * code is used up. Nothing bounded these inputs: a 40-page PDF became a huge
- * billed prompt.
- */
-function assertMaxLength(value: string | undefined, max: number) {
-  if (value && value.length > max) {
-    throw userError(
-      `Texte trop long pour l'IA (${Math.ceil(value.length / 1000)} k caractères, maximum ${max / 1000} k) : raccourcissez-le.`,
-      "INPUT_TOO_LONG",
-    );
-  }
-}
+import { EXTRACTION_DEADLINE_MS, extractRequirements, provePipeline, tailorPipeline } from "./_ai/tailor";
+import { assertMaxLength, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -93,6 +75,50 @@ export const tailorCV = action({
       requirements: result.requirements,
       report: result.report,
       unproven: result.unproven,
+    };
+  },
+});
+
+/**
+ * One requirement of the offer written into the CV from the user's own proof
+ * (plan § 5.2): the same truth guard as the tailoring, the proof standing for
+ * the source on what it states.
+ */
+export const proveRequirement = action({
+  args: {
+    cvData: v.any(),
+    jobDescription: v.string(),
+    requirements: v.optional(v.array(v.any())),
+    requirementId: v.string(),
+    proof: v.string(),
+    accessCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const startedAt = Date.now();
+    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
+    assertMaxLength(args.proof, MAX_PROOF_CHARS);
+    await verifyAccessCode(ctx, args.accessCode);
+    // Same fields as tailorCV: the translation cache is bound to the content being rewritten
+    const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...contentOnly } = args.cvData || {};
+    void _staleCache;
+    const result = await provePipeline({
+      cv: withoutUserOwnedFields(contentOnly),
+      jobDescription: args.jobDescription,
+      requirements: args.requirements,
+      requirementId: args.requirementId,
+      proof: args.proof,
+      detectedLanguage,
+      languageOverride,
+    }, startedAt);
+    return {
+      cv: {
+        ...restoreUserOwnedFields(result.cv, contentOnly),
+        ...(design && { design }),
+        ...(detectedLanguage && { detectedLanguage }),
+        ...(languageOverride && { languageOverride }),
+      },
+      requirements: result.requirements,
+      report: result.report,
     };
   },
 });
@@ -207,15 +233,7 @@ export const extractCompanyMeta = action({
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    const FALLBACK = { companyName: null, domainGuess: null, industry: null, stage: null, businessModel: null };
-    if (!args.jobDescription || args.jobDescription.trim().length < 50) return FALLBACK;
-    try {
-      const prompt = buildCompanyExtractionPrompt({ jobDescription: args.jobDescription });
-      return await chatJSONSchema(prompt, CompanyMetaSchema, "fast");
-    } catch (e) {
-      console.warn("[extractCompanyMeta] LLM call failed:", e);
-      return FALLBACK;
-    }
+    return await companyMetaOf(args.jobDescription);
   },
 });
 
@@ -236,19 +254,7 @@ export const enrichExperienceMeta = action({
   },
   handler: async (ctx, args) => {
     await verifyAccessCode(ctx, args.accessCode);
-    if (args.experiences.length === 0) return { results: [] };
-    try {
-      const prompt = buildExperienceEnrichmentPrompt({ experiences: args.experiences });
-      const data = await chatJSONSchema(prompt, ExperienceEnrichmentSchema, "fast");
-      // Pad with nulls if the LLM returned fewer items than asked
-      const results = args.experiences.map((_, i) =>
-        data.results[i] ?? { stage: null, businessModel: null },
-      );
-      return { results };
-    } catch (e) {
-      console.warn("[enrichExperienceMeta] LLM call failed:", e);
-      return { results: args.experiences.map(() => ({ stage: null, businessModel: null })) };
-    }
+    return { results: await experienceMetaOf(args.experiences) };
   },
 });
 
