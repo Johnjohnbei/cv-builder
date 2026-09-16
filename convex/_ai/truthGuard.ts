@@ -1,5 +1,6 @@
 import type { CVData, JobRequirement } from "../../src/shared/types";
 import { getSkillCategoryTitle } from "../../src/features/editor/lib/atsRules";
+import { writesRequirement } from "../../src/features/editor/lib/keywordAnalysis";
 import type { SkillCategoryKey } from "../../src/features/editor/lib/skillDictionary";
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from "../../src/shared/lib/text";
 import { getLocalizedStage } from "../../src/shared/constants/companyMeta";
@@ -17,8 +18,9 @@ const termsOf = (r: JobRequirement) => [r.label, ...r.variants];
 /** Whether `text`, as the templates print it (markdown rendered), writes one of `requirements` */
 function mentions(text: string | undefined, requirements: JobRequirement[]): boolean {
   if (!text?.trim()) return false;
-  const prepared = prepareText(stripInlineMarkdown(text));
-  return requirements.some(r => termsOf(r).some(term => matchPhrase(term, prepared)));
+  // Same reading as the score's: one owner for "does this text write it"
+  const prepared = [prepareText(stripInlineMarkdown(text))];
+  return requirements.some(r => writesRequirement(prepared, r));
 }
 
 /** Words that say nothing of a skill, a degree or a language ("pour", "with", "degree") */

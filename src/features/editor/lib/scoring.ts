@@ -1,7 +1,7 @@
 import type { Experience, JobRequirement } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/languageDetection';
-import { matchPhrase, prepareText } from '@/src/shared/lib/text';
-import { experienceText, isWritable } from './keywordAnalysis';
+import { prepareText } from '@/src/shared/lib/text';
+import { experienceText, isWritable, writesRequirement } from './keywordAnalysis';
 
 // ─── Relevance of one experience to the offer ───
 // The badge shows the requirement coverage; the fit-to-pages condensing orders
@@ -73,9 +73,8 @@ export function computeRequirementMatch(exp: Experience, requirements: JobRequir
   if (provable.length === 0) return 0;
   const text = prepareText(experienceText(exp, 'content', language).join(' | '));
   const position = prepareText(exp.position ?? '');
-  const hits = provable
-    .filter(r => [r.label, ...r.variants].some(term => matchPhrase(term, r.kind === 'title' ? position : text)))
-    .length;
+  // The same reading as the score's, so a badge and the score never disagree
+  const hits = provable.filter(r => writesRequirement([r.kind === 'title' ? position : text], r)).length;
   return Math.round((hits / provable.length) * 100);
 }
 
