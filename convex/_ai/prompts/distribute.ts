@@ -21,7 +21,7 @@ export interface RepairContext {
  * break is what a text written by a candidate would otherwise close its own
  * block with.
  */
-const asData = (text: string) => text.replace(/[`"«»\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+export const asData = (text: string) => text.replace(/[`"«»\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 
 /** Experiences with their bullets indexed, so an edit can point at one */
 function summarizeExperiences(experiences: RepairContext["cv"]["experience"]): string {

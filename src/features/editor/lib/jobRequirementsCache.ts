@@ -11,10 +11,11 @@ import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS, type JobRequirement } from 
  * an offer committed a moment before another one was dropped or evicted, and
  * that offer was billed again when it came back.
  *
- * The key changed with the format: entries of the former keyword cache
- * ('ai_keywords_cache', plain strings) are never read.
+ * The key changes with what an analysis carries: the former keyword cache
+ * ('ai_keywords_cache') and the lists analyzed before each requirement named
+ * itself in both languages ('job_requirements_cache') are never read.
  */
-const KEY = 'job_requirements_cache';
+export const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache_v2';
 const MAX_OFFERS = 5;
 
 interface CachedRequirements {
@@ -82,7 +83,7 @@ function isRequirement(value: unknown): value is JobRequirement {
 
 function readEntries(): CachedRequirements[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(REQUIREMENTS_CACHE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.filter((e): e is CachedRequirements => typeof e?.jobDescription === 'string' && Array.isArray(e.requirements))
@@ -191,7 +192,7 @@ export function writeCachedRequirements(jobDescription: string, requirements: Jo
   if (!jd) return;
   answeredInTab = mostRecentOffers([{ jobDescription: jd, requirements }, ...answeredInTab]);
   try {
-    localStorage.setItem(KEY, JSON.stringify(mostRecentOffers([{ jobDescription: jd, requirements }, ...readEntries()])));
+    localStorage.setItem(REQUIREMENTS_CACHE_KEY, JSON.stringify(mostRecentOffers([{ jobDescription: jd, requirements }, ...readEntries()])));
   } catch {
     // Quota or private mode: the in-memory copy still answers for this tab
   }

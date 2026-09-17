@@ -233,6 +233,12 @@ describe('computeATSReport', () => {
     expect(found(computeATSReport(cv(), [req('Product Designer', { kind: 'title' })]))).toEqual(['Product Designer']);
   });
 
+  it('reads a language name in the language of the CV', () => {
+    const english = cv({ detectedLanguage: 'en' });
+    expect(found(computeATSReport(english, [req('English', { kind: 'language' })]))).toEqual(['English']);
+    expect(cvSections(english, 'rendered').languages).toEqual(['English']);
+  });
+
   it('reads a degree in education and a language in languages only', () => {
     const summaryOnly = cv({ languages: [], personal_info: { name: 'A', email: 'a@b.fr', summary: 'Anglais courant' } });
     expect(found(computeATSReport(cv(), [req('Master', { kind: 'education' }), req('Anglais', { kind: 'language' })])))

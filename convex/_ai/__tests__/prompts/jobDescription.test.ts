@@ -52,6 +52,12 @@ describe("buildJobRequirementsPrompt", () => {
     }
   });
 
+  // A French CV proves an English offer's requirement only in French words:
+  // without the translation, "user research" was never found in "recherche utilisateur"
+  it("asks for the label in the other language among the variants", () => {
+    expect(prompt).toMatch(/"variants" : TOUJOURS la traduction du libellé dans l'autre langue/);
+  });
+
   it("explains every importance the schema accepts", () => {
     for (const importance of REQUIREMENT_IMPORTANCES) {
       expect(prompt).toContain(`"${importance}" :`);

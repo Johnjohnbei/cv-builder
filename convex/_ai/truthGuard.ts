@@ -4,6 +4,7 @@ import { writesRequirement } from "../../src/features/editor/lib/keywordAnalysis
 import type { SkillCategoryKey } from "../../src/features/editor/lib/skillDictionary";
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from "../../src/shared/lib/text";
 import { getLocalizedStage } from "../../src/shared/constants/companyMeta";
+import { LANGUAGE_NAMES } from "../../src/features/editor/lib/formatting";
 import { hasUnbackedNumber } from "./numbers";
 
 // ─── Truth guard of the tailoring (plan § 4.1, step 3) ──────────────
@@ -43,11 +44,8 @@ const stemsOf = (text: string | undefined) => normalizeForMatch(text ?? "")
   .filter(word => word.length > 0 && !STOP_WORDS.has(word))
   .map(word => prepareText(word).stemmed);
 
-/** Whether two texts share a word stem of 4 letters or more ("recherche utilisateur" and "entretiens utilisateurs") */
-function shareStem(a: string, b: string): boolean {
-  const stems = new Set(stemsOf(a).filter(stem => stem.length >= 4));
-  return stemsOf(b).some(stem => stems.has(stem));
-}
+/** The word stems of 4 letters or more a text carries ("recherche utilisateur": recherch, utilisateur) */
+const longStemsOf = (text: string) => stemsOf(text).filter(stem => stem.length >= 4);
 
 /** Every meaningful word of `entry` is a word of `source`, or one of `alike` ("Master's degree in design" of "Master design") */
 export function namesOnly(entry: string, source: string, alike: (stem: string) => string[] = () => []): boolean {
@@ -63,33 +61,72 @@ const DEGREE_WORDS = new Set(stemsOf("degree diploma diplome"));
  * The requirements the source CV proves: one of its fields writes them, or the
  * model's quote for them is words of a field and shares a word with them
  * ("Mené 30 entretiens utilisateurs" for "recherche utilisateur"). Any words of
- * the source used to prove any requirement.
+ * the source used to prove any requirement. The shared word must be one of this
+ * requirement's own: "design", in half the requirements of a design offer,
+ * proved "design critiques" with "ateliers Design Thinking".
  */
 export function provenIds(requirements: JobRequirement[], fields: PreparedText[], evidence: Map<string, string>): Set<string> {
-  const quoted = (r: JobRequirement) => {
-    const quote = evidence.get(r.id);
-    if (!quote || normalizeForMatch(quote).split(" ").length < MIN_QUOTE_WORDS) return false;
-    return termsOf(r).some(term => shareStem(term, quote)) && fields.some(field => matchPhrase(quote, field));
-  };
+  const quoted = provenByQuote(requirements, fields, evidence);
   return new Set(requirements
-    .filter(r => termsOf(r).some(term => fields.some(field => matchPhrase(term, field))) || quoted(r))
+    .filter(r => quoted.has(r.id) || termsOf(r).some(term => fields.some(field => matchPhrase(term, field))))
     .map(r => r.id));
 }
 
-/** A language's name in French and in English: a CV written for an English offer translates them */
-const LANGUAGE_NAMES = [
-  ["francais", "french"], ["anglais", "english"], ["espagnol", "spanish"], ["allemand", "german"],
-  ["italien", "italian"], ["portugais", "portuguese"], ["neerlandais", "dutch"], ["chinois", "chinese", "mandarin"],
-  ["japonais", "japanese"], ["arabe", "arabic"], ["russe", "russian"],
-];
+/** The requirements whose quote alone proves them, by the rule of provenIds */
+export function provenByQuote(requirements: JobRequirement[], fields: PreparedText[], evidence: Map<string, string>): Set<string> {
+  const stemsOfRequirement = new Map(requirements.map(r => [r.id, new Set(termsOf(r).flatMap(longStemsOf))]));
+  const owners = (stem: string) => requirements.filter(r => stemsOfRequirement.get(r.id)!.has(stem)).length;
+  const quoted = (r: JobRequirement) => {
+    const quote = evidence.get(r.id);
+    if (!quote || normalizeForMatch(quote).split(" ").length < MIN_QUOTE_WORDS) return false;
+    const own = stemsOfRequirement.get(r.id)!;
+    return longStemsOf(quote).some(stem => own.has(stem) && owners(stem) === 1) && fields.some(field => matchPhrase(quote, field));
+  };
+  return new Set(requirements.filter(quoted).map(r => r.id));
+}
 
-/** A language name's stem, and the stems of its translations */
+/**
+ * The experiences a proof allows writing under: those whose employer it names,
+ * or, when it names none, those whose position it names. The employer decides
+ * first — a proof saying "chez Beta, en tant que product designer" is about
+ * Beta, even when another role carries that very position. Several roles at
+ * one employer all qualify.
+ */
+export function experiencesNamedBy(source: CVData, proof: PreparedText): number[] {
+  const named = (name: string | undefined) => Boolean(name && name.trim().length > 2 && matchPhrase(name, proof));
+  const byCompany = source.experience.flatMap((exp, i) => (named(exp.company) ? [i] : []));
+  return byCompany.length > 0 ? byCompany : source.experience.flatMap((exp, i) => (named(exp.position) ? [i] : []));
+}
+
+/** A language name's stem, and the stems of its translations: a CV written for an English offer translates them */
 const LANGUAGE_STEMS = LANGUAGE_NAMES.map(names => names.flatMap(stemsOf));
 const translations = (stem: string) => LANGUAGE_STEMS.find(stems => stems.includes(stem)) ?? [];
+
+/**
+ * The names a text states: a capitalised word that does not open a sentence,
+ * and an acronym wherever it stands. A model writing freely adds employers,
+ * clients and brands that way ("du groupe LVMH"), and the guard reads numbers,
+ * never names.
+ * ponytail: a name opening a sentence ("Google : maquettes") reads like the
+ * action verb a bullet starts with, and is not caught; a part-of-speech
+ * reading would be the upgrade.
+ */
+export const namesStated = (text: string): string[] =>
+  (text.match(/(?<=[^.!?]\s)\p{Lu}[\p{L}\p{N}'’&.-]*|(?<![\p{L}\p{N}])\p{Lu}{2,}(?![\p{L}\p{N}])/gu) ?? [])
+    // "pour Acme." names Acme: the stop ends the sentence, not the name
+    .map(name => normalizeForMatch(name.replace(/[.'’&-]+$/u, '')))
+    .filter(name => name.length > 1);
 
 export interface GuardContext {
   source: CVData;
   unproven: JobRequirement[];
+  /**
+   * Requirements only the user's own words prove. A text writing one of them
+   * stands in an experience its proof names (`where`, never the summary or the
+   * title), names nobody the source, the proofs or the requirements do not
+   * name (`said`), and only then may give the proofs' numbers.
+   */
+  claimed?: { requirements: JobRequirement[]; said: PreparedText; where: Map<string, number[]>; numbers: Set<string> };
   /**
    * Every reading of every number the source gives: its content, the years of
    * its dates and the years of experience they add up to.
@@ -109,14 +146,24 @@ export interface GuardContext {
  * tag or category name goes back to the source's. Degrees and languages are
  * the source's, in the model's words only when those name the same entry.
  */
-export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage }: GuardContext): CVData {
+export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage, claimed }: GuardContext): CVData {
   const writes = (text?: string) => mentions(text, unproven);
-  const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers);
+  const claims = (text?: string) => Boolean(claimed && mentions(text, claimed.requirements));
+  const withProofNumbers = new Set([...sourceNumbers, ...(claimed?.numbers ?? [])]);
+  const namesNobodyGave = (text: string) => !namesStated(text).every(name => matchPhrase(name, claimed!.said));
+  /** `outside`: the requirements the proofs do not allow at this place */
+  const invents = (text?: string, outside: JobRequirement[] = []) => {
+    if (writes(text) || mentions(text, outside)) return true;
+    if (!claims(text)) return hasUnbackedNumber(text, sourceNumbers);
+    return hasUnbackedNumber(text, withProofNumbers) || namesNobodyGave(text!);
+  };
+  const everywhere = claimed?.requirements ?? [];
+  const outsideOf = (i: number) => everywhere.filter(r => !claimed!.where.get(r.id)?.includes(i));
   // A text left empty by the filter is a text the CV no longer carries: the
   // source's comes back, as it does for a title or a position. Only in the
   // source's language: a French summary in an English CV is worse than none.
-  const sentencesKept = (text: string | undefined, fallback: string | undefined) => {
-    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
+  const sentencesKept = (text: string | undefined, fallback: string | undefined, outside: JobRequirement[]) => {
+    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s, outside)).join(" ");
     return kept?.trim() || !text?.trim() ? kept : sameLanguage ? fallback : kept;
   };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
@@ -124,20 +171,21 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     ...cv,
     personal_info: {
       ...cv.personal_info,
-      title: invents(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
-      summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary),
+      title: invents(cv.personal_info.title, everywhere) ? source.personal_info.title : cv.personal_info.title,
+      summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary, everywhere),
     },
     experience: cv.experience.map((exp, i) => {
       const src = source.experience[i];
+      const outside = outsideOf(i);
       const lineUp = sameLanguage && exp.description.length === src.description.length;
-      const bullets = exp.description.map((bullet, b) => (!invents(bullet) ? bullet : lineUp ? src.description[b] : undefined));
+      const bullets = exp.description.map((bullet, b) => (!invents(bullet, outside) ? bullet : lineUp ? src.description[b] : undefined));
       return {
         ...exp,
-        position: invents(exp.position) ? src.position : exp.position,
+        position: invents(exp.position, everywhere) ? src.position : exp.position,
         companyStage: localized(lang => getLocalizedStage(exp.companyStage, lang)) ? src.companyStage : exp.companyStage,
-        companyBusinessModel: invents(exp.companyBusinessModel) ? src.companyBusinessModel : exp.companyBusinessModel,
-        intro: sentencesKept(exp.intro, src.intro),
-        kpi: invents(exp.kpi) ? "" : exp.kpi,
+        companyBusinessModel: invents(exp.companyBusinessModel, everywhere) ? src.companyBusinessModel : exp.companyBusinessModel,
+        intro: sentencesKept(exp.intro, src.intro, outside),
+        kpi: invents(exp.kpi, outside) ? "" : exp.kpi,
         description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
       };
     }),

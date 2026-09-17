@@ -197,7 +197,9 @@ async function rawChatText(provider: AIProvider, prompt: string, speed: "default
     {
       model: getModel(speed, provider),
       max_tokens: 30000,
-      temperature: 0.3,
+      // The fast model extracts, translates and repairs: the same offer must
+      // give the same requirements, or the score moved between two analyses
+      temperature: speed === "fast" ? 0 : 0.3,
       messages: [{ role: "user", content: prompt }],
     },
     { signal: AbortSignal.timeout(timeoutMs) },

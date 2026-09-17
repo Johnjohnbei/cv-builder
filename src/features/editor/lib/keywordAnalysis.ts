@@ -11,7 +11,7 @@ import { getCVLanguage, type SupportedLanguage } from '../../../lib/languageDete
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './displayModes';
 import { getSkillCategoryTitle } from './atsRules';
 import type { SkillCategoryKey } from './skillDictionary';
-import { parseMonthYear } from './formatting';
+import { localizeLanguageName, parseMonthYear } from './formatting';
 
 // ─── What an ATS reads ───
 
@@ -73,7 +73,8 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
       return items.length > 0 ? [categoryTitle(cat.category), ...items] : [];
     }),
     education: cv.education.flatMap(edu => [edu.degree, edu.field, edu.school]),
-    languages: cv.languages.map(lang => lang.name),
+    // Printed in the CV's language, as the templates print them
+    languages: cv.languages.map(lang => localizeLanguageName(lang.name, language)),
   };
   const sections = {} as Record<CVSection, string[]>;
   for (const section of Object.keys(raw) as CVSection[]) {

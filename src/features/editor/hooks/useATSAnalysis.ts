@@ -56,6 +56,28 @@ export function withDismissed(entries: DismissedGaps, offer: string, ids: string
     .slice(0, MAX_OFFERS);
 }
 
+/**
+ * The gaps the user dismissed for `offer`, kept in this browser. Shared by the
+ * editor's ATS tab and the dashboard's questions before a tailoring: a gap
+ * dismissed in one is dismissed in the other.
+ */
+export function useDismissedGaps(offer: string) {
+  const [entries, setEntries] = useState(() => parseDismissedGaps(readStoredJSON<unknown>(KEY, [])));
+  const key = offerKey(offer);
+  const dismissed = entries.find(([o]) => o === key)?.[1] ?? NO_IDS;
+
+  const setDismissed = useCallback((ids: string[]) => {
+    const next = withDismissed(entries, key, ids);
+    setEntries(next);
+    // Refused (quota, private mode): kept for this visit only
+    writeStoredText(KEY, JSON.stringify(next));
+  }, [entries, key]);
+
+  const dismiss = useCallback((id: string) => setDismissed([...dismissed.filter(d => d !== id), id]), [dismissed, setDismissed]);
+  const restore = useCallback((id: string) => setDismissed(dismissed.filter(d => d !== id)), [dismissed, setDismissed]);
+  return { dismissed, dismiss, restore };
+}
+
 export interface UseATSAnalysisDeps {
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
@@ -94,25 +116,13 @@ export interface ATSAnalysis {
 export function useATSAnalysis(deps: UseATSAnalysisDeps): ATSAnalysis {
   const { cvData, setCvData, designSettings, requirements, offer, accessCode, notify } = deps;
   const proveAction = useAction(api.ai.proveRequirement);
-  const [entries, setEntries] = useState(() => parseDismissedGaps(readStoredJSON<unknown>(KEY, [])));
+  const { dismissed, dismiss, restore } = useDismissedGaps(offer);
   const [provingId, setProvingId] = useState<string | null>(null);
-  const key = offerKey(offer);
-  const dismissed = entries.find(([o]) => o === key)?.[1] ?? NO_IDS;
 
   const report = useMemo(
     () => (cvData ? computeATSReport(cvData, requirements, { design: designSettings }) : null),
     [cvData, designSettings, requirements],
   );
-
-  const setDismissed = useCallback((ids: string[]) => {
-    const next = withDismissed(entries, key, ids);
-    setEntries(next);
-    // Refused (quota, private mode): kept for this visit only
-    writeStoredText(KEY, JSON.stringify(next));
-  }, [entries, key]);
-
-  const dismiss = useCallback((id: string) => setDismissed([...dismissed.filter(d => d !== id), id]), [dismissed, setDismissed]);
-  const restore = useCallback((id: string) => setDismissed(dismissed.filter(d => d !== id)), [dismissed, setDismissed]);
 
   const prove = useCallback(async (requirement: JobRequirement, proof: string) => {
     if (!cvData) return false;

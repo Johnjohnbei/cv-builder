@@ -15,8 +15,10 @@ interface Props {
   onJobDescriptionChange: (text: string) => void;
   hasBaseCV: boolean;
   onOptimize: () => void;
-  isGenerating: boolean;
-  generatingSeconds: number;
+  /** What the tailoring is doing, null when it is not running */
+  busyLabel: string | null;
+  /** The offer is being read or written for: changing it now would mix two offers */
+  offerLocked: boolean;
   /** Rough duration of the tailoring, from the CV size */
   estimateSeconds: number;
 }
@@ -24,7 +26,7 @@ interface Props {
 /** Step 2 of the dashboard: the offer, and the button that tailors the CV to it. Extracted from DashboardPage, over its size limit. */
 export function JobOfferPanel({
   jobUrl, onJobUrlChange, onUrlCrawl, isCrawling, jobDropzone, isExtractingJob,
-  jobDescription, onJobDescriptionChange, hasBaseCV, onOptimize, isGenerating, generatingSeconds, estimateSeconds,
+  jobDescription, onJobDescriptionChange, hasBaseCV, onOptimize, busyLabel, offerLocked, estimateSeconds,
 }: Props) {
   const { getRootProps, getInputProps, isDragActive } = jobDropzone;
   return (
@@ -47,7 +49,7 @@ export function JobOfferPanel({
                 onChange={(e) => onJobUrlChange(e.target.value)}
                 placeholder="https://linkedin.com/jobs/..."
               />
-              <Button type="submit" variant="secondary" size="sm" loading={isCrawling} disabled={!jobUrl}>
+              <Button type="submit" variant="secondary" size="sm" loading={isCrawling} disabled={!jobUrl || offerLocked}>
                 Importer
               </Button>
             </form>
@@ -56,9 +58,10 @@ export function JobOfferPanel({
           <div className="space-y-2">
             <label className="text-[11px] text-gray-600 uppercase block mb-2">Depuis un PDF</label>
             <div
-              {...getRootProps()}
+              {...(offerLocked ? { 'aria-disabled': true } : getRootProps())}
               className={cn(
-                "border border-dashed border-[#DADCE0] rounded p-2 text-center cursor-pointer hover:bg-gray-50 transition-colors h-[34px] flex items-center justify-center",
+                "border border-dashed border-[#DADCE0] rounded p-2 text-center h-[34px] flex items-center justify-center",
+                offerLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50 transition-colors",
                 isDragActive && "bg-blue-50 border-blue-400"
               )}
             >
@@ -78,6 +81,7 @@ export function JobOfferPanel({
             id="job-description"
             value={jobDescription}
             onChange={(e) => onJobDescriptionChange(e.target.value)}
+            readOnly={offerLocked}
             placeholder="Collez l'offre d'emploi ici..."
             className="stitch-input h-48 resize-none stitch-mono text-xs leading-relaxed"
           />
@@ -87,12 +91,12 @@ export function JobOfferPanel({
             <Button
               mono={false}
               onClick={onOptimize}
-              disabled={!hasBaseCV || jobDescription.length < 50 || isGenerating}
-              icon={isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              disabled={!hasBaseCV || jobDescription.length < 50 || busyLabel !== null}
+              icon={busyLabel !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             >
-              {isGenerating ? `Optimisation en cours… ${generatingSeconds}s` : 'Optimiser mon CV pour cette offre'}
+              {busyLabel ?? 'Optimiser mon CV pour cette offre'}
             </Button>
-            {hasBaseCV && !isGenerating && (
+            {hasBaseCV && busyLabel === null && (
               <span className="text-[11px] text-gray-500 stitch-mono">~{estimateSeconds}s estimé</span>
             )}
           </div>

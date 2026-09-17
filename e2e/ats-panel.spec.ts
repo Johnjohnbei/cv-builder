@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION } from './fixtures/mock-cv';
-import { answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf, type RoutedAICalls } from './fixtures/hermetic';
+import { answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf, REQUIREMENTS_CACHE_KEY, type RoutedAICalls } from './fixtures/hermetic';
 
 const setupGuestEditor = (page: Page, cv: unknown = MOCK_CV, jd?: string) =>
   seedGuestSession(page, { cv, jd: jd === undefined ? MOCK_JOB_DESCRIPTION : jd });
@@ -108,8 +108,8 @@ test.describe('Offre saisie dans l\'éditeur', () => {
     await setupGuestEditor(page, MOCK_CV, '');
     // Cache warmed for the offer about to be pasted: the analysis is served, no call leaves
     await page.evaluate(
-      (entry) => localStorage.setItem('job_requirements_cache', JSON.stringify([entry])),
-      { jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) },
+      ({ key, entry }) => localStorage.setItem(key, JSON.stringify([entry])),
+      { key: REQUIREMENTS_CACHE_KEY, entry: { jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) } },
     );
   });
 

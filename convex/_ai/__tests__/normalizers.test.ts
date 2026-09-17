@@ -341,6 +341,23 @@ describe("normalizeJobRequirements", () => {
     expect(out[0].importance).toBe("required");
   });
 
+  // A label the model composed ("User research and usability testing") is
+  // written by no CV: the words the offer uses are what an ATS searches
+  it("takes the label from the words of the quote when the model composed its own", () => {
+    const offer = "Proven ability to lead user research and usability studies.";
+    const [research] = normalizeJobRequirements([req({
+      label: "User research and usability testing", kind: "hard_skill",
+      quote: "lead user research and usability studies", variants: ["recherche utilisateur", "user research"],
+    })], offer);
+    expect(research).toMatchObject({ id: "user-research", label: "user research" });
+    expect(research.variants).toEqual(["User research and usability testing", "recherche utilisateur"]);
+  });
+
+  it("keeps the model's label when the quote writes it", () => {
+    const [figma] = normalizeJobRequirements([req({ variants: ["Figma design"] })], OFFER);
+    expect(figma).toMatchObject({ label: "Figma", variants: ["Figma design"] });
+  });
+
   it("cleans variants: trimmed, deduplicated, never the label itself", () => {
     const [ux] = normalizeJobRequirements(
       [req({ label: "Product Designer", kind: "title", quote: "Product Designer Senior", variants: [" UX Designer ", "ux designer", "product designer", ""] })],

@@ -19,11 +19,23 @@ const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
   .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
 
+/** Trimmed, non-empty, one per normalized spelling, the first spelling kept */
+function uniqueTerms(terms: string[]): string[] {
+  const seen = new Set<string>();
+  return terms.map(term => term.trim()).filter(term => {
+    const key = normalizeForMatch(term);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * The requirements the offer actually states, checked one by one. A malformed
  * item is dropped, not the list. A requirement is dropped when its quote is not
  * words of the offer, or when the quote does not state it: its label or a
  * variant must be words of the quote (a title or a degree may be reworded),
+ * and the first of them the quote writes is the label,
  * and years of experience must be the number the quote gives. Otherwise any
  * label passed by quoting a real fragment of the offer. Text injected in the
  * offer is quotable too: the prompt fences the offer as data.
@@ -36,29 +48,24 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
   for (const item of items) {
     const parsed = JobRequirementSchema.safeParse(withoutNulls(item));
     if (!parsed.success) continue;
-    const { label, variants, kind, importance, quote, minYears } = parsed.data;
-    const key = normalizeForMatch(label);
-    const id = slugOf(key);
+    const { variants, kind, importance, quote, minYears } = parsed.data;
     const quoted = prepareText(quote);
-    if (!id || ids.has(id) || !quoted.normalized || !matchPhrase(quote, offer)) continue;
-
-    const seen = new Set([key]);
-    const cleanVariants = variants.map(v => v.trim()).filter(v => {
-      const k = normalizeForMatch(v);
-      if (!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-
-    if (kind === "experience_years") {
-      // Years are measured from the dates, which needs the number the offer gives
-      if (!(typeof minYears === "number" && minYears > 0 && statesYears(quoted, minYears))) continue;
-    } else if (kind !== "title" && kind !== "education") {
-      if (![label, ...cleanVariants].some(term => matchPhrase(term, quoted))) continue;
-    }
+    if (!quoted.normalized || !matchPhrase(quote, offer)) continue;
+    const terms = uniqueTerms([parsed.data.label, ...variants]);
+    // A title or a degree may be reworded; any other label is words of the quote
+    // (a composed one, "User research and usability testing", gives way to the
+    // first term the quote writes, and stays a variant)
+    const stated = kind === "title" || kind === "education" || kind === "experience_years"
+      ? terms[0]
+      : terms.find(term => matchPhrase(term, quoted));
+    if (!stated) continue;
+    const id = slugOf(normalizeForMatch(stated));
+    if (!id || ids.has(id)) continue;
+    // Years are measured from the dates, which needs the number the offer gives
+    if (kind === "experience_years" && !(typeof minYears === "number" && minYears > 0 && statesYears(quoted, minYears))) continue;
     ids.add(id);
     requirements.push({
-      id, label: label.trim(), variants: cleanVariants, kind, importance, quote: quote.trim(),
+      id, label: stated, variants: terms.filter(term => term !== stated), kind, importance, quote: quote.trim(),
       ...(kind === "experience_years" && { minYears }),
     });
     if (requirements.length === MAX_REQUIREMENTS) break;

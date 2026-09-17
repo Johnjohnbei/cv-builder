@@ -72,7 +72,8 @@ describe('extractExpectedText', () => {
     expect(text).toContain('Universite Paris-Saclay');
     expect(text).toContain('React');
     expect(text).toContain('TypeScript');
-    expect(text).toContain('Francais');
+    // Printed as the templates print it: a known language takes its name in the CV's language
+    expect(text).toContain('Français');
     expect(text).toContain('Anglais');
   });
 

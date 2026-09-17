@@ -12,7 +12,7 @@ import {
 import { getSectionTitle, getSkillCategoryTitle } from '@/src/features/editor/lib/atsRules';
 import type { SkillCategoryKey } from '@/src/features/editor/lib/skillDictionary';
 import { buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
-import { formatDateShort, getCurrentLabel, normalizeProficiency } from '@/src/features/editor/lib/formatting';
+import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 import { stripInlineMarkdown } from './text';
 
 export type ExportLanguage = 'fr' | 'en';
@@ -158,7 +158,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
     for (const lang of languages) {
       children.push(new Paragraph({
         children: [
-          new TextRun({ text: `${lang.name}: `, bold: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: `${localizeLanguageName(lang.name, language)}: `, bold: true, size: 20, font: 'Calibri' }),
           new TextRun({ text: normalizeProficiency(lang.proficiency, language), size: 20, color: '5F6368', font: 'Calibri' }),
         ],
         spacing: { after: 40 },

@@ -96,7 +96,7 @@ RÈGLES :
 ${Object.entries(IMPORTANCE_GUIDE).map(([importance, guide]) => `  - "${importance}" : ${guide}`).join("\n")}
 - "minYears" : le nombre d'années écrit dans "quote", en chiffres ou en lettres ; uniquement pour experience_years.
 - "label" : la forme exacte employée par l'offre, dans sa langue ; elle doit figurer dans "quote" (sauf pour title et education).
-- "variants" : les autres écritures qu'un CV peut employer pour la même exigence (acronyme, forme longue, équivalent anglais ou français). Liste vide si aucune.
+- "variants" : TOUJOURS la traduction du libellé dans l'autre langue (en français si l'offre est en anglais, en anglais si elle est en français), écrite comme un CV l'écrirait ("user research" : "recherche utilisateur") ; puis les autres écritures qu'un CV peut employer pour la même exigence (acronyme, forme longue). Un nom propre (outil, certification) n'a pas de traduction.
 - "quote" : l'extrait de l'offre, recopié mot pour mot, qui énonce l'exigence.
 - N'extrais JAMAIS les avantages, la rémunération, la présentation de l'entreprise, le processus de recrutement, ni une mission qui ne demande aucune compétence.
 - N'extrais JAMAIS de mot générique (équipe, projet, entreprise, gestion) ni de verbe d'action.
@@ -104,6 +104,7 @@ ${Object.entries(IMPORTANCE_GUIDE).map(([importance, guide]) => `  - "${importan
 FORMAT :
 { "requirements": [
   { "label": "Figma", "variants": [], "kind": "tool", "importance": "required", "quote": "Maîtrise de Figma" },
+  { "label": "recherche utilisateur", "variants": ["user research", "UX research"], "kind": "hard_skill", "importance": "required", "quote": "Vous menez la recherche utilisateur" },
   { "label": "5 ans d'expérience", "variants": ["5 years of experience"], "kind": "experience_years", "importance": "required", "quote": "5 ans d'expérience minimum", "minYears": 5 }
 ] }
 

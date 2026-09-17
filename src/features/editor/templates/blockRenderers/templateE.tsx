@@ -7,7 +7,7 @@ import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
 import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue, getEducationLines } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
-import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
+import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '../../lib/formatting';
 import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -174,7 +174,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
       <div className="flex flex-wrap gap-x-12 gap-y-4">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
-            <span className="text-sm font-bold text-gray-900">{lang.name}</span>
+            <span className="text-sm font-bold text-gray-900">{localizeLanguageName(lang.name, language)}</span>
             <span className="text-[10px] font-bold uppercase text-gray-600">{normalizeProficiency(lang.proficiency, language)}</span>
           </div>
         ))}

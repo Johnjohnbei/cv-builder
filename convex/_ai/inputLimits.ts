@@ -1,5 +1,6 @@
 import { userError } from "../_shared/errors";
-import { MAX_PROOF_CHARS } from "../../src/shared/types";
+import { MAX_PROOF_CHARS, type CVData } from "../../src/shared/types";
+import { restoreUserOwnedFields, withoutUserOwnedFields } from "./normalizers";
 
 export { MAX_PROOF_CHARS };
 
@@ -42,4 +43,39 @@ export function assertMaxLength(value: string | undefined, max: number) {
       "INPUT_TOO_LONG",
     );
   }
+}
+
+// ─── Input shape ────────────────────────────────────────────────────
+
+type Language = "fr" | "en";
+
+/**
+ * A CV argument split into what the prompt reads (`cv`, without the fields the
+ * user owns: photo, portfolio) and what only the client uses. The translation
+ * cache is bound to the content being rewritten: never sent to the model,
+ * never returned. `respond` puts back what the model never saw.
+ */
+export function cvArgument(raw: unknown) {
+  const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...rest } = (raw || {}) as Record<string, any>;
+  void _staleCache;
+  const content = rest as { personal_info?: CVData["personal_info"] };
+  const hints = { detectedLanguage: detectedLanguage as Language | undefined, languageOverride: languageOverride as Language | undefined };
+  return {
+    design: design as CVData["design"] | undefined,
+    ...hints,
+    content,
+    cv: withoutUserOwnedFields(content),
+    /**
+     * The model's CV with the user's fields and the design back. `written` is
+     * the language the CV is now in: an override older than it follows it, or
+     * the client, reading the override first, titled a French CV in English.
+     */
+    respond: (cv: CVData, written?: Language) => ({
+      ...restoreUserOwnedFields(cv, content),
+      ...(design && { design }),
+      ...(written
+        ? { detectedLanguage: written, ...(hints.languageOverride && { languageOverride: written }) }
+        : { ...(hints.detectedLanguage && { detectedLanguage: hints.detectedLanguage }), ...(hints.languageOverride && { languageOverride: hints.languageOverride }) }),
+    }),
+  };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDateShort, getCurrentLabel, normalizeProficiency, parseMonthYear } from './formatting';
+import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency, parseMonthYear } from './formatting';
 
 // ─── parseMonthYear ───
 
@@ -88,6 +88,24 @@ describe('getCurrentLabel', () => {
 
   it('returns Present in EN', () => {
     expect(getCurrentLabel('en')).toBe('Present');
+  });
+});
+
+// ─── localizeLanguageName ───
+
+// An English CV printed "Anglais": the offer's "English" was then missing
+describe('localizeLanguageName', () => {
+  it('prints a known language in the language of the CV', () => {
+    expect(localizeLanguageName('Anglais', 'en')).toBe('English');
+    expect(localizeLanguageName('english', 'fr')).toBe('Anglais');
+    expect(localizeLanguageName('FRANCAIS', 'en')).toBe('French');
+    expect(localizeLanguageName(' Chinois ', 'fr')).toBe('Chinois');
+  });
+
+  it('keeps any other name as typed', () => {
+    expect(localizeLanguageName('Mandarin', 'fr')).toBe('Mandarin');
+    expect(localizeLanguageName('Breton', 'en')).toBe('Breton');
+    expect(localizeLanguageName('', 'en')).toBe('');
   });
 });
 

@@ -87,6 +87,32 @@ export function formatDateShort(date?: string, language: DateLanguage = 'fr'): s
   return `${months[parsed.month - 1]} ${parsed.year}`;
 }
 
+// --- Language names ---
+
+/**
+ * The same language in French and in English, the name the CV prints first,
+ * then spellings that name it too. One owner: the templates, the Word export,
+ * the ATS score and the truth guard of the tailoring read this list.
+ */
+export const LANGUAGE_NAMES: readonly (readonly [fr: string, en: string, ...alike: string[]])[] = [
+  ['Français', 'French'], ['Anglais', 'English'], ['Espagnol', 'Spanish'], ['Allemand', 'German'],
+  ['Italien', 'Italian'], ['Portugais', 'Portuguese'], ['Néerlandais', 'Dutch'], ['Chinois', 'Chinese', 'Mandarin'],
+  ['Japonais', 'Japanese'], ['Arabe', 'Arabic'], ['Russe', 'Russian'],
+];
+
+const nameKey = (name: string) => name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+
+/**
+ * A language name as a CV in `language` prints it ("Anglais" on an English CV
+ * is "English", which the offer's requirement looks for). Only the French and
+ * English names translate; any other name, "Mandarin" included, is kept as typed.
+ */
+export function localizeLanguageName(name: string, language: DateLanguage = 'fr'): string {
+  const key = nameKey(name);
+  const names = LANGUAGE_NAMES.find(([fr, en]) => nameKey(fr) === key || nameKey(en) === key);
+  return names ? names[language === 'en' ? 1 : 0] : name;
+}
+
 // --- Language proficiency normalization ---
 
 const PROFICIENCY_MAP: Record<string, { fr: string; en: string }> = {

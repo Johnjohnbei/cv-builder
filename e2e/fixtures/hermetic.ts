@@ -18,7 +18,7 @@ import { expect, type Page } from '@playwright/test';
  */
 
 /** localStorage key owned by src/features/editor/lib/jobRequirementsCache.ts */
-const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache';
+export const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache_v2';
 
 /**
  * Requirement labels a real extraction would plausibly return for the mock

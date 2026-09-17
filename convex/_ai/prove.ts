@@ -1,25 +1,28 @@
 "use node";
 
-import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
-import { isProvable, isWritable } from "../../src/features/editor/lib/keywordAnalysis";
-import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from "../../src/shared/lib/text";
+import { saysWhere, type ATSReport, type CVData, type JobRequirement } from "../../src/shared/types";
+import { computeATSReport, isProvable, isWritable } from "../../src/features/editor/lib/keywordAnalysis";
+import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/languageDetection";
 import { userError } from "../_shared/errors";
 import { normalizeJobRequirements } from "./normalizers";
 import { numbersOf } from "./numbers";
 import type { RepairEdit } from "./schemas";
-import { provenIds } from "./truthGuard";
+import { experiencesNamedBy, namesStated, provenByQuote, provenIds } from "./truthGuard";
+import { chatJSONThen } from "./chat";
+import { buildEvidencePrompt } from "./prompts/adapt";
+import { EvidenceSchema } from "./schemas";
 import {
-  applyRepair, guardContext, measuredBy, preparedFields, readSourceCV, repairEdits, PROOF_DEADLINE_MS,
+  applyRepair, guardContext, invalidOutput, measuredBy, preparedFields, readPairs, readSourceCV, repairEdits, requirementsFor,
+  sourceLanguageOf, PROOF_DEADLINE_MS, type TailorInput,
 } from "./tailor";
 
-// ─── Writing one requirement from the user's own proof (plan § 5.2) ──
+// ─── The candidate's own words in the CV (plan § 5.2) ────────────────
+// Before the tailoring, what the CV does not prove is found and asked about
+// (gapsPipeline); after it, one requirement is written from a proof.
 // Extracted from tailor.ts, over its size limit. The proof is the user's, so it
 // backs what it states; everything else stays under the tailoring's guard, and
 // what the model answers is read strictly before a single word reaches the CV.
-
-/** A proof shorter than this ("oui") says nothing of where the requirement was put in practice */
-const MIN_PROOF_WORDS = 4;
 
 export interface ProveInput {
   /** The CV on screen, as the client holds it */
@@ -43,28 +46,43 @@ export interface ProveResult {
   written: boolean;
 }
 
-/**
- * The experiences a proof allows writing under: those whose employer it names,
- * or, when it names none, those whose position it names. The employer decides
- * first — a proof saying "chez Beta, en tant que product designer" is about
- * Beta, even when another role carries that very position. Several roles at
- * one employer all qualify, and the model says which one it means.
- */
-function experiencesNamedBy(source: CVData, proof: PreparedText): number[] {
-  const named = (name: string | undefined) => Boolean(name && name.trim().length > 2 && matchPhrase(name, proof));
-  const byCompany = source.experience.flatMap((exp, i) => (named(exp.company) ? [i] : []));
-  return byCompany.length > 0 ? byCompany : source.experience.flatMap((exp, i) => (named(exp.position) ? [i] : []));
+/** Reading what the CV proves is one short call, before the candidate is asked about the rest */
+export const EVIDENCE_DEADLINE_MS = 90_000;
+
+export interface GapsResult {
+  requirements: JobRequirement[];
+  /** The quotes of the CV that prove a requirement, each checked against the CV */
+  evidence: { id: string; quote: string }[];
+  /** Ids of the requirements the CV neither proves nor states, in the offer's order */
+  gaps: string[];
 }
 
 /**
- * The names a text states: a capitalised word that does not open a sentence,
- * and an acronym. A model writing freely adds employers, clients and brands
- * that way ("du groupe LVMH"), and the guard reads numbers, never names.
+ * What the CV proves of the offer before a word is written, so the candidate
+ * is asked about the rest while the one generation can still use the answer.
+ * A degree, a language or years are read from the CV as the score reads them.
  */
-const namesStated = (text: string): string[] =>
-  (text.match(/(?<=[^.!?]\s)\p{Lu}[\p{L}\p{N}'’&.-]*|\p{Lu}{2,}/gu) ?? [])
-    .map(normalizeForMatch)
-    .filter(name => name.length > 1);
+export async function gapsPipeline(input: TailorInput, startedAt: number = Date.now()): Promise<GapsResult> {
+  const source = readSourceCV(input.cv);
+  const requirements = await requirementsFor(input.jobDescription, input.requirements, startedAt);
+  // Counted from its own start: the analysis of the offer may have used its whole budget
+  const quotes = await chatJSONThen(buildEvidencePrompt({ cvData: source, requirements }), (raw) => {
+    const parsed = EvidenceSchema.safeParse(raw);
+    if (!parsed.success) throw invalidOutput();
+    return readPairs(parsed.data.evidence, "quote", requirements);
+  }, "fast", Date.now() + EVIDENCE_DEADLINE_MS);
+  const language = sourceLanguageOf(source, input);
+  const fields = preparedFields(source, language);
+  const proven = provenIds(requirements, fields, quotes);
+  const stated = computeATSReport({ ...source, detectedLanguage: language }, requirements, { view: "content" });
+  const found = new Set(stated.requirements.filter(c => c.found).map(c => c.requirement.id));
+  const byQuote = provenByQuote(requirements, fields, quotes);
+  return {
+    requirements,
+    evidence: [...quotes].filter(([id]) => byQuote.has(id) && !found.has(id)).map(([id, quote]) => ({ id, quote })),
+    gaps: requirements.filter(r => !found.has(r.id) && (!isWritable(r) || !proven.has(r.id))).map(r => r.id),
+  };
+}
 
 /**
  * The edits a proof may carry, the model's answer read strictly: a bullet ADDED
@@ -106,7 +124,7 @@ export async function provePipeline(input: ProveInput, startedAt: number = Date.
   const source = readSourceCV(input.cv);
   const { jobDescription, requirementId, proof, detectedLanguage, languageOverride } = input;
   // Every refusal is decided here, without the model: none of them is billed
-  if (proof.trim().split(/\s+/).filter(Boolean).length < MIN_PROOF_WORDS) {
+  if (!saysWhere(proof)) {
     throw userError("Précisez où vous l'avez mis en œuvre : une mission, un projet, un employeur.", "PROOF_TOO_SHORT");
   }
   // Never extracted here: the editor has already paid for this offer's requirements

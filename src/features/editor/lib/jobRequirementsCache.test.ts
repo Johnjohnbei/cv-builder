@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { JobRequirement } from '@/src/shared/types';
-import { isRequirementsSettled, requirementsForOffer, requirementsStatus } from './jobRequirementsCache';
+import { isRequirementsSettled, requirementsForOffer, requirementsStatus, REQUIREMENTS_CACHE_KEY } from './jobRequirementsCache';
 
 const R = (label: string): JobRequirement => ({
   id: label.toLowerCase(), label, variants: [], kind: 'tool', importance: 'required', quote: label,
@@ -127,13 +127,13 @@ describe('requirements cache', () => {
   it('skips stored requirements that are not requirements', async () => {
     const badKind = { ...R('Excel'), kind: 'skill' };
     const noQuote = { ...R('Word'), quote: undefined };
-    store.set('job_requirements_cache', JSON.stringify([{ jobDescription: 'Offre A', requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
+    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('SAP')]);
   });
 
   // An empty answer would pin the offer to "no requirements" until evicted
   it('answers null for an entry with no valid requirement left, so the offer is analyzed again', async () => {
-    store.set('job_requirements_cache', JSON.stringify([{ jobDescription: 'Offre A', requirements: [{ label: 'Figma' }] }]));
+    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: [{ label: 'Figma' }] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();
   });
 

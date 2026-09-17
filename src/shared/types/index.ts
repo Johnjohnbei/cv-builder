@@ -176,6 +176,12 @@ export interface RequirementCoverage {
 /** A proof is a sentence or two: where the user put the requirement in practice */
 export const MAX_PROOF_CHARS = 500;
 
+/** A proof shorter than this ("oui") says nothing of where the requirement was put in practice */
+const MIN_PROOF_WORDS = 4;
+
+/** Whether the candidate's words say where they put a requirement in practice: the server writes nothing from less */
+export const saysWhere = (proof: string): boolean => proof.trim().split(/\s+/).filter(Boolean).length >= MIN_PROOF_WORDS;
+
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {
   id: 'email' | 'phone' | 'location' | 'titles' | 'dates';

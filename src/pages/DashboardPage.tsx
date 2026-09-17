@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { getErrorCode, getUserErrorMessage } from '../shared/lib/convexError';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Button } from '../shared/ui/Button';
 import { Dialog } from '../shared/ui/Dialog';
 import { Notification } from '../shared/ui/Notification';
@@ -12,22 +12,20 @@ import { AccessCodeDialog } from '../features/auth/components/AccessCodeDialog';
 import { AdminCodesDialog } from '../features/auth/components/AdminCodesDialog';
 import { useLeaveSession } from '../features/auth/useLeaveSession';
 import { api } from "@/convex/_generated/api";
-import { CVData, EMPTY_CV, type ATSReport } from '../shared/types';
+import { CVData, EMPTY_CV } from '../shared/types';
 import {
   readStoredJSON, readStoredText, STORAGE_FAILED_MESSAGE, writeStoredText, writeStoredTexts,
 } from '../shared/lib/storage';
 import { replacesDraft, stripPersistenceArtifacts } from '../features/editor/hooks/useCVPersistence';
 import { useAccessCode, useAutoNotification, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
-import { attachBilingualCache } from '../lib/bilingual';
-import { withSuggestedPortfolio } from '../features/editor/lib/portfolioVariants';
-import { adoptRequirements, pendingRequirements } from '../features/editor/lib/jobRequirementsCache';
 import { useDashboardImports } from '../features/dashboard/useDashboardImports';
+import { useOfferTailoring } from '../features/dashboard/useOfferTailoring';
 import { DashboardSidebar, type DashboardView } from '../features/dashboard/components/DashboardSidebar';
 import { DashboardMobileNav } from '../features/dashboard/components/DashboardMobileNav';
 import { CvImportPanel } from '../features/dashboard/components/CvImportPanel';
 import { JobOfferPanel } from '../features/dashboard/components/JobOfferPanel';
 import { SavedCVsView, type SavedCVEntry } from '../features/dashboard/components/SavedCVsView';
-import { TailorResultPanel } from '../features/dashboard/components/TailorResultPanel';
+import { OfferGapsPanel } from '../features/dashboard/components/OfferGapsPanel';
 
 export default function DashboardPage() {
   useDocumentTitle('Dashboard');
@@ -38,12 +36,6 @@ export default function DashboardPage() {
   const [baseCV, setBaseCV] = useState<CVData | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [jobUrl, setJobUrl] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  /** What the tailoring measured, shown until the offer changes: the editor opens from there */
-  const [tailorResult, setTailorResult] = useState<ATSReport | null>(null);
-  /** A new offer, typed or imported, leaves the previous result behind */
-  const showOffer = (text: string) => { setTailorResult(null); setJobDescription(text); };
-  const generatingSeconds = useSecondsCounter(isGenerating);
   const [activeView, setActiveView] = useState<DashboardView>('console');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
@@ -98,8 +90,23 @@ export default function DashboardPage() {
   const removeCV = useMutation(api.cvs.remove);
   const updateLastCV = useMutation(api.users.updateLastGeneratedCV);
   const saveBaseCV = useMutation(api.users.saveBaseCV);
-  const tailorCV = useAction(api.ai.tailorCV);
-  const translateCVAction = useAction(api.ai.translateCV);
+
+  const tailoring = useOfferTailoring({
+    baseCV, offer: jobDescription, getCode, reportAIError,
+    // After paid calls, a failed save says so and never offers to pay again
+    saveDraft: cvData => saveDraft(cvData, jobDescription, "Le CV a été écrit mais n'a pas pu être enregistré."),
+    onTailored: () => navigate('/editor'),
+  });
+  const isGenerating = tailoring.phase === 'analyzing' || tailoring.phase === 'generating';
+  const generatingSeconds = useSecondsCounter(isGenerating);
+  const busyLabel = {
+    idle: null,
+    analyzing: `Lecture de l'offre et du CV… ${generatingSeconds}s`,
+    asking: 'Répondez aux écarts ci-dessus',
+    generating: `Écriture du CV… ${generatingSeconds}s`,
+  }[tailoring.phase];
+  /** A new offer, typed or imported, leaves the questions about the previous one behind */
+  const showOffer = (text: string) => { tailoring.reset(); setJobDescription(text); };
 
   const imports = useDashboardImports({
     user, isGuest, jobUrl, getCode, requireAccessCode, reportAIError,
@@ -127,46 +134,7 @@ export default function DashboardPage() {
 
   const handleOptimize = () => {
     if (!baseCV || !jobDescription) return;
-    requireAccessCode(() => { void optimizeForOffer(); });
-  };
-
-  const optimizeForOffer = async () => {
-    if (!baseCV || !jobDescription) return;
-    setIsGenerating(true);
-
-    try {
-      // An offer analyzed before is not paid for again
-      const requirements = await pendingRequirements(jobDescription, getCode())?.catch(() => undefined);
-      const tailoring = tailorCV({ baseData: baseCV, jobDescription, requirements, accessCode: getCode() });
-      // The editor opens on this offer: its requirements are already paid for
-      adoptRequirements(jobDescription, getCode(), tailoring);
-      const result = await tailoring;
-      // A CV proposed for an offer comes with the portfolio version that offer calls for
-      const optimizedData = withSuggestedPortfolio(result.cv, jobDescription);
-      // Eager bilingual: produce the other language now so the editor toggle is
-      // instant and never shows a half-translated mix. Degrades gracefully to
-      // the original single language if the translation call fails.
-      const bilingualData = await attachBilingualCache(optimizedData, translateCVAction, getCode());
-
-      if (user) {
-        await storeUser();
-        await updateLastCV({ cvData: bilingualData, jobDescription });
-      } else if (isGuest) {
-        // After paid calls: a full storage must say so, not "réessayez" (and pay again)
-        if (!writeStoredTexts([['guest_last_optimized', JSON.stringify(bilingualData)], ['guest_last_jd', jobDescription]])) {
-          setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
-          return;
-        }
-      }
-      // The score and its gaps are read here, where the offer is: the editor
-      // opens from the panel, not before the result has been seen
-      setTailorResult(result.report);
-    } catch (error) {
-      console.error('Optimization error:', error);
-      reportAIError(error, 'Erreur lors de l\'optimisation du CV. Veuillez réessayer.');
-    } finally {
-      setIsGenerating(false);
-    }
+    requireAccessCode(() => { void tailoring.start(); });
   };
 
   /**
@@ -202,21 +170,26 @@ export default function DashboardPage() {
   /** Make a CV the working draft, with its offer, then open the editor. `confirm` names what replaces the draft. */
   const openAsDraft = async (cvData: CVData, offer: string, confirm: string, failure: string) => {
     if (replacesDraft(currentDraft(), currentDraftOffer(), cvData, offer) && !window.confirm(confirm)) return;
+    // Awaited BEFORE navigating: the editor reads the draft once, on mount
+    if (await saveDraft(cvData, offer, failure)) navigate('/editor');
+  };
+
+  /** A CV stored as the working draft with its offer: false when it could not be, the user told why */
+  const saveDraft = async (cvData: CVData, offer: string, failure: string): Promise<boolean> => {
     try {
       if (user) {
         await storeUser();
-        // Awaited BEFORE navigating: the editor reads the draft once, on mount,
-        // and used to open on the previous one.
         await updateLastCV({ cvData, jobDescription: offer });
       } else if (isGuest && !writeStoredTexts([['guest_last_optimized', JSON.stringify(cvData)], ['guest_last_jd', offer]])) {
         setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
-        return;
+        return false;
       }
-      navigate('/editor');
+      return true;
     } catch (error) {
-      // The failure text names the path (blank CV, saved CV): one log label for both
-      console.error(`Open draft error (${failure}):`, error);
+      // The failure text names the path (blank CV, saved CV, tailored CV): one log label for all
+      console.error(`Save draft error (${failure}):`, error);
       setNotification({ message: getUserErrorMessage(error, failure), type: 'error' });
+      return false;
     }
   };
 
@@ -311,8 +284,22 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="col-span-12 lg:col-span-8 space-y-6">
-                {tailorResult && (
-                  <TailorResultPanel report={tailorResult} onOpenEditor={() => navigate('/editor')} />
+                {tailoring.gaps && tailoring.asked && tailoring.phase !== 'idle' && (
+                  <OfferGapsPanel
+                    requirementCount={tailoring.gaps.requirements.length}
+                    provable={tailoring.gaps.provable}
+                    factual={tailoring.gaps.factual}
+                    proofs={tailoring.proofs}
+                    onProofChange={tailoring.setProof}
+                    tooShort={tailoring.tooShort}
+                    dismissed={tailoring.dismissed}
+                    onDismiss={tailoring.dismiss}
+                    onRestore={tailoring.restore}
+                    onGenerate={tailoring.confirm}
+                    onCancel={tailoring.reset}
+                    isGenerating={tailoring.phase === 'generating'}
+                    generatingSeconds={generatingSeconds}
+                  />
                 )}
                 <JobOfferPanel
                   jobUrl={jobUrl}
@@ -325,8 +312,8 @@ export default function DashboardPage() {
                   onJobDescriptionChange={showOffer}
                   hasBaseCV={Boolean(baseCV)}
                   onOptimize={handleOptimize}
-                  isGenerating={isGenerating}
-                  generatingSeconds={generatingSeconds}
+                  busyLabel={busyLabel}
+                  offerLocked={tailoring.phase === 'analyzing' || tailoring.phase === 'generating'}
                   estimateSeconds={estimateSeconds}
                 />
               </div>

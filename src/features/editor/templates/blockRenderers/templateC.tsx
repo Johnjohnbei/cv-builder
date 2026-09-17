@@ -2,12 +2,11 @@
 // Individual block-level renderers for the Minimal template (single-column centered).
 // Used by PaginatedCV to render each block independently.
 
-import { cn } from '@/src/shared/lib/cn';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
 import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBullets, getEducationLines } from '../shared';
 import { getVisibleSkills } from '../../lib/displayModes';
-import { formatDateShort, getCurrentLabel, normalizeProficiency } from '../../lib/formatting';
+import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/atsRules';
 import type { SkillCategoryKey } from '../../lib/skillDictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -160,7 +159,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
       <div className="flex justify-center gap-12">
         {languages.map((lang, idx) => (
           <div key={idx} className="text-center">
-            <p className="text-xs font-bold text-gray-900 uppercase">{lang.name}</p>
+            <p className="text-xs font-bold text-gray-900 uppercase">{localizeLanguageName(lang.name, language)}</p>
             <p className="text-[10px] text-gray-500 uppercase tracking-widest">{normalizeProficiency(lang.proficiency, language)}</p>
           </div>
         ))}
