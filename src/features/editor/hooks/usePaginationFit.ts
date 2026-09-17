@@ -4,7 +4,7 @@ import type { ContentBlock, PageAssignment } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/templateLayouts';
 import { allocatePages, isPageOverfilled } from '../lib/pagination/allocatePages';
 import { buildBlocks } from '../lib/pagination/buildBlocks';
-import { blocksStable, readLiveDOM, reconcileBlocks } from '../lib/pagination/reconcile';
+import { blocksStable, carryOver, readLiveDOM, reconcileBlocks } from '../lib/pagination/reconcile';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 
 /**
@@ -66,34 +66,34 @@ export function usePaginationFit(
   /** Live-measured section title heights (feeds allocatePages) */
   const [sectionTitles, setSectionTitles] = useState<{ experience?: number; skills?: number }>({});
   const iterCountRef = useRef(0);
-  /** Measured heights have converged — the page count can be trusted */
-  const [isStable, setIsStable] = useState(false);
+  /**
+   * The blocks whose measured heights converged: the page count holds for them
+   * only. A boolean kept the previous verdict for a render, and the fit loop
+   * condensed again on that stale count, down to one page.
+   */
+  const [stableFor, setStableFor] = useState<ContentBlock[] | null>(null);
   const lastContentKeyRef = useRef('');
+  /** The blocks the last measuring pass read: a capped pass only stands for them */
+  const measuredForRef = useRef<ContentBlock[] | null>(null);
 
+  // One effect for both cases (carryOver): as two effects, the second ran in
+  // the same pass on the list the first had just cleared, and put it back. A
+  // keystroke that leaves the estimates unchanged keeps the measured heights
+  // and measures again, since the real wrap can differ.
   useEffect(() => {
-    if (lastContentKeyRef.current === contentKey) return;
+    const estimatesChanged = lastContentKeyRef.current !== contentKey;
     lastContentKeyRef.current = contentKey;
+    const next = carryOver(reconciledBlocks, estimatesChanged, heuristicBlocks);
+    if (estimatesChanged) setSectionTitles({});
+    if (!next.remeasure) {
+      // Same data in every block: the verdict holds for these blocks too
+      if (next.blocks) setStableFor(current => (current ? heuristicBlocks : current));
+      return;
+    }
     iterCountRef.current = 0;
-    setReconciledBlocks(null);
-    setSectionTitles({});
-    setIsStable(false);
-  }, [contentKey]);
-
-  // A keystroke that leaves the estimates unchanged keeps contentKey: carry the
-  // new data over, keep the measured heights, and measure again, since the real
-  // wrap can differ (a block that grew a line used to be clipped).
-  useEffect(() => {
-    if (!reconciledBlocks) return;
-    const dataById = new Map(heuristicBlocks.map(b => [b.id, b.data]));
-    const isOutdated = (b: ContentBlock) => {
-      const data = dataById.get(b.id);
-      return data !== undefined && data !== b.data;
-    };
-    if (!reconciledBlocks.some(isOutdated)) return;
-    iterCountRef.current = 0;
-    setIsStable(false);
-    setReconciledBlocks(reconciledBlocks.map(b => (isOutdated(b) ? { ...b, data: dataById.get(b.id)! } : b)));
-  }, [heuristicBlocks, reconciledBlocks]);
+    setStableFor(null);
+    setReconciledBlocks(next.blocks);
+  }, [contentKey, heuristicBlocks, reconciledBlocks]);
 
   const activeBlocks = reconciledBlocks ?? heuristicBlocks;
 
@@ -106,10 +106,13 @@ export function usePaginationFit(
   // valid and no rAF can be cancelled by effects firing in rapid succession.
   useLayoutEffect(() => {
     if (pageAssignments.length === 0) return;
+    // Blocks never measured are measured, whatever a pass concluded for others
+    if (measuredForRef.current !== heuristicBlocks) iterCountRef.current = 0;
     if (iterCountRef.current >= MAX_RECONCILE_ITERS) {
-      setIsStable(true);
+      setStableFor(heuristicBlocks);
       return;
     }
+    measuredForRef.current = heuristicBlocks;
 
     const live = readLiveDOM();
     if (!live || live.blockHeights.size === 0) return;
@@ -122,19 +125,21 @@ export function usePaginationFit(
 
     if (heightsStable && titlesStable) {
       iterCountRef.current = MAX_RECONCILE_ITERS;
-      setIsStable(true);
+      setStableFor(heuristicBlocks);
       return;
     }
 
     iterCountRef.current += 1;
     if (!heightsStable) setReconciledBlocks(nextBlocks);
     if (!titlesStable) setSectionTitles(live.sectionTitles);
+    // heuristicBlocks is read, never a trigger: a content change arrives through
+    // the blocks reconciled, once they carry the new data
   }, [pageAssignments, activeBlocks, sectionTitles]);
 
-  // Computed during render: right after a content change `isStable` still holds
-  // the previous content's verdict, and an effect clearing it runs too late.
+  // Computed during render: right after a content change the verdict still
+  // names the previous content, and an effect clearing it runs too late.
   const measuringCurrentContent = lastContentKeyRef.current !== contentKey;
-  const stablePageCount = isStable && !measuringCurrentContent ? pageAssignments.length : null;
+  const stablePageCount = stableFor === heuristicBlocks && !measuringCurrentContent ? pageAssignments.length : null;
 
   const hasClippedContent = useMemo(
     () => pageAssignments.some(page => isPageOverfilled(page, layout)),

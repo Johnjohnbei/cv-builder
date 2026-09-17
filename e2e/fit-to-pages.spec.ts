@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { LONG_CV, LONG_CV_JOB_DESCRIPTION } from './fixtures/long-cv';
-import { seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
+import { LONG_CV, LONG_CV_JOB_DESCRIPTION, VERY_LONG_CV } from './fixtures/long-cv';
+import { seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf, MOCK_REQUIREMENT_LABELS, REQUIREMENTS_CACHE_KEY } from './fixtures/hermetic';
 
 /**
  * The fit pass only runs on a CV that has never been triaged, so the fixture
@@ -79,6 +79,45 @@ test.describe('Tri auto sur N pages', () => {
     // Landing on 2 pages with an almost-empty second one would mean the pass
     // condensed further than the budget required.
     expect(fill[1]).toBeGreaterThan(0.4);
+  });
+
+  // A 20-role career (2026-09-17): the pass once went on down to one page, its
+  // measured heights landing on other roles (the root is tested on carryOver)
+  test('un CV de 20 expériences tient sur 2 pages, pas sur une', async ({ page }) => {
+    await setupLongCV(page, VERY_LONG_CV);
+    await waitForPageCount(page, 2);
+    const modes = await savedModes(page);
+    await expect.poll(() => page.locator('.cv-page').count(), { timeout: 3_000 }).toBe(2);
+    expect(modes).toContain('hidden');
+  });
+
+  test('les expériences pertinentes gardent plus de détail, et le poste actuel reste visible', async ({ page }) => {
+    await setupLongCV(page, VERY_LONG_CV);
+    await waitForPageCount(page, 2);
+    const modes = await savedModes(page);
+    const RUNGS = ['extended', 'normal', 'compact', 'hidden'];
+    const visible = modes.map(m => RUNGS.indexOf(m)).filter(r => r < 3);
+    expect(modes[0]).not.toBe('hidden');
+    // Not every visible role at the same level: a CV that reads as a list
+    expect(Math.min(...visible)).toBeLessThan(Math.max(...visible));
+    // A role matching the offer is never leaner than an unrelated one of the same age
+    expect(RUNGS.indexOf(modes[1])).toBeLessThanOrEqual(RUNGS.indexOf(modes[2]));
+  });
+
+  test('un rechargement pendant le tri ne garde pas un CV à moitié trié', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(({ cv, jd, key, requirements }) => {
+      sessionStorage.setItem('guest_access', 'true');
+      localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
+      localStorage.setItem('guest_last_jd', jd);
+      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements }]));
+    }, { cv: VERY_LONG_CV, jd: LONG_CV_JOB_DESCRIPTION, key: REQUIREMENTS_CACHE_KEY, requirements: requirementsOf(MOCK_REQUIREMENT_LABELS) });
+    await page.goto('/editor');
+    // Leave in the middle of the fit: it takes a few seconds on 20 roles
+    await expect.poll(() => page.locator('.cv-page').count(), { timeout: 10_000 }).toBeGreaterThan(2);
+    await page.waitForTimeout(700);
+    await page.reload();
+    await waitForPageCount(page, 2);
   });
 
   test('viser 1 page condense davantage et masque les moins pertinentes', async ({ page }) => {

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { maskHeaderBlocks } from '../shared/lib/anonymize';
-import { getUserErrorMessage } from '../shared/lib/convexError';
 import { readStoredText } from '../shared/lib/storage';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
@@ -156,10 +155,6 @@ export default function EditorPage() {
     cvData, setCvData, designSettings,
     jobDescription, user, isGuest, notify, accessCode: getCode(),
   });
-  const { isAutoSaving, lastAutoSaveAt, saveFailed } = useAutoSaveDraft({
-    cvData, designSettings, selectedTemplate, jobDescription,
-    user, isGuest, updateLastCV,
-  });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
   const isProving = atsAnalysis.provingId !== null;
@@ -183,6 +178,10 @@ export default function EditorPage() {
     cvData, setCvData, requirements,
     requirementsReady: isRequirementsSettled(requirementsStatus),
     stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
+  });
+  const { isAutoSaving, lastAutoSaveAt, saveFailed } = useAutoSaveDraft({
+    cvData, designSettings, selectedTemplate, jobDescription,
+    user, isGuest, updateLastCV, paused: fit.isFitting,
   });
 
   // The badge of each experience: the share of the provable requirements it evidences, none without them

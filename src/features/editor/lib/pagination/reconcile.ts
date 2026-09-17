@@ -111,3 +111,27 @@ export function blocksStable(a: ContentBlock[], b: ContentBlock[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((block, i) => Math.abs(block.heightPx - b[i].heightPx) <= HEIGHT_DIFF_THRESHOLD_PX);
 }
+
+/**
+ * The measured blocks once the content changed. A change of the estimates
+ * (`contentKey`, which names every block) starts over from them: a role hidden
+ * or condensed renames or drops blocks (their id is their rank among the roles
+ * shown), and heights measured for the old names would land on other roles.
+ * Otherwise the new data goes onto the measured heights, and `remeasure` says
+ * whether any block's data changed.
+ */
+export function carryOver(
+  measured: ContentBlock[] | null,
+  estimatesChanged: boolean,
+  estimates: ContentBlock[],
+): { blocks: ContentBlock[] | null; remeasure: boolean } {
+  if (estimatesChanged) return { blocks: null, remeasure: true };
+  if (!measured) return { blocks: null, remeasure: false };
+  const dataById = new Map(estimates.map(b => [b.id, b.data]));
+  const isOutdated = (b: ContentBlock) => {
+    const data = dataById.get(b.id);
+    return data !== undefined && data !== b.data;
+  };
+  if (!measured.some(isOutdated)) return { blocks: measured, remeasure: false };
+  return { blocks: measured.map(b => (isOutdated(b) ? { ...b, data: dataById.get(b.id)! } : b)), remeasure: true };
+}

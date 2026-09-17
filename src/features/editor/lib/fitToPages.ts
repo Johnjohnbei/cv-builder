@@ -25,7 +25,6 @@ import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
 const LADDER: ExperienceDisplayMode[] = ['extended', 'normal', 'compact', 'hidden'];
-const HIDDEN_RUNG = LADDER.indexOf('hidden');
 
 function rung(mode: ExperienceDisplayMode | undefined): number {
   const i = LADDER.indexOf(mode ?? 'normal');
@@ -63,18 +62,68 @@ export function writtenOutsideExperience(cv: CVData, requirements: JobRequiremen
   return new Set(requirements.filter(r => writesRequirement(fields, r)).map(r => r.id));
 }
 
+/** The share of the experiences, the most relevant, that keep their detail longest */
+const HIGHLIGHTED_SHARE = 1 / 3;
+
+/**
+ * The order the CV comes down in (arbitrage of 2026-09-17): a CV where every
+ * role was equally thin read as a list. The most relevant third keeps its
+ * detail while the others come down to compact; then it comes down to normal,
+ * the others are hidden, and it goes last.
+ */
+const STAGES: { highlighted: boolean; floor: ExperienceDisplayMode }[] = [
+  { highlighted: false, floor: 'compact' },
+  { highlighted: true, floor: 'normal' },
+  { highlighted: false, floor: 'hidden' },
+  { highlighted: true, floor: 'hidden' },
+];
+
+interface Candidate { index: number; current: number; score: number }
+
+/**
+ * Each stage's wave: its movable roles at their richest rung. A role held
+ * today, dated, is highlighted whatever its score: a CV hiding the current job
+ * reads as a gap to a recruiter (a role whose dates could not be read is not).
+ */
+function stageWaves(experiences: Experience[], scored: Candidate[]): Candidate[][] {
+  const ranked = [...scored].sort((a, b) => b.score - a.score || a.index - b.index);
+  const highlighted = new Set([
+    ...ranked.slice(0, Math.ceil(experiences.length * HIGHLIGHTED_SHARE)).map(c => c.index),
+    ...scored.filter(c => experiences[c.index].current && experiences[c.index].start_date?.trim()).map(c => c.index),
+  ]);
+  return STAGES.map(({ highlighted: top, floor }) => {
+    const movable = scored.filter(c => highlighted.has(c.index) === top && c.current < LADDER.indexOf(floor));
+    const richest = Math.min(...movable.map(c => c.current));
+    return movable.filter(c => c.current === richest);
+  });
+}
+
+/**
+ * Whether taking a notch off a role removes the last mention of a required
+ * requirement. Only what the score counts from an experience: a title is read
+ * in the positions, a degree in the education, and neither moves with a rung.
+ */
+function lastMentionCheck(experiences: Experience[], requirements: JobRequirement[], language: SupportedLanguage, writtenElsewhere: Set<string>) {
+  const required = requirements.filter(r =>
+    r.importance === 'required' && isProvable(r) && !writtenElsewhere.has(r.id));
+  const written = experiences.map(exp => writtenBy(exp, required, language));
+  const mentions = new Map(required.map(r => [r.id, written.filter(ids => ids.has(r.id)).length]));
+  return (c: Candidate) => {
+    const next = writtenBy({ ...experiences[c.index], displayMode: LADDER[c.current + 1] }, required, language);
+    return [...written[c.index]].some(id => !next.has(id) && mentions.get(id) === 1);
+  };
+}
+
 /**
  * Take exactly one notch off the least valuable experience.
  *
- * Candidates are restricted to the experiences currently at the RICHEST rung
- * still in use, so the CV comes down in waves: every role drops from extended
- * to normal (weakest first) before any role drops to compact, and nothing is
- * hidden until everything is already compact. That keeps the visible detail
- * within one notch across roles — a gradient, not a CV where one experience is
- * fully written up and the next has vanished.
+ * The experiences are split by relevance: the best third, and every role held
+ * today, is highlighted and keeps its detail while the others come down (STAGES). Within a stage the CV
+ * comes down in waves, the richest rung first, and the lowest relevance score
+ * goes first; ties break on the later position in the list, the older role.
  *
- * Within a wave, the lowest relevance score goes first; ties break on the later
- * position in the list, which is the older role.
+ * One rule outranks the stages: a required requirement does not leave the CV
+ * while another experience can come down instead.
  *
  * Returns null when every experience is hidden — the caller stops and reports
  * the real page count rather than looping.
@@ -86,40 +135,21 @@ export function condenseOneStep(
   /** Requirements the rest of the CV writes: condensing an experience cannot take them away */
   writtenElsewhere: Set<string> = new Set(),
 ): Experience[] | null {
-  const visible = experiences
-    .map((exp, index) => ({ index, current: rung(exp.displayMode) }))
-    .filter(c => c.current < HIDDEN_RUNG);
-
-  if (visible.length === 0) return null;
-
-  const richest = Math.min(...visible.map(c => c.current));
-  const wave = visible
-    .filter(c => c.current === richest)
-    .map(c => ({ ...c, score: scoreExperience(experiences[c.index], requirements, language) }));
-
-  // How many experiences write each requirement right now: a requirement the
-  // offer demands must not leave the CV while another experience can come down
-  // instead. Condensing is ordered by relevance; this is the one thing that
-  // outranks it, and only for a required requirement.
-  // Only what the score counts from an experience: a title is read in the
-  // positions, a degree in the education, and neither moves with a rung
-  const required = requirements.filter(r =>
-    r.importance === 'required' && isProvable(r) && !writtenElsewhere.has(r.id));
-  const written = experiences.map(exp => writtenBy(exp, required, language));
-  const mentions = new Map(required.map(r => [r.id, written.filter(ids => ids.has(r.id)).length]));
-  const dropsTheLastMention = (candidate: { index: number; current: number }) => {
-    const next = writtenBy({ ...experiences[candidate.index], displayMode: LADDER[candidate.current + 1] }, required, language);
-    return [...written[candidate.index]].some(id => !next.has(id) && mentions.get(id) === 1);
-  };
-  const sparing = wave.filter(c => !dropsTheLastMention(c));
-  // Every candidate carries one: the CV cannot fit without losing a requirement
-  const candidates = sparing.length > 0 ? sparing : wave;
-
-  const victim = candidates.reduce((best, c) => {
+  const scored = experiences.map((exp, index) => ({
+    index, current: rung(exp.displayMode), score: scoreExperience(exp, requirements, language),
+  }));
+  const waves = stageWaves(experiences, scored);
+  const dropsTheLastMention = lastMentionCheck(experiences, requirements, language, writtenElsewhere);
+  const lowest = (candidates: Candidate[]) => candidates.reduce((best, c) => {
     if (c.score !== best.score) return c.score < best.score ? c : best;
     return c.index > best.index ? c : best;
   });
+  const sparing = waves.map(wave => wave.filter(c => !dropsTheLastMention(c))).find(wave => wave.length > 0);
+  // Every candidate carries one: the CV cannot fit without losing a requirement
+  const candidates = sparing ?? waves.find(wave => wave.length > 0);
+  if (!candidates) return null;
 
+  const victim = lowest(candidates);
   return experiences.map((exp, i) =>
     i === victim.index ? { ...exp, displayMode: LADDER[victim.current + 1] } : exp,
   );

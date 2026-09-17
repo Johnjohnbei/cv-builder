@@ -3,6 +3,9 @@ import type { CVData, JobRequirement } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/languageDetection';
 import { condenseOneStep, expandToMax, maxCondenseSteps, writtenOutsideExperience } from '../lib/fitToPages';
 
+/** No measure for this long while fitting: the fit gives up where it is */
+const STALL_MS = 10_000;
+
 export interface UseFitToPagesDeps {
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
@@ -84,6 +87,18 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     if (!requirementsReady) return;
     runFit();
   }, [cvData, isFitting, loadedJobDescription, jobDescription, requirementsReady, runFit]);
+
+  // A fit that cannot go on ends: its CV lost every experience, or no measure
+  // came for a while. The auto-save waits for the fit, so it must never hang.
+  useEffect(() => {
+    if (!isFitting) return;
+    if (!cvData?.experience?.length) {
+      setIsFitting(false);
+      return;
+    }
+    const stall = setTimeout(() => setIsFitting(false), STALL_MS);
+    return () => clearTimeout(stall);
+  }, [isFitting, cvData, stablePageCount]);
 
   useEffect(() => {
     if (!isFitting || stablePageCount === null || !cvData?.experience?.length) return;

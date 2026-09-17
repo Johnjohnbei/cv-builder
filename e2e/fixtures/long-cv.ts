@@ -51,6 +51,51 @@ export const LONG_CV = {
   ],
 };
 
+/**
+ * A career of 20 roles with the layout of a real LinkedIn import (measured
+ * 2026-09-17): its dates, which roles are held today, and the length of every
+ * intro, bullet and KPI, the words replaced. Two pages hold a few roles only.
+ * [current, start, end, intro length, bullet lengths, KPI length, matches the offer]
+ */
+const CAREER: [boolean, string, string, number, number[], number, boolean][] = [
+  [true, 'Janvier 2026', '', 149, [121, 102, 129, 120], 0, false],
+  [true, 'Septembre 2016', '', 171, [105, 114, 108, 137], 0, true],
+  [true, 'Juillet 2018', '', 138, [120, 119, 112], 26, false],
+  [false, 'Janvier 2025', 'Décembre 2025', 181, [162, 144, 126, 141], 0, true],
+  [false, 'Décembre 2024', 'Avril 2025', 155, [116, 110, 105, 117], 0, false],
+  [false, 'Octobre 2024', 'Mars 2025', 151, [101, 89, 106, 152], 26, true],
+  [false, 'Décembre 2023', 'Juin 2024', 105, [123, 111, 96], 0, true],
+  [false, 'Janvier 2022', 'Septembre 2023', 188, [138, 111, 120, 120, 190], 34, true],
+  [false, 'Janvier 2021', 'Juillet 2021', 132, [121, 104, 116, 93], 25, true],
+  [false, 'Juillet 2019', 'Décembre 2020', 133, [240, 228, 116, 166], 42, true],
+  [false, 'Octobre 2018', 'Juin 2020', 109, [114, 125, 71], 0, false],
+  [false, 'Janvier 2019', 'Décembre 2019', 157, [159, 123, 133, 115], 0, false],
+  [false, 'Janvier 2019', 'Juillet 2019', 126, [140, 133, 112, 155], 32, false],
+  [false, 'Septembre 2014', 'Janvier 2019', 142, [177, 160, 160, 109], 0, false],
+  [false, 'Juillet 2018', 'Décembre 2018', 181, [96, 161, 95, 171], 34, false],
+  [false, 'Janvier 2018', 'Juillet 2018', 169, [129, 120, 110], 20, false],
+  [false, 'Janvier 2014', 'Juin 2016', 122, [122, 163, 172, 169], 0, false],
+  [false, 'Février 2013', 'Février 2014', 122, [97, 105, 176], 0, false],
+  [false, 'Janvier 2015', 'Janvier 2015', 248, [], 0, false],
+  [false, 'Février 2012', 'Février 2013', 132, [112, 73, 126, 106], 0, false],
+];
+
+const FILLER = 'Organise les ateliers clients et le suivi des fournisseurs avec les equipes achats et la direction generale ';
+const text = (length: number, start = '') => (start + FILLER.repeat(Math.ceil(length / FILLER.length))).slice(0, length).trim();
+
+export const VERY_LONG_CV = {
+  ...LONG_CV,
+  experience: CAREER.map(([current, start_date, end_date, intro, bullets, kpi, matches], i) => ({
+    company: `Entreprise ${i + 1}`,
+    position: matches ? 'Lead Product Designer' : 'Responsable des operations',
+    start_date, end_date, current,
+    intro: text(intro),
+    // A role matching the offer says so in its first bullet
+    description: bullets.map((length, b) => text(length, matches && b === 0 ? 'Construit le design system Figma et ' : '')),
+    kpi: text(kpi),
+  })),
+};
+
 export const LONG_CV_JOB_DESCRIPTION = `Nous recherchons un Product Design Leader pour piloter la fonction design de notre plateforme SaaS B2B.
 Missions : construire et maintenir le design system sous Figma et Storybook, conduire les recherches utilisateurs,
 definir et suivre les KPIs produit (conversion, NPS, retention), manager une equipe de designers.

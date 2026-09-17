@@ -81,27 +81,56 @@ describe('condenseOneStep', () => {
     expect(next.filter((e, i) => e.displayMode !== start[i].displayMode)).toHaveLength(1);
   });
 
-  it('finishes a wave before starting the next: no role drops two rungs ahead', () => {
-    let cur = expandToMax([strong, mid, weak]);
-    for (let i = 0; i < 9; i++) {
-      const next = condenseOneStep(cur, REQUIREMENTS);
-      if (!next) break;
-      cur = next;
-      const rungs = modes(cur).map(m => ['extended', 'normal', 'compact', 'hidden'].indexOf(m));
-      expect(Math.max(...rungs) - Math.min(...rungs)).toBeLessThanOrEqual(1);
+  /** Every state the loop goes through, from full detail down to nothing */
+  const walk = (exps: Experience[], requirements = REQUIREMENTS) => {
+    const states: ExperienceDisplayMode[][] = [];
+    let cur: Experience[] | null = expandToMax(exps);
+    while (cur) {
+      states.push(modes(cur));
+      cur = condenseOneStep(cur, requirements);
     }
+    return states;
+  };
+
+  // A CV where every role was equally thin read as a list (arbitrage of 2026-09-17)
+  it('keeps the most relevant third detailed while the others come down to compact', () => {
+    const states = walk([weak, strong, mid]);
+    const firstTouch = states.find(([, top]) => top !== 'extended')!;
+    expect(firstTouch).toEqual(['compact', 'normal', 'compact']);
   });
 
-  it('never hides anything while some experience still has bullets', () => {
-    let cur = expandToMax([strong, mid, weak]);
-    for (let i = 0; i < 12; i++) {
-      const next = condenseOneStep(cur, REQUIREMENTS);
-      if (!next) break;
-      cur = next;
-      if (modes(cur).includes('hidden')) {
-        expect(modes(cur).every(m => m === 'compact' || m === 'hidden')).toBe(true);
-      }
-    }
+  it('hides a less relevant role only once the most relevant one is down to normal', () => {
+    const firstHidden = walk([weak, strong, mid]).find(state => state.includes('hidden'))!;
+    expect(firstHidden[1]).toBe('normal');
+    expect(firstHidden.filter(m => m === 'hidden')).toHaveLength(1);
+  });
+
+  it('never hides the role held today before the most relevant ones', () => {
+    const today = { ...weak, current: true, end_date: undefined };
+    const firstHidden = walk([today, strong, mid, makeExp({ position: 'Assistant', start_date: '2008-01', end_date: '2009-01' })])
+      .find(state => state.includes('hidden'))!;
+    expect(firstHidden[0]).not.toBe('hidden');
+    expect(firstHidden[3]).toBe('hidden');
+  });
+
+  it('does not highlight a role whose dates could not be read', () => {
+    const undated = { ...weak, current: true, start_date: '', end_date: undefined };
+    // Three strong roles fill the relevant third: only a "current" flag could highlight it
+    const firstHidden = walk([undated, strong, { ...strong }, { ...strong }, mid, mid])
+      .find(state => state.includes('hidden'))!;
+    // Highlighted, it would still be at normal when the first role is hidden
+    expect(['compact', 'hidden']).toContain(firstHidden[0]);
+  });
+
+  it('takes the older of two equal roles down first, within a stage', () => {
+    const [, second] = walk([strong, weak, { ...weak }]);
+    expect(second).toEqual(['extended', 'extended', 'normal']);
+  });
+
+  it('takes the most relevant role down last', () => {
+    const states = walk([weak, strong, mid]);
+    const lastVisible = states.find(state => state.filter(m => m !== 'hidden').length === 1)!;
+    expect(lastVisible[1]).not.toBe('hidden');
   });
 
   it('hides the weakest experience before the strongest', () => {
@@ -200,10 +229,10 @@ describe('condenseOneStep: the last mention of a required requirement', () => {
     expect(modes(condenseOneStep(expandToMax([rich, carrier]), preferred)!)).toEqual(['extended', 'normal']);
   });
 
-  it('protects the mention only while it is written: once dropped, the wave goes on as before', () => {
-    const wave = expandToMax([rich, carrier]);
-    const once = condenseOneStep(wave, requirements)!;
-    // rich came down first; the next step has no reason left to spare the carrier
-    expect(modes(condenseOneStep(once, requirements)!)).toEqual(['normal', 'normal']);
+  it('gives the mention up once every other move would drop a required one too', () => {
+    let cur = expandToMax([rich, carrier]);
+    for (let step = 0; step < 3; step++) cur = condenseOneStep(cur, requirements)!;
+    // rich came down while it could without losing Figma; hidden it would lose it
+    expect(modes(cur)).toEqual(['compact', 'normal']);
   });
 });

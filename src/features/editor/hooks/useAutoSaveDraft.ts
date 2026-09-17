@@ -13,6 +13,12 @@ export interface UseAutoSaveDraftDeps {
   user: unknown;
   isGuest: boolean;
   updateLastCV: (args: { cvData: CVData; jobDescription?: string }) => Promise<unknown>;
+  /**
+   * True while the fit to pages condenses: its intermediate CVs are never
+   * saved. Saved, a reload in the middle kept a half-fitted CV that the fit
+   * never took up again (it only runs on a CV no role of which has a mode).
+   */
+  paused?: boolean;
 }
 
 export interface UseAutoSaveDraftResult {
@@ -42,7 +48,7 @@ export interface UseAutoSaveDraftResult {
 export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftResult {
   const {
     cvData, designSettings, selectedTemplate, jobDescription,
-    user, isGuest, updateLastCV,
+    user, isGuest, updateLastCV, paused = false,
   } = deps;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,6 +75,9 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
       hydratedRef.current = true;
       return;
     }
+    // The state reached once the pause ends is saved then (paused is a dependency).
+    // A save still pending holds the state before the pause: kept for the exit flush.
+    if (paused) return;
     const save = () => {
       pendingSaveRef.current = null;
       const merged = stripPersistenceArtifacts({
@@ -106,7 +115,7 @@ export function useAutoSaveDraft(deps: UseAutoSaveDraftDeps): UseAutoSaveDraftRe
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, updateLastCV]);
+  }, [cvData, designSettings, selectedTemplate, jobDescription, user, isGuest, updateLastCV, paused]);
 
   // Leaving the editor or closing the tab inside the debounce window used to
   // drop the last edits: the cleanup cancelled the timer and nothing ran it.
