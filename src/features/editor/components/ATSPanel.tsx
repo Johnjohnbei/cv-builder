@@ -4,7 +4,7 @@ import { MAX_PROOF_CHARS } from '@/src/shared/types';
 import { gapsOf, isProvable } from '../lib/keywordAnalysis';
 import type { RequirementsStatus } from '../lib/jobRequirementsCache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
-import { GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
+import { formatPoints as points, GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 import { Textarea } from '@/src/shared/ui/Textarea';
 
@@ -36,7 +36,6 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
 
 const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
 
-const points = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
 
 /** The years the dates add up to, so a verdict on years of experience can be checked */
 const measuredYears = ({ years }: RequirementCoverage) =>

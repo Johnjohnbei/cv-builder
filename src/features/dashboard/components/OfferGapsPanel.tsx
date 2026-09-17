@@ -1,7 +1,7 @@
 import type { JobRequirement } from '@/src/shared/types';
 import { MAX_PROOF_CHARS } from '@/src/shared/types';
 import { weightOf } from '@/src/features/editor/lib/keywordAnalysis';
-import { GAP_TITLE } from '@/src/shared/ui/ScoreSummary';
+import { formatPoints, GAP_TITLE } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 import { Textarea } from '@/src/shared/ui/Textarea';
 
@@ -23,8 +23,6 @@ interface Props {
   isGenerating: boolean;
   generatingSeconds: number;
 }
-
-const points = (r: JobRequirement) => `${weightOf(r)} pt${weightOf(r) > 1 ? 's' : ''}`;
 
 /**
  * Before the CV is written (plan of 2026-09-17, lot D): what the CV does not
@@ -55,7 +53,7 @@ export function OfferGapsPanel({
               <li key={r.id} className="flex flex-col gap-1.5 bg-red-50 border border-red-200 rounded px-3 py-2">
                 <div className="flex items-center justify-between gap-2 text-[11px]">
                   <span className="font-semibold text-red-800">{r.label}</span>
-                  <span className="text-gray-600 shrink-0">{points(r)}</span>
+                  <span className="text-gray-600 shrink-0">{formatPoints(weightOf(r))}</span>
                 </div>
                 <p className="text-[11px] text-gray-600 italic">« {r.quote} »</p>
                 <Textarea

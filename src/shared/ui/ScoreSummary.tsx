@@ -1,6 +1,9 @@
 import type { ATSReport } from '@/src/shared/types';
 import { ScoreGauge } from './ScoreGauge';
 
+/** Points of a requirement, as every list of requirements says them */
+export const formatPoints = (n: number) => `${n} pt${n > 1 ? 's' : ''}`;
+
 /** The heading a list of gaps carries, wherever the gaps are shown */
 export const GAP_TITLE = 'text-[11px] font-mono text-red-600';
 
