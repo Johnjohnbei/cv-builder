@@ -8,7 +8,7 @@ import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storag
 import { detectCVLanguage } from '@/src/lib/languageDetection';
 
 // pdfjs (~450 kB) only loads when a PDF is actually dropped
-const loadPdfTools = () => Promise.all([import('@/src/lib/pdfTextExtract'), import('@/src/lib/linkedinParser')] as const);
+const loadPdfTools = () => import('@/src/lib/pdfTextExtract');
 
 /** PDFs above this size are refused at the drop zone, before any parsing */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -55,7 +55,7 @@ export function useDashboardImports(deps: DashboardImportsDeps) {
     requireAccessCode(async () => {
       setIsUploading(true);
       try {
-        const [{ extractTextFromPDF }, { parseLinkedInPDF }] = await loadPdfTools();
+        const { extractTextFromPDF, parseLinkedInPDF } = await loadPdfTools();
         // LinkedIn format parsed locally first: instant, no API call
         const data = (await parseLinkedInPDF(file))
           // Sent whole: cut at 12 000 characters, a dense CV silently lost its
@@ -91,7 +91,7 @@ export function useDashboardImports(deps: DashboardImportsDeps) {
     requireAccessCode(async () => {
       setIsExtractingJob(true);
       try {
-        const [{ extractTextFromPDF }] = await loadPdfTools();
+        const { extractTextFromPDF } = await loadPdfTools();
         const pdfText = await extractTextFromPDF(file);
         setJobDescription(await extractJobDescriptionFromPDF({ pdfText, accessCode: getCode() }));
       } catch (error: any) {

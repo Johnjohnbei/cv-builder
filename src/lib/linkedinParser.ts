@@ -18,16 +18,11 @@
  * into lines, segments by section header, then extracts structured data.
  *
  * Returns null for non-LinkedIn PDFs so the caller can fall back to AI.
+ * Pure: the PDF is read into tokens by pdfTextExtract.ts.
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
 import type { CVData, Experience, Education } from '../shared/types';
 import { categorizeSkills } from '@/src/features/editor/lib/skillDictionary';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url,
-).toString();
 
 // ─── Font-size classification ───────────────────────────────────────
 //
@@ -110,15 +105,38 @@ const MONTH: Record<string, string> = {
 /** Matches "juin 2025 - Present" or "décembre 2024 - avril 2025" (+ optional duration). */
 const DATE_RANGE_RE = /^([\wÀ-ÿ]+)\s+(\d{4})\s*-\s*(present|[\wÀ-ÿ]+\s+\d{4})/i;
 
-const BULLET_CHARS = new Set(['•', '-', '✓', '⚛']);
+/** A bullet mark opens the line; a minus needs a space after it, or "-40%" would be one */
+const BULLET_START = /^(?:[•✓⚛]|-(?=\s))\s*/;
+const isBulletLine = (text: string) => BULLET_START.test(text);
 
 const EMOJI_RE = /[⚛✓★☆✦]+/g;
 
 const SIDEBAR_BOUNDARY = 150; // X-coordinate separating left sidebar from main content
 
+/**
+ * Line steps, in font sizes. Body text runs at 1.7 (18 pt at 10.5 pt) and a
+ * paragraph break adds a blank line (36 pt): a wider gap starts a paragraph.
+ * A sidebar item wraps at 1.25 (13 pt) and the next item starts at 1.6 (17 pt).
+ */
+const PARAGRAPH_GAP = 2.4;
+const SIDEBAR_WRAP_GAP = 1.45;
+/** A line this close to the page foot (46 pt at 10.5 pt) is the last one its page holds */
+const PAGE_FOOT = 6;
+
+/** Two lines of one text: a word cut at "user-" or "Tech/" goes on without a space */
+const joinLines = (a: string, b: string) => (/\p{L}[-/]$/u.test(a) ? `${a}${b}` : `${a} ${b}`);
+
+/** LinkedIn drops the line break between paragraphs of the About text: "côté.J'ai", never "Node.JS" */
+const spaceSentences = (text: string) => text.replace(/([\p{Ll}\d)][.!?])(\p{Lu}(?=[\p{Ll}'’]))/gu, '$1 $2');
+
+/** Lines of one text joined as written */
+const joinAll = (lines: Line[]) => lines.map(l => l.text).reduce((text, line) => (text ? joinLines(text, line) : line), '');
+
+const PLACE = /^[\wÀ-ÿ\s'-]+,\s*[\wÀ-ÿ\s'-]+,\s*[\wÀ-ÿ\s'-]+$/;
+
 // ─── Internal types ─────────────────────────────────────────────────
 
-interface Token { text: string; fontSize: number; x: number; y: number; page: number }
+export interface Token { text: string; fontSize: number; x: number; y: number; page: number }
 interface Line  { text: string; role: FontRole; fontSize: number; x: number; y: number; page: number }
 interface Section { name: string; lines: Line[] }
 
@@ -129,41 +147,11 @@ interface ExpBuilder {
   start_date: string;
   end_date: string;
   location: string;
-  description: string[];
-  proseBuf: string;   // collects non-bullet text → becomes intro
+  /** Text in reading order, a paragraph or a bullet per entry */
+  paragraphs: { text: string; bullet: boolean }[];
 }
 
-// ─── Step 1: PDF → Tokens ───────────────────────────────────────────
-
-async function extractTokens(file: File): Promise<Token[]> {
-  const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
-  const tokens: Token[] = [];
-
-  try {
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      for (const item of content.items) {
-        if (!('str' in item) || !item.str.trim()) continue;
-        tokens.push({
-          text:     item.str.trim(),
-          fontSize: Math.round(item.transform[0] * 100) / 100,
-          x:        Math.round(item.transform[4]),
-          y:        Math.round(item.transform[5]),
-          page:     p,
-        });
-      }
-    }
-  } finally {
-    // Frees the worker-side document: without it every import kept its PDF in memory
-    await pdf.destroy();
-  }
-
-  return tokens;
-}
-
-// ─── Step 2: Tokens → Lines (merge same-Y, same-role tokens) ───────
+// ─── Step 1: Tokens → Lines (merge same-Y, same-role tokens) ───────
 
 function tokensToLines(tokens: Token[]): Line[] {
   const lines: Line[] = [];
@@ -184,7 +172,7 @@ function tokensToLines(tokens: Token[]): Line[] {
   return lines;
 }
 
-// ─── Step 3: Detect LinkedIn format ─────────────────────────────────
+// ─── Step 2: Detect LinkedIn format ─────────────────────────────────
 
 function isLinkedInPDF(lines: Line[]): boolean {
   const hasName = lines.some(l => l.role === FontRole.NAME);
@@ -199,7 +187,7 @@ function isLinkedInPDF(lines: Line[]): boolean {
   return hasName && hasKnownSection && hasProfileUrl;
 }
 
-// ─── Step 4: Segment into header + named sections ───────────────────
+// ─── Step 3: Segment into header + named sections ───────────────────
 
 function segmentSections(lines: Line[]): { header: Line[]; sections: Section[] } {
   const header: Line[] = [];
@@ -236,17 +224,21 @@ function parsePersonalInfo(headerLines: Line[]): CVData['personal_info'] {
   const nameLine = headerLines.find(l => l.role === FontRole.NAME);
   if (nameLine) info.name = nameLine.text.replace(EMOJI_RE, '').trim();
 
-  // Title: COMPANY-sized lines in right column, up to the location line.
-  // Location is "City, Region, Country" — short (< 60 chars), no pipes, no special chars.
-  const titleParts: string[] = [];
-  for (const tl of right.filter(l => l.role === FontRole.COMPANY)) {
-    if (tl.text.length < 60 && !tl.text.includes('|') && !tl.text.includes('@') &&
-        /^[\wÀ-ÿ\s'-]+,\s*[\wÀ-ÿ\s'-]+,\s*[\wÀ-ÿ\s'-]+$/.test(tl.text)) {
-      info.location = tl.text;
-      break;
-    }
-    titleParts.push(tl.text);
+  // Title: COMPANY-sized lines in right column, then the location line. The
+  // location is the last line, short and with no separator: "City, Region,
+  // Country", or a LinkedIn area ("Paris et périphérie") no comma pattern
+  // recognizes. It sits one line step below the headline like a wrapped title
+  // would: its place decides, and every LinkedIn profile has a location.
+  // Alone, only the comma pattern says the line is a place.
+  const headline = right.filter(l => l.role === FontRole.COMPANY);
+  const last = headline[headline.length - 1];
+  const isPlace = last && last.text.length < 60 && !/[|·@]/.test(last.text)
+    && (headline.length > 1 || PLACE.test(last.text));
+  if (isPlace) {
+    info.location = last.text;
+    headline.pop();
   }
+  const titleParts = headline.map(l => l.text);
   info.title = titleParts.join(' ').replace(EMOJI_RE, '').trim();
   if ((info.title?.length ?? 0) > 100) {
     info.title = info.title!.split('|').slice(0, 3).join('|').trim();
@@ -289,11 +281,10 @@ function parsePersonalInfo(headerLines: Line[]): CVData['personal_info'] {
     if (m) info.linkedin = `https://www.${m[1]}`;
   }
 
-  // Summary: longer BODY lines in right column (not contact info)
-  const summaryText = right
-    .filter(l => l.role === FontRole.BODY && l.text.length > 20 && !/@/.test(l.text))
-    .map(l => l.text).join(' ');
-  if (summaryText) info.summary = summaryText;
+  // Summary: BODY lines in right column, not contact info nor the place
+  const summaryText = joinAll(right.filter(l =>
+    l.role === FontRole.BODY && !/@/.test(l.text) && l.text !== info.location && !PLACE.test(l.text)));
+  if (summaryText) info.summary = spaceSentences(summaryText);
 
   return info;
 }
@@ -316,35 +307,48 @@ function parseDate(raw: string): { start: string; end: string } {
 
 // ─── Parse experiences ──────────────────────────────────────────────
 
+const stripBullet = (text: string) => text.replace(BULLET_START, '').trim();
+const SENTENCES = /[\s\S]*?[.!?](?=\s|$)|[\s\S]+/g;
+
+/**
+ * The first paragraph is the intro when it is prose; every other paragraph and
+ * bullet is a description entry, so no sentence of the export is lost (its
+ * numbers are what the tailoring later backs a KPI with). A lead-in ending with
+ * a colon only introduces the list below it, so it is neither. A role written
+ * as one paragraph keeps two sentences as its intro and the rest as bullets.
+ */
 function buildExperience(b: ExpBuilder): Experience {
-  const current = !b.end_date;
-  const prose = b.proseBuf.trim();
-  let intro: string | undefined;
-
-  if (prose) {
-    // Split after . ! or ? followed by whitespace (a lookbehind breaks Safari before 16.4)
-    const sentences = (prose.match(/[\s\S]*?[.!?](?=\s|$)|[\s\S]+/g) ?? [])
-      .map(s => s.trim())
-      .filter(s => s.length > 10);
+  const [first, ...rest] = b.paragraphs;
+  let intro = first && !first.bullet && !first.text.endsWith(':') ? first.text : undefined;
+  const entries = (intro === undefined ? b.paragraphs : rest).map(p => stripBullet(p.text));
+  if (intro && entries.length === 0) {
+    const sentences = (intro.match(SENTENCES) ?? []).map(s => s.trim()).filter(Boolean);
     intro = sentences.slice(0, 2).join(' ');
-    // No truncation — let display modes and autoFit handle visible length
-
-    // No bullets found — derive from prose
-    if (b.description.length === 0 && prose.length > 50) {
-      b.description = sentences.slice(0, 4).map(s => s.trim());
-    }
+    entries.push(...sentences.slice(2));
   }
-
   return {
     company:    b.company,
     position:   b.position,
     start_date: b.start_date,
     end_date:   b.end_date,
-    current,
+    // An end date that could not be read is no proof the role goes on
+    current:    Boolean(b.start_date) && !b.end_date,
     location:   b.location,
     intro,
-    description: b.description,
+    description: entries.filter(text => text && !text.endsWith(':')),
   };
+}
+
+/**
+ * Whether a body line goes on with the paragraph above: one line step below it
+ * on the same page, or at the top of the next page after the last line of its
+ * page that did not end a sentence. A bullet always starts its own entry.
+ */
+function continuesParagraph(prev: Line | null, line: Line): boolean {
+  if (!prev || isBulletLine(line.text)) return false;
+  if (prev.page !== line.page) return prev.y <= line.fontSize * PAGE_FOOT && !/[.!?:]$/.test(prev.text);
+  const gap = prev.y - line.y;
+  return gap > 0 && gap <= line.fontSize * PARAGRAPH_GAP;
 }
 
 function parseExperiences(lines: Line[]): Experience[] {
@@ -353,6 +357,8 @@ function parseExperiences(lines: Line[]): Experience[] {
   let cur: ExpBuilder | null = null;
   let sawBody = false;
   let companyChanged = false;
+  /** The last line of text read into the current role, null after its dates and place */
+  let prevText: Line | null = null;
 
   function flush() { if (cur) result.push(buildExperience(cur)); }
 
@@ -379,10 +385,11 @@ function parseExperiences(lines: Line[]): Experience[] {
         company: company || 'Non spécifié',
         position: title,
         start_date: '', end_date: '', location: '',
-        description: [], proseBuf: '',
+        paragraphs: [],
       };
       sawBody = false;
       companyChanged = false;
+      prevText = null;
       continue;
     }
 
@@ -402,21 +409,21 @@ function parseExperiences(lines: Line[]): Experience[] {
       // Duration marker "(11 mois)" — skip
       if (/^\(\d+\s+\w+\)$/.test(text)) continue;
 
-      // Location: first non-bullet line after date, before any description
-      if (!cur.location && cur.start_date && cur.description.length === 0 && !cur.proseBuf) {
-        const isBullet = BULLET_CHARS.has(text[0]);
-        if (!isBullet && text.length < 60 && !text.includes(':') && /[A-ZÀ-Ú]/.test(text[0])) {
+      // Location: first non-bullet line after date, before any text
+      if (!cur.location && cur.start_date && cur.paragraphs.length === 0) {
+        if (!isBulletLine(text) && text.length < 60 && !text.includes(':') && /[A-ZÀ-Ú]/.test(text[0])) {
           cur.location = text;
           continue;
         }
       }
 
-      // Bullets → description array
-      if (BULLET_CHARS.has(text[0])) {
-        cur.description.push(text.replace(/^[•\-✓⚛]\s*/, '').trim());
+      const last = cur.paragraphs[cur.paragraphs.length - 1];
+      if (last && continuesParagraph(prevText, line)) {
+        last.text = joinLines(last.text, text);
       } else {
-        cur.proseBuf += (cur.proseBuf ? ' ' : '') + text;
+        cur.paragraphs.push({ text, bullet: isBulletLine(text) });
       }
+      prevText = line;
     }
   }
 
@@ -474,12 +481,18 @@ function parseSkills(left: Line[]): CVData['skills'] {
   );
   if (idx === -1) return [];
 
+  // A skill too long for the sidebar wraps one short step below: it is one skill
   const items: string[] = [];
+  let prev: Line | null = null;
   for (let i = idx + 1; i < left.length; i++) {
-    if (left[i].role === FontRole.SIDEBAR_HEADER) break;
-    if (left[i].role === FontRole.BODY && left[i].text.trim().length > 1) {
-      items.push(left[i].text.trim());
-    }
+    const line = left[i];
+    if (line.role === FontRole.SIDEBAR_HEADER) break;
+    const text = line.text.trim();
+    if (line.role !== FontRole.BODY || text.length <= 1) continue;
+    const wraps = prev && prev.page === line.page && prev.y - line.y <= line.fontSize * SIDEBAR_WRAP_GAP;
+    if (wraps) items[items.length - 1] = joinLines(items[items.length - 1], text);
+    else items.push(text);
+    prev = line;
   }
   return items.length > 0 ? categorizeSkills(items) : [];
 }
@@ -536,37 +549,31 @@ function parseLanguages(left: Line[]): CVData['languages'] {
 
 // ─── Main entry point ───────────────────────────────────────────────
 
-export async function parseLinkedInPDF(file: File): Promise<CVData | null> {
-  try {
-    const tokens = await extractTokens(file);
-    const lines = tokensToLines(tokens);
-    if (!isLinkedInPDF(lines)) return null;
+/** The CV a LinkedIn export carries, read from its text items; null for any other PDF */
+export function profileFromTokens(tokens: Token[]): CVData | null {
+  const lines = tokensToLines(tokens);
+  if (!isLinkedInPDF(lines)) return null;
 
-    const { header, sections } = segmentSections(lines);
-    const { left } = splitColumns(header);
+  const { header, sections } = segmentSections(lines);
+  const { left } = splitColumns(header);
+  const personalInfo = parsePersonalInfo(header);
 
-    const personalInfo = parsePersonalInfo(header);
-
-    // Some profiles have Summary as a standalone section rather than inline
-    const summarySection = sections.find(s => s.name === 'summary');
-    if (summarySection && !personalInfo.summary) {
-      personalInfo.summary = summarySection.lines
-        .filter(l => l.role === FontRole.BODY || l.role === FontRole.COMPANY)
-        .map(l => l.text).join(' ').slice(0, 300);
-    }
-
-    const expSection = sections.find(s => s.name === 'experience');
-    const eduSection = sections.find(s => s.name === 'education');
-
-    return {
-      personal_info: personalInfo,
-      experience:    expSection ? parseExperiences(expSection.lines) : [],
-      education:     eduSection ? parseEducation(eduSection.lines)   : [],
-      skills:        parseSkills(left),
-      languages:     parseLanguages(left),
-    };
-  } catch (err) {
-    console.warn('[Calibre] LinkedIn parser failed, falling back to AI:', err);
-    return null;
+  // Some profiles have Summary as a standalone section rather than inline.
+  // Whole: cut at 300 characters, it lost most of an About text.
+  const summarySection = sections.find(s => s.name === 'summary');
+  if (summarySection && !personalInfo.summary) {
+    personalInfo.summary = spaceSentences(joinAll(summarySection.lines
+      .filter(l => l.role === FontRole.BODY || l.role === FontRole.COMPANY)));
   }
+
+  const expSection = sections.find(s => s.name === 'experience');
+  const eduSection = sections.find(s => s.name === 'education');
+
+  return {
+    personal_info: personalInfo,
+    experience:    expSection ? parseExperiences(expSection.lines) : [],
+    education:     eduSection ? parseEducation(eduSection.lines)   : [],
+    skills:        parseSkills(left),
+    languages:     parseLanguages(left),
+  };
 }
