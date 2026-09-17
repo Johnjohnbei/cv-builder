@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData, Experience, JobRequirement } from '@/src/shared/types';
 import { EMPTY_CV } from '@/src/shared/types';
-import { computeATSReport, cvSections, yearsOfExperience } from './keywordAnalysis';
+import { computeATSReport, cvSections } from './keywordAnalysis';
+import { yearsOfExperience } from './experienceYears';
 
 // ─── Fixtures ───
 

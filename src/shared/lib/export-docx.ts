@@ -166,16 +166,8 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
     }
   }
 
-  return new Document({
-    sections: [{
-      properties: {
-        page: {
-          margin: { top: 720, bottom: 720, left: 720, right: 720 },
-        },
-      },
-      children,
-    }],
-  });
+  const margin = { top: 720, bottom: 720, left: 720, right: 720 };
+  return new Document({ sections: [{ properties: { page: { margin } }, children }] });
 }
 
 /**
@@ -197,16 +189,8 @@ export async function exportToDocx(
 
 function sectionHeading(text: string): Paragraph {
   return new Paragraph({
-    children: [new TextRun({
-      text: text.toUpperCase(),
-      bold: true,
-      size: 22,
-      font: 'Calibri',
-      color: '1A73E8',
-    })],
+    children: [new TextRun({ text: text.toUpperCase(), bold: true, size: 22, font: 'Calibri', color: '1A73E8' })],
     spacing: { before: 300, after: 80 },
-    border: {
-      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DADCE0', space: 4 },
-    },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DADCE0', space: 4 } },
   });
 }
