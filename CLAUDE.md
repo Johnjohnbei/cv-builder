@@ -1,21 +1,23 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**Calibre — CV Builder avec IA**
+**Calibre : CV Builder avec IA**
 
 Application web de création et d'optimisation de CV propulsée par l'IA (Claude, unique provider depuis le 2026-08-16). Calibre permet d'importer un CV LinkedIn ou PDF, de l'éditer avec 2 templates une colonne (C Minimal, E Elegant), et de l'adapter à une offre d'emploi. Le score ATS mesure la part des exigences de l'offre que le CV écrit, et l'adaptation n'écrit que ce que le CV source prouve (refonte ATS du 2026-09-15, décision Atelier `2026-09-15-un-score-ats-qui-ne-note-que-ce-que-le-cv-prouve`).
 
-**Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels — un CV non lu par un ATS est un CV perdu.
+**Core Value:** Les CV générés par Calibre doivent passer les filtres ATS avec le meilleur score possible tout en restant visuellement professionnels : un CV non lu par un ATS est un CV perdu.
 
 ### Constraints
 
-- **Tech stack**: React 18 + Vite + Convex + Clerk — stack existante, pas de migration
-- **IA Provider**: Claude, seul provider depuis le 2026-08-16 (`claude-sonnet-4-5` en `default`, `claude-haiku-4-5` en `fast`). Gemini a été retiré sur mesure : quota gratuit journalier épuisé après quelques dizaines d'appels, puis 60 à 840 ms d'aller-retour perdu avant chaque bascule, et 4,4× plus lent que Claude quand il répondait (médiane 8 167 ms contre 1 847 ms sur 128 mesures). `maxRetries: 0` sur le SDK — la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif. **Un second provider, s'il revient un jour, se place APRÈS Claude** : `withRetry` ne réessaie que le dernier de la liste, donc le mettre devant retirerait son retry à Claude.
+- **Tech stack**: React 18 + Vite + Convex + Clerk, stack existante, pas de migration
+- **IA Provider**: Claude, seul provider depuis le 2026-08-16 (`claude-sonnet-4-5` en `default`, `claude-haiku-4-5` en `fast`). Gemini a été retiré sur mesure : quota gratuit journalier épuisé après quelques dizaines d'appels, puis 60 à 840 ms d'aller-retour perdu avant chaque bascule, et 4,4× plus lent que Claude quand il répondait (médiane 8 167 ms contre 1 847 ms sur 128 mesures). `maxRetries: 0` sur le SDK : la boucle `withRetry` de `convex/_ai/chat.ts` a le contrôle exclusif. **Un second provider, s'il revient un jour, se place APRÈS Claude** : `withRetry` ne réessaie que le dernier de la liste, donc le mettre devant retirerait son retry à Claude.
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
-- **Simplicité**: Ne pas ajouter de complexité — fusionner et simplifier les fichiers existants
+- **Simplicité**: Ne pas ajouter de complexité ; fusionner et simplifier les fichiers existants
 - **Ordre du texte dans le PDF**: Chrome écrit le texte du PDF dans l'**ordre de peinture**, pas dans celui du document. Une boîte `position: relative`/`absolute` ou `opacity` est peinte après tous ses frères dans le flux, et son texte sort donc à la fin. Un ATS lisant le texte dans l'ordre attribuait les puces au mauvais employeur (mesuré le 2026-09-16). Règle : aucun élément **porteur de texte** d'un template n'est positionné ni transparent (une couleur, jamais `opacity`) ; chaque bloc de page est son propre contexte d'empilement (`relative z-0` dans `PaginatedCV.tsx`). Garde : `e2e/pdf-legibility.spec.ts` extrait le texte du vrai téléchargement avec `pdfjs-dist/legacy` pour C et E
 - **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
-- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), transmise à `tailorCV`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu
+- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), transmise à `tailorCV`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu. Paliers (arbitrage du 2026-09-17) : le tiers le plus pertinent et tout poste en cours daté gardent leur détail pendant que les autres descendent jusqu'à compact, puis ce tiers passe en normal, les autres sont masqués, et ce tiers descend en dernier ; la dernière mention d'une exigence requise passe avant les paliers. La sauvegarde auto est suspendue pendant le tri, et le tri s'arrête seul sans mesure pendant 10 s
+- **Nombre de pages mesuré**: `usePaginationFit` ne rend `stablePageCount` que pour les blocs exacts mesurés (`stableFor`). Un bloc d'expérience porte le rang de l'expérience parmi les **visibles** : masquer un rôle renomme les suivants, donc un changement d'estimation (`contentKey`) repart de zéro (`carryOver`, `lib/pagination/reconcile.ts`)
+- **Import LinkedIn**: `src/lib/linkedinParser.ts` est pur (`profileFromTokens`, testé sur des tokens) ; la lecture pdf.js est dans `src/lib/pdfTextExtract.ts`. Tout le texte de l'export est gardé : paragraphes regroupés par écart vertical, puce continuée sur la ligne ou la page suivante, premier paragraphe en intro
 - **Portfolio**: `PersonalInfo.portfolio_url` / `portfolio_label` / `portfolio_anon_url` sont génériques et open source. La sélection de version selon l'offre vient de `VITE_PORTFOLIO_VARIANTS` (JSON d'env, absent du dépôt) : sans la variable, aucune UI n'apparaît
 <!-- GSD:project-end -->
 
@@ -35,7 +37,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - React Router DOM 7.14.0 - Client-side routing (`src/App.tsx`)
 - Convex 1.34.1 - Backend as a service (BaaS) with built-in database
 - Vitest 4.1.2 - Unit/integration test runner (`convex/_ai/__tests__/`)
-- Playwright 1.59.1 - E2E test runner (`e2e/` — smoke, ATS panel, lettre, tri auto + portfolio, mode guest)
+- Playwright 1.59.1 - E2E test runner (`e2e/`: smoke, ATS panel, lettre, tri auto + portfolio, mode guest)
 - Vite 6.2.0 - Dev server and build tool
 - @vitejs/plugin-react 5.0.4 - React fast refresh
 - @tailwindcss/vite 4.2.2 - Tailwind CSS integration (v4)
@@ -162,15 +164,17 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Intégration IA derrière une abstraction provider (`convex/_ai/providers.ts`) : un seul vendeur aujourd'hui, Claude
 - Accès aux actions IA : un compte connecté OU un code d'accès valide (`convex/_ai/auth.ts`), sans interrupteur d'environnement
 - Erreurs lisibles par l'utilisateur : toujours `userError()` (`convex/_shared/errors.ts`), jamais `new Error` (message masqué par Convex en production)
-- ATS : exigences d'offre (`JobRequirement`, extraites par `extractRequirements` dans `convex/_ai/tailor.ts`, citation vérifiée dans l'offre, cache client `jobRequirementsCache.ts` avec une seule analyse en cours par offre) ; score = `computeATSReport` (`src/features/editor/lib/keywordAnalysis.ts`), le même côté client et serveur ; pas de score sans exigences
-- Adaptation : `tailorCV` (`convex/_ai/tailor.ts`) : génération avec citations de preuve, garde vérité en code (`convex/_ai/truthGuard.ts`, nombres lus par `convex/_ai/numbers.ts`), mesure, au plus 2 réparations (`prompts/distribute.ts` = prompt de réparation) avant 240 s. Tout ce que le CV adapté écrit doit être prouvé par le CV source
+- ATS : exigences d'offre (`JobRequirement`, extraites par `extractRequirements` dans `convex/_ai/tailor.ts`, citation vérifiée dans l'offre, libellé = premier terme que la citation écrit, variantes dans les deux langues, cache client `jobRequirementsCache.ts` (clé `job_requirements_cache_v2`) avec une seule analyse en cours par offre) ; score = `computeATSReport` (`src/features/editor/lib/keywordAnalysis.ts`), le même côté client et serveur ; pas de score sans exigences
+- Écarts avant l'écriture : `analyzeGaps` (`gapsPipeline`, `convex/_ai/prove.ts`) cherche dans le CV une citation par exigence (appel rapide). Une citation ne prouve que si elle est faite de mots du CV et partage un radical **propre à cette exigence** (`provenByQuote`) : « design », commun à plusieurs exigences, ne prouve rien. Le tableau de bord (`useOfferTailoring`, `OfferGapsPanel`) demande les écarts restants AVANT l'unique génération, puis ouvre l'éditeur sur l'onglet ATS (le score se lit après le tri). Ne jamais relâcher cette règle pour remonter un score : la version permissive inventait des puces
+- Adaptation : `tailorCV` (`convex/_ai/tailor.ts`) reçoit les citations (revérifiées) et les réponses du candidat `{ id, text }` (seulement `isProvable` et `saysWhere`). Ce que seule une réponse prouve ne s'écrit que dans les expériences qu'elle nomme (`experiencesNamedBy`), jamais dans le résumé, le titre ni une étiquette, sans nom que personne n'a donné, et ses nombres ne valent que là ; la réparation ne s'en sert jamais. Une ligne `[tailorCV]` par adaptation dans les journaux (prouvées, score avant et après la garde, réparations). Ensuite : génération avec citations de preuve, garde vérité en code (`convex/_ai/truthGuard.ts`, nombres lus par `convex/_ai/numbers.ts`), mesure, au plus 2 réparations (`prompts/distribute.ts` = prompt de réparation) avant 240 s. Tout ce que le CV adapté écrit doit être prouvé par le CV source
 - Preuve : `proveRequirement` (`convex/_ai/prove.ts`) écrit UNE exigence depuis les mots de l'utilisateur, sous la même garde. Ce que le modèle répond est relu en code : puce **ajoutée** à une expérience que la preuve nomme (employeur d'abord, poste en secours), aucun nom propre que la preuve, l'expérience ou l'offre ne nomme, compétence sous le seul libellé de l'offre, jamais le résumé ; gardé seulement si le score monte, sinon `written: false` et le CV de l'utilisateur est rendu intact. Refus gratuits (exigence inconnue, non `isProvable`, preuve trop courte) décidés sans appel
 - Bornes d'entrée : `convex/_ai/inputLimits.ts`. Toute action qui met un CV `v.any()` dans un prompt appelle `assertBoundedPrompt` AVANT `verifyAccessCode`
 - Templates : registre unique `TEMPLATES` / `TemplateId` (`lib/pagination/templateLayouts.ts`) ; un design stocké avec un template retiré (A, B) ou `atsMode` est migré à la lecture (`migratedDesign`)
-- E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel, écarts, preuve), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio), `e2e/dashboard.spec.ts`, `e2e/pdf-legibility.spec.ts` (texte du PDF réel, C et E) : tous en mode guest
+- E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel, écarts, preuve), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio), `e2e/dashboard.spec.ts` (dont les écarts avant l'écriture), `e2e/pdf-legibility.spec.ts` (texte du PDF réel, C et E) : tous en mode guest
 - E2E et appels payants : `seedGuestSession` réchauffe les caches pour qu'aucune action ne parte, `watchAICalls`/`expectNoAICalls` le prouvent. Un flux qui finit par un appel payant (preuve) passe par `answerAIActions` (route la WebSocket Convex et répond à la place du serveur) ; un socket routé est invisible à `watchAICalls`, donc le fixture rend `answered`/`forwarded` et **`forwarded` doit rester vide**
 - `e2e/capture-pdf.spec.ts` n'est pas une régression : il écrit le PDF réellement produit sur disque pour inspection humaine, et ne tourne que si `CAPTURE_PDF=<chemin>` est défini
 - Display mode system for content optimization (experience and skills visibility control)
+- Noms de langue : imprimés dans la langue du CV (`localizeLanguageName`, `LANGUAGE_NAMES` dans `formatting.ts`), par les templates, l'export Word, le score et la garde
 - Anonymization toggle: client-side only, masks personal info at render time without touching Convex data (`src/shared/lib/anonymize.ts`)
 ## Layers
 - Purpose: Render UI, handle user interactions, manage local UI state
@@ -254,6 +258,6 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Templates use memoized display mode computations
 - useOverflowDetection debounces resize checks to avoid excessive recalculations
 - Vite code-splitting for lazy-loaded pages (HomePage, EditorPage, etc.)
-- Anonymization toggle (`isAnonymous` state in EditorPage): `usePaginationFit` always receives real `cvData` for layout stability; `pageAssignments` are post-processed to replace header block data with masked `PersonalInfo` — keeps title, hides name/email/phone/location/linkedin/github/website/photo
+- Anonymization toggle (`isAnonymous` state in EditorPage): `usePaginationFit` always receives real `cvData` for layout stability; `pageAssignments` are post-processed to replace header block data with masked `PersonalInfo`: keeps title, hides name/email/phone/location/linkedin/github/website/photo
 <!-- GSD:architecture-end -->
 
