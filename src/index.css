@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
   /* The CV "Sans" font option: the user's document, not the app chrome */
   --font-cv-sans: "Inter", ui-sans-serif, system-ui, sans-serif; /* anti-vibe-ok: cv document font option */
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-playfair: "Playfair Display", serif;
-  --font-outfit: "Outfit", sans-serif;
+  --font-playfair: "Playfair Display", serif; /* anti-vibe-ok: cv document font option */
+  --font-outfit: "Outfit", sans-serif; /* anti-vibe-ok: cv document font option */
 }
 
 :root {

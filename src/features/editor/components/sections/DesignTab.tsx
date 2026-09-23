@@ -12,8 +12,8 @@ const FONT_OPTIONS: ReadonlyArray<{ id: FontFamily; name: string }> = [
   { id: 'sans', name: 'Inter (Sans)' },
   { id: 'serif', name: 'Georgia (Serif)' },
   { id: 'mono', name: 'JetBrains (Mono)' },
-  { id: 'playfair', name: 'Playfair (Display)' },
-  { id: 'outfit', name: 'Outfit (Modern)' },
+  { id: 'playfair', name: 'Playfair (Display)' }, // anti-vibe-ok: cv document font option
+  { id: 'outfit', name: 'Outfit (Modern)' }, // anti-vibe-ok: cv document font option
 ];
 
 interface ColorTheme { name: string; p: string; s: string; f: FontFamily }
