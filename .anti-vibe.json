@@ -3,45 +3,5 @@
     "src",
     "index.html"
   ],
-  "baseline": {
-    "src/features/editor/components/CoverLetterDrawer.tsx": {
-      "glass": 1
-    },
-    "src/features/editor/components/EditorHeader.tsx": {
-      "pill": 1
-    },
-    "src/features/editor/components/sections/DesignTab.tsx": {
-      "emoji": 5
-    },
-    "src/features/editor/hooks/useCVPersistence.ts": {
-      "emdash": 1
-    },
-    "src/features/editor/lib/portfolioVariants.ts": {
-      "emdash": 1
-    },
-    "src/features/editor/templates/blockRenderers/templateC.tsx": {
-      "emoji": 2
-    },
-    "src/features/editor/templates/blockRenderers/templateE.tsx": {
-      "side-stripe": 3,
-      "emoji": 1
-    },
-    "src/features/landing/components/HomePage.tsx": {
-      "pill": 1,
-      "gradient": 1
-    },
-    "src/index.css": {
-      "font": 2,
-      "emdash": 1
-    },
-    "src/shared/lib/export-docx.ts": {
-      "emoji": 1
-    },
-    "src/shared/ui/Dialog.tsx": {
-      "glass": 1
-    },
-    "index.html": {
-      "font": 1
-    }
-  }
+  "baseline": {}
 }

@@ -1,38 +1,29 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, FileText, Sparkles, Zap, ShieldCheck, PenTool, Download } from 'lucide-react';
+import { ArrowRight, FileText, PenTool, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useDocumentTitle } from '@/src/shared/hooks';
 import { writeStoredText } from '@/src/shared/lib/storage';
 import { Button } from '@/src/shared/ui/Button';
 
 export default function HomePage() {
-  useDocumentTitle('Optimisez votre CV avec l\'IA');
+  useDocumentTitle('Adaptez votre CV à chaque offre');
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#202124]">
       {/* Hero */}
-      <section className="relative pt-32 pb-24 border-b border-[#DADCE0] overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <section className="pt-32 pb-24 border-b border-[#DADCE0]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="inline-flex items-center space-x-2 px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] rounded-full text-[11px] font-mono font-bold mb-6"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Propulsé par l'IA</span>
-              </motion.div>
-
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 className="text-5xl md:text-6xl font-bold tracking-tight mb-8 leading-[1.1]"
               >
-                Votre CV,<br />
-                <span className="text-[#1A73E8]">optimisé par l'IA.</span>
+                Adaptez votre CV à chaque offre,<br />
+                <span className="text-[#1A73E8]">sans rien inventer.</span>
               </motion.h1>
 
               <motion.p
@@ -41,8 +32,8 @@ export default function HomePage() {
                 transition={{ delay: 0.2 }}
                 className="max-w-xl text-lg text-gray-600 mb-10 leading-relaxed"
               >
-                Importez votre CV, collez une offre d'emploi. L'IA adapte votre parcours
-                pour maximiser votre score ATS et décrocher l'entretien.
+                Importez votre CV (PDF ou export LinkedIn) et collez l'offre. Calibre mesure la part
+                des exigences que votre CV couvre, puis réécrit seulement ce que votre parcours prouve.
               </motion.p>
 
               <motion.div
@@ -90,14 +81,9 @@ export default function HomePage() {
               transition={{ delay: 0.4 }}
               className="hidden lg:block"
             >
-              <div className="border border-[#DADCE0] bg-white rounded shadow-2xl rotate-1">
-                <div className="h-9 border-b border-[#DADCE0] bg-[#F8F9FA] flex items-center justify-between px-3">
+              <div className="border border-[#DADCE0] bg-white rounded">
+                <div className="h-9 border-b border-[#DADCE0] bg-[#F8F9FA] flex items-center px-3">
                   <span className="font-mono text-[11px] uppercase tracking-wider text-gray-500">Aperçu CV</span>
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 rounded-full bg-red-400" />
-                    <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                    <div className="w-2 h-2 rounded-full bg-green-400" />
-                  </div>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="flex items-center space-x-4 border-b border-[#DADCE0] pb-4">
@@ -126,9 +112,6 @@ export default function HomePage() {
             </motion.div>
           </div>
         </div>
-
-        <div className="absolute inset-0 -z-10 opacity-[0.03] pointer-events-none"
-             style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       </section>
 
       {/* Features */}
@@ -136,14 +119,11 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-[#DADCE0]">
             {[
-              { icon: <Zap className="text-[#1A73E8] w-5 h-5" />, num: '01', title: 'Import intelligent', desc: 'Importez votre CV en PDF. L\'IA extrait chaque section (expériences, compétences, formations) en quelques secondes.' },
-              { icon: <Sparkles className="text-[#1A73E8] w-5 h-5" />, num: '02', title: 'Adaptation IA', desc: 'Collez une offre d\'emploi. L\'IA réécrit votre CV avec les bons mots-clés et des résultats quantifiables.' },
-              { icon: <ShieldCheck className="text-[#1A73E8] w-5 h-5" />, num: '03', title: 'Score ATS', desc: 'Obtenez un score de compatibilité ATS, les mots-clés manquants et des conseils d\'amélioration personnalisés.' },
+              { num: '01', title: 'Import intelligent', desc: 'Importez votre CV en PDF ou votre export LinkedIn. Chaque section (expériences, compétences, formations) est extraite en quelques secondes.' },
+              { num: '02', title: 'Adaptation IA', desc: 'Collez une offre d\'emploi. L\'IA reformule votre CV avec le vocabulaire de l\'offre, sans ajouter ce que votre parcours ne prouve pas.' },
+              { num: '03', title: 'Score ATS', desc: 'Voyez quelles exigences de l\'offre votre CV couvre, et lesquelles il ne mentionne pas encore.' },
             ].map((f, i) => (
-              <div key={i} className={`p-10 hover:bg-white transition-colors group ${i < 2 ? 'border-b md:border-b-0 md:border-r border-[#DADCE0]' : ''}`}>
-                <div className="w-10 h-10 bg-[#F8F9FA] border border-[#DADCE0] rounded flex items-center justify-center mb-6 group-hover:border-[#1A73E8] transition-colors">
-                  {f.icon}
-                </div>
+              <div key={i} className={`p-10 ${i < 2 ? 'border-b md:border-b-0 md:border-r border-[#DADCE0]' : ''}`}>
                 <h3 className="text-sm font-bold font-mono uppercase tracking-widest mb-4">{f.num}. {f.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
               </div>
@@ -159,12 +139,10 @@ export default function HomePage() {
             {[
               { icon: <PenTool className="w-5 h-5" />, title: 'Lettre de motivation', desc: 'Générée par l\'IA, alignée sur votre CV et l\'offre ciblée.' },
               { icon: <Download className="w-5 h-5" />, title: 'Export PDF & DOCX', desc: 'Téléchargez dans le format demandé par le recruteur.' },
-              { icon: <FileText className="w-5 h-5" />, title: '4 templates pro', desc: 'Du classique au créatif, personnalisables couleurs et typographie.' },
+              { icon: <FileText className="w-5 h-5" />, title: '2 templates une colonne', desc: 'Lisibles par les ATS, couleurs et typographie personnalisables.' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-blue-50 rounded flex items-center justify-center text-blue-600 shrink-0">
-                  {f.icon}
-                </div>
+                <span className="mt-0.5 text-[#1A73E8] shrink-0">{f.icon}</span>
                 <div>
                   <h4 className="text-sm font-bold mb-1">{f.title}</h4>
                   <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
@@ -179,7 +157,7 @@ export default function HomePage() {
       <footer className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="font-mono text-[11px] text-gray-600 uppercase tracking-[0.2em]">
-            Calibre © 2026 · Propulsé par l'IA
+            Calibre © 2026
           </p>
         </div>
       </footer>

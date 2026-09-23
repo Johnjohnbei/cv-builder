@@ -1,8 +1,8 @@
-# Calibre — CV Builder avec IA
+# Calibre : CV Builder avec IA
 
 Application web de création et d'optimisation de CV, propulsée par l'IA (Claude).
 
-## 🚀 Stack technique
+## Stack technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS v4
 - **Backend** : Convex (serverless, temps réel)
@@ -12,10 +12,10 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Claud
 - **PDF export** : fonction serverless Puppeteer (`api/generate-pdf.ts`), impression navigateur en secours
 - **Deploy** : Vercel + Convex Cloud
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
 ### Éditeur de CV
-- 4 templates professionnels (Classic, Modern, Minimal, Elegant)
+- 2 templates une colonne (Minimal, Elegant)
 - Blocs modulables : chaque expérience a un mode (masqué/compact/normal/étendu)
 - Tri automatique : fait tenir le CV dans le nombre de pages visé (1 à 3)
 - Scoring de pertinence par rapport à une offre d'emploi
@@ -45,7 +45,7 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Claud
 - Codes d'accès avec expiration et nombre d'utilisations, vérifiés côté serveur
 - Panneau admin pour générer des codes et voir les demandes
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 src/
@@ -61,7 +61,7 @@ src/
       pdfExport.ts            Export PDF (endpoint serverless, impression en secours)
     templates/              ← Composants de rendu
       shared.tsx              Helpers partagés (contact, formation…)
-      blockRenderers/         Rendu par bloc des 4 templates (A, B, C, E)
+      blockRenderers/         Rendu par bloc des 2 templates (C, E)
   pages/
     EditorPage.tsx          ← Orchestration UI
     DashboardPage.tsx       ← Import, optimisation, admin
@@ -72,7 +72,7 @@ convex/
   schema.ts               ← Schéma de la base de données
 ```
 
-### LinkedIn Parser — Pipeline
+### LinkedIn Parser : pipeline
 
 ```
 PDF → pdfjs-dist tokens → tokensToLines (merge par Y-position)
@@ -94,7 +94,7 @@ Font sizes LinkedIn 2025 (stables sur tous les profils testés) :
 | ~10.5 | Corps de texte |
 | ~9 | Numéros de page |
 
-## 🛠️ Développement
+## Développement
 
 ```bash
 # Installation
@@ -133,7 +133,7 @@ VITE_CONVEX_URL=https://cautious-mule-560.eu-west-1.convex.cloud
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
-## 📐 Règle d'or
+## Règle d'or
 
 **Le rendu/layout/pagination = logique pure, zéro IA.**
 L'IA ne touche que le contenu textuel (extraction non-LinkedIn, reformulation, optimisation).
