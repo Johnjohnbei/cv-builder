@@ -46,7 +46,7 @@ export function Dialog({ open, onClose, title, icon, children, dismissible = tru
         if (dismissible && e.target === e.currentTarget) onClose();
       }}
       className={cn(
-        'm-auto p-0 w-[calc(100%-2rem)] max-w-md rounded-lg bg-white shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm',
+        'm-auto p-0 w-[calc(100%-2rem)] max-w-md rounded-lg bg-white shadow-2xl backdrop:bg-black/50',
         className,
       )}
     >

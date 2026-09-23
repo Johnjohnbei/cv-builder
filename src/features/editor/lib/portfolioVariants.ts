@@ -66,7 +66,7 @@ export function getPortfolioVariants(): PortfolioVariant[] {
     const parsed = JSON.parse(raw);
     cached = Array.isArray(parsed) ? parsed.filter(isVariant) : [];
   } catch {
-    console.warn('[portfolio] VITE_PORTFOLIO_VARIANTS is not valid JSON — feature disabled');
+    console.warn('[portfolio] VITE_PORTFOLIO_VARIANTS is not valid JSON, feature disabled');
     cached = [];
   }
   return cached;

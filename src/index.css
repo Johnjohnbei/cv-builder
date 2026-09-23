@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  /* The CV "Sans" font option: the user's document, not the app chrome */
+  --font-cv-sans: "Inter", ui-sans-serif, system-ui, sans-serif; /* anti-vibe-ok: cv document font option */
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-playfair: "Playfair Display", serif;
   --font-outfit: "Outfit", sans-serif;
@@ -21,7 +23,7 @@
 body {
   background-color: var(--bg-main);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
@@ -182,7 +184,7 @@ body {
 }
 
 /* PDF export: page-break control for iframe + window.print().
-   NOTE: no background-color here — each .cv-page has its own bg-white via
+   NOTE: no background-color here: each .cv-page has its own bg-white via
    CVPage.tsx. Setting it on .pdf-safe would bleed white into the inter-page
    gaps in the preview and hide the editor's grey page-separation visual. */
 .pdf-safe {

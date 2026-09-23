@@ -12,7 +12,7 @@ export interface UseCVPersistenceDeps {
   designSettings: DesignSettings;
   selectedTemplate: string;
   jobDescription: string;
-  user: unknown; // Clerk user object — treated as opaque presence flag here
+  user: unknown; // Clerk user object, treated as opaque presence flag here
   isGuest: boolean;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
 }

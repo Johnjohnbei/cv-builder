@@ -78,7 +78,8 @@ test.describe('Smoke : pages publiques', () => {
   test('les métadonnées de partage n\'ont ni tiret cadratin ni nombre de templates faux', async ({ page }) => {
     await page.goto('/');
     const description = await page.locator('meta[name="description"]').getAttribute('content');
-    expect(description).toContain('4 templates');
+    // TEMPLATES (lib/pagination/templateLayouts.ts) offers 2 since the 2026-09-15 removal of A and B
+    expect(description).toContain('2 templates');
     for (const selector of ['meta[property="og:title"]', 'meta[name="twitter:title"]']) {
       expect(await page.locator(selector).getAttribute('content')).not.toMatch(/[—–]/);
     }

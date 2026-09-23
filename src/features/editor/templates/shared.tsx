@@ -107,7 +107,7 @@ export function getFontClass(fontFamily: string) {
     case 'mono': return 'font-mono';
     case 'playfair': return 'font-playfair';
     case 'outfit': return 'font-outfit';
-    default: return 'font-sans';
+    default: return 'font-cv-sans';
   }
 }
 

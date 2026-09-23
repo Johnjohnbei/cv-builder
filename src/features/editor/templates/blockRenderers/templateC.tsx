@@ -2,6 +2,7 @@
 // Individual block-level renderers for the Minimal template (single-column centered).
 // Used by PaginatedCV to render each block independently.
 
+import { TrendingUp } from 'lucide-react';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
 import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBullets, getEducationLines } from '../shared';
@@ -75,7 +76,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
               )}
               {isKPIInRange(exp, block) && (
                 <p className="text-xs font-bold mt-2 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
-                  <span className="text-[10px]">📈</span> {renderInlineMarkdown(exp.kpi)}
+                  <TrendingUp className="w-3 h-3 shrink-0" aria-hidden /> {renderInlineMarkdown(exp.kpi)}
                 </p>
               )}
             </div>
@@ -97,7 +98,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
             )}
             {isKPIInRange(exp, block) && (
               <p className="text-xs font-bold mt-2 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
-                <span className="text-[10px]">📈</span> {renderInlineMarkdown(exp.kpi)}
+                <TrendingUp className="w-3 h-3 shrink-0" aria-hidden /> {renderInlineMarkdown(exp.kpi)}
               </p>
             )}
           </div>

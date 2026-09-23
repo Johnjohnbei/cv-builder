@@ -110,7 +110,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
       }
       if (shouldShowKPI(exp)) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: `📈 ${stripInlineMarkdown(exp.kpi)}`, bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
+          children: [new TextRun({ text: stripInlineMarkdown(exp.kpi), bold: true, size: 18, color: '1A73E8', font: 'Calibri' })],
           spacing: { after: 60 },
           indent: { left: 360 },
         }));

@@ -199,11 +199,11 @@ export const DesignTab = memo(function DesignTab({
         <div className="stitch-panel-header">Sections visibles</div>
         <div className="p-4 space-y-2">
           {[
-            { id: 'summary', label: 'Résumé professionnel', icon: '📝' },
-            { id: 'experience', label: 'Expériences', icon: '💼' },
-            { id: 'education', label: 'Formations', icon: '🎓' },
-            { id: 'skills', label: 'Compétences', icon: '⚡' },
-            { id: 'languages', label: 'Langues', icon: '🌍' },
+            { id: 'summary', label: 'Résumé professionnel' },
+            { id: 'experience', label: 'Expériences' },
+            { id: 'education', label: 'Formations' },
+            { id: 'skills', label: 'Compétences' },
+            { id: 'languages', label: 'Langues' },
           ].map((section) => {
             const included = designSettings.includedSections?.includes(section.id) ?? true;
             return (
@@ -226,10 +226,7 @@ export const DesignTab = memo(function DesignTab({
                     : "bg-gray-100 border-gray-200 text-gray-600 line-through"
                 )}
               >
-                <span className="flex items-center gap-2">
-                  <span>{section.icon}</span>
-                  <span>{section.label}</span>
-                </span>
+                <span>{section.label}</span>
                 <div className={cn(
                   "w-8 h-4 rounded-full relative transition-colors",
                   included ? "bg-blue-600" : "bg-gray-300"

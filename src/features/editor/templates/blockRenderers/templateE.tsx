@@ -3,6 +3,7 @@
 // Used by PaginatedCV to render each block independently.
 
 import { cn } from '@/src/shared/lib/cn';
+import { TrendingUp } from 'lucide-react';
 import { renderInlineMarkdown } from '@/src/shared/lib/inlineMarkdown';
 import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/types';
 import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue, getEducationLines } from '../shared';
@@ -75,7 +76,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
+        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">{/* anti-vibe-ok: cv template design (Elegant timeline rule) */}
           {/* The timeline dot hangs off an empty box of its own: positioning the
               header itself made the PDF carry the position, employer and dates
               after every bullet of the job */}
@@ -97,12 +98,12 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
         </div>
       )}
       {isOverflow && (
-        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>
+        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>{/* anti-vibe-ok: cv template design */}
           {/* Continuation of experience from previous page */}
         </div>
       )}
       {bullets.length > 0 && (
-        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>
+        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>{/* anti-vibe-ok: cv template design */}
           {bullets.map((bullet, bIdx) => (
             <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
@@ -113,7 +114,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
       )}
       {isKPIInRange(exp, block) && (
         <p className="text-xs font-bold mt-2 pl-6 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
-          <span className="text-[10px]">📈</span> {renderInlineMarkdown(exp.kpi)}
+          <TrendingUp className="w-3 h-3 shrink-0" aria-hidden /> {renderInlineMarkdown(exp.kpi)}
         </p>
       )}
     </div>

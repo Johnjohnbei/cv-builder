@@ -73,7 +73,7 @@ export function EditorHeader({
         )}
       </div>
 
-      <div className="hidden sm:flex items-center bg-white border border-[#DADCE0] rounded-full px-3 py-1 gap-4 shadow-sm">
+      <div className="hidden sm:flex items-center bg-white border border-[#DADCE0] rounded px-3 py-1 gap-4 shadow-sm">
         <div className="flex items-center gap-2 border-r border-gray-100 pr-3">
           <button onClick={onZoomOut} className="p-1 hover:bg-gray-100 rounded transition-colors" title="Zoom arrière">
             <Minus className="w-3 h-3" />
