@@ -94,7 +94,8 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - TypeScript `--noEmit` for type checking (run via `npm run lint`), twice: the root `tsconfig.json` excludes `api/`, which has its own `api/tsconfig.json`
 - Type annotations on function parameters and return values
 - Explicit type extends for HTML element props: `forwardRef<HTMLButtonElement, Props>`, `InputHTMLAttributes<HTMLInputElement>`
-- Run `npm run lint` (executes `tsc --noEmit && tsc --noEmit -p api`) to check types; never `tsc --noEmit` alone, it skips the serverless functions. The Vercel `buildCommand` runs it first, so a type error blocks the deploy (Convex included)
+- Run `npm run lint` (executes `tsc --noEmit && tsc --noEmit -p api`, then the anti-vibe scan) to check types; never `tsc --noEmit` alone, it skips the serverless functions. The Vercel `buildCommand` runs it first, so a type error or a new vibe-coded tell blocks the deploy (Convex included)
+- `scripts/anti-vibe-scan.mjs` is a byte-identical copy of the shared scanner `~/.claude/skills/anti-vibe/scan.mjs` (the owner). Vercel has no `~/.claude`: a lint that reads the home directory failed every deploy from `fd43234` to `5bf5d2b` (2026-09-23). After changing the skill, `cp` it back here; `diff` shows any drift
 - No console.log in production code except for errors in catch blocks or critical boundaries
 - console.error usage examples: `console.error('Error optimizing CV:', error)`, `console.error('[ErrorBoundary]', error, info.componentStack)`
 ## Import Organization

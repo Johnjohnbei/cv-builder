@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit && tsc --noEmit -p api && npm run check:anti-vibe",
-    "check:anti-vibe": "node -e \"import(require('url').pathToFileURL(require('os').homedir()+'/.claude/skills/anti-vibe/scan.mjs'))\""
+    "check:anti-vibe": "node scripts/anti-vibe-scan.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
