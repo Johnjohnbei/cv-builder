@@ -3,6 +3,7 @@ import { Download, Eye, Loader2, Mail } from 'lucide-react';
 import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Button } from '../../../../shared/ui/Button';
+import { Toggle } from '../../../../shared/ui/Toggle';
 import { TemplatePicker } from './TemplatePicker';
 import type { DesignSettings } from '../../../../shared/types';
 
@@ -169,27 +170,11 @@ export const DesignTab = memo(function DesignTab({
               {actualPageCount} page{actualPageCount > 1 ? 's' : ''} {actualPageCount > 2 && <span className="text-amber-600 ml-1">(les recruteurs préfèrent 1 à 2 pages)</span>}
             </div>
             <div className="mt-3">
-              <button
-                onClick={() => setDesignSettings(prev => ({ ...prev, showPhoto: !prev.showPhoto }))}
-                aria-pressed={Boolean(designSettings.showPhoto)}
-                className={cn(
-                  "w-full px-2 py-2 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between",
-                  designSettings.showPhoto
-                    ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
-                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                )}
-              >
-                <span>Afficher la photo</span>
-                <div className={cn(
-                  "w-8 h-4 rounded-full relative transition-colors",
-                  designSettings.showPhoto ? "bg-blue-600" : "bg-gray-300"
-                )}>
-                  <div className={cn(
-                    "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all",
-                    designSettings.showPhoto ? "left-4.5" : "left-0.5"
-                  )} />
-                </div>
-              </button>
+              <Toggle
+                label="Afficher la photo"
+                checked={Boolean(designSettings.showPhoto)}
+                onChange={(showPhoto) => setDesignSettings(prev => ({ ...prev, showPhoto }))}
+              />
             </div>
           </div>
         </div>
@@ -207,10 +192,12 @@ export const DesignTab = memo(function DesignTab({
           ].map((section) => {
             const included = designSettings.includedSections?.includes(section.id) ?? true;
             return (
-              <button
+              <Toggle
                 key={section.id}
-                aria-pressed={included}
-                onClick={() => {
+                label={section.label}
+                variant="visibility"
+                checked={included}
+                onChange={() => {
                   const current = designSettings.includedSections ?? ['personal', 'summary', 'experience', 'education', 'skills', 'languages'];
                   const updated = included
                     ? current.filter(s => s !== section.id)
@@ -219,24 +206,7 @@ export const DesignTab = memo(function DesignTab({
                   if (!updated.includes('personal')) updated.unshift('personal');
                   setDesignSettings(prev => ({ ...prev, includedSections: updated }));
                 }}
-                className={cn(
-                  "w-full px-3 py-2 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between",
-                  included
-                    ? "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
-                    : "bg-gray-100 border-gray-200 text-gray-600 line-through"
-                )}
-              >
-                <span>{section.label}</span>
-                <div className={cn(
-                  "w-8 h-4 rounded-full relative transition-colors",
-                  included ? "bg-blue-600" : "bg-gray-300"
-                )}>
-                  <div className={cn(
-                    "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all",
-                    included ? "left-4.5" : "left-0.5"
-                  )} />
-                </div>
-              </button>
+              />
             );
           })}
           <p className="text-[11px] text-gray-600 mt-2 italic">Les sections masquées ne sont pas supprimées : elles disparaissent seulement de l'aperçu, du PDF et du Word.</p>
