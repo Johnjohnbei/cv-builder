@@ -1,5 +1,5 @@
 import { omitUserOwnedFields, type CVData } from '../shared/types';
-import { getCVLanguage, type SupportedLanguage } from './languageDetection';
+import { getCVLanguage, type SupportedLanguage } from './language-detection';
 
 /**
  * Convex action signature for translateCV, kept structural so this helper has

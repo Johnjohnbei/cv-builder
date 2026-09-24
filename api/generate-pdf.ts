@@ -7,7 +7,7 @@
 // (broken from 5be7bc9, 2026-08-07, until 2026-09-15). api/tsconfig.json uses
 // NodeNext resolution without allowImportingTsExtensions, so `npm run lint`
 // rejects both an extension-less import (TS2835) and a `.ts` one (TS5097).
-import { getPdfCss } from '../src/features/editor/lib/pdfStyles.js';
+import { getPdfCss } from '../src/features/editor/lib/pdf-styles.js';
 
 interface GeneratePDFRequest {
   html: string;

@@ -4,7 +4,7 @@ import { cn } from '@/src/shared/lib/cn';
 import { Logo } from '@/src/shared/ui/Logo';
 import { Button } from '@/src/shared/ui/Button';
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import type { WeakBulletResult } from '../lib/weakBulletDetection';
+import type { WeakBulletResult } from '../lib/weak-bullet-detection';
 import { ATSPanel, type ATSPanelProps } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
 import {

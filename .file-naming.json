@@ -1,0 +1,31 @@
+{
+  "ignore": [
+    ".planning/",
+    ".gsd/",
+    ".claude/",
+    ".agents/",
+    ".codex/",
+    "public/",
+    "dist/",
+    "convex/_generated/"
+  ],
+  "pascalDirs": [],
+  "testDirs": [],
+  "suffixes": [
+    "config",
+    "setup",
+    "types",
+    "schema",
+    "constants",
+    "fixtures"
+  ],
+  "exceptions": {},
+  "overrides": {
+    "convex/": {
+      "moduleCase": "camel",
+      "testDirs": [
+        "__tests__/"
+      ]
+    }
+  }
+}

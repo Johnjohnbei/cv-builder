@@ -1,4 +1,4 @@
 export { cn } from './cn';
-export { getUserErrorMessage } from './convexError';
-export { renderInlineMarkdown } from './inlineMarkdown';
+export { getUserErrorMessage } from './convex-error';
+export { renderInlineMarkdown } from './inline-markdown';
 export { stripInlineMarkdown } from './text';

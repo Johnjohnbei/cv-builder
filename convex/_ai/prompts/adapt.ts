@@ -1,5 +1,5 @@
 import type { JobRequirement } from "../../../src/shared/types";
-import { COMPANY_BUSINESS_MODEL_OPTIONS, COMPANY_STAGE_OPTIONS } from "../../../src/shared/constants/companyMeta";
+import { COMPANY_BUSINESS_MODEL_OPTIONS, COMPANY_STAGE_OPTIONS } from "../../../src/shared/constants/company-meta";
 import {
   FABRICATION_GUARD,
   ACTION_VERBS_FR,

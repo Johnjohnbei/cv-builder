@@ -1,14 +1,14 @@
 import { forwardRef, memo, Fragment } from 'react';
 import type { PageAssignment, PlacedBlock, BlockRendererMap } from '../lib/pagination/types';
 import type { DesignSettings } from '@/src/shared/types';
-import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { CVPage } from './CVPage';
-import { getFontClass } from '../templates/shared';
-import { getSectionTitle, getContinuationMarker } from '../lib/atsRules';
+import { getFontClass } from '../templates/TemplateParts';
+import { getSectionTitle, getContinuationMarker } from '../lib/ats-rules';
 
 /**
  * Padding of every page of every template: p-16 (64px). It must equal what
- * templateLayouts.ts allocates, or the last block runs into the margin;
+ * template-layouts.ts allocates, or the last block runs into the margin;
  * PaginatedCV.test.ts checks it.
  */
 export const PAGE_PADDING_CLASS = 'p-16';

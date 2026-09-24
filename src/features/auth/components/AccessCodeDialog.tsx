@@ -5,7 +5,7 @@ import { api } from '@/convex/_generated/api';
 import { Button } from '@/src/shared/ui/Button';
 import { Dialog } from '@/src/shared/ui/Dialog';
 import { Input } from '@/src/shared/ui/Input';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 
 interface Props {
   open: boolean;

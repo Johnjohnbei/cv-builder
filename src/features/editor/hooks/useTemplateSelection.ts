@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { DesignSettings } from '@/src/shared/types';
-import { TEMPLATES, type TemplateId } from '../lib/pagination/templateLayouts';
+import { TEMPLATES, type TemplateId } from '../lib/pagination/template-layouts';
 
 // ─── Template defaults ───
 

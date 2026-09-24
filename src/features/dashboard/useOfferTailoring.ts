@@ -3,9 +3,9 @@ import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { saysWhere, type CVData, type JobRequirement } from '@/src/shared/types';
 import { attachBilingualCache } from '@/src/lib/bilingual';
-import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolioVariants';
-import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/jobRequirementsCache';
-import { isProvable } from '@/src/features/editor/lib/keywordAnalysis';
+import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
+import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
+import { isProvable } from '@/src/features/editor/lib/keyword-analysis';
 import { useDismissedGaps } from '@/src/features/editor/hooks/useATSAnalysis';
 
 /** What the CV does not prove of the offer, asked before the one generation */

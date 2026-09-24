@@ -10,8 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit && tsc --noEmit -p api && npm run check:anti-vibe",
-    "check:anti-vibe": "node scripts/anti-vibe-scan.mjs"
+    "lint": "tsc --noEmit && tsc --noEmit -p api && npm run check:anti-vibe && npm run check:file-naming",
+    "check:anti-vibe": "node scripts/anti-vibe-scan.mjs",
+    "check:file-naming": "node scripts/file-naming-scan.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

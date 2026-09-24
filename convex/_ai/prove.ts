@@ -1,9 +1,9 @@
 "use node";
 
 import { saysWhere, type ATSReport, type CVData, type JobRequirement } from "../../src/shared/types";
-import { computeATSReport, isProvable, isWritable } from "../../src/features/editor/lib/keywordAnalysis";
+import { computeATSReport, isProvable, isWritable } from "../../src/features/editor/lib/keyword-analysis";
 import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
-import { detectCVLanguage } from "../../src/lib/languageDetection";
+import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { normalizeJobRequirements } from "./normalizers";
 import { numbersOf } from "./numbers";

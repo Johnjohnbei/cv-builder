@@ -3,7 +3,7 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
 import { readStoredJSON, readStoredText } from '@/src/shared/lib/storage';
-import { migratedDesign } from '../lib/pagination/templateLayouts';
+import { migratedDesign } from '../lib/pagination/template-layouts';
 
 interface CVLoaderResult {
   cvData: CVData | null;

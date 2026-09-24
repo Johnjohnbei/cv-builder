@@ -2,10 +2,10 @@ import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Textarea } from '../../../../shared/ui/Textarea';
-import { DISPLAY_MODES } from '../../lib/displayModes';
+import { DISPLAY_MODES } from '../../lib/display-modes';
 import { relevanceBand } from '../../lib/scoring';
-import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../../../../shared/constants/companyMeta';
-import type { WeakBulletResult } from '../../lib/weakBulletDetection';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../../../../shared/constants/company-meta';
+import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { Experience } from '../../../../shared/types';
 import { ExperienceBullets } from './ExperienceBullets';
 

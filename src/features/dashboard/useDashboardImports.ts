@@ -5,10 +5,10 @@ import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
 import type { useAccessCode } from '@/src/shared/hooks';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
-import { detectCVLanguage } from '@/src/lib/languageDetection';
+import { detectCVLanguage } from '@/src/lib/language-detection';
 
 // pdfjs (~450 kB) only loads when a PDF is actually dropped
-const loadPdfTools = () => import('@/src/lib/pdfTextExtract');
+const loadPdfTools = () => import('@/src/lib/pdf-text-extract');
 
 /** PDFs above this size are refused at the drop zone, before any parsing */
 const MAX_PDF_BYTES = 10 * 1024 * 1024;

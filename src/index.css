@@ -322,7 +322,7 @@ body {
     height: 297mm !important;
     overflow: hidden !important;
   }
-  /* Same rule as pdfStyles.ts: ".cv-page:last-child" matched every page, each
+  /* Same rule as pdf-styles.ts: ".cv-page:last-child" matched every page, each
      one being alone in its slot. Break after every page but the last. */
   .cv-page-slot:not(:last-child) .cv-page,
   .pdf-safe > .cv-page:not(:last-child) {

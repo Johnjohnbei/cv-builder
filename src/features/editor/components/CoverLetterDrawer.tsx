@@ -8,7 +8,7 @@ import { Input } from '@/src/shared/ui/Input';
 import { Textarea } from '@/src/shared/ui/Textarea';
 import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
 import { canSave, findLatestSavedForCv, getLetterLanguage, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
-import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/companyMeta';
+import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/company-meta';
 import type { PersonalInfo } from '@/src/shared/types';
 
 interface Props {

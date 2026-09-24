@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Briefcase, ChevronDown, ChevronUp, Plus, Sparkles } from 'lucide-react';
 import { Button } from '../../../../shared/ui/Button';
-import type { WeakBulletResult } from '../../lib/weakBulletDetection';
+import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { CVData, Experience } from '../../../../shared/types';
 import { ExperienceCard } from './ExperienceCard';
 

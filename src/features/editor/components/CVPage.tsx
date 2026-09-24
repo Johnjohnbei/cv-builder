@@ -9,7 +9,7 @@ interface Props {
   /** CSS variables for colors */
   style?: React.CSSProperties;
   children: React.ReactNode;
-  /** Padding classes; must match what templateLayouts.ts allocates (no default to drift from it) */
+  /** Padding classes; must match what template-layouts.ts allocates (no default to drift from it) */
   paddingClass: string;
 }
 

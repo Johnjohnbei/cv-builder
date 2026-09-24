@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Award, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
-import { SKILL_DISPLAY_MODES } from '../../lib/displayModes';
+import { SKILL_DISPLAY_MODES } from '../../lib/display-modes';
 import type { CVData, SkillCategory } from '../../../../shared/types';
 
 interface Props {

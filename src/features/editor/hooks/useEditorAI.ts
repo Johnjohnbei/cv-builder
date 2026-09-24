@@ -2,10 +2,10 @@ import { useState, useCallback, useMemo } from 'react';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData, DesignSettings } from '@/src/shared/types';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
-import { withSuggestedPortfolio } from '../lib/portfolioVariants';
-import { adoptRequirements, pendingRequirements } from '../lib/jobRequirementsCache';
+import { withSuggestedPortfolio } from '../lib/portfolio-variants';
+import { adoptRequirements, pendingRequirements } from '../lib/job-requirements-cache';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;

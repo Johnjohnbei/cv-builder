@@ -1,6 +1,6 @@
 import type { JobRequirement } from '@/src/shared/types';
 import { MAX_PROOF_CHARS } from '@/src/shared/types';
-import { weightOf } from '@/src/features/editor/lib/keywordAnalysis';
+import { weightOf } from '@/src/features/editor/lib/keyword-analysis';
 import { formatPoints, GAP_TITLE } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 import { Textarea } from '@/src/shared/ui/Textarea';

@@ -3,8 +3,8 @@
 // scorer, pure TS): Convex bundles imports from outside convex/, so we
 // re-export it instead of maintaining a drifting mirror.
 
-export { detectTextLanguage, type SupportedLanguage } from '../../src/lib/languageDetection';
-import { detectTextLanguage, type SupportedLanguage } from '../../src/lib/languageDetection';
+export { detectTextLanguage, type SupportedLanguage } from '../../src/lib/language-detection';
+import { detectTextLanguage, type SupportedLanguage } from '../../src/lib/language-detection';
 
 const MIN_TEXT_LENGTH = 20;
 

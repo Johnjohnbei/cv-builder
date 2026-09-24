@@ -1,12 +1,12 @@
 import type { Experience, JobRequirement } from '@/src/shared/types';
-import type { SupportedLanguage } from '@/src/lib/languageDetection';
+import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { prepareText } from '@/src/shared/lib/text';
-import { experienceText, isWritable, writesRequirement } from './keywordAnalysis';
+import { experienceText, isWritable, writesRequirement } from './keyword-analysis';
 
 // ─── Relevance of one experience to the offer ───
 // The badge shows the requirement coverage; the fit-to-pages condensing orders
 // on it with recency as a tiebreaker. The ATS score of the whole CV lives in
-// keywordAnalysis.ts (computeATSReport), and all read the same requirements
+// keyword-analysis.ts (computeATSReport), and all read the same requirements
 // with the same matching.
 
 /**

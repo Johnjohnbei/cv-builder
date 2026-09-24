@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type RefObject } from 'react';
-import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
-import { extractExpectedText } from '@/src/features/editor/lib/pdfValidation';
+import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdf-export';
+import { extractExpectedText } from '@/src/features/editor/lib/pdf-validation';
 import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 

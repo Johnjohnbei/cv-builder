@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { JobRequirement } from '@/src/shared/types';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import {
   requestRequirements, requirementsForOffer, requirementsStatus, readCachedRequirements,
   type AnalyzedOffer, type RequirementsStatus,
-} from '../lib/jobRequirementsCache';
+} from '../lib/job-requirements-cache';
 
 export interface JobRequirementsState {
   requirements: JobRequirement[];

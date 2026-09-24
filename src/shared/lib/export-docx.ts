@@ -2,16 +2,16 @@ import {
   Document, Packer, Paragraph, TextRun, ExternalHyperlink,
   AlignmentType, BorderStyle,
 } from 'docx';
-import { getContactEntries, getEducationLines } from '@/src/features/editor/templates/shared';
+import { getContactEntries, getEducationLines } from '@/src/features/editor/templates/TemplateParts';
 import { saveAs } from 'file-saver';
 import type { CVData } from '../types';
 import {
   getIntro, getActionBullets, getVisibleSkills,
   isHidden, isSkillHidden, shouldShowKPI,
-} from '@/src/features/editor/lib/displayModes';
-import { getSectionTitle, getSkillCategoryTitle } from '@/src/features/editor/lib/atsRules';
-import type { SkillCategoryKey } from '@/src/features/editor/lib/skillDictionary';
-import { buildPdfFileName } from '@/src/features/editor/lib/pdfExport';
+} from '@/src/features/editor/lib/display-modes';
+import { getSectionTitle, getSkillCategoryTitle } from '@/src/features/editor/lib/ats-rules';
+import type { SkillCategoryKey } from '@/src/features/editor/lib/skill-dictionary';
+import { buildPdfFileName } from '@/src/features/editor/lib/pdf-export';
 import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 import { stripInlineMarkdown } from './text';
 

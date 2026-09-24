@@ -1,6 +1,6 @@
 import { Calendar, ExternalLink, FileText, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
-import { templateName } from '@/src/features/editor/lib/pagination/templateLayouts';
+import { templateName } from '@/src/features/editor/lib/pagination/template-layouts';
 
 /**
  * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: only the

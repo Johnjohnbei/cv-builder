@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CVData, JobRequirement } from '@/src/shared/types';
-import { getCVLanguage } from '@/src/lib/languageDetection';
-import { condenseOneStep, expandToMax, maxCondenseSteps, writtenOutsideExperience } from '../lib/fitToPages';
+import { getCVLanguage } from '@/src/lib/language-detection';
+import { condenseOneStep, expandToMax, maxCondenseSteps, writtenOutsideExperience } from '../lib/fit-to-pages';
 
 /** No measure for this long while fitting: the fit gives up where it is */
 const STALL_MS = 10_000;

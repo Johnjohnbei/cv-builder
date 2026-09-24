@@ -168,7 +168,7 @@ const LETTER_PDF_CSS = `
 
 /** Download the cover letter as a laid-out PDF, through the same endpoint as the CV. */
 export async function exportLetterToPdf(opts: ExportLetterOptions): Promise<void> {
-  const { downloadPdfFromHtml } = await import('@/src/features/editor/lib/pdfExport');
+  const { downloadPdfFromHtml } = await import('@/src/features/editor/lib/pdf-export');
   const baseName = buildLetterFilename(opts.companyName, opts.language).replace(/\.docx$/, '');
   await downloadPdfFromHtml(buildLetterHtml(opts), `<style>${LETTER_PDF_CSS}</style>`, baseName);
 }

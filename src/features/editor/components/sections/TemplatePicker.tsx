@@ -1,6 +1,6 @@
 import { cn } from '../../../../shared/lib/cn';
 import { TemplateThumbnail } from '../TemplateThumbnail';
-import { TEMPLATES } from '../../lib/pagination/templateLayouts';
+import { TEMPLATES } from '../../lib/pagination/template-layouts';
 
 interface Props {
   selectedTemplate: string;

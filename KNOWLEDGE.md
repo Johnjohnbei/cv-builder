@@ -5,7 +5,7 @@ Append-only register of project-specific rules, patterns, and lessons learned.
 ---
 
 ### K001 — LinkedIn PDF font sizes are stable (2025 format)
-All 4 tested profiles share identical font-size hierarchy: 26/15.75/13/12/11.5/11/10.5/9. Parser relies on this. If LinkedIn changes their PDF export, these values need updating in `linkedinParser.ts` `FONT_ROLES`.
+All 4 tested profiles share identical font-size hierarchy: 26/15.75/13/12/11.5/11/10.5/9. Parser relies on this. If LinkedIn changes their PDF export, these values need updating in `linkedin-parser.ts` `FONT_ROLES`.
 
 ### K002 — LinkedIn URLs can span 2+ lines
 The LinkedIn URL in sidebar (fs=11) may split across lines ending with `-` or `/`. The parser concatenates consecutive same-role lines. Don't assume single-line URLs.

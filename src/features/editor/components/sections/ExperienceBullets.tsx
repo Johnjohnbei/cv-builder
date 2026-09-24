@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '../../../../shared/ui/Input';
-import type { WeakBulletResult } from '../../lib/weakBulletDetection';
+import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { Experience } from '../../../../shared/types';
 
 interface Props {

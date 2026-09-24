@@ -1,11 +1,11 @@
 import { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { ContentBlock, PageAssignment } from '../lib/pagination/types';
-import { getTemplateLayout } from '../lib/pagination/templateLayouts';
-import { allocatePages, isPageOverfilled } from '../lib/pagination/allocatePages';
-import { buildBlocks } from '../lib/pagination/buildBlocks';
+import { getTemplateLayout } from '../lib/pagination/template-layouts';
+import { allocatePages, isPageOverfilled } from '../lib/pagination/allocate-pages';
+import { buildBlocks } from '../lib/pagination/build-blocks';
 import { blocksStable, carryOver, readLiveDOM, reconcileBlocks } from '../lib/pagination/reconcile';
-import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getCVLanguage } from '@/src/lib/language-detection';
 
 /**
  * Max reconcile iterations per content change. Convergence is typically

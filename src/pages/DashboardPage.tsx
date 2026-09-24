@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
-import { getErrorCode, getUserErrorMessage } from '../shared/lib/convexError';
+import { getErrorCode, getUserErrorMessage } from '../shared/lib/convex-error';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { Button } from '../shared/ui/Button';

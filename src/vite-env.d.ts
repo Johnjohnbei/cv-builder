@@ -7,7 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_CONVEX_URL?: string;
   readonly VITE_CLERK_PUBLISHABLE_KEY?: string;
   /**
-   * JSON array of portfolio variants — see portfolioVariants.ts for the shape.
+   * JSON array of portfolio variants — see portfolio-variants.ts for the shape.
    * Optional and personal: absent in a fresh clone, which disables the feature.
    */
   readonly VITE_PORTFOLIO_VARIANTS?: string;

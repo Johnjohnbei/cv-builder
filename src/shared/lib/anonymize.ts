@@ -1,6 +1,6 @@
 import type { CVData } from '@/src/shared/types';
 import type { PageAssignment } from '@/src/features/editor/lib/pagination/types';
-import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getCVLanguage } from '@/src/lib/language-detection';
 
 const ANONYMOUS_NAME = { fr: 'Candidat anonyme', en: 'Anonymous candidate' } as const;
 

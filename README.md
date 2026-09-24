@@ -50,17 +50,17 @@ Application web de création et d'optimisation de CV, propulsée par l'IA (Claud
 ```
 src/
   lib/
-    linkedinParser.ts       ← Parser LinkedIn déterministe (zero API)
-    pdfTextExtract.ts       ← Extraction texte brut PDF (pdfjs-dist)
+    linkedin-parser.ts       ← Parser LinkedIn déterministe (zero API)
+    pdf-text-extract.ts       ← Extraction texte brut PDF (pdfjs-dist)
   features/editor/
     lib/                    ← Logique pure (pas de React)
-      displayModes.ts         Modes d'affichage, bullets, skills
+      display-modes.ts         Modes d'affichage, bullets, skills
       scoring.ts              Pertinence, score ATS
-      fitToPages.ts           Tri automatique sur N pages
+      fit-to-pages.ts           Tri automatique sur N pages
       pagination/             Construction des blocs et répartition sur les pages
-      pdfExport.ts            Export PDF (endpoint serverless, impression en secours)
+      pdf-export.ts            Export PDF (endpoint serverless, impression en secours)
     templates/              ← Composants de rendu
-      shared.tsx              Helpers partagés (contact, formation…)
+      TemplateParts.tsx              Helpers partagés (contact, formation…)
       blockRenderers/         Rendu par bloc des 2 templates (C, E)
   pages/
     EditorPage.tsx          ← Orchestration UI

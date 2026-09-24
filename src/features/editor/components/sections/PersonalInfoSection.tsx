@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { User, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Input } from '../../../../shared/ui/Input';
-import { downscaleImageToDataURI } from '../../../../shared/lib/imageResize';
+import { downscaleImageToDataURI } from '../../../../shared/lib/image-resize';
 import type { CVData, PersonalInfo } from '../../../../shared/types';
 
 interface Props {

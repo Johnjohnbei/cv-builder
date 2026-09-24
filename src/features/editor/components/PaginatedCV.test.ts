@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PAGE_PADDING_CLASS } from './PaginatedCV';
-import { TEMPLATE_LAYOUTS } from '../lib/pagination/templateLayouts';
+import { TEMPLATE_LAYOUTS } from '../lib/pagination/template-layouts';
 
 /** Top and bottom padding set by Tailwind classes (p-N, py-N, pt-N, pb-N; 1 unit = 4px; later classes win) */
 function verticalPaddingPx(classes: string): { top: number; bottom: number } {

@@ -1,7 +1,7 @@
 // Static mini-preview of each template's real layout (replaces the old
 // flat color rectangles that showed nothing of the actual structure).
 
-import type { TemplateId } from '../lib/pagination/templateLayouts';
+import type { TemplateId } from '../lib/pagination/template-layouts';
 
 interface Props {
   templateId: TemplateId;

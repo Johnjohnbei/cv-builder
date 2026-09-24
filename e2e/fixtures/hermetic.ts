@@ -17,7 +17,7 @@ import { expect, type Page } from '@playwright/test';
  * mount would silently start billing and nothing would go red.
  */
 
-/** localStorage key owned by src/features/editor/lib/jobRequirementsCache.ts */
+/** localStorage key owned by src/features/editor/lib/job-requirements-cache.ts */
 export const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache_v2';
 
 /**

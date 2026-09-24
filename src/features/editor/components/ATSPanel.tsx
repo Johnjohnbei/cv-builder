@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
 import { MAX_PROOF_CHARS } from '@/src/shared/types';
-import { gapsOf, isProvable } from '../lib/keywordAnalysis';
-import type { RequirementsStatus } from '../lib/jobRequirementsCache';
+import { gapsOf, isProvable } from '../lib/keyword-analysis';
+import type { RequirementsStatus } from '../lib/job-requirements-cache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
 import { formatPoints as points, GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';

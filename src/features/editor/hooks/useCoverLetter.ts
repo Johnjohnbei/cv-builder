@@ -3,8 +3,8 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
-import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/languageDetection';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/language-detection';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { stripAccents } from '@/src/shared/lib/text';
 

@@ -7,8 +7,8 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
-import { isWritable } from '../features/editor/lib/keywordAnalysis';
-import { isRequirementsSettled } from '../features/editor/lib/jobRequirementsCache';
+import { isWritable } from '../features/editor/lib/keyword-analysis';
+import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -18,8 +18,8 @@ import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter
 import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
-import { detectCVLanguage } from '../lib/languageDetection';
-import { analyzeWeakBullets } from '../features/editor/lib/weakBulletDetection';
+import { detectCVLanguage } from '../lib/language-detection';
+import { analyzeWeakBullets } from '../features/editor/lib/weak-bullet-detection';
 
 export default function EditorPage() {
   useDocumentTitle('Éditeur');

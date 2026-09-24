@@ -3,7 +3,7 @@ import { Globe } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
 import { Select } from '@/src/shared/ui/Select';
 import type { CVData, PersonalInfo } from '@/src/shared/types';
-import { applyVariantToPersonalInfo, getPortfolioVariants, rankPortfolioVariants } from '../lib/portfolioVariants';
+import { applyVariantToPersonalInfo, getPortfolioVariants, rankPortfolioVariants } from '../lib/portfolio-variants';
 
 interface Props {
   jobDescription: string;

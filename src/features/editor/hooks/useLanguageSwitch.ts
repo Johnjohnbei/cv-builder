@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
-import { getCVLanguage } from '@/src/lib/languageDetection';
+import { getCVLanguage } from '@/src/lib/language-detection';
 import { contentSnapshot } from '@/src/lib/bilingual';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;

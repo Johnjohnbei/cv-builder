@@ -109,7 +109,7 @@ export {
   COMPANY_STAGE_OPTIONS,
   COMPANY_BUSINESS_MODEL_OPTIONS,
   getLocalizedStage,
-} from '../../src/shared/constants/companyMeta';
+} from '../../src/shared/constants/company-meta';
 
 /** Batch enrichment of work experiences with stage + businessModel tags. */
 export const ExperienceEnrichmentSchema = z.object({

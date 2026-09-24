@@ -1,9 +1,9 @@
 import type { CVData, JobRequirement } from "../../src/shared/types";
-import { getSkillCategoryTitle } from "../../src/features/editor/lib/atsRules";
-import { writesRequirement } from "../../src/features/editor/lib/keywordAnalysis";
-import type { SkillCategoryKey } from "../../src/features/editor/lib/skillDictionary";
+import { getSkillCategoryTitle } from "../../src/features/editor/lib/ats-rules";
+import { writesRequirement } from "../../src/features/editor/lib/keyword-analysis";
+import type { SkillCategoryKey } from "../../src/features/editor/lib/skill-dictionary";
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from "../../src/shared/lib/text";
-import { getLocalizedStage } from "../../src/shared/constants/companyMeta";
+import { getLocalizedStage } from "../../src/shared/constants/company-meta";
 import { LANGUAGE_NAMES } from "../../src/features/editor/lib/formatting";
 import { hasUnbackedNumber } from "./numbers";
 

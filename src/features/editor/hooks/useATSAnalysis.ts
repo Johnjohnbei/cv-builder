@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { ATSReport, CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
-import { computeATSReport } from '@/src/features/editor/lib/keywordAnalysis';
-import { getUserErrorMessage } from '@/src/shared/lib/convexError';
+import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
+import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
 
 /** Gaps the user said they do not have, per offer: a per-browser convenience, never sent */

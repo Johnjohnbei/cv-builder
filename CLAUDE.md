@@ -14,10 +14,10 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - **Performance**: Le score basique doit être calculé en temps réel sans lag perceptible
 - **Simplicité**: Ne pas ajouter de complexité ; fusionner et simplifier les fichiers existants
 - **Ordre du texte dans le PDF**: Chrome écrit le texte du PDF dans l'**ordre de peinture**, pas dans celui du document. Une boîte `position: relative`/`absolute` ou `opacity` est peinte après tous ses frères dans le flux, et son texte sort donc à la fin. Un ATS lisant le texte dans l'ordre attribuait les puces au mauvais employeur (mesuré le 2026-09-16). Règle : aucun élément **porteur de texte** d'un template n'est positionné ni transparent (une couleur, jamais `opacity`) ; chaque bloc de page est son propre contexte d'empilement (`relative z-0` dans `PaginatedCV.tsx`). Garde : `e2e/pdf-legibility.spec.ts` extrait le texte du vrai téléchargement avec `pdfjs-dist/legacy` pour C et E
-- **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdfStyles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
-- **Tri auto sur N pages**: `src/features/editor/lib/fitToPages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), transmise à `tailorCV`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu. Paliers (arbitrage du 2026-09-17) : le tiers le plus pertinent et tout poste en cours daté gardent leur détail pendant que les autres descendent jusqu'à compact, puis ce tiers passe en normal, les autres sont masqués, et ce tiers descend en dernier ; la dernière mention d'une exigence requise passe avant les paliers. La sauvegarde auto est suspendue pendant le tri, et le tri s'arrête seul sans mesure pendant 10 s
+- **PDF Export**: endpoint serverless Puppeteer (`api/generate-pdf.ts`, same-origin + rate limit + requêtes réseau interceptées) en chemin principal ; `window.print()` via iframe cachée en secours et pour la prévisualisation. CSS d'impression canonique : `src/features/editor/lib/pdf-styles.ts`, importée par l'API (ne pas la dupliquer). En dev, le plugin `apiDevServer` de `vite.config.ts` sert les fonctions `api/*.ts` (Vite ne répond qu'aux GET sinon, et le POST tombait en 404 → repli silencieux sur l'impression)
+- **Tri auto sur N pages**: `src/features/editor/lib/fit-to-pages.ts` (pur) + `useFitToPages` (boucle pilotée par les mesures DOM réelles). Cible = `designSettings.pageLimit` (défaut 2), transmise à `tailorCV`. Le score de pertinence ordonne les dégradations, il ne fixe jamais un niveau absolu. Paliers (arbitrage du 2026-09-17) : le tiers le plus pertinent et tout poste en cours daté gardent leur détail pendant que les autres descendent jusqu'à compact, puis ce tiers passe en normal, les autres sont masqués, et ce tiers descend en dernier ; la dernière mention d'une exigence requise passe avant les paliers. La sauvegarde auto est suspendue pendant le tri, et le tri s'arrête seul sans mesure pendant 10 s
 - **Nombre de pages mesuré**: `usePaginationFit` ne rend `stablePageCount` que pour les blocs exacts mesurés (`stableFor`). Un bloc d'expérience porte le rang de l'expérience parmi les **visibles** : masquer un rôle renomme les suivants, donc un changement d'estimation (`contentKey`) repart de zéro (`carryOver`, `lib/pagination/reconcile.ts`)
-- **Import LinkedIn**: `src/lib/linkedinParser.ts` est pur (`profileFromTokens`, testé sur des tokens) ; la lecture pdf.js est dans `src/lib/pdfTextExtract.ts`. Tout le texte de l'export est gardé : paragraphes regroupés par écart vertical, puce continuée sur la ligne ou la page suivante, premier paragraphe en intro
+- **Import LinkedIn**: `src/lib/linkedin-parser.ts` est pur (`profileFromTokens`, testé sur des tokens) ; la lecture pdf.js est dans `src/lib/pdf-text-extract.ts`. Tout le texte de l'export est gardé : paragraphes regroupés par écart vertical, puce continuée sur la ligne ou la page suivante, premier paragraphe en intro
 - **Portfolio**: `PersonalInfo.portfolio_url` / `portfolio_label` / `portfolio_anon_url` sont génériques et open source. La sélection de version selon l'offre vient de `VITE_PORTFOLIO_VARIANTS` (JSON d'env, absent du dépôt) : sans la variable, aucune UI n'apparaît
 <!-- GSD:project-end -->
 
@@ -79,7 +79,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 
 ## Naming Patterns
 - PascalCase for React components: `Button.tsx`, `ErrorBoundary.tsx`, `EditorPage.tsx`
-- camelCase for utility/hook files: `useAutoZoom.ts`, `useAccessCode.ts`, `linkedinParser.ts`
+- camelCase for utility/hook files: `useAutoZoom.ts`, `useAccessCode.ts`, `linkedin-parser.ts`
 - index.ts for barrel exports: `src/shared/ui/index.ts`, `src/shared/hooks/index.ts`, `src/shared/types/index.ts`
 - camelCase for all function/hook definitions: `useAutoZoom()`, `condenseOneStep()`, `formatDateShort()`, `computeATSReport()`
 - Function names are descriptive and indicate purpose: `getVisibleBullets()`, `shouldShowKPI()`, `isHidden()`, `condenseOneStep()`
@@ -151,7 +151,7 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Pattern for preventing multiple initializations:
 ## Component Patterns
 - `Button.tsx` uses `variantStyles` and `sizeStyles` Record objects
-- `displayModes.ts` exports mode arrays with metadata: `{ value: 'hidden', label: 'Masqué', icon: '⊘', color: '#9ca3af' }`
+- `display-modes.ts` exports mode arrays with metadata: `{ value: 'hidden', label: 'Masqué', icon: '⊘', color: '#9ca3af' }`
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
@@ -165,12 +165,12 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Intégration IA derrière une abstraction provider (`convex/_ai/providers.ts`) : un seul vendeur aujourd'hui, Claude
 - Accès aux actions IA : un compte connecté OU un code d'accès valide (`convex/_ai/auth.ts`), sans interrupteur d'environnement
 - Erreurs lisibles par l'utilisateur : toujours `userError()` (`convex/_shared/errors.ts`), jamais `new Error` (message masqué par Convex en production)
-- ATS : exigences d'offre (`JobRequirement`, extraites par `extractRequirements` dans `convex/_ai/tailor.ts`, citation vérifiée dans l'offre, libellé = premier terme que la citation écrit, variantes dans les deux langues, cache client `jobRequirementsCache.ts` (clé `job_requirements_cache_v2`) avec une seule analyse en cours par offre) ; score = `computeATSReport` (`src/features/editor/lib/keywordAnalysis.ts`), le même côté client et serveur ; pas de score sans exigences
+- ATS : exigences d'offre (`JobRequirement`, extraites par `extractRequirements` dans `convex/_ai/tailor.ts`, citation vérifiée dans l'offre, libellé = premier terme que la citation écrit, variantes dans les deux langues, cache client `job-requirements-cache.ts` (clé `job_requirements_cache_v2`) avec une seule analyse en cours par offre) ; score = `computeATSReport` (`src/features/editor/lib/keyword-analysis.ts`), le même côté client et serveur ; pas de score sans exigences
 - Écarts avant l'écriture : `analyzeGaps` (`gapsPipeline`, `convex/_ai/prove.ts`) cherche dans le CV une citation par exigence (appel rapide). Une citation ne prouve que si elle est faite de mots du CV et partage un radical **propre à cette exigence** (`provenByQuote`) : « design », commun à plusieurs exigences, ne prouve rien. Le tableau de bord (`useOfferTailoring`, `OfferGapsPanel`) demande les écarts restants AVANT l'unique génération, puis ouvre l'éditeur sur l'onglet ATS (le score se lit après le tri). Ne jamais relâcher cette règle pour remonter un score : la version permissive inventait des puces
 - Adaptation : `tailorCV` (`convex/_ai/tailor.ts`) reçoit les citations (revérifiées) et les réponses du candidat `{ id, text }` (seulement `isProvable` et `saysWhere`). Ce que seule une réponse prouve ne s'écrit que dans les expériences qu'elle nomme (`experiencesNamedBy`), jamais dans le résumé, le titre ni une étiquette, sans nom que personne n'a donné, et ses nombres ne valent que là ; la réparation ne s'en sert jamais. Une ligne `[tailorCV]` par adaptation dans les journaux (prouvées, score avant et après la garde, réparations). Ensuite : génération avec citations de preuve, garde vérité en code (`convex/_ai/truthGuard.ts`, nombres lus par `convex/_ai/numbers.ts`), mesure, au plus 2 réparations (`prompts/distribute.ts` = prompt de réparation) avant 240 s. Tout ce que le CV adapté écrit doit être prouvé par le CV source
 - Preuve : `proveRequirement` (`convex/_ai/prove.ts`) écrit UNE exigence depuis les mots de l'utilisateur, sous la même garde. Ce que le modèle répond est relu en code : puce **ajoutée** à une expérience que la preuve nomme (employeur d'abord, poste en secours), aucun nom propre que la preuve, l'expérience ou l'offre ne nomme, compétence sous le seul libellé de l'offre, jamais le résumé ; gardé seulement si le score monte, sinon `written: false` et le CV de l'utilisateur est rendu intact. Refus gratuits (exigence inconnue, non `isProvable`, preuve trop courte) décidés sans appel
 - Bornes d'entrée : `convex/_ai/inputLimits.ts`. Toute action qui met un CV `v.any()` dans un prompt appelle `assertBoundedPrompt` AVANT `verifyAccessCode`
-- Templates : registre unique `TEMPLATES` / `TemplateId` (`lib/pagination/templateLayouts.ts`) ; un design stocké avec un template retiré (A, B) ou `atsMode` est migré à la lecture (`migratedDesign`)
+- Templates : registre unique `TEMPLATES` / `TemplateId` (`lib/pagination/template-layouts.ts`) ; un design stocké avec un template retiré (A, B) ou `atsMode` est migré à la lecture (`migratedDesign`)
 - E2E tests: `e2e/smoke.spec.ts` (pages publiques), `e2e/ats-panel.spec.ts` (ATS panel, écarts, preuve), `e2e/cover-letter.spec.ts`, `e2e/fit-to-pages.spec.ts` (tri auto + lien portfolio), `e2e/dashboard.spec.ts` (dont les écarts avant l'écriture), `e2e/pdf-legibility.spec.ts` (texte du PDF réel, C et E) : tous en mode guest
 - E2E et appels payants : `seedGuestSession` réchauffe les caches pour qu'aucune action ne parte, `watchAICalls`/`expectNoAICalls` le prouvent. Un flux qui finit par un appel payant (preuve) passe par `answerAIActions` (route la WebSocket Convex et répond à la place du serveur) ; un socket routé est invisible à `watchAICalls`, donc le fixture rend `answered`/`forwarded` et **`forwarded` doit rester vide**
 - `e2e/capture-pdf.spec.ts` n'est pas une régression : il écrit le PDF réellement produit sur disque pour inspection humaine, et ne tourne que si `CAPTURE_PDF=<chemin>` est défini
@@ -194,18 +194,18 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Depends on: Clerk for credential management, Convex auth context for backend
 - Used by: App.tsx routing, protected features
 - Purpose: Compute visibility/rendering of CV sections based on job match and page constraints
-- Location: `src/features/editor/lib/` (scoring.ts, displayModes.ts)
+- Location: `src/features/editor/lib/` (scoring.ts, display-modes.ts)
 - Contains: Requirement coverage (ATS report), relevance ordering, fit-to-pages condensing, date formatting
 - Depends on: CV data types, job description
 - Used by: EditorPage, blockRenderers
 - Purpose: Render CV content in different visual layouts
-- Location: `src/features/editor/templates/blockRenderers/` (templateC/E, A and B removed 2026-09-15), shared utilities in `src/features/editor/templates/shared.tsx`
+- Location: `src/features/editor/templates/blockRenderers/` (templateC/E, A and B removed 2026-09-15), shared utilities in `src/features/editor/templates/TemplateParts.tsx`
 - Contains: Per-block renderers per template, consumed by PaginatedCV (block-based pagination). Monolithic Template components and CVRenderer removed 2026-08-07 (commit 86d4cab)
 - Depends on: Design settings, display mode computations, CV data structure
 - Used by: EditorPage preview rendering, PDF export
 - Purpose: Shared functions, type definitions, UI utilities
 - Location: `src/shared/` (types, hooks, lib, ui), `src/lib/`
-- Contains: Type definitions (CVData, DesignSettings), hooks (useAccessCode, useAutoZoom), export functions (pdfExport.ts)
+- Contains: Type definitions (CVData, DesignSettings), hooks (useAccessCode, useAutoZoom), export functions (pdf-export.ts)
 - Depends on: React, third-party libraries (pdfjs, docx)
 - Used by: All layers
 ## Data Flow
@@ -220,12 +220,12 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Pattern: Immutable updates via spread operator (never mutate CVData directly)
 - Purpose: Control visibility of experience/skill sections without deletion
 - Examples: `ExperienceDisplayMode` ('hidden' | 'compact' | 'normal' | 'extended')
-- Pattern: Stored on each Experience object, computed by displayModes.ts functions
+- Pattern: Stored on each Experience object, computed by display-modes.ts functions
 - Purpose: Encapsulate CV visual appearance (colors, fonts, layout, page limit)
 - Examples: `DesignSettings` in types, persisted on cvData.design
 - Pattern: Passed to template components as prop, uses Tailwind dynamic color classes
 - Purpose: Registry pattern for dynamic template selection
-- Examples: `getBlockRenderers()` in `src/features/editor/templates/blockRenderers/index.ts`, `TEMPLATE_LAYOUTS` in `src/features/editor/lib/pagination/templateLayouts.ts`
+- Examples: `getBlockRenderers()` in `src/features/editor/templates/blockRenderers/index.ts`, `TEMPLATE_LAYOUTS` in `src/features/editor/lib/pagination/template-layouts.ts`
 - Pattern: templateId resolves to a BlockRendererMap (per-block renderers) + a TemplateLayout (dimensions), consumed by PaginatedCV/allocatePages
 - Purpose: Isoler le choix du modèle du code appelant
 - Examples: `getProviders()` in `convex/_ai/providers.ts` returns the provider list (un seul depuis 2026-08-16)
