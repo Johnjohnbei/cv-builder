@@ -143,6 +143,20 @@ describe('profileFromTokens', () => {
     expect(studio).toMatchObject({ company: 'Studio', location: 'Paris (France)' });
   });
 
+  // LinkedIn prints some places in another script ("Нёйи-сюр-Сен" for Neuilly):
+  // read as text, the place was glued in front of the intro (measured 2026-09-28)
+  it('reads a place written in a non-Latin script as the place', () => {
+    const [bedrock] = profileFromTokens([...HEADER, ...SUMMARY,
+      t(2, 15.75, 224, 580, 'Expérience'),
+      t(2, 12, 224, 544, 'GROUPE M6'),
+      t(2, 11.5, 224, 528, 'Lead AI Product & Design'),
+      body(2, 514, 'janvier 2025 - décembre 2025'),
+      body(2, 499, 'Нёйи-сюр-Сен'),
+      body(2, 478, 'Chez Bedrock, j’ai dirigé la transformation IA sur 4 plateformes VOD.'),
+    ])!.experience;
+    expect(bedrock).toMatchObject({ location: 'Нёйи-сюр-Сен', intro: 'Chez Bedrock, j’ai dirigé la transformation IA sur 4 plateformes VOD.' });
+  });
+
   it('keeps the whole summary, sentences apart', () => {
     const summary = cv.personal_info.summary ?? '';
     expect(summary).toContain("à la table d'à côté. J'ai livré");

@@ -106,7 +106,7 @@ function readBodyLine(cur: ExpBuilder, line: Line, prevText: Line | null): boole
   if (/^\(\d+\s+\w+\)$/.test(text)) return false;
   // Location: first non-bullet line after date, before any text
   const beforeText = !cur.location && cur.start_date && cur.paragraphs.length === 0;
-  if (beforeText && !isBulletLine(text) && text.length < 60 && !text.includes(':') && /[A-ZÀ-Ú]/.test(text[0])) {
+  if (beforeText && !isBulletLine(text) && text.length < 60 && !text.includes(':') && /^\p{Lu}/u.test(text)) {
     cur.location = text;
     return false;
   }
