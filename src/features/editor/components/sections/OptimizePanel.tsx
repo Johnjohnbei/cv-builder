@@ -145,7 +145,9 @@ export const OptimizePanel = memo(function OptimizePanel({
         {isFitting ? 'Ajustement…' : `Faire tenir en ${targetPages} page${targetPages > 1 ? 's' : ''}`}
       </Button>
       <p className="text-[11px] text-gray-600 -mt-1">
-        Instantané : remet chaque expérience au niveau de détail que sa pertinence pour l'offre justifie, puis condense les moins utiles jusqu'à tenir dans le format. Aucun texte n'est réécrit, tout reste réversible.
+        {jobDescription.trim()
+          ? "Instantané : remet chaque expérience au niveau de détail que sa pertinence pour l'offre justifie, puis condense les moins utiles jusqu'à tenir dans le format. Aucun texte n'est réécrit, tout reste réversible."
+          : "Sans offre, les expériences récentes et longues gardent leur détail et les plus anciennes sont condensées en premier. Collez une offre pour trier par pertinence. Aucun texte n'est réécrit, tout reste réversible."}
       </p>
 
       {/* AI content optimization button */}
