@@ -4,7 +4,8 @@
  * Shared by every repo (rule: ~/.claude/CLAUDE.md « Jamais l'air d'un site vibecodé »).
  *
  * Reads `.anti-vibe.json` in the current directory:
- *   { "roots": ["src"], "ignore": ["src/legacy/"], "disable": ["emdash"], "baseline": { "<file>": { "<rule>": n } } }
+ *   { "roots": ["src"], "ignore": ["src/legacy/"], "disable": ["emdash"], "enable": ["caps"], "baseline": { "<file>": { "<rule>": n } } }
+ * Opt-in rules (OPT_IN, e.g. `caps`) run only when listed in `enable`.
  * A (file, rule) count above its baseline fails. Counts may only go down.
  * A line carrying `anti-vibe-ok: <reason>` is skipped. Comments (line and block) are stripped.
  *
@@ -29,8 +30,13 @@ export const RULES = {
   copy: /supercharg|seamless|world[- ]class|game[- ]chang|next[- ]level|unleash|revolutioni[sz]|effortless|cutting[- ]edge|unlock your|révolutionn(?:aire|er|ez)|sans (?:aucun )?effort|\bboost(?:ez|e ton|e votre)\b|\bpropulse[zr]?\b|libère[zr]? (?:ton|votre)|l['’]avenir d[eu]|nouvelle ère|sans couture/i,
   emdash: /—|\p{L}\s?–\s?\p{L}/u,
 };
-// A pill is a rounded-full that carries horizontal text padding (avatars and dots do not).
-const PILL = { test: (l) => /\brounded-full\b/.test(l) && /\bpx-(?:[2-9]\b|1\d\b|\[)/.test(l) };
+// Titles and overlines in capitals (rule « pas de titres tout en capitales »). Opt-in per repo
+// (`"enable": ["caps"]` in .anti-vibe.json), so adding it did not break the other repos' ratchets.
+RULES.caps = /\buppercase\b|text-transform:\s*uppercase/;
+const OPT_IN = ['caps'];
+// A pill is a rounded-full that carries horizontal text padding (avatars and dots do not), symmetric
+// (`px-3`) or not (`pl-1 pr-2.5`, logical `ps-`/`pe-`): an asymmetric padding hid a text chip (Arkanes hub F20).
+const PILL = { test: (l) => /\brounded-full\b/.test(l) && /\bp[xlrse]-(?:[2-9]\b|1\d\b|\[)/.test(l) };
 RULES.pill = PILL;
 
 const EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.css', '.scss', '.html', '.vue', '.svelte', '.astro', '.mdx']);
@@ -89,6 +95,9 @@ function selftest() {
   t('<button className="rounded-full px-4 py-2">', 'pill', true);
   t('<img className="h-10 w-10 rounded-full">', 'pill', false);
   t('<span className="rounded-full h-2 w-2 bg-success">', 'pill', false);
+  t('<span className="inline-flex rounded-full border py-1 pl-1 pr-2.5 text-[11px]">', 'pill', true);
+  t('<span className="rounded-full ps-1 pe-3">', 'pill', true);
+  t('<span className="rounded-full p-1">', 'pill', false);
   t('<div className="border-l-4 border-primary">', 'side-stripe', true);
   t('<div className="border-l border-border">', 'side-stripe', false);
   t('<li>🚀 Rapide</li>', 'emoji', true);
@@ -109,6 +118,8 @@ function selftest() {
   t('<section className="h-[100dvh]">', 'scroll', false);
   t('<div className="backdrop-blur-md"> {/* anti-vibe-ok: sheet overlay */}', 'glass', false);
   t('<div className="shadow-[0_0_40px_rgba(124,58,237,.6)]">', 'glow', true);
+  t('<p className="text-2xs uppercase tracking-wide">Acte I</p>', 'caps', true);
+  t('<p className="text-2xs normal-case">Acte I</p>', 'caps', false);
   console.log('anti-vibe selftest: ok');
 }
 
@@ -118,7 +129,7 @@ function main() {
   const cfgPath = join(process.cwd(), '.anti-vibe.json');
   if (!existsSync(cfgPath)) { console.error('anti-vibe: no .anti-vibe.json in', process.cwd()); process.exit(2); }
   const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
-  const disabled = new Set(cfg.disable ?? []);
+  const disabled = new Set([...(cfg.disable ?? []), ...OPT_IN.filter((r) => !(cfg.enable ?? []).includes(r))]);
   const ignore = cfg.ignore ?? [];
   const files = cfg.roots.flatMap((r) => (!existsSync(r) ? [] : statSync(r).isDirectory() ? walk(r, []) : [r]))
     .map((f) => relative(process.cwd(), f).replaceAll('\\', '/'))
