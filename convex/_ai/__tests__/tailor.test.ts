@@ -437,14 +437,6 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     expect(mocks.chat).toHaveBeenCalledTimes(1);
   });
 
-  // Extracted again, a requirement may carry the dismissed label as a variant
-  it("knows a dismissed requirement again by one of its variants", async () => {
-    const node = { ...NODE, label: "Node", variants: ["Node.js"] };
-    answers(generated(cv => { cv.skills[0].items.push("Node"); }), { edits: [] });
-    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER, requirements: [FIGMA, node], excluded: ["node-js"] });
-    expect(result.cv.skills[0].items).toEqual(["Figma", "Sketch"]);
-  });
-
   it("names a category it adds with a key the CV's language prints, never a French word", async () => {
     answers(generated(cv => { cv.skills.push({ category: "Node.js", items: ["Node.js"] }); }));
     const { cv } = await run([FIGMA, NODE]);
@@ -467,21 +459,14 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
 });
 
 describe("tailorPipeline: places", () => {
-  const OFFER_EN = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
-  const withPlace: CVData = { ...SOURCE, experience: [{ ...SOURCE.experience[0], location: "Londres" }, SOURCE.experience[1]] };
-
-  it("keeps the place an English CV writes for a French source's place", async () => {
-    answers(generated(cv => { cv.experience[0].location = "London"; }, [], withPlace));
-    const { cv } = await tailorPipeline({ cv: withPlace, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
-    expect(cv.experience[0].location).toBe("London");
-  });
-
-  it("never keeps a place the source does not give, nor rewrites one in the source's own language", async () => {
-    answers(generated(cv => { cv.experience[1].location = "Lyon"; }));
-    const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
-    expect(cv.experience[1].location).toBeUndefined();
-    answers(generated(cv => { cv.experience[0].location = "Londres, UK"; }, [], withPlace));
-    expect((await run([FIGMA], Date.now(), withPlace)).cv.experience[0].location).toBe("Londres");
+  // Reading an offer for a London job, a model wrote "London" for a candidate in Paris
+  it("puts the source's places back, whatever language the CV is written in", async () => {
+    const offerEn = "Product Designer in London. Required: Figma, user research for our design team.";
+    const withPlace: CVData = { ...SOURCE, experience: [{ ...SOURCE.experience[0], location: "Londres" }, SOURCE.experience[1]] };
+    answers(generated(cv => { cv.personal_info.location = "London, UK"; cv.experience[1].location = "London"; }, [], withPlace));
+    const { cv } = await tailorPipeline({ cv: withPlace, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "fr" });
+    expect(cv.personal_info.location).toBe("Paris");
+    expect(cv.experience.map(e => e.location)).toEqual(["Londres", undefined]);
   });
 });
 

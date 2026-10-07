@@ -155,13 +155,16 @@ describe('getPortfolioVariants', () => {
     vi.resetModules();
     vi.stubEnv('VITE_PORTFOLIO_VARIANTS', JSON.stringify([{ ...VARIANTS[0], en: { label: 'Portfolio' } }]));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { getPortfolioVariants } = await import('./portfolio-variants');
-    const [variant] = getPortfolioVariants();
-    expect(variant).toMatchObject({ id: 'design-system', url: VARIANTS[0].url });
-    expect(variant.en).toBeUndefined();
-    expect(warn).toHaveBeenCalled();
-    vi.unstubAllEnvs();
-    warn.mockRestore();
+    try {
+      const { getPortfolioVariants } = await import('./portfolio-variants');
+      const [variant] = getPortfolioVariants();
+      expect(variant).toMatchObject({ id: 'design-system', url: VARIANTS[0].url });
+      expect(variant.en).toBeUndefined();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      warn.mockRestore();
+    }
   });
 });
 

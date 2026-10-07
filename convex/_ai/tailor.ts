@@ -3,12 +3,12 @@
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
 import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
-import { normalizeForMatch, prepareText, type PreparedText } from "../../src/shared/lib/text";
+import { prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
 import { resolveAdaptLanguage } from "./languageDetection";
-import { normalizeCVData, normalizeJobRequirements, slugOf, withSourceContacts } from "./normalizers";
+import { normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
 import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
 import { buildRepairPrompt } from "./prompts/distribute";
@@ -87,15 +87,15 @@ interface Generation {
  * contacts are never the model's. Degrees and languages are matched to the
  * source's by the guard, which reads what they name.
  */
-function readGeneration(raw: unknown, source: CVData, requirements: JobRequirement[], translated: boolean): Generation {
+function readGeneration(raw: unknown, source: CVData, requirements: JobRequirement[]): Generation {
   const parsed = GenerationSchema.safeParse(raw);
   if (!parsed.success) throw invalidOutput();
   const cv = normalizeCVData(parsed.data.cv);
   // A dropped or added experience would take another one's company and dates
   if (cv.experience.length !== source.experience.length) throw invalidOutput();
   return {
-    // Written in another language, a place the source gives is the model's to translate
-    cv: withSourceContacts(cv, source, { translatedPlaces: translated }),
+    // The source's places: a model reading the offer would move the candidate to its city
+    cv: withSourceContacts(cv, source),
     evidence: readQuotes(parsed.data.evidence, requirements),
   };
 }
@@ -217,16 +217,13 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
 
-  const said = new Set(input.excluded ?? []);
-  // A dismissed id is the slug of a label: one extracted again may say it another way, as a variant
-  const excluded = new Set(requirements
-    .filter(r => said.has(r.id) || r.variants.some(variant => said.has(slugOf(normalizeForMatch(variant)))))
-    .map(r => r.id));
+  // Ids, as the ATS tab dismisses them: one owner of "is this gap dismissed"
+  const excluded = new Set(input.excluded ?? []);
   const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const prompt = buildAdaptPrompt({
     cvData: source, jobDescription, requirements: requirements.filter(r => !excluded.has(r.id)), pageLimit, detectedLanguage, languageOverride,
   });
-  const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements, sourceLanguage !== language), "default", deadlineAt);
+  const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
   const byCV = provenIds(requirements, fields, generation.evidence);
   // Written whatever the source says: the user's choice of 2026-10-07
   const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id) && !excluded.has(r.id));

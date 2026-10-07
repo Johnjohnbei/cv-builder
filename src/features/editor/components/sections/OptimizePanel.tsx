@@ -166,7 +166,7 @@ export const OptimizePanel = memo(function OptimizePanel({
         {isOptimizing
           ? "L'édition reprend dès la fin de l'adaptation, pour que rien ne soit écrasé."
           : jobDescription.trim()
-            ? `Réécrit vos textes pour l'offre sans rien inventer : une exigence n'est écrite que si votre parcours la prouve (~${optimizeEstimate}s, remplace le contenu actuel).`
+            ? `Réécrit vos textes pour l'offre : chaque compétence demandée est écrite, vos diplômes, dates et chiffres restent les vôtres (~${optimizeEstimate}s, remplace le contenu actuel).`
             : 'Collez une offre pour adapter le CV.'}
       </p>
 

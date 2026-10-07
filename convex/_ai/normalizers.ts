@@ -15,7 +15,7 @@ import { statesYears } from "./numbers";
 const MAX_REQUIREMENTS = 25;
 
 /** Symbols carry meaning in skill names: C++, C# and C must not share an id. Combining marks are kept (バス is not パス). */
-export const slugOf = (key: string) => key
+const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
   .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
 
@@ -211,8 +211,7 @@ export function normalizeSkills(raw: unknown): SkillCategory[] {
       const category =
         typeof cat?.category === "string" && cat.category.trim().length > 0
           ? cat.category
-          // A key the templates print in the CV's language, never a French word on an English CV
-          : "other";
+          : "Compétences";
       const rawItems = Array.isArray(cat?.items) ? cat.items : [];
       const stringItems: string[] = rawItems
         .map((item: any): string => {

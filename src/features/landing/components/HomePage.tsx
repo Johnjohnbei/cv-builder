@@ -23,7 +23,7 @@ export default function HomePage() {
                 className="text-5xl md:text-6xl font-bold tracking-tight mb-8 leading-[1.1]"
               >
                 Adaptez votre CV à chaque offre,<br />
-                <span className="text-[#1A73E8]">sans rien inventer.</span>
+                <span className="text-[#1A73E8]">sans inventer vos faits.</span>
               </motion.h1>
 
               <motion.p
@@ -32,8 +32,8 @@ export default function HomePage() {
                 transition={{ delay: 0.2 }}
                 className="max-w-xl text-lg text-gray-600 mb-10 leading-relaxed"
               >
-                Importez votre CV (PDF ou export LinkedIn) et collez l'offre. Calibre mesure la part
-                des exigences que votre CV couvre, puis réécrit seulement ce que votre parcours prouve.
+                Importez votre CV (PDF ou export LinkedIn) et collez l'offre. Calibre écrit chaque compétence
+                que l'offre demande ; vos diplômes, dates, employeurs et chiffres restent les vôtres.
               </motion.p>
 
               <motion.div
@@ -120,7 +120,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-[#DADCE0]">
             {[
               { num: '01', title: 'Import intelligent', desc: 'Importez votre CV en PDF ou votre export LinkedIn. Chaque section (expériences, compétences, formations) est extraite en quelques secondes.' },
-              { num: '02', title: 'Adaptation IA', desc: 'Collez une offre d\'emploi. L\'IA reformule votre CV avec le vocabulaire de l\'offre, sans ajouter ce que votre parcours ne prouve pas.' },
+              { num: '02', title: 'Adaptation IA', desc: 'Collez une offre d\'emploi. L\'IA réécrit votre CV avec le vocabulaire de l\'offre et y écrit chaque compétence demandée, sans toucher à vos diplômes, dates, employeurs ni chiffres.' },
               { num: '03', title: 'Score ATS', desc: 'Voyez quelles exigences de l\'offre votre CV couvre, et lesquelles il ne mentionne pas encore.' },
             ].map((f, i) => (
               <div key={i} className={`p-10 ${i < 2 ? 'border-b md:border-b-0 md:border-r border-[#DADCE0]' : ''}`}>

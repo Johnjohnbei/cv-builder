@@ -55,7 +55,7 @@ function isEnglishVersion(value: unknown): boolean {
 
 function withValidEnglish(variant: PortfolioVariant): PortfolioVariant {
   if (isEnglishVersion(variant.en)) return variant;
-  console.warn(`[portfolio] variant "${variant.id}": its "en" block needs an http(s) url, English version ignored`);
+  console.warn(`[portfolio] variant "${variant.id}": its "en" block is malformed (url and anonUrl in http(s), label a text), English version ignored`);
   const { en: _ignored, ...rest } = variant;
   void _ignored;
   return rest;

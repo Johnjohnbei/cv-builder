@@ -6,7 +6,6 @@ import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolio-variants';
 import { adoptRequirements, pendingRequirements } from '../lib/job-requirements-cache';
-import { dismissedGapsOf } from './useATSAnalysis';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -17,6 +16,8 @@ export interface UseEditorAIDeps {
   isGuest: boolean;
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
   accessCode: string;
+  /** The gaps the ATS tab shows as dismissed, kept for the visit even when storage refused them: never written */
+  dismissed: string[];
 }
 
 export interface UseEditorAIResult {
@@ -40,7 +41,7 @@ export interface UseEditorAIResult {
 export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
   const {
     cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode,
+    jobDescription, user, isGuest, notify, accessCode, dismissed,
   } = deps;
 
   const tailorAction = useAction(api.ai.tailorCV);
@@ -74,8 +75,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
         jobDescription,
         pageLimit: designSettings.pageLimit || 2,
         requirements,
-        // A gap dismissed in the ATS tab is never written
-        excluded: dismissedGapsOf(jobDescription),
+        excluded: dismissed,
         accessCode,
       });
       // Its requirements are the offer's analysis: the ATS tab waits on them, and they are cached
@@ -93,7 +93,7 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
     } finally {
       setIsOptimizing(false);
     }
-  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, tailorAction, setCvData, notify, user, storeUser, persist]);
+  }, [cvData, designSettings.pageLimit, jobDescription, accessCode, dismissed, tailorAction, setCvData, notify, user, storeUser, persist]);
 
   const enrichExperiences = useCallback(async () => {
     if (!cvData?.experience || cvData.experience.length === 0) return;

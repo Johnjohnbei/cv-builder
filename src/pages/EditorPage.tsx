@@ -154,6 +154,7 @@ export default function EditorPage() {
   const ai = useEditorAI({
     cvData, setCvData, designSettings,
     jobDescription, user, isGuest, notify, accessCode: getCode(),
+    dismissed: atsAnalysis.dismissed,
   });
 
   // One AI action at a time: prevents concurrent rewrites clobbering each other
