@@ -13,6 +13,7 @@ import { AdminCodesDialog } from '../features/auth/components/AdminCodesDialog';
 import { useLeaveSession } from '../features/auth/useLeaveSession';
 import { api } from "@/convex/_generated/api";
 import { CVData, EMPTY_CV } from '../shared/types';
+import { detectCVLanguage, detectJobDescriptionLanguage, type SupportedLanguage } from '../lib/language-detection';
 import {
   readStoredJSON, readStoredText, STORAGE_FAILED_MESSAGE, writeStoredText, writeStoredTexts,
 } from '../shared/lib/storage';
@@ -34,6 +35,15 @@ export default function DashboardPage() {
 
   const [baseCV, setBaseCV] = useState<CVData | null>(null);
   const [jobDescription, setJobDescription] = useState('');
+  // The CV's language, chosen before the one generation: the offer's detected
+  // (the CV's without an offer) until the user picks one, which then holds
+  const [chosenLanguage, setChosenLanguage] = useState<SupportedLanguage | null>(null);
+  const detectedLanguage = useMemo<SupportedLanguage>(
+    // detectJobDescriptionLanguage reads too short a text as French: the CV decides until the offer says more
+    () => (jobDescription.trim().length >= 20 || !baseCV ? detectJobDescriptionLanguage(jobDescription) : detectCVLanguage(baseCV)),
+    [jobDescription, baseCV],
+  );
+  const cvLanguage = chosenLanguage ?? detectedLanguage;
   const [jobUrl, setJobUrl] = useState('');
   const [activeView, setActiveView] = useState<DashboardView>('console');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -91,7 +101,7 @@ export default function DashboardPage() {
   const saveBaseCV = useMutation(api.users.saveBaseCV);
 
   const tailoring = useOfferTailoring({
-    baseCV, offer: jobDescription, getCode, reportAIError,
+    baseCV, offer: jobDescription, language: cvLanguage, getCode, reportAIError,
     // After paid calls, a failed save says so and never offers to pay again
     saveDraft: cvData => saveDraft(cvData, jobDescription, "Le CV a été écrit mais n'a pas pu être enregistré."),
     onTailored: () => navigate('/editor'),
@@ -296,6 +306,9 @@ export default function DashboardPage() {
                   busyLabel={busyLabel}
                   offerLocked={isGenerating}
                   estimateSeconds={estimateSeconds}
+                  language={cvLanguage}
+                  languageDetected={chosenLanguage === null}
+                  onLanguageChange={setChosenLanguage}
                 />
               </div>
             </div>

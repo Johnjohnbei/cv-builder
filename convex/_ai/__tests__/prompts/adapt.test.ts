@@ -9,7 +9,7 @@ const REQUIREMENTS: JobRequirement[] = [
   { id: "recherche-utilisateur", label: "recherche utilisateur", variants: ["user research"], kind: "method", importance: "preferred", quote: "recherche utilisateur" },
 ];
 const prompt = (over: Partial<Parameters<typeof buildAdaptPrompt>[0]> = {}) =>
-  buildAdaptPrompt({ cvData: CV, jobDescription: "Poste de Product Designer à Paris", requirements: REQUIREMENTS, ...over });
+  buildAdaptPrompt({ cvData: CV, jobDescription: "Poste de Product Designer à Paris", requirements: REQUIREMENTS, language: "fr", ...over });
 
 describe("buildAdaptPrompt", () => {
   it("embeds the CV and the offer", () => {
@@ -38,7 +38,7 @@ describe("buildAdaptPrompt", () => {
 
   it("writes a KPI only when the source gives one", () => {
     expect(prompt()).toContain(KPI_RULES_FR);
-    expect(prompt({ jobDescription: "Responsibilities include managing requirements and skills" })).toContain(KPI_RULES_EN);
+    expect(prompt({ language: "en" })).toContain(KPI_RULES_EN);
   });
 
   it("carries the fabrication guard, the page budget and the company tags, and forbids displayMode", () => {
@@ -48,11 +48,11 @@ describe("buildAdaptPrompt", () => {
     expect(prompt()).toMatch(/JAMAIS "displayMode"/);
   });
 
-  it("writes in the offer's language, the override when the offer is too short to tell", () => {
+  // The pipeline decides the language (tailor.ts): the prompt writes in it
+  it("writes in the language it is given", () => {
     expect(prompt()).toContain("VERROU DE LANGUE");
-    expect(prompt({ jobDescription: "Responsibilities include managing requirements and skills" })).toContain("LANGUAGE LOCK");
-    expect(prompt({ languageOverride: "en" })).toContain("VERROU DE LANGUE");
-    expect(prompt({ jobDescription: "Designer", languageOverride: "en" })).toContain("100% ENGLISH");
+    expect(prompt({ language: "en" })).toContain("LANGUAGE LOCK");
+    expect(prompt({ language: "en" })).toContain("100% ENGLISH");
   });
 
   it("ends with the JSON-only instruction", () => {

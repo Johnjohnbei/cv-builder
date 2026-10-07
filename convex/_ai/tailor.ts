@@ -54,10 +54,14 @@ export interface TailorInput {
   pageLimit?: number;
   detectedLanguage?: "fr" | "en";
   languageOverride?: "fr" | "en";
+  /** The language the user chose before the generation: written in it, whatever the offer's */
+  language?: "fr" | "en";
 }
 
 export interface TailorResult {
   cv: CVData;
+  /** The language the CV is written in: the user's choice, else the offer's, else the CV's */
+  language: "fr" | "en";
   requirements: JobRequirement[];
   /** Measured on every experience and skill, before the fit to pages */
   report: ATSReport;
@@ -207,10 +211,8 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
 
-  const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
-  const prompt = buildAdaptPrompt({
-    cvData: source, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride,
-  });
+  const language = input.language ?? resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
+  const prompt = buildAdaptPrompt({ cvData: source, jobDescription, requirements, pageLimit, language });
   const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
   const byCV = provenIds(requirements, fields, generation.evidence);
   // Written whatever the source says: the user's choice of 2026-10-07
@@ -254,5 +256,5 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} free=${free.length} `
     + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} `
     + `summary=${best.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
-  return { cv: best.cv, requirements, report: best.report };
+  return { cv: best.cv, requirements, report: best.report, language };
 }

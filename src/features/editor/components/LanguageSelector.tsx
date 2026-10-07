@@ -4,14 +4,16 @@ interface Props {
   value: 'fr' | 'en';
   onChange: (lang: 'fr' | 'en') => void;
   disabled?: boolean;
+  /** What is being chosen, printed before the buttons */
+  label?: string;
 }
 
-export function LanguageSelector({ value, onChange, disabled }: Props) {
+export function LanguageSelector({ value, onChange, disabled, label = 'Lang:' }: Props) {
   const langs = ['fr', 'en'] as const;
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] stitch-mono text-gray-600 uppercase">Lang:</span>
+      <span className="text-[11px] stitch-mono text-gray-600 uppercase">{label}</span>
       <div className="flex items-center gap-1">
         {langs.map((lang) => (
           <button

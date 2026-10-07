@@ -7,7 +7,7 @@ import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { coverLetterOf } from "./_ai/coverLetter";
-import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
+import { detectTextLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
 import { companyMetaOf } from "./_ai/companyMeta";
@@ -47,6 +47,8 @@ export const tailorCV = action({
     /** Requirements the client already has for this offer: checked again, extracted when none is valid */
     requirements: v.optional(v.array(v.any())),
     pageLimit: v.optional(v.number()),
+    /** The language the user chose before the generation: it comes before the offer's */
+    language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -55,12 +57,11 @@ export const tailorCV = action({
     const { detectedLanguage, languageOverride, cv, respond } = cvArgument(args.baseData);
     assertBoundedPrompt(cv, args.requirements);
     await verifyAccessCode(ctx, args.accessCode);
-    const { jobDescription, requirements, pageLimit } = args;
-    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride }, startedAt);
+    const { jobDescription, requirements, pageLimit, language } = args;
+    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride, language }, startedAt);
     return {
-      // The language actually written (offer first, then the user's override),
-      // so the toggle and the section titles match the content
-      cv: respond(result.cv, resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage)),
+      // The language actually written, so the toggle and the section titles match the content
+      cv: respond(result.cv, result.language),
       requirements: result.requirements,
       report: result.report,
     };

@@ -449,6 +449,25 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
   });
 });
 
+describe("tailorPipeline: language", () => {
+  const OFFER_EN = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
+
+  it("writes in the offer's language when the user chose none", async () => {
+    answers(generated(() => {}));
+    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
+    expect(result.language).toBe("en");
+    expect(mocks.chat.mock.calls[0][0]).toContain("LANGUAGE LOCK");
+  });
+
+  // Chosen on the dashboard before the generation: it comes before the offer's
+  it("writes in the language the user chose, whatever the offer's", async () => {
+    answers(generated(() => {}));
+    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr", language: "fr" });
+    expect(result.language).toBe("fr");
+    expect(mocks.chat.mock.calls[0][0]).toContain("VERROU DE LANGUE");
+  });
+});
+
 describe("tailorPipeline: places", () => {
   // Reading an offer for a London job, a model wrote "London" for a candidate in Paris
   it("puts the source's places back, whatever language the CV is written in", async () => {

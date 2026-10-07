@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { attachBilingualCache } from '@/src/lib/bilingual';
 import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
@@ -9,6 +10,8 @@ import { requestRequirements, writeCachedRequirements } from '@/src/features/edi
 interface Deps {
   baseCV: CVData | null;
   offer: string;
+  /** The language the CV is written in, chosen before the generation */
+  language: SupportedLanguage;
   getCode: () => string | undefined;
   reportAIError: (error: unknown, fallback: string) => void;
   /** Stores the CV as the working draft: false when it could not, the user told why */
@@ -23,7 +26,7 @@ interface Deps {
  * requirement it may. The editor never calls the AI again on this CV: the user
  * picks between the adapted and the imported texts, and dismisses what they lack.
  */
-export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveDraft, onTailored }: Deps) {
+export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIError, saveDraft, onTailored }: Deps) {
   const extractAction = useAction(api.ai.extractJobRequirements);
   const tailorCV = useAction(api.ai.tailorCV);
   const translateCV = useAction(api.ai.translateCV);
@@ -51,7 +54,7 @@ export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveD
       if (!current()) return;
       analyzed = true;
       setPhase('generating');
-      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, accessCode });
+      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, language, accessCode });
       if (!current()) return;
       writeCachedRequirements(offer, result.requirements);
       // A CV proposed for an offer comes with the portfolio version that offer calls for.

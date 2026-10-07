@@ -10,7 +10,6 @@ import {
   LANGUAGE_OUTPUT_INSTRUCTION,
   LANGUAGE_LOCK,
 } from "./fragments";
-import { resolveAdaptLanguage } from "../languageDetection";
 
 export interface AdaptContext {
   cvData: unknown;
@@ -18,8 +17,8 @@ export interface AdaptContext {
   /** The offer's requirements, checked against it: the model writes every one it may */
   requirements: JobRequirement[];
   pageLimit?: number;
-  detectedLanguage?: "fr" | "en";
-  languageOverride?: "fr" | "en";
+  /** The language the CV is written in, decided by the pipeline (tailor.ts) */
+  language: "fr" | "en";
 }
 
 /** Evidence entries as the model writes them: one per requirement it proves */
@@ -35,7 +34,7 @@ const EVIDENCE_FORMAT = `"evidence": [
  * (tailor.ts) checks; facts and numbers stay under its guard.
  */
 export function buildAdaptPrompt(ctx: AdaptContext): string {
-  const isEn = resolveAdaptLanguage(ctx.jobDescription, ctx.languageOverride, ctx.detectedLanguage) === "en";
+  const isEn = ctx.language === "en";
   const verbs = isEn ? ACTION_VERBS_EN : ACTION_VERBS_FR;
   const intro = isEn ? INTRO_PRESERVATION_EN : INTRO_PRESERVATION_FR;
   const requirements = ctx.requirements.map(r => `- ${r.id} | ${r.label} | ${r.kind} | ${r.importance}`).join("\n");

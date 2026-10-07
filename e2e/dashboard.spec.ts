@@ -112,11 +112,17 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     await openGuestDashboard(page, { baseCv: MOCK_CV });
     await page.evaluate(() => localStorage.setItem('calibre_access_code', 'CODE-E2E'));
     await page.getByPlaceholder("Collez l'offre d'emploi ici...").fill(MOCK_JOB_DESCRIPTION);
+    // The language is detected from the offer, then the user's choice holds
+    await expect(page.getByText("Détectée d'après l'offre")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'FR', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await expect(page.getByText('Choisie par vous')).toBeVisible();
     await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
 
     await expect(page).toHaveURL(/\/editor/);
     await expect(page.getByRole('tab', { name: 'ATS' })).toHaveAttribute('aria-selected', 'true');
     expect(tailored).toHaveLength(1);
+    expect(tailored[0].language).toBe('en');
     expect(tailored[0].requirements.map((r: any) => r.label)).toEqual(LABELS);
     expect(tailored[0]).not.toHaveProperty('proofs');
     // The tailored CV into the other language, and the imported one into the generated language: one generation
