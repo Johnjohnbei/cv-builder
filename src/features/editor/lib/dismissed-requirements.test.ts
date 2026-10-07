@@ -1,76 +1,98 @@
 import { describe, it, expect } from 'vitest';
-import type { CVData, JobRequirement } from '@/src/shared/types';
-import { withDismissed, withoutDismissed } from './dismissed-requirements';
+import type { CVData, JobRequirement, RequirementKind } from '@/src/shared/types';
+import { dismissedIdsOf, withDismissed, withoutDismissed } from './dismissed-requirements';
 
-const requirement = (id: string, label: string, variants: string[] = []): JobRequirement =>
-  ({ id, label, variants, kind: 'tool', importance: 'required', quote: label });
+const requirement = (id: string, label: string, variants: string[] = [], kind: RequirementKind = 'tool'): JobRequirement =>
+  ({ id, label, variants, kind, importance: 'required', quote: label });
 const NODE = requirement('node-js', 'Node.js');
 const FIGMA = requirement('figma', 'Figma');
 
+const SUMMARY = 'Product designer en SaaS B2B. Expert Node.js et React. Six ans de parcours.';
+const ACME = { intro: 'Équipe paiement, Node.js.', description: ['Conçu les maquettes Figma', 'Développé en Node.js'] };
+const BETA = { description: ['Déployé Node.js'] };
+
+/** A generated CV showing its adapted texts, the imported ones beside them */
 const CV: CVData = {
   personal_info: {
-    name: 'Alex', email: 'a@b.c',
-    summary: 'Product designer en SaaS B2B. Expert Node.js et React. Six ans de parcours.',
-    versions: { summary: { adapted: '', original: 'Designer produit en SaaS B2B. Six ans de parcours.' } },
+    name: 'Alex', email: 'a@b.c', summary: SUMMARY,
+    versions: { summary: { adapted: SUMMARY, original: 'Designer produit en SaaS B2B. Six ans de parcours.' } },
   },
   experience: [
     {
-      company: 'Acme', position: 'Designer', start_date: '2020', current: true,
-      intro: 'Équipe paiement, Node.js.', description: ['Conçu les maquettes Figma', 'Développé en Node.js'],
-      versions: { adapted: { description: [] }, original: { intro: 'Équipe paiement.', description: ['Conçu les maquettes'] } },
+      company: 'Acme', position: 'Designer', start_date: '2020', current: true, ...ACME,
+      versions: { adapted: ACME, original: { intro: 'Équipe paiement.', description: ['Conçu les maquettes'] } },
     },
-    { company: 'Beta', position: 'UI', start_date: '2018', current: false, description: ['Déployé Node.js'], versions: { adapted: { description: [] }, original: { description: ['Dessiné les écrans'] } } },
+    { company: 'Beta', position: 'UI', start_date: '2018', current: false, ...BETA, versions: { adapted: BETA, original: { description: ['Dessiné les écrans'] } } },
   ],
   education: [], languages: [],
   skills: [{ category: 'tools', items: ['Figma', 'Node.js'] }, { category: 'other', items: ['Node.js'] }],
 };
 
+const dismissing = (cv: CVData, ...requirements: JobRequirement[]) =>
+  requirements.reduce((next, r) => withDismissed(next, r, true), cv);
+
 describe('withoutDismissed: the CV as it prints', () => {
   it('prints the CV untouched while nothing is dismissed', () => {
-    expect(withoutDismissed(CV, [NODE, FIGMA])).toBe(CV);
+    expect(withoutDismissed(CV)).toBe(CV);
   });
 
-  it('leaves out every text writing a dismissed requirement, and only those', () => {
-    const printed = withoutDismissed({ ...CV, dismissedRequirements: ['node-js'] }, [NODE, FIGMA]);
+  // Kept whole on the CV: no analysis of the offer, no cache, another device
+  it('leaves out every text writing a dismissed requirement, and only those, from the CV alone', () => {
+    const printed = withoutDismissed(dismissing(CV, NODE));
     expect(printed.experience[0].description).toEqual(['Conçu les maquettes Figma']);
     expect(printed.skills).toEqual([{ category: 'tools', items: ['Figma'] }]);
   });
 
-  it('takes the imported summary, intro or bullets where they do not write it', () => {
-    const printed = withoutDismissed({ ...CV, dismissedRequirements: ['node-js'] }, [NODE, FIGMA]);
+  it('takes the imported summary, intro or bullets where the adapted ones wrote it', () => {
+    const printed = withoutDismissed(dismissing(CV, NODE));
     expect(printed.personal_info.summary).toBe('Designer produit en SaaS B2B. Six ans de parcours.');
     expect(printed.experience[0].intro).toBe('Équipe paiement.');
     // Every bullet wrote it: the imported ones print instead
     expect(printed.experience[1].description).toEqual(['Dessiné les écrans']);
   });
 
+  // The user's own text is theirs: never swapped for the imported one
+  it('keeps what is left of a text the user typed', () => {
+    const typed: CVData = {
+      ...CV,
+      personal_info: { ...CV.personal_info, summary: 'Mon résumé. Je connais Node.js. Fin.' },
+      experience: [{ ...CV.experience[0], description: ['Ma puce Node.js'] }, CV.experience[1]],
+    };
+    const printed = withoutDismissed(dismissing(typed, NODE));
+    expect(printed.personal_info.summary).toBe('Mon résumé. Fin.');
+    expect(printed.experience[0].description).toEqual([]);
+  });
+
   it('empties a KPI writing it, and keeps the facts of the CV', () => {
-    const cv: CVData = { ...CV, dismissedRequirements: ['node-js'], experience: [{ ...CV.experience[0], kpi: 'Migré 12 services vers Node.js', position: 'Développeur Node.js' }] };
-    const [exp] = withoutDismissed(cv, [NODE]).experience;
+    const cv: CVData = { ...CV, experience: [{ ...CV.experience[0], kpi: 'Migré 12 services vers Node.js', position: 'Développeur Node.js' }] };
+    const [exp] = withoutDismissed(dismissing(cv, NODE)).experience;
     expect(exp.kpi).toBe('');
     expect(exp.position).toBe('Développeur Node.js');
   });
 
-  it('keeps the other sentences of a summary with no imported version', () => {
-    const cv = { ...CV, personal_info: { ...CV.personal_info, versions: undefined }, dismissedRequirements: ['node-js'] };
-    expect(withoutDismissed(cv, [NODE]).personal_info.summary).toBe('Product designer en SaaS B2B. Six ans de parcours.');
+  // A degree, a language, years or a title are the user's own facts: dismissing one sets the gap aside
+  it('takes nothing out for a dismissed title, degree or language', () => {
+    const cv: CVData = { ...CV, personal_info: { ...CV.personal_info, summary: 'Je vise un poste de Lead Designer. Titulaire d\'un Master.' } };
+    const printed = withoutDismissed(dismissing(cv, requirement('lead-designer', 'Lead Designer', [], 'title'), requirement('master', 'Master', [], 'education')));
+    expect(printed.personal_info.summary).toBe(cv.personal_info.summary);
   });
 
   it('knows a requirement by its variants, in the other language too', () => {
-    const research = requirement('user-research', 'user research', ['recherche utilisateur']);
-    const cv: CVData = { ...CV, dismissedRequirements: ['user-research'], experience: [{ ...CV.experience[0], description: ['Mené la recherche utilisateur', 'Livré'] }] };
-    expect(withoutDismissed(cv, [research]).experience[0].description).toEqual(['Livré']);
+    const research = requirement('user-research', 'user research', ['recherche utilisateur'], 'method');
+    const cv: CVData = { ...CV, experience: [{ ...CV.experience[0], description: ['Mené la recherche utilisateur', 'Livré'] }] };
+    expect(withoutDismissed(dismissing(cv, research)).experience[0].description).toEqual(['Livré']);
   });
 
   it('keeps the CV\'s own texts: "Remettre" prints them again', () => {
-    const dismissed = withDismissed(CV, 'node-js', true);
+    const dismissed = dismissing(CV, NODE);
     expect(dismissed.experience).toBe(CV.experience);
-    const restored = withDismissed(dismissed, 'node-js', false);
-    expect(restored.dismissedRequirements).toEqual([]);
-    expect(withoutDismissed(restored, [NODE])).toBe(restored);
+    const restored = withDismissed(dismissed, NODE, false);
+    expect(dismissedIdsOf(restored)).toEqual([]);
+    expect(withoutDismissed(restored)).toBe(restored);
   });
 
-  it('dismisses an id once', () => {
-    expect(withDismissed(withDismissed(CV, 'figma', true), 'figma', true).dismissedRequirements).toEqual(['figma']);
+  it('keeps one entry per requirement, only what finds it in a text', () => {
+    const cv = dismissing(CV, FIGMA, FIGMA);
+    expect(cv.dismissedRequirements).toEqual([{ id: 'figma', label: 'Figma', variants: [], kind: 'tool' }]);
   });
 });

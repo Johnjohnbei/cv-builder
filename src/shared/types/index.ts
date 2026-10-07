@@ -154,12 +154,17 @@ export interface CVData {
    *  on translate flow. May go stale if user edits content; that's accepted. */
   _translations?: Partial<Record<'fr' | 'en', TranslatableContent>>;
   /**
-   * Ids of the offer's requirements the user said they lack ("je ne l'ai
-   * pas"). The CV keeps its texts; what writes them is left out of the CV
-   * as it prints and is measured (`withoutDismissed`), so "Remettre" loses nothing.
+   * The offer's requirements the user said they lack ("je ne l'ai pas"),
+   * kept whole: the CV prints without them on any device, whatever the cache
+   * of the offer's analysis holds. The CV keeps its texts; what writes them is
+   * left out of the CV as it prints and is measured (`withoutDismissed`), so
+   * "Remettre" loses nothing.
    */
-  dismissedRequirements?: string[];
+  dismissedRequirements?: DismissedRequirement[];
 }
+
+/** A requirement the user said they lack: what is needed to find it in a text, and whether a text may drop it */
+export type DismissedRequirement = Pick<JobRequirement, 'id' | 'label' | 'variants' | 'kind'>;
 
 /** Every kind of job requirement: the server schema and the client cache check this list, the prompt guide is typed by it. */
 export const REQUIREMENT_KINDS = [

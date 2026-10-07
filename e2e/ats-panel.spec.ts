@@ -287,12 +287,21 @@ test.describe('Contenu : version d\'une expérience', () => {
 
 // The translation the generation could not cache runs later: what the user dismissed stays out
 test.describe('Langue : traduction paresseuse', () => {
-  test('une traduction garde les exigences écartées', async ({ page }) => {
+  test('une traduction garde les exigences écartées et les deux versions', async ({ page }) => {
+    // The model reads a CV without versions nor dismissals: it answers without them
     const calls = await answerAIActions(page, {
-      translateCV: (args) => ({ ...args.cvData, dismissedRequirements: undefined, detectedLanguage: args.targetLanguage, languageOverride: args.targetLanguage }),
+      translateCV: (args) => {
+        const { dismissedRequirements: _d, ...cv } = args.cvData;
+        return { ...cv, personal_info: { ...cv.personal_info, versions: undefined }, detectedLanguage: args.targetLanguage, languageOverride: args.targetLanguage };
+      },
     });
+    const figma = { id: 'figma', label: 'Figma', variants: [], kind: 'tool' };
+    const summary = MOCK_CV.personal_info.summary;
     await seedGuestSession(page, {
-      cv: { ...MOCK_CV, _translations: undefined, dismissedRequirements: ['figma'] },
+      cv: {
+        ...MOCK_CV, _translations: undefined, dismissedRequirements: [figma],
+        personal_info: { ...MOCK_CV.personal_info, versions: { summary: { adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' } } },
+      },
       jd: MOCK_JOB_DESCRIPTION,
       requirementLabels: ['Figma', 'Kubernetes', 'Terraform'],
     });
@@ -300,7 +309,9 @@ test.describe('Langue : traduction paresseuse', () => {
     await page.getByRole('button', { name: 'Traduire le contenu en anglais' }).click();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').detectedLanguage)).toBe('en');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
-    expect(saved.dismissedRequirements).toEqual(['figma']);
-    expect(calls).toEqual({ answered: ['translateCV'], forwarded: [] });
+    expect(saved.dismissedRequirements).toEqual([figma]);
+    // The imported texts were translated beside the CV: the English one offers both versions
+    expect(saved.personal_info.versions?.summary?.original).toBe('Mon résumé importé, écrit pour mes candidatures.');
+    expect(calls).toEqual({ answered: ['translateCV', 'translateCV'], forwarded: [] });
   });
 });

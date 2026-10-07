@@ -97,7 +97,8 @@ describe('appendToGuestList', () => {
 describe('cvsRecordOf', () => {
   // Left out, a version reopened from "Mes CV" printed again what the user said they lack
   it('saves the dismissed requirements and the offer with the version', () => {
-    const cv = { personal_info: { name: 'A', email: 'a@b.c' }, experience: [], education: [], skills: [], languages: [], dismissedRequirements: ['figma'] } as CVData;
-    expect(cvsRecordOf(cv, 'Offre A')).toMatchObject({ dismissedRequirements: ['figma'], jobDescription: 'Offre A' });
+    const figma = { id: 'figma', label: 'Figma', variants: [], kind: 'tool' as const };
+    const cv = { personal_info: { name: 'A', email: 'a@b.c' }, experience: [], education: [], skills: [], languages: [], dismissedRequirements: [figma] } as CVData;
+    expect(cvsRecordOf(cv, 'Offre A')).toMatchObject({ dismissedRequirements: [figma], jobDescription: 'Offre A' });
   });
 });

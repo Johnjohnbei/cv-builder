@@ -8,6 +8,11 @@ const STALL_MS = 10_000;
 
 export interface UseFitToPagesDeps {
   cvData: CVData | null;
+  /**
+   * The CV as it prints (`withoutDismissed`): what the pass measures. It writes
+   * display modes on `cvData` only, by place, never the printed texts.
+   */
+  printedCV: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
   /** The offer's requirements: drive which roles keep their detail */
   requirements: JobRequirement[];
@@ -52,7 +57,7 @@ export interface UseFitToPagesResult {
  */
 export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
   const {
-    cvData, setCvData, requirements, requirementsReady, stablePageCount, targetPages,
+    cvData, printedCV, setCvData, requirements, requirementsReady, stablePageCount, targetPages,
     loadedJobDescription, jobDescription, notify,
   } = deps;
 
@@ -112,10 +117,13 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     }
 
     const exhausted = stepsRef.current >= maxCondenseSteps(cvData.experience);
-    const next = exhausted ? null : condenseOneStep(
-      cvData.experience, requirementsRef.current, getCVLanguage(cvData),
-      writtenOutsideExperience(cvData, requirementsRef.current),
+    const measured = printedCV ?? cvData;
+    const step = exhausted ? null : condenseOneStep(
+      measured.experience, requirementsRef.current, getCVLanguage(cvData),
+      writtenOutsideExperience(measured, requirementsRef.current),
     );
+    // Only the display modes come back: the printed experiences line up with the user's, by place
+    const next = step && cvData.experience.map((exp, i) => (step[i].displayMode === exp.displayMode ? exp : { ...exp, displayMode: step[i].displayMode }));
     if (!next) {
       setIsFitting(false);
       notify({
@@ -127,7 +135,7 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
 
     stepsRef.current += 1;
     setCvData(prev => (prev ? { ...prev, experience: next } : prev));
-  }, [isFitting, stablePageCount, targetPages, cvData, setCvData, notify]);
+  }, [isFitting, stablePageCount, targetPages, cvData, printedCV, setCvData, notify]);
 
   return { isFitting, runFit };
 }

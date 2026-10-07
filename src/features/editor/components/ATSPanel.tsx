@@ -113,7 +113,7 @@ export function ATSPanel({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className={SECTION_TITLE}>Exigences de l'offre</span>
-            <span className="text-[11px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="Exigence requise ou intitulé : 3 points ; souhaitée ou qualité humaine : 1 point">
+            <span className="text-[11px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="Exigence requise ou intitulé : 3 points ; souhaitée ou qualité humaine : 1 point. Une exigence écartée compte encore quand un fait de votre CV (titre, diplôme, langue) l'écrit.">
               {report.points.covered}/{points(report.points.total)}
             </span>
           </div>
@@ -131,7 +131,7 @@ export function ATSPanel({
                   variant="ghost" size="sm" mono={false} className="text-green-800"
                   aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`}
                   title="Je ne l'ai pas : retirer du CV"
-                  onClick={() => dismiss(c.requirement.id)}
+                  onClick={() => dismiss(c.requirement)}
                 >
                   Retirer
                 </Button>}
@@ -143,7 +143,7 @@ export function ATSPanel({
             <div className="flex flex-col gap-1.5 mt-2">
               <span className={GAP_TITLE}>Écarts ({gaps.length})</span>
               {gaps.map(c => (
-                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement.id)} />
+                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement)} />
               ))}
             </div>
           )}
@@ -155,7 +155,7 @@ export function ATSPanel({
               {setAside.map(c => (
                 <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
                   <span className="text-gray-600">{c.requirement.label}</span>
-                  <Button variant="ghost" size="sm" mono={false} onClick={() => restore(c.requirement.id)}>Remettre</Button>
+                  <Button variant="ghost" size="sm" mono={false} onClick={() => restore(c.requirement)}>Remettre</Button>
                 </div>
               ))}
             </div>

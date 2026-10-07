@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { ATSReport, CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
 import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
-import { withDismissed } from '@/src/features/editor/lib/dismissed-requirements';
+import { dismissedIdsOf, withDismissed } from '@/src/features/editor/lib/dismissed-requirements';
 
 export interface UseATSAnalysisDeps {
   /** The CV as the user wrote it: dismissing writes on it */
@@ -18,11 +18,9 @@ export interface ATSAnalysis {
   report: ATSReport | null;
   /** Ids of the requirements the user said they lack, kept on the CV */
   dismissed: string[];
-  dismiss: (id: string) => void;
-  restore: (id: string) => void;
+  dismiss: (requirement: JobRequirement) => void;
+  restore: (requirement: JobRequirement) => void;
 }
-
-const NO_IDS: string[] = [];
 
 /**
  * The ATS tab: the report of the CV as it prints, recomputed on every edit (a
@@ -38,8 +36,8 @@ export function useATSAnalysis({ cvData, printedCV, setCvData, designSettings, r
     () => (printedCV ? computeATSReport(printedCV, requirements, { design: designSettings }) : null),
     [printedCV, designSettings, requirements],
   );
-  const dismissed = cvData?.dismissedRequirements ?? NO_IDS;
-  const dismiss = useCallback((id: string) => setCvData(cv => (cv ? withDismissed(cv, id, true) : cv)), [setCvData]);
-  const restore = useCallback((id: string) => setCvData(cv => (cv ? withDismissed(cv, id, false) : cv)), [setCvData]);
+  const dismissed = useMemo(() => dismissedIdsOf(cvData), [cvData]);
+  const dismiss = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r, true) : cv)), [setCvData]);
+  const restore = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r, false) : cv)), [setCvData]);
   return { report, dismissed, dismiss, restore };
 }

@@ -43,6 +43,23 @@ export function withVersions(cv: CVData, original: CVData): CVData {
   };
 }
 
+/** Whether a generation left two versions of any block of this CV */
+export const hasVersions = (cv: CVData) => Boolean(cv.personal_info.versions || cv.experience.some(exp => exp.versions));
+
+/** The CV in the imported texts wherever it has them, to translate them with the rest */
+export function importedTextsOf(cv: CVData): CVData {
+  const versions = cv.personal_info.versions;
+  return {
+    ...cv,
+    personal_info: {
+      ...cv.personal_info,
+      summary: versions?.summary?.original ?? cv.personal_info.summary,
+      title: versions?.title?.original ?? cv.personal_info.title,
+    },
+    experience: cv.experience.map(exp => (exp.versions ? { ...exp, ...exp.versions.original } : exp)),
+  };
+}
+
 /** The version a text shows: a text matching neither imported nor adapted is the user's own */
 export function versionOf(current: string | undefined, versions: TextVersions): Version {
   const text = (current ?? '').trim();

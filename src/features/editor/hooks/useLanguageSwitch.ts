@@ -4,6 +4,7 @@ import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { contentSnapshot } from '@/src/lib/bilingual';
+import { hasVersions, importedTextsOf, withVersions } from '../lib/cv-versions';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
@@ -118,11 +119,16 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
     // both directions so the next toggle is free.
     setIsRegenerating(true);
     try {
-      const translatedData = await translateCVAction({
-        cvData,
-        targetLanguage: pendingLanguage,
-        accessCode,
-      });
+      // The imported texts are translated beside the CV, in the same action: the
+      // new language offers both versions too. A failure there drops the choice, never the translation.
+      // ponytail: the CV's current texts become the "adapted" version there, whichever the user picked
+      const [translatedCV, translatedImported] = await Promise.all([
+        translateCVAction({ cvData, targetLanguage: pendingLanguage, accessCode }),
+        hasVersions(cvData)
+          ? translateCVAction({ cvData: importedTextsOf(cvData), targetLanguage: pendingLanguage, accessCode }).catch(() => null)
+          : null,
+      ]);
+      const translatedData = translatedImported ? withVersions(translatedCV, translatedImported) : translatedCV;
       const translatedSnapshot = contentSnapshot(translatedData);
       // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {

@@ -89,7 +89,7 @@ export default defineSchema({
     // content fields which can evolve.
     _translations: v.optional(v.any()),
     // Requirements the user said they lack: left out of the CV as it prints
-    dismissedRequirements: v.optional(v.array(v.string())),
+    dismissedRequirements: v.optional(v.array(v.object({ id: v.string(), label: v.string(), variants: v.array(v.string()), kind: v.string() }))),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 

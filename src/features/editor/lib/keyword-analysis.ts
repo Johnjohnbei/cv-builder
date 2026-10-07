@@ -98,7 +98,7 @@ function weightOf(r: JobRequirement): number {
  * Whether rewriting the CV can cover this requirement: a degree, a language or
  * a number of years is a fact of the candidate's past, never a wording.
  */
-export function isWritable(r: JobRequirement): boolean {
+export function isWritable(r: Pick<JobRequirement, 'kind'>): boolean {
   return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years';
 }
 
@@ -107,7 +107,7 @@ export function isWritable(r: JobRequirement): boolean {
  * writes a skill or a bullet, and neither is a job title. The title of the CV
  * and the positions held are the user's own words, edited in the Contenu tab.
  */
-export function isProvable(r: JobRequirement): boolean {
+export function isProvable(r: Pick<JobRequirement, 'kind'>): boolean {
   return isWritable(r) && r.kind !== 'title';
 }
 
@@ -116,12 +116,12 @@ export function isProvable(r: JobRequirement): boolean {
  * prove it (arbitrage of 2026-10-07): a skill, a tool, a method, a domain. A
  * certification is checked like a degree, so it stays a fact of the source.
  */
-export function isWrittenFreely(r: JobRequirement): boolean {
+export function isWrittenFreely(r: Pick<JobRequirement, 'kind'>): boolean {
   return isProvable(r) && r.kind !== 'certification';
 }
 
 /** Whether these fields, as the CV prints them, write the requirement */
-export const writesRequirement = (fields: PreparedText[], r: JobRequirement): boolean =>
+export const writesRequirement = (fields: PreparedText[], r: Pick<JobRequirement, 'label' | 'variants'>): boolean =>
   [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field)));
 
 /** The requirements of the offer the CV does not write */

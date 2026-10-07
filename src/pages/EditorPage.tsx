@@ -9,7 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
-import { withoutDismissed } from '../features/editor/lib/dismissed-requirements';
+import { dismissedIdsOf, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -85,14 +85,13 @@ export default function EditorPage() {
 
   const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
   // The CV as it prints and is measured: a requirement the user said they lack is left out of it
-  const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData, requirements) : null), [cvData, requirements]);
+  const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData) : null), [cvData]);
   // What the CV still claims: the fit pass protects and the badges count these only.
   // The fit pass rebuilds experiences from cvData, so it gets the user's texts, never the printed ones.
-  const dismissedIds = cvData?.dismissedRequirements;
-  const claimedRequirements = useMemo(
-    () => requirements.filter(r => !dismissedIds?.includes(r.id)),
-    [requirements, dismissedIds],
-  );
+  const claimedRequirements = useMemo(() => {
+    const dismissedIds = dismissedIdsOf(cvData);
+    return requirements.filter(r => !dismissedIds.includes(r.id));
+  }, [requirements, cvData]);
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
@@ -175,7 +174,7 @@ export default function EditorPage() {
   // the fit waits for them (an offer being typed or analyzed).
   const targetPages = designSettings.pageLimit ?? 2;
   const fit = useFitToPages({
-    cvData, setCvData, requirements: claimedRequirements,
+    cvData, printedCV, setCvData, requirements: claimedRequirements,
     requirementsReady: isRequirementsSettled(requirementsStatus),
     stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
   });
@@ -187,9 +186,9 @@ export default function EditorPage() {
   // The badge of each experience: the share of the provable requirements it evidences, none without them
   const experienceScores = useMemo(
     () => claimedRequirements.some(isWritable)
-      ? (cvData?.experience ?? []).map(exp => computeRequirementMatch(exp, claimedRequirements, currentLanguage))
+      ? (printedCV?.experience ?? []).map(exp => computeRequirementMatch(exp, claimedRequirements, currentLanguage))
       : [],
-    [cvData?.experience, claimedRequirements, currentLanguage],
+    [printedCV?.experience, claimedRequirements, currentLanguage],
   );
 
   const weakBullets = useMemo(
