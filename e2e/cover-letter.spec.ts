@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION, MOCK_COMPANY_NAME } from './fixtures/mock-cv';
-import { seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
+import { answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
 
 // Contexte entreprise pré-seedé : le drawer reste vierge côté contenu, mais
 // l'entreprise est déjà connue donc aucune extraction IA ne part à l'ouverture.
@@ -133,5 +133,27 @@ test.describe('Lettre de motivation : drawer (mode guest)', () => {
     const dialog = await openDrawer(page);
     await expect(dialog.getByRole('button', { name: 'Sauvegarder' })).toBeDisabled();
     await expect(dialog.getByText('Connectez-vous pour sauvegarder')).toBeVisible();
+  });
+});
+
+// One application, one language (arbitrage of 2026-10-07): the letter follows the CV, not the offer
+test.describe('Lettre de motivation : langue', () => {
+  test('un CV en anglais pour une offre en français donne une lettre en anglais', async ({ page }) => {
+    const asked: string[] = [];
+    const calls = await answerAIActions(page, {
+      generateCoverLetter: (args) => {
+        asked.push(args.language);
+        return { subject: 'Product Designer', greeting: 'Hello,', body: 'Body.', closing: 'Best,' };
+      },
+    });
+    await seedGuestSession(page, {
+      cv: { ...MOCK_CV, detectedLanguage: 'en' },
+      jd: MOCK_JOB_DESCRIPTION,
+      coverLetter: { companyName: MOCK_COMPANY_NAME, jobDescription: MOCK_JOB_DESCRIPTION },
+    });
+    const dialog = await openDrawer(page);
+    await dialog.getByRole('button', { name: /Générer la lettre/ }).click();
+    await expect.poll(() => asked).toEqual(['en']);
+    expect(calls.forwarded).toEqual([]);
   });
 });

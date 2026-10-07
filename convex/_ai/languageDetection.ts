@@ -12,9 +12,9 @@ const MIN_TEXT_LENGTH = 20;
  * Resolve the language the adapt prompt will use to write the CV.
  * JD wins when present (you adapt to the company's language), then user
  * override, then the CV's last detected language, then FR.
- * Must stay in sync with what the prompt actually instructs the LLM to do —
- * action handlers reuse this to return the right `detectedLanguage` so the UI
- * toggle and section labels match the generated content.
+ * The tailoring (tailor.ts) uses it when the user chose no language before the
+ * generation, and returns the language it wrote, so the UI toggle and the
+ * section labels match the generated content.
  */
 export function resolveAdaptLanguage(
   jobDescription: string | undefined,

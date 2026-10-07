@@ -1,7 +1,7 @@
 import { Layout as LayoutIcon, Save, Download, Loader2, Minus, Plus, Maximize2, EyeOff, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
-import { LanguageSelector } from './LanguageSelector';
+import { LanguageSelector } from '@/src/shared/ui/LanguageSelector';
 
 interface Props {
   isSidebarOpen: boolean;

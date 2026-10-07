@@ -38,10 +38,11 @@ export default function DashboardPage() {
   // The CV's language, chosen before the one generation: the offer's detected
   // (the CV's without an offer) until the user picks one, which then holds
   const [chosenLanguage, setChosenLanguage] = useState<SupportedLanguage | null>(null);
+  // detectJobDescriptionLanguage reads too short a text as French: the CV decides until the offer says more
+  const detectedFrom: 'offer' | 'cv' = jobDescription.trim().length >= 20 || !baseCV ? 'offer' : 'cv';
   const detectedLanguage = useMemo<SupportedLanguage>(
-    // detectJobDescriptionLanguage reads too short a text as French: the CV decides until the offer says more
-    () => (jobDescription.trim().length >= 20 || !baseCV ? detectJobDescriptionLanguage(jobDescription) : detectCVLanguage(baseCV)),
-    [jobDescription, baseCV],
+    () => (detectedFrom === 'offer' || !baseCV ? detectJobDescriptionLanguage(jobDescription) : detectCVLanguage(baseCV)),
+    [detectedFrom, jobDescription, baseCV],
   );
   const cvLanguage = chosenLanguage ?? detectedLanguage;
   const [jobUrl, setJobUrl] = useState('');
@@ -118,7 +119,9 @@ export default function DashboardPage() {
 
   const imports = useDashboardImports({
     user, isGuest, jobUrl, getCode, requireAccessCode, reportAIError,
-    notify: setNotification, setBaseCV, setJobDescription: showOffer,
+    notify: setNotification, setBaseCV,
+    // An imported offer is another offer: its language is detected again (arbitrage of 2026-10-07)
+    setJobDescription: (text: string) => { setChosenLanguage(null); showOffer(text); },
   });
 
   // A signed-in user reads the account only: falling through to the guest copy
@@ -307,8 +310,9 @@ export default function DashboardPage() {
                   offerLocked={isGenerating}
                   estimateSeconds={estimateSeconds}
                   language={cvLanguage}
-                  languageDetected={chosenLanguage === null}
+                  languageSource={chosenLanguage ? 'user' : detectedFrom}
                   onLanguageChange={setChosenLanguage}
+                  onLanguageAuto={() => setChosenLanguage(null)}
                 />
               </div>
             </div>

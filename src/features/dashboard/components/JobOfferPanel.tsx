@@ -3,7 +3,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import { Button } from '@/src/shared/ui/Button';
 import { Input } from '@/src/shared/ui/Input';
-import { LanguageSelector } from '@/src/features/editor/components/LanguageSelector';
+import { LanguageSelector } from '@/src/shared/ui/LanguageSelector';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 
 interface Props {
@@ -25,16 +25,24 @@ interface Props {
   estimateSeconds: number;
   /** The language the CV will be written in: the offer's detected, until the user picks one */
   language: SupportedLanguage;
-  /** True while the language is the one detected, not one the user picked */
-  languageDetected: boolean;
+  /** Where the language comes from: the offer, the CV while the offer is too short, or the user */
+  languageSource: 'offer' | 'cv' | 'user';
   onLanguageChange: (language: SupportedLanguage) => void;
+  /** Back to the detected language */
+  onLanguageAuto: () => void;
 }
+
+const LANGUAGE_SOURCE = {
+  offer: "Détectée d'après l'offre",
+  cv: "Détectée d'après votre CV",
+  user: 'Choisie par vous',
+} as const;
 
 /** Step 2 of the dashboard: the offer, and the button that tailors the CV to it. Extracted from DashboardPage, over its size limit. */
 export function JobOfferPanel({
   jobUrl, onJobUrlChange, onUrlCrawl, isCrawling, jobDropzone, isExtractingJob,
   jobDescription, onJobDescriptionChange, hasBaseCV, onOptimize, busyLabel, offerLocked, estimateSeconds,
-  language, languageDetected, onLanguageChange,
+  language, languageSource, onLanguageChange, onLanguageAuto,
 }: Props) {
   const { getRootProps, getInputProps, isDragActive } = jobDropzone;
   return (
@@ -97,9 +105,12 @@ export function JobOfferPanel({
         <div className="mt-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           {/* Chosen before the one generation: the editor never writes the CV again */}
           <div className="flex flex-col gap-1">
-            <LanguageSelector value={language} onChange={onLanguageChange} disabled={offerLocked} label="Langue du CV" />
-            <span className="text-[11px] text-gray-500">
-              {languageDetected ? "Détectée d'après l'offre" : 'Choisie par vous'}
+            <LanguageSelector value={language} onChange={onLanguageChange} disabled={offerLocked} label="Langue du CV" describedBy="cv-language-source" />
+            <span className="flex items-center gap-2 text-[11px] text-gray-500">
+              <span id="cv-language-source">{LANGUAGE_SOURCE[languageSource]}</span>
+              {languageSource === 'user' && (
+                <Button variant="ghost" size="sm" mono={false} disabled={offerLocked} onClick={onLanguageAuto}>Auto</Button>
+              )}
             </span>
           </div>
           <div className="flex flex-col items-end gap-1">

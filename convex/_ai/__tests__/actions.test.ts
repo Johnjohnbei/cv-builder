@@ -219,6 +219,13 @@ describe("tailorCV", () => {
     expect(result.requirements.map(r => r.id)).toEqual(["figma"]);
     expect(result.report.score).toBe(100);
   });
+
+  // Chosen on the dashboard: the CV comes back written, and labelled, in it
+  it("returns the CV in the language the user chose, whatever the offer's", async () => {
+    mocks.aiAnswer = { cv: { ...BASE, personal_info: { name: "Alex", email: "alex@example.com" } }, evidence: [] };
+    const result = await run({ language: "en" });
+    expect(result.cv.detectedLanguage).toBe("en");
+  });
 });
 
 describe("translateCV", () => {

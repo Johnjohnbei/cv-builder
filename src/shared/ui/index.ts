@@ -13,3 +13,4 @@ export { Logo, CalibreSymbol } from './Logo';
 export { ScoreGauge } from './ScoreGauge';
 export { ScoreSummary, GAP_TITLE } from './ScoreSummary';
 export { Dialog } from './Dialog';
+export { LanguageSelector } from './LanguageSelector';

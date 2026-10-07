@@ -3,7 +3,7 @@ import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CVData } from '@/src/shared/types';
-import { detectJobDescriptionLanguage, detectTextLanguage } from '@/src/lib/language-detection';
+import { detectTextLanguage, getCVLanguage } from '@/src/lib/language-detection';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { stripAccents } from '@/src/shared/lib/text';
@@ -55,8 +55,8 @@ export interface UseCoverLetterResult {
 // ─── Pure helpers (exported for tests) ───
 
 /**
- * The language the letter is written in. It follows the offer and can differ
- * from the CV's: an English letter for a French CV used to be exported with
+ * The language a letter is written in, read from its text: the export's labels
+ * follow it. An English letter for a French CV used to be exported with
  * "Objet :" and "Paris, le 15 septembre 2026".
  */
 export function getLetterLanguage(letter: CoverLetterData): 'fr' | 'en' {
@@ -334,7 +334,8 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
     }
     setIsGenerating(true);
     try {
-      const language = detectJobDescriptionLanguage(localJobDescription);
+      // The CV's language, chosen before the generation (arbitrage of 2026-10-07): one application, one language
+      const language = getCVLanguage(cvData);
       const result = await generateAction({
         cvData, jobDescription: localJobDescription,
         companyName: companyName || undefined,

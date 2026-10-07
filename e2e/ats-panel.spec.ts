@@ -318,7 +318,7 @@ test.describe('Langue : traduction de secours', () => {
       jd: MOCK_JOB_DESCRIPTION,
       requirementLabels: ['Figma', 'Kubernetes', 'Terraform'],
     });
-    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await page.getByRole('button', { name: 'English', exact: true }).click();
     await page.getByRole('button', { name: 'Traduire le contenu en anglais' }).click();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').detectedLanguage)).toBe('en');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
@@ -349,7 +349,7 @@ test.describe('Langue : un choix pour les deux langues', () => {
     await page.getByRole('tab', { name: 'Contenu' }).click();
     await page.getByRole('button', { name: /Résumé professionnel/ }).click();
     await page.getByLabel('Version du résumé').selectOption('original');
-    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await page.getByRole('button', { name: 'English', exact: true }).click();
     await expect(page.locator('[data-cv-section="summary"]').first()).toContainText('My own summary, written by hand.');
   });
 });
