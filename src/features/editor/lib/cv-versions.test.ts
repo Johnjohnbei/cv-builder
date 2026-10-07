@@ -29,6 +29,7 @@ describe('withVersions', () => {
       title: { adapted: 'Product Designer', original: 'Designer produit' },
     });
     expect(cv.experience[0].versions).toEqual({
+      key: 0,
       adapted: { intro: 'Équipe paiement.', description: ['Conçu les maquettes Figma', 'Développé en Node.js'] },
       original: { intro: 'Équipe paiement.', description: ['Conçu les maquettes'] },
     });
@@ -111,6 +112,24 @@ describe('withVersionChosen', () => {
     const out = withVersionChosen(moved, { experience: 1 }, 'original');
     expect(out.experience[1].description).toEqual(['Conçu les maquettes']);
     expect(out._translations?.en?.experience[0].description).toEqual(['Designed the mockups']);
+  });
+
+  // Two roles at one employer from one date: only the one picked follows
+  it('follows the role picked only, by its key, two roles alike or its employer edited', () => {
+    const twins: CVData = {
+      ...cv,
+      experience: [{ ...cv.experience[0], company: 'ACME (corrigé)' }, { ...cv.experience[0], versions: { ...cv.experience[0].versions!, key: 7 } }],
+      _translations: { en: { ...cv._translations!.en!, experience: [en.experience[0], { ...en.experience[0], versions: { ...en.experience[0].versions!, key: 7 } }] } },
+    };
+    const out = withVersionChosen(twins, { experience: 0 }, 'original');
+    expect(out._translations?.en?.experience.map(exp => exp.description)).toEqual([['Designed the mockups'], ['Designed Figma mockups', 'Built in Node.js']]);
+  });
+
+  it('leaves a block the other language shows typed as it is', () => {
+    const typedEn = { ...en.experience[0], description: ['My own bullet'] };
+    const withTyped: CVData = { ...cv, _translations: { en: { ...cv._translations!.en!, experience: [typedEn, en.experience[1]] } } };
+    const out = withVersionChosen(withTyped, { experience: 0 }, 'original');
+    expect(out._translations?.en?.experience[0].description).toEqual(['My own bullet']);
   });
 
   it('keeps a typed version to its own language', () => {

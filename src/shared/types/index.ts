@@ -89,8 +89,12 @@ export interface Experience {
   companyStage?: string;
   /** Company business model deduced or set by user (B2C, B2B, SaaS, Marketplace, etc.) */
   companyBusinessModel?: string;
-  /** Intro and bullets as adapted and as imported, when a generation wrote them */
-  versions?: { adapted: ExperienceText; original: ExperienceText; edited?: ExperienceText };
+  /**
+   * Intro and bullets as adapted and as imported. `key` is the role's place at
+   * the generation, the same in both languages: it finds the role again in the
+   * other language, moved or edited since.
+   */
+  versions?: { key: number; adapted: ExperienceText; original: ExperienceText; edited?: ExperienceText };
 }
 
 export interface Education {

@@ -38,7 +38,7 @@ export function withVersions(cv: CVData, original: CVData): CVData {
     experience: cv.experience.map((exp, i) => {
       const source = original.experience[i];
       if (!source || sameTexts(textsOf(exp), textsOf(source))) return exp;
-      return { ...exp, versions: { adapted: textsOf(exp), original: textsOf(source) } };
+      return { ...exp, versions: { key: i, adapted: textsOf(exp), original: textsOf(source) } };
     }),
   };
 }
@@ -83,26 +83,32 @@ export function withExperienceVersion(exp: Experience, version: Version): Experi
 /** A block of the CV that has versions */
 export type VersionedBlock = { field: 'summary' | 'title' } | { experience: number };
 
-/** The same role in another language: its employer and start date are the source's in both (withSourceContacts) */
-const sameRole = (a: Experience, b: Experience) => a.company === b.company && a.start_date === b.start_date;
-
 /**
  * The CV with `block` in the version chosen, in every language it holds
  * (arbitrage of 2026-10-07): the cached language shows the same choice when
- * the user switches to it. What the user typed is a text of one language: a
- * typed version is picked in that language only.
+ * the user switches to it, a role found there by its versions' key. What the
+ * user typed is a text of one language: a typed version is picked in that
+ * language only, and a block the other language shows typed stays as it is.
  */
 export function withVersionChosen(cv: CVData, block: VersionedBlock, version: Version): CVData {
-  const pick = <T extends { personal_info: PersonalInfo; experience: Experience[] }>(content: T, role?: Experience): T => {
-    if ('field' in block) return { ...content, personal_info: withPersonalVersion(content.personal_info, block.field, version) };
+  const key = 'experience' in block ? cv.experience[block.experience]?.versions?.key : undefined;
+  const chosen = 'field' in block
+    ? { ...cv, personal_info: withPersonalVersion(cv.personal_info, block.field, version) }
+    : { ...cv, experience: cv.experience.map((exp, i) => (i === block.experience ? withExperienceVersion(exp, version) : exp)) };
+  if (version === 'edited' || !cv._translations) return chosen;
+  // The other language: the same block, unless it shows a text the user typed there
+  const follow = <T extends { personal_info: PersonalInfo; experience: Experience[] }>(content: T): T => {
+    if ('field' in block) {
+      const versions = content.personal_info.versions?.[block.field];
+      if (!versions || versionOf(content.personal_info[block.field], versions) === 'edited') return content;
+      return { ...content, personal_info: withPersonalVersion(content.personal_info, block.field, version) };
+    }
+    if (key === undefined) return content;
     return {
       ...content,
-      experience: content.experience.map((exp, i) => ((role ? sameRole(exp, role) : i === block.experience) ? withExperienceVersion(exp, version) : exp)),
+      experience: content.experience.map(exp => (exp.versions?.key === key && experienceVersionOf(exp) !== 'edited' ? withExperienceVersion(exp, version) : exp)),
     };
   };
-  const role = 'experience' in block ? cv.experience[block.experience] : undefined;
-  const chosen = pick(cv);
-  if (version === 'edited' || !cv._translations) return chosen;
-  const cache = Object.fromEntries(Object.entries(cv._translations).map(([lang, content]) => [lang, content && pick(content, role)]));
+  const cache = Object.fromEntries(Object.entries(cv._translations).map(([lang, content]) => [lang, content && follow(content)]));
   return { ...chosen, _translations: cache };
 }

@@ -11,7 +11,7 @@ import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetectio
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
 import { companyMetaOf } from "./_ai/companyMeta";
-import { normalizeCVData, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
+import { normalizeCVData, normalizeTitle, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 import { EXTRACTION_DEADLINE_MS, extractRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
 import { assertBoundedPrompt, assertMaxLength, cvArgument, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS } from "./_ai/inputLimits";
@@ -27,7 +27,12 @@ export const extractCVDataFromPDF = action({
     assertMaxLength(args.pdfText, MAX_DOCUMENT_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     const prompt = buildExtractPrompt({ pdfText: args.pdfText });
-    return await chatJSONThen(prompt, normalizeCVData);
+    // A headline read from a PDF ("Designer | UX | Growth…") is cut to its first part: only at import,
+    // a title the user or the generation wrote afterwards is theirs, whole, in every language
+    return await chatJSONThen(prompt, (raw) => {
+      const cv = normalizeCVData(raw);
+      return { ...cv, personal_info: { ...cv.personal_info, title: normalizeTitle(cv.personal_info.title) } };
+    });
   },
 });
 
@@ -194,13 +199,7 @@ export const translateCV = action({
     const source = readSourceCV(cv);
     // An experience dropped or added would take another one's employer and dates: thrown here, the answer is retried
     const translated = await chatJSONThen(prompt, (raw) => {
-      const normalized = normalizeCVData(raw);
-      // A title is cut at 50 characters to read a LinkedIn headline at import;
-      // a translation of the user's title keeps all of it, as the source does
-      const rawTitle = (raw as { personal_info?: { title?: unknown } } | null)?.personal_info?.title;
-      const answer = typeof rawTitle === "string" && rawTitle.trim()
-        ? { ...normalized, personal_info: { ...normalized.personal_info, title: rawTitle.trim() } }
-        : normalized;
+      const answer = normalizeCVData(raw);
       if (answer.experience.length !== source.experience.length) {
         throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
       }

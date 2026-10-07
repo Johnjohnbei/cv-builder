@@ -269,7 +269,8 @@ describe("normalizeCVData (top-level)", () => {
 
   it("normalizes a dirty fixture", () => {
     const result = normalizeCVData(cvDirty);
-    expect(result.personal_info.title).toBe("Very Long Title With Many Words");
+    // A long title is cut at import only (extractCVDataFromPDF): here it is the user's, whole
+    expect(result.personal_info.title).toMatch(/^Very Long Title With Many Words \|/);
     // experience[0] end_date was "présent" -> coerced to current=true, end_date=""
     expect(result.experience[0].current).toBe(true);
     expect(result.experience[0].end_date).toBe("");

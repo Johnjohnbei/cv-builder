@@ -20,9 +20,9 @@ const CV: CVData = {
   experience: [
     {
       company: 'Acme', position: 'Designer', start_date: '2020', current: true, ...ACME,
-      versions: { adapted: ACME, original: { intro: 'Équipe paiement.', description: ['Conçu les maquettes'] } },
+      versions: { key: 0, adapted: ACME, original: { intro: 'Équipe paiement.', description: ['Conçu les maquettes'] } },
     },
-    { company: 'Beta', position: 'UI', start_date: '2018', current: false, ...BETA, versions: { adapted: BETA, original: { description: ['Dessiné les écrans'] } } },
+    { company: 'Beta', position: 'UI', start_date: '2018', current: false, ...BETA, versions: { key: 1, adapted: BETA, original: { description: ['Dessiné les écrans'] } } },
   ],
   education: [], languages: [],
   skills: [{ category: 'tools', items: ['Figma', 'Node.js'] }, { category: 'other', items: ['Node.js'] }],

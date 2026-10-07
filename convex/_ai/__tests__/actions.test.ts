@@ -23,7 +23,7 @@ vi.mock("../chat", async (importOriginal) => ({
 }));
 
 import {
-  extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter, tailorCV, translateCV,
+  extractCVDataFromPDF, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter, tailorCV, translateCV,
 } from "../../ai";
 
 const handlerOf = <A, R>(action: unknown) => (action as { _handler: (ctx: unknown, args: A) => Promise<R> })._handler;
@@ -114,6 +114,15 @@ describe("extractJobDescriptionFromURL: Jina first, then the page itself", () =>
 
     await expect(run("https://jobs.example/offre")).rejects.toMatchObject({ data: { code: "URL_EXTRACT_FAILED" } });
     expect(mocks.chatText).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractCVDataFromPDF", () => {
+  // A PDF headline is cut to its first part at import, and only there
+  it("cuts a long headline read from a PDF to its first part", async () => {
+    mocks.aiAnswer = { personal_info: { name: "Alex", email: "a@b.c", title: "Product Designer | UX Research | Design Systems | B2B SaaS" }, experience: [], education: [], skills: [], languages: [] };
+    const result = await handlerOf<Record<string, unknown>, { personal_info: { title?: string } }>(extractCVDataFromPDF)({}, { pdfText: "CV" });
+    expect(result.personal_info.title).toBe("Product Designer");
   });
 });
 

@@ -290,7 +290,7 @@ export function normalizeCVData(raw: unknown): CVData {
       email: typeof data.personal_info.email === "string" ? data.personal_info.email : "",
       phone: data.personal_info.phone,
       location: data.personal_info.location,
-      title: normalizeTitle(data.personal_info.title),
+      title: data.personal_info.title,
       summary: data.personal_info.summary,
       linkedin: (data.personal_info as any).linkedin,
       github: (data.personal_info as any).github,
