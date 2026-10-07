@@ -1,4 +1,4 @@
-import type { CVData, DismissedRequirement, JobRequirement } from '@/src/shared/types';
+import { REQUIREMENT_KINDS, type CVData, type DismissedRequirement, type JobRequirement } from '@/src/shared/types';
 import { prepareText, stripInlineMarkdown } from '@/src/shared/lib/text';
 import { isWrittenFreely, writesRequirement } from './keyword-analysis';
 
@@ -10,11 +10,13 @@ import { isWrittenFreely, writesRequirement } from './keyword-analysis';
 
 /**
  * The requirements the CV says the user lacks. An entry of another shape (a
- * bare id, written by a build that never shipped) is skipped, never read.
+ * bare id, written by a build that never shipped, or an unknown kind) is
+ * skipped, never read, and never saved: Convex would refuse the whole save.
  */
 export const dismissedOf = (cv: CVData | null | undefined): DismissedRequirement[] =>
   (cv?.dismissedRequirements ?? []).filter((r): r is DismissedRequirement =>
-    typeof r === 'object' && r !== null && typeof r.id === 'string' && typeof r.label === 'string' && Array.isArray(r.variants));
+    typeof r === 'object' && r !== null && typeof r.id === 'string' && typeof r.label === 'string'
+    && Array.isArray(r.variants) && (REQUIREMENT_KINDS as readonly string[]).includes(r.kind));
 
 /** Ids of the requirements the CV says the user lacks */
 export const dismissedIdsOf = (cv: CVData | null | undefined): string[] => dismissedOf(cv).map(r => r.id);

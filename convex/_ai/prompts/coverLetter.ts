@@ -56,6 +56,7 @@ CONTRAINTES ABSOLUES — respecte-les toutes :
 6. Pas de formules d'ouverture convenues ("je me permets", "suite à votre offre", "c'est avec intérêt").
 7. Pas de formule de fermeture ampoulée. Une phrase sobre suffit.
 8. Le ton doit sonner comme quelqu'un qui sait ce qu'il vaut et parle directement, pas comme une IA qui coche des cases.
+9. N'affirme aucune compétence, aucun outil ni aucune expérience que le CV ne montre pas, même si l'offre les demande.
 
 Retourne un objet JSON avec :
 - subject: objet du mail, court et direct (sans "Candidature à")
@@ -94,6 +95,7 @@ ABSOLUTE CONSTRAINTS — respect them all:
 7. No conventional openings ("I am writing to apply", "I would like to express my interest", "It is with great interest").
 8. No flowery closing. One sober sentence is enough.
 9. The tone should sound like someone who knows their worth and speaks directly, not like an AI checking boxes.
+10. Never claim a skill, a tool or an experience the CV does not show, even when the job posting asks for it.
 
 Return a JSON object with:
 - subject: short, direct email subject in English (without "Application for")

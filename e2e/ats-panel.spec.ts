@@ -232,6 +232,19 @@ test.describe('ATS Panel : actions sur un écart', () => {
     await expect(preview(page).first()).toContainText('Figma');
   });
 
+  // Another offer on screen: the dismissal still takes its text out, and stays restorable
+  test("une exigence écartée que l'offre affichée ne demande pas reste listée, « Remettre » la rend", async ({ page }) => {
+    const sketch = { id: 'sketch-pro', label: 'Sketch', variants: [], kind: 'tool' };
+    await seedGuestSession(page, { cv: { ...MOCK_CV, dismissedRequirements: [sketch] }, jd: MOCK_JOB_DESCRIPTION, requirementLabels: LABELS });
+    await page.getByRole('tab', { name: 'ATS' }).click();
+    await expect(page.getByText('Écartées (1)')).toBeVisible({ timeout: 8_000 });
+    await expect.poll(async () => (await preview(page).allInnerTexts()).join(' ')).not.toContain('Sketch');
+
+    await page.getByRole('button', { name: 'Sketch : remettre' }).click();
+    await expect(page.getByText('Écartées (1)')).toHaveCount(0);
+    await expect(preview(page).first()).toContainText('Sketch');
+  });
+
   test("l'onglet Contenu ne propose plus aucune réécriture par l'IA", async ({ page }) => {
     await open(page);
     await page.getByRole('tab', { name: 'Contenu' }).click();
@@ -300,7 +313,8 @@ test.describe('Langue : traduction paresseuse', () => {
     await seedGuestSession(page, {
       cv: {
         ...MOCK_CV, _translations: undefined, dismissedRequirements: [figma],
-        personal_info: { ...MOCK_CV.personal_info, versions: { summary: { adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' } } },
+        // The user picked their imported summary: the English CV shows it too
+        personal_info: { ...MOCK_CV.personal_info, summary: 'Mon résumé importé, écrit pour mes candidatures.', versions: { summary: { adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' } } },
       },
       jd: MOCK_JOB_DESCRIPTION,
       requirementLabels: ['Figma', 'Kubernetes', 'Terraform'],
@@ -310,8 +324,9 @@ test.describe('Langue : traduction paresseuse', () => {
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').detectedLanguage)).toBe('en');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
     expect(saved.dismissedRequirements).toEqual([figma]);
-    // The imported texts were translated beside the CV: the English one offers both versions
-    expect(saved.personal_info.versions?.summary?.original).toBe('Mon résumé importé, écrit pour mes candidatures.');
-    expect(calls).toEqual({ answered: ['translateCV', 'translateCV'], forwarded: [] });
+    // Each version was translated on its own: the English CV offers both, and shows the one picked
+    expect(saved.personal_info.versions?.summary).toEqual({ adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' });
+    expect(saved.personal_info.summary).toBe('Mon résumé importé, écrit pour mes candidatures.');
+    expect(calls).toEqual({ answered: ['translateCV', 'translateCV', 'translateCV'], forwarded: [] });
   });
 });
