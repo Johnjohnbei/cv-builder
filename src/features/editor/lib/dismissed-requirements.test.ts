@@ -103,6 +103,18 @@ describe('withoutDismissed: the CV as it prints', () => {
     expect(withoutDismissed(stale)).toBe(stale);
   });
 
+  // Convex declares four fields of strings: an entry it would refuse never reaches a save
+  it('reads only entries Convex accepts, with their four fields', () => {
+    const mixed = {
+      ...CV,
+      dismissedRequirements: [
+        { id: 'figma', label: 'Figma', variants: [null], kind: 'tool' },
+        { id: 'node-js', label: 'Node.js', variants: [], kind: 'tool', importance: 'required', quote: 'Node.js' },
+      ],
+    } as unknown as CVData;
+    expect(dismissedOf(mixed)).toEqual([{ id: 'node-js', label: 'Node.js', variants: [], kind: 'tool' }]);
+  });
+
   // A kind that no longer exists is no skill: it takes nothing out
   it('takes nothing out for a kind it does not know', () => {
     const odd = { ...CV, dismissedRequirements: [{ id: 'node-js', label: 'Node.js', variants: [], kind: 'diploma' }] } as unknown as CVData;

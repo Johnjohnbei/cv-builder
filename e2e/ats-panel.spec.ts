@@ -298,10 +298,10 @@ test.describe('Contenu : version d\'une expérience', () => {
   });
 });
 
-// The translation the generation could not cache runs later: what the user dismissed stays out
-test.describe('Langue : traduction paresseuse', () => {
-  test('une traduction garde les exigences écartées et les deux versions', async ({ page }) => {
-    // The model reads a CV without versions nor dismissals: it answers without them
+// The translation the generation could not cache runs later, in one call
+// (arbitrage of 2026-10-07): what the user dismissed stays out, no version choice there
+test.describe('Langue : traduction de secours', () => {
+  test('une traduction garde les exigences écartées, en un seul appel', async ({ page }) => {
     const calls = await answerAIActions(page, {
       translateCV: (args) => {
         const { dismissedRequirements: _d, ...cv } = args.cvData;
@@ -313,8 +313,7 @@ test.describe('Langue : traduction paresseuse', () => {
     await seedGuestSession(page, {
       cv: {
         ...MOCK_CV, _translations: undefined, dismissedRequirements: [figma],
-        // The user picked their imported summary: the English CV shows it too
-        personal_info: { ...MOCK_CV.personal_info, summary: 'Mon résumé importé, écrit pour mes candidatures.', versions: { summary: { adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' } } },
+        personal_info: { ...MOCK_CV.personal_info, versions: { summary: { adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' } } },
       },
       jd: MOCK_JOB_DESCRIPTION,
       requirementLabels: ['Figma', 'Kubernetes', 'Terraform'],
@@ -324,9 +323,33 @@ test.describe('Langue : traduction paresseuse', () => {
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').detectedLanguage)).toBe('en');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
     expect(saved.dismissedRequirements).toEqual([figma]);
-    // Each version was translated on its own: the English CV offers both, and shows the one picked
-    expect(saved.personal_info.versions?.summary).toEqual({ adapted: summary, original: 'Mon résumé importé, écrit pour mes candidatures.' });
-    expect(saved.personal_info.summary).toBe('Mon résumé importé, écrit pour mes candidatures.');
-    expect(calls).toEqual({ answered: ['translateCV', 'translateCV', 'translateCV'], forwarded: [] });
+    expect(saved.personal_info.versions).toBeUndefined();
+    // The French versions are kept for the way back
+    expect(saved._translations.fr.personal_info.versions.summary.original).toBe('Mon résumé importé, écrit pour mes candidatures.');
+    expect(calls).toEqual({ answered: ['translateCV'], forwarded: [] });
+  });
+});
+
+// A version picked in one language shows in the other, no AI call
+test.describe('Langue : un choix pour les deux langues', () => {
+  guardAICalls();
+
+  test("mon résumé d'origine choisi en français s'affiche aussi en anglais", async ({ page }) => {
+    const adaptedFr = MOCK_CV.personal_info.summary;
+    const versionsFr = { summary: { adapted: adaptedFr, original: "Mon résumé d'origine, écrit à la main." } };
+    const versionsEn = { summary: { adapted: 'Senior UX designer, ten years in design systems.', original: 'My own summary, written by hand.' } };
+    await seedGuestSession(page, {
+      cv: {
+        ...MOCK_CV, detectedLanguage: 'fr',
+        personal_info: { ...MOCK_CV.personal_info, versions: versionsFr },
+        _translations: { en: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, summary: versionsEn.summary.adapted, versions: versionsEn } } },
+      },
+      jd: MOCK_JOB_DESCRIPTION,
+    });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: /Résumé professionnel/ }).click();
+    await page.getByLabel('Version du résumé').selectOption('original');
+    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await expect(page.locator('[data-cv-section="summary"]').first()).toContainText('My own summary, written by hand.');
   });
 });

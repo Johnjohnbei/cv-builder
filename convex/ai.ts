@@ -194,7 +194,13 @@ export const translateCV = action({
     const source = readSourceCV(cv);
     // An experience dropped or added would take another one's employer and dates: thrown here, the answer is retried
     const translated = await chatJSONThen(prompt, (raw) => {
-      const answer = normalizeCVData(raw);
+      const normalized = normalizeCVData(raw);
+      // A title is cut at 50 characters to read a LinkedIn headline at import;
+      // a translation of the user's title keeps all of it, as the source does
+      const rawTitle = (raw as { personal_info?: { title?: unknown } } | null)?.personal_info?.title;
+      const answer = typeof rawTitle === "string" && rawTitle.trim()
+        ? { ...normalized, personal_info: { ...normalized.personal_info, title: rawTitle.trim() } }
+        : normalized;
       if (answer.experience.length !== source.experience.length) {
         throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
       }

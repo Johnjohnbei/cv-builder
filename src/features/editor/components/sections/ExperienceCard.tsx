@@ -9,7 +9,7 @@ import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { Experience } from '../../../../shared/types';
 import { ExperienceBullets } from './ExperienceBullets';
 import { VersionSelect } from './VersionSelect';
-import { experienceVersionOf, withExperienceVersion } from '../../lib/cv-versions';
+import { experienceVersionOf, type Version } from '../../lib/cv-versions';
 
 interface Props {
   exp: Experience;
@@ -21,6 +21,8 @@ interface Props {
   updateExperience: (idx: number, change: (exp: Experience) => Experience) => void;
   moveExperience: (from: number, to: number) => void;
   onDelete: (idx: number) => void;
+  /** Picks this experience's version, in every language the CV holds */
+  onChooseVersion: (idx: number, version: Version) => void;
 }
 
 const BAND_PALETTE = {
@@ -32,7 +34,7 @@ const BAND_PALETTE = {
 const SELECT_CLASS = "text-[11px] font-mono text-gray-600 bg-gray-50/60 border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-300 focus:bg-white focus:text-gray-700 cursor-pointer";
 
 /** The editing card of one experience. Extracted from ExperienceSection, over its size limit. */
-export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExperience, moveExperience, onDelete }: Props) {
+export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExperience, moveExperience, onDelete, onChooseVersion }: Props) {
   const mode = exp.displayMode || 'normal';
   const currentMode = DISPLAY_MODES.find(m => m.value === mode)!;
 
@@ -166,7 +168,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               label="Version de l'intro et des puces"
               version={experienceVersionOf(exp) ?? 'adapted'}
               hasOwnVersion={exp.versions.edited !== undefined}
-              onChoose={(version) => updateExperience(idx, x => withExperienceVersion(x, version))}
+              onChoose={(version) => onChooseVersion(idx, version)}
             />
           )}
           {/* ─── Intro (short role description) ─── */}

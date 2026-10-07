@@ -251,6 +251,14 @@ describe("translateCV", () => {
     expect(result.personal_info.location).toBe("");
   });
 
+  // A long headline was cut in the translated language only
+  it("keeps a long title whole in the translation", async () => {
+    const title = "Product Designer | UX Research | Design Systems | B2B SaaS";
+    mocks.aiAnswer = { ...CV, personal_info: { ...CV.personal_info, title } };
+    const result = await handlerOf<Record<string, unknown>, { personal_info: Record<string, unknown> }>(translateCV)({}, { cvData: { ...CV, personal_info: { ...CV.personal_info, title } }, targetLanguage: "en" });
+    expect(result.personal_info.title).toBe(title);
+  });
+
   // Paired by place, every experience after a dropped one took its neighbour's employer and dates
   it("rejects a translation that drops an experience, so the call is retried", async () => {
     mocks.aiAnswer = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };

@@ -3,7 +3,7 @@ import { User, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Input } from '../../../../shared/ui/Input';
 import { downscaleImageToDataURI } from '../../../../shared/lib/image-resize';
 import type { CVData, PersonalInfo } from '../../../../shared/types';
-import { versionOf, withPersonalVersion } from '../../lib/cv-versions';
+import { versionOf, withVersionChosen } from '../../lib/cv-versions';
 import { VersionSelect } from './VersionSelect';
 
 interface Props {
@@ -49,7 +49,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
               label="Version du titre"
               version={versionOf(personalInfo.title, personalInfo.versions.title)}
               hasOwnVersion={personalInfo.versions.title.edited !== undefined}
-              onChoose={(version) => setCvData(prev => prev ? { ...prev, personal_info: withPersonalVersion(prev.personal_info, 'title', version) } : null)}
+              onChoose={(version) => setCvData(prev => prev && withVersionChosen(prev, { field: 'title' }, version))}
             />
           )}
           <div className="grid grid-cols-2 gap-3">

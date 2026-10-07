@@ -3,6 +3,7 @@ import { Briefcase, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { CVData, Experience } from '../../../../shared/types';
 import { ExperienceCard } from './ExperienceCard';
+import { withVersionChosen } from '../../lib/cv-versions';
 
 interface Props {
   experience: Experience[] | undefined;
@@ -65,6 +66,7 @@ export const ExperienceSection = memo(function ExperienceSection({
               score={experienceScores[idx]}
               weakBullets={weakBullets}
               updateExperience={updateExperience}
+              onChooseVersion={(i, version) => setCvData(prev => prev && withVersionChosen(prev, { experience: i }, version))}
               moveExperience={moveExperience}
               onDelete={deleteExperience}
             />

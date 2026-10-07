@@ -4,7 +4,6 @@ import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { contentSnapshot } from '@/src/lib/bilingual';
-import { adaptedTextsOf, hasVersions, importedTextsOf, typedTextsOf, withTranslatedVersions } from '../lib/cv-versions';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
@@ -119,23 +118,10 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
     // both directions so the next toggle is free.
     setIsRegenerating(true);
     try {
-      // Each version of the blocks is translated on its own, in the same action:
-      // the new language keeps every choice, the one shown and what the user
-      // typed. A failure there drops the choices, never the translation.
-      const versionsLost = (error: unknown) => {
-        console.warn('[useLanguageSwitch] versions not translated, the new language offers no choice there:', error);
-        return null;
-      };
-      const translate = (cv: CVData) => translateCVAction({ cvData: cv, targetLanguage: pendingLanguage, accessCode });
-      const withChoices = hasVersions(cvData);
-      const [translatedTyped, translatedImported, translatedAdapted] = await Promise.all([
-        translate(withChoices ? typedTextsOf(cvData) : cvData),
-        withChoices ? translate(importedTextsOf(cvData)).catch(versionsLost) : null,
-        withChoices ? translate(adaptedTextsOf(cvData)).catch(versionsLost) : null,
-      ]);
-      const translatedData = withChoices
-        ? withTranslatedVersions(cvData, translatedTyped, translatedImported, translatedAdapted)
-        : translatedTyped;
+      // One call, the CV as it shows (arbitrage of 2026-10-07): this path only
+      // runs when the generation's own translation failed, and the new language
+      // then offers no choice of version. The server reads no versions.
+      const translatedData = await translateCVAction({ cvData, targetLanguage: pendingLanguage, accessCode });
       const translatedSnapshot = contentSnapshot(translatedData);
       // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {

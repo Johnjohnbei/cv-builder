@@ -14,9 +14,13 @@ import { isWrittenFreely, writesRequirement } from './keyword-analysis';
  * skipped, never read, and never saved: Convex would refuse the whole save.
  */
 export const dismissedOf = (cv: CVData | null | undefined): DismissedRequirement[] =>
-  (cv?.dismissedRequirements ?? []).filter((r): r is DismissedRequirement =>
-    typeof r === 'object' && r !== null && typeof r.id === 'string' && typeof r.label === 'string'
-    && Array.isArray(r.variants) && (REQUIREMENT_KINDS as readonly string[]).includes(r.kind));
+  (cv?.dismissedRequirements ?? [])
+    .filter((r): r is DismissedRequirement =>
+      typeof r === 'object' && r !== null && typeof r.id === 'string' && typeof r.label === 'string'
+      && Array.isArray(r.variants) && r.variants.every(variant => typeof variant === 'string')
+      && (REQUIREMENT_KINDS as readonly string[]).includes(r.kind))
+    // The four fields Convex declares, no more: an extra one fails the whole save
+    .map(({ id, label, variants, kind }) => ({ id, label, variants, kind }));
 
 /** Ids of the requirements the CV says the user lacks */
 export const dismissedIdsOf = (cv: CVData | null | undefined): string[] => dismissedOf(cv).map(r => r.id);

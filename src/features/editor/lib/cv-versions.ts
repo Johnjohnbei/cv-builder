@@ -43,98 +43,6 @@ export function withVersions(cv: CVData, original: CVData): CVData {
   };
 }
 
-/** Whether a generation left two versions of any block of this CV */
-export const hasVersions = (cv: CVData) => Boolean(cv.personal_info.versions || cv.experience.some(exp => exp.versions));
-
-/** The CV in the adapted texts wherever it has them, to translate them with the rest */
-export function adaptedTextsOf(cv: CVData): CVData {
-  const versions = cv.personal_info.versions;
-  return {
-    ...cv,
-    personal_info: {
-      ...cv.personal_info,
-      summary: versions?.summary?.adapted ?? cv.personal_info.summary,
-      title: versions?.title?.adapted ?? cv.personal_info.title,
-    },
-    experience: cv.experience.map(exp => (exp.versions ? { ...exp, ...exp.versions.adapted } : exp)),
-  };
-}
-
-/**
- * The CV in the texts the user typed wherever it keeps one, shown or not, and
- * as it shows everywhere else: translated, it gives every typed version and
- * every block without versions in the new language.
- */
-export function typedTextsOf(cv: CVData): CVData {
-  const versions = cv.personal_info.versions;
-  return {
-    ...cv,
-    personal_info: {
-      ...cv.personal_info,
-      summary: versions?.summary && versionOf(cv.personal_info.summary, versions.summary) !== 'edited' && versions.summary.edited !== undefined
-        ? versions.summary.edited : cv.personal_info.summary,
-      title: versions?.title && versionOf(cv.personal_info.title, versions.title) !== 'edited' && versions.title.edited !== undefined
-        ? versions.title.edited : cv.personal_info.title,
-    },
-    experience: cv.experience.map(exp => (exp.versions?.edited && experienceVersionOf(exp) !== 'edited' ? { ...exp, ...exp.versions.edited } : exp)),
-  };
-}
-
-/**
- * The versions of `source` rebuilt in another language, block by block, after
- * three translations: `typed` (typedTextsOf: the typed versions and every
- * block without versions), `imported` (importedTextsOf) and `adapted`
- * (adaptedTextsOf). Each block shows the translation of the very version it
- * showed, so the version read back is the one the user picked; only a block
- * that had versions gets them. Without the imported or the adapted
- * translation, the choice is dropped, never the text: `typed` is kept.
- */
-export function withTranslatedVersions(source: CVData, typed: CVData, imported: CVData | null, adapted: CVData | null): CVData {
-  if (!imported || !adapted) return { ...typed, personal_info: { ...typed.personal_info, versions: undefined }, experience: typed.experience.map(exp => ({ ...exp, versions: undefined })) };
-  const personal = (field: 'summary' | 'title') => {
-    const before = source.personal_info.versions?.[field];
-    if (!before) return { text: typed.personal_info[field], versions: undefined };
-    const keepsTyped = versionOf(source.personal_info[field], before) === 'edited' || before.edited !== undefined;
-    // A field the translation left out was empty: an empty adapted summary still pairs
-    const versions = { adapted: adapted.personal_info[field] ?? '', original: imported.personal_info[field] ?? '', ...(keepsTyped && { edited: typed.personal_info[field] ?? '' }) };
-    const shown = versionOf(source.personal_info[field], before);
-    return { text: shown === 'edited' ? versions.edited : versions[shown], versions };
-  };
-  const summary = personal('summary');
-  const title = personal('title');
-  return {
-    ...typed,
-    personal_info: {
-      ...typed.personal_info,
-      summary: summary.text,
-      title: title.text,
-      versions: summary.versions || title.versions ? { summary: summary.versions, title: title.versions } : undefined,
-    },
-    experience: typed.experience.map((exp, i) => {
-      const before = source.experience[i];
-      const shown = before ? experienceVersionOf(before) : null;
-      if (!before?.versions || !shown) return { ...exp, versions: undefined };
-      const keepsTyped = shown === 'edited' || before.versions.edited !== undefined;
-      const versions = { adapted: textsOf(adapted.experience[i]), original: textsOf(imported.experience[i]), ...(keepsTyped && { edited: textsOf(exp) }) };
-      return { ...exp, ...(shown === 'edited' ? versions.edited : versions[shown]), versions };
-    }),
-  };
-}
-
-/** The CV in the imported texts wherever it has them, to translate them with the rest */
-export function importedTextsOf(cv: CVData): CVData {
-  const versions = cv.personal_info.versions;
-  return {
-    ...cv,
-    personal_info: {
-      ...cv.personal_info,
-      summary: versions?.summary?.original ?? cv.personal_info.summary,
-      title: versions?.title?.original ?? cv.personal_info.title,
-    },
-    experience: cv.experience.map(exp => (exp.versions ? { ...exp, ...exp.versions.original } : exp)),
-  };
-}
-
 /** The version a text shows: a text matching neither imported nor adapted is the user's own */
 export function versionOf(current: string | undefined, versions: TextVersions): Version {
   const text = (current ?? '').trim();
@@ -170,4 +78,31 @@ export function withExperienceVersion(exp: Experience, version: Version): Experi
   const kept = typed === undefined ? versions : { ...versions, edited: typed };
   const texts = version === 'edited' ? kept.edited ?? textsOf(exp) : kept[version];
   return { ...exp, ...texts, versions: kept };
+}
+
+/** A block of the CV that has versions */
+export type VersionedBlock = { field: 'summary' | 'title' } | { experience: number };
+
+/** The same role in another language: its employer and start date are the source's in both (withSourceContacts) */
+const sameRole = (a: Experience, b: Experience) => a.company === b.company && a.start_date === b.start_date;
+
+/**
+ * The CV with `block` in the version chosen, in every language it holds
+ * (arbitrage of 2026-10-07): the cached language shows the same choice when
+ * the user switches to it. What the user typed is a text of one language: a
+ * typed version is picked in that language only.
+ */
+export function withVersionChosen(cv: CVData, block: VersionedBlock, version: Version): CVData {
+  const pick = <T extends { personal_info: PersonalInfo; experience: Experience[] }>(content: T, role?: Experience): T => {
+    if ('field' in block) return { ...content, personal_info: withPersonalVersion(content.personal_info, block.field, version) };
+    return {
+      ...content,
+      experience: content.experience.map((exp, i) => ((role ? sameRole(exp, role) : i === block.experience) ? withExperienceVersion(exp, version) : exp)),
+    };
+  };
+  const role = 'experience' in block ? cv.experience[block.experience] : undefined;
+  const chosen = pick(cv);
+  if (version === 'edited' || !cv._translations) return chosen;
+  const cache = Object.fromEntries(Object.entries(cv._translations).map(([lang, content]) => [lang, content && pick(content, role)]));
+  return { ...chosen, _translations: cache };
 }

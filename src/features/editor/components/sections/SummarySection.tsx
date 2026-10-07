@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { AlignLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { Textarea } from '../../../../shared/ui/Textarea';
 import type { CVData, TextVersions } from '../../../../shared/types';
-import { versionOf, withPersonalVersion } from '../../lib/cv-versions';
+import { versionOf, withVersionChosen } from '../../lib/cv-versions';
 import { VersionSelect } from './VersionSelect';
 
 interface Props {
@@ -37,7 +37,7 @@ export const SummarySection = memo(function SummarySection({
               label="Version du résumé"
               version={versionOf(summary, versions)}
               hasOwnVersion={versions.edited !== undefined}
-              onChoose={(version) => setCvData(prev => prev ? { ...prev, personal_info: withPersonalVersion(prev.personal_info, 'summary', version) } : null)}
+              onChoose={(version) => setCvData(prev => prev && withVersionChosen(prev, { field: 'summary' }, version))}
             />
           )}
           <Textarea
