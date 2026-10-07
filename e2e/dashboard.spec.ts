@@ -139,6 +139,19 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     expect(calls.forwarded).toEqual([]);
   });
 
+  // No offer yet: the CV's own language, read from its text
+  test("sans offre, la langue est celle du CV importé", async ({ page }) => {
+    const englishCv = {
+      ...MOCK_CV,
+      detectedLanguage: undefined,
+      personal_info: { ...MOCK_CV.personal_info, summary: 'Senior UX designer with ten years of experience in design systems and user research for B2B SaaS products.' },
+      experience: MOCK_CV.experience.map(exp => ({ ...exp, intro: 'Led the design team and the product roadmap.', description: ['Designed the onboarding flow for the mobile app', 'Shipped the design system with the engineering team'] })),
+    };
+    await openGuestDashboard(page, { baseCv: englishCv });
+    await expect(page.getByText("Détectée d'après votre CV")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'English', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   // An imported offer is another offer: its language is detected again; "Auto" goes back too
   test("une offre importée relance la détection de la langue, « Auto » aussi", async ({ page }) => {
     const ENGLISH_OFFER = 'Senior Product Designer. You will lead our design system and work with engineers on a B2B SaaS product for teams.';
@@ -147,7 +160,7 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     await page.evaluate(() => localStorage.setItem('calibre_access_code', 'CODE-E2E'));
     await page.getByPlaceholder("Collez l'offre d'emploi ici...").fill(MOCK_JOB_DESCRIPTION);
     await page.getByRole('button', { name: 'English', exact: true }).click();
-    await page.getByRole('button', { name: 'Auto' }).click();
+    await page.getByRole('button', { name: 'Revenir à la langue détectée' }).click();
     await expect(page.getByText("Détectée d'après l'offre")).toBeVisible();
     await expect(page.getByRole('button', { name: 'Français', exact: true })).toHaveAttribute('aria-pressed', 'true');
 

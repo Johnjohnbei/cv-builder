@@ -25,8 +25,8 @@ interface Props {
   estimateSeconds: number;
   /** The language the CV will be written in: the offer's detected, until the user picks one */
   language: SupportedLanguage;
-  /** Where the language comes from: the offer, the CV while the offer is too short, or the user */
-  languageSource: 'offer' | 'cv' | 'user';
+  /** Where the language comes from: the offer, the CV while the offer is too short, the user, or nothing yet */
+  languageSource: 'offer' | 'cv' | 'user' | 'default';
   onLanguageChange: (language: SupportedLanguage) => void;
   /** Back to the detected language */
   onLanguageAuto: () => void;
@@ -36,6 +36,7 @@ const LANGUAGE_SOURCE = {
   offer: "Détectée d'après l'offre",
   cv: "Détectée d'après votre CV",
   user: 'Choisie par vous',
+  default: 'Par défaut, en attendant votre CV ou l\'offre',
 } as const;
 
 /** Step 2 of the dashboard: the offer, and the button that tailors the CV to it. Extracted from DashboardPage, over its size limit. */
@@ -109,7 +110,7 @@ export function JobOfferPanel({
             <span className="flex items-center gap-2 text-[11px] text-gray-500">
               <span id="cv-language-source">{LANGUAGE_SOURCE[languageSource]}</span>
               {languageSource === 'user' && (
-                <Button variant="ghost" size="sm" mono={false} disabled={offerLocked} onClick={onLanguageAuto}>Auto</Button>
+                <Button variant="ghost" size="sm" mono={false} disabled={offerLocked} onClick={onLanguageAuto} aria-label="Revenir à la langue détectée">Auto</Button>
               )}
             </span>
           </div>

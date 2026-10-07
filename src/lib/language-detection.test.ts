@@ -115,8 +115,13 @@ describe('getCVLanguage', () => {
     expect(getCVLanguage(cv)).toBe('en');
   });
 
-  it('returns "fr" when both undefined', () => {
+  it('returns "fr" for a CV with no hint and no text', () => {
     expect(getCVLanguage(EMPTY_CV)).toBe('fr');
+  });
+
+  // An old saved CV or a blank one carries no hint: its text decides, never an assumed French
+  it('reads the language of a CV with no hint from its text', () => {
+    expect(getCVLanguage({ ...ENGLISH_CV, detectedLanguage: undefined, languageOverride: undefined })).toBe('en');
   });
 
   it('override takes precedence over detection', () => {

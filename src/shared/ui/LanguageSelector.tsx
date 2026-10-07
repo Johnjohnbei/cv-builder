@@ -20,8 +20,8 @@ const LANGUAGES = [
 export function LanguageSelector({ value, onChange, disabled, label = 'Lang:', describedBy }: Props) {
   const labelId = useId();
   return (
-    <div className="flex items-center gap-2" role="group" aria-labelledby={labelId} aria-describedby={describedBy}>
-      <span id={labelId} className="text-[11px] stitch-mono text-gray-600 uppercase">{label}</span>
+    <div className="flex items-center gap-2" role="group" aria-labelledby={labelId}>
+      <span id={labelId} className="text-[11px] stitch-mono text-gray-600">{label}</span>
       <div className="flex items-center gap-1">
         {LANGUAGES.map(({ value: lang, short, name }) => (
           <button
@@ -31,6 +31,8 @@ export function LanguageSelector({ value, onChange, disabled, label = 'Lang:', d
             disabled={disabled}
             aria-pressed={value === lang}
             aria-label={name}
+            // On each button: a screen reader reads a group's description on no child
+            aria-describedby={describedBy}
             lang={lang}
             className={cn(
               'text-[11px] stitch-mono font-bold px-1.5 py-0.5 rounded transition-colors disabled:opacity-40',

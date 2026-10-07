@@ -7,7 +7,7 @@ import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { coverLetterOf } from "./_ai/coverLetter";
-import { detectTextLanguage } from "./_ai/languageDetection";
+import { detectCVLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
 import { companyMetaOf } from "./_ai/companyMeta";
@@ -143,11 +143,11 @@ export const generateCoverLetter = action({
     // What the prompt reads is bounded, not the cache and the versions that travel with it
     assertBoundedPrompt(cvArgument(args.cvData).cv);
     await verifyAccessCode(ctx, args.accessCode);
-    // Server-side fallback detection: trust the client's hint when provided,
-    // otherwise detect from the job description ourselves so the prompt always
-    // matches the JD language even if the caller forgot to pass `language`.
-    const language = args.language ?? detectTextLanguage(args.jobDescription);
-    console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'}, server-detected=${detectTextLanguage(args.jobDescription)})`);
+    // The letter is in the CV's language (arbitrage of 2026-10-07): the client
+    // says it; a caller that does not gets the CV's hints, then its text read
+    const hints = cvArgument(args.cvData);
+    const language = args.language ?? hints.languageOverride ?? hints.detectedLanguage ?? detectCVLanguage(readSourceCV(hints.cv));
+    console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'})`);
     // Same as tailorCV: the prompt reads the content only (the language is decided above)
     return await coverLetterOf({
       cvData: cvArgument(args.cvData).cv,

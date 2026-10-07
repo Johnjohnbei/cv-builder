@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   aiAnswer: undefined as unknown,
   chatJSONThen: vi.fn(),
   chatText: vi.fn(),
+  /** The letter's call: its prompt is what the letter tests read */
+  chatJSONSchema: vi.fn(),
 }));
 
 vi.mock("../auth", () => ({ verifyAccessCode: mocks.verifyAccessCode }));
@@ -20,6 +22,7 @@ vi.mock("../chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../chat")>()),
   chatJSONThen: mocks.chatJSONThen,
   chatText: mocks.chatText,
+  chatJSONSchema: mocks.chatJSONSchema,
 }));
 
 import {
@@ -283,6 +286,16 @@ describe("translateCV", () => {
   });
 });
 
+describe("generateCoverLetter: language", () => {
+  // One application, one language: a caller that does not say it gets the CV's, never the offer's
+  it("writes in the CV's language when the caller gives none", async () => {
+    mocks.chatJSONSchema.mockReset().mockResolvedValue({ subject: "s", greeting: "g", body: "b", closing: "c" });
+    const cvData = { personal_info: { name: "Alex", email: "a@b.c" }, experience: [], education: [], skills: [], languages: [], detectedLanguage: "en" };
+    await handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData, jobDescription: "Nous recherchons un designer produit pour notre équipe à Paris, en CDI." });
+    expect(String(mocks.chatJSONSchema.mock.calls[0][0])).toContain("ENGLISH OUTPUT ONLY");
+  });
+});
+
 describe("the editor's own state in a prompt", () => {
   // A dismissed requirement's adapted text, read from a version, came back in the letter
   it("sends neither the versions nor the dismissed requirements to the letter or the translation", async () => {
@@ -291,12 +304,14 @@ describe("the editor's own state in a prompt", () => {
       experience: [{ company: "Acme", position: "Designer", start_date: "2020", current: true, description: ["Maquettes"], versions: { adapted: { description: ["Déployé Kubernetes"] }, original: { description: ["Maquettes"] } } }],
       education: [], skills: [], languages: [], dismissedRequirements: ["kubernetes"],
     };
-    mocks.chatText.mockResolvedValue("Lettre.");
-    await handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData, jobDescription: "Designer produit, Kubernetes requis." }).catch(() => undefined);
+    mocks.chatJSONSchema.mockReset().mockResolvedValue({ subject: "s", greeting: "g", body: "b", closing: "c" });
+    await handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData, jobDescription: "Designer produit, Kubernetes requis." });
     mocks.aiAnswer = { ...cvData, versions: undefined };
     await handlerOf<Record<string, unknown>, unknown>(translateCV)({}, { cvData, targetLanguage: "en" }).catch(() => undefined);
-    const prompts = [...mocks.chatText.mock.calls, ...mocks.chatJSONThen.mock.calls].map(call => String(call[0]));
-    expect(prompts.length).toBeGreaterThan(0);
+    const prompts = [...mocks.chatJSONSchema.mock.calls, ...mocks.chatJSONThen.mock.calls].map(call => String(call[0]));
+    // The letter's prompt and the translation's, both read
+    expect(mocks.chatJSONSchema).toHaveBeenCalledTimes(1);
+    expect(prompts.length).toBe(2);
     for (const prompt of prompts) {
       expect(prompt).not.toContain("Expert Kubernetes");
       expect(prompt).not.toContain("Déployé Kubernetes");

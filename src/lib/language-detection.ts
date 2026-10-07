@@ -116,8 +116,10 @@ export function detectCVLanguage(cvData: CVData): SupportedLanguage {
 
 /**
  * Returns the effective language for downstream systems.
- * Priority: languageOverride > detectedLanguage > 'fr' (default).
+ * Priority: languageOverride > detectedLanguage > the CV's text (an old saved
+ * CV or a blank one carries no hint: assumed French, an English CV got a
+ * French letter and a French toggle).
  */
 export function getCVLanguage(cvData: CVData): SupportedLanguage {
-  return cvData.languageOverride ?? cvData.detectedLanguage ?? 'fr';
+  return cvData.languageOverride ?? cvData.detectedLanguage ?? detectCVLanguage(cvData);
 }

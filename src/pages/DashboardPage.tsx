@@ -39,9 +39,9 @@ export default function DashboardPage() {
   // (the CV's without an offer) until the user picks one, which then holds
   const [chosenLanguage, setChosenLanguage] = useState<SupportedLanguage | null>(null);
   // detectJobDescriptionLanguage reads too short a text as French: the CV decides until the offer says more
-  const detectedFrom: 'offer' | 'cv' = jobDescription.trim().length >= 20 || !baseCV ? 'offer' : 'cv';
+  const detectedFrom: 'offer' | 'cv' | 'default' = jobDescription.trim().length >= 20 ? 'offer' : baseCV ? 'cv' : 'default';
   const detectedLanguage = useMemo<SupportedLanguage>(
-    () => (detectedFrom === 'offer' || !baseCV ? detectJobDescriptionLanguage(jobDescription) : detectCVLanguage(baseCV)),
+    () => (detectedFrom === 'cv' && baseCV ? detectCVLanguage(baseCV) : detectJobDescriptionLanguage(jobDescription)),
     [detectedFrom, jobDescription, baseCV],
   );
   const cvLanguage = chosenLanguage ?? detectedLanguage;
