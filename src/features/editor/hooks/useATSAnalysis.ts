@@ -1,160 +1,45 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useAction } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import { useCallback, useMemo } from 'react';
 import type { ATSReport, CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
 import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
-import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
-import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
+import { withDismissed } from '@/src/features/editor/lib/dismissed-requirements';
 
-/** Gaps the user said they do not have, per offer: kept in this browser, sent only as ids to the next tailoring of that offer */
-const KEY = 'dismissed_gaps';
-const MAX_OFFERS = 5;
-
-/**
- * An offer as this list names it: a short fingerprint, not the offer itself.
- * Five offers of 20 000 characters each were ~100 kB in one localStorage key,
- * in an app already fighting the quota for the guest's CV.
- */
-export function offerKey(offer: string): string {
-  const text = offer.trim();
-  if (!text) return '';
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `${text.length.toString(36)}-${(hash >>> 0).toString(36)}`;
+export interface UseATSAnalysisDeps {
+  /** The CV as the user wrote it: dismissing writes on it */
+  cvData: CVData | null;
+  /** The CV as it prints (`withoutDismissed`): the one measured */
+  printedCV: CVData | null;
+  setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
+  designSettings: DesignSettings;
+  requirements: JobRequirement[];
 }
 
-export type DismissedGaps = [offer: string, ids: string[]][];
+export interface ATSAnalysis {
+  /** The CV as it prints, measured against the offer's requirements */
+  report: ATSReport | null;
+  /** Ids of the requirements the user said they lack, kept on the CV */
+  dismissed: string[];
+  dismiss: (id: string) => void;
+  restore: (id: string) => void;
+}
 
 const NO_IDS: string[] = [];
 
 /**
- * Storage is outside the app's control: an entry of another shape is skipped.
- * An entry written before the offers were named by a fingerprint carries the
- * whole offer as its key; it is named again here, so a gap dismissed then is
- * still dismissed now.
- */
-export function parseDismissedGaps(raw: unknown): DismissedGaps {
-  return Array.isArray(raw)
-    ? raw
-      .filter((e): e is [string, string[]] =>
-        Array.isArray(e) && typeof e[0] === 'string' && Array.isArray(e[1]) && e[1].every(id => typeof id === 'string'))
-      .map(([offer, ids]) => [/^[0-9a-z]+-[0-9a-z]+$/.test(offer) ? offer : offerKey(offer), ids])
-    : [];
-}
-
-/**
- * The gaps dismissed, with `ids` now those of `offer`: its entry comes first,
- * an offer with none left is dropped, and only the last MAX_OFFERS offers are
- * kept (one browser, every offer ever opened otherwise).
- */
-export function withDismissed(entries: DismissedGaps, offer: string, ids: string[]): DismissedGaps {
-  return [[offer, ids] as [string, string[]], ...entries.filter(([o]) => o !== offer)]
-    .filter(([, kept]) => kept.length > 0)
-    .slice(0, MAX_OFFERS);
-}
-
-/**
- * The gaps the user dismissed for `offer`, read from this browser when the
- * dashboard starts a tailoring: they were dismissed in the editor, another
- * page. The editor sends its ATS tab's own state. Sent as `excluded`, they are
- * never written freely.
- */
-export function dismissedGapsOf(offer: string): string[] {
-  const key = offerKey(offer);
-  return parseDismissedGaps(readStoredJSON<unknown>(KEY, [])).find(([o]) => o === key)?.[1] ?? [];
-}
-
-/**
- * The gaps the user dismissed for `offer`, kept in this browser. Dismissed in
- * the editor's ATS tab, a gap is never written by the next tailoring of that
- * offer from the dashboard.
- */
-export function useDismissedGaps(offer: string) {
-  const [entries, setEntries] = useState(() => parseDismissedGaps(readStoredJSON<unknown>(KEY, [])));
-  const key = offerKey(offer);
-  const dismissed = entries.find(([o]) => o === key)?.[1] ?? NO_IDS;
-
-  const setDismissed = useCallback((ids: string[]) => {
-    const next = withDismissed(entries, key, ids);
-    setEntries(next);
-    // Refused (quota, private mode): kept for this visit only
-    writeStoredText(KEY, JSON.stringify(next));
-  }, [entries, key]);
-
-  const dismiss = useCallback((id: string) => setDismissed([...dismissed.filter(d => d !== id), id]), [dismissed, setDismissed]);
-  const restore = useCallback((id: string) => setDismissed(dismissed.filter(d => d !== id)), [dismissed, setDismissed]);
-  return { dismissed, dismiss, restore };
-}
-
-export interface UseATSAnalysisDeps {
-  cvData: CVData | null;
-  setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
-  designSettings: DesignSettings;
-  /** The offer's requirements, sent with a proof so the server does not extract them again */
-  requirements: JobRequirement[];
-  /** The offer on screen: the gaps dismissed are kept per offer */
-  offer: string;
-  accessCode: string | undefined;
-  notify: (args: { message: string; type: 'success' | 'error' }) => void;
-}
-
-export interface ATSAnalysis {
-  /** The CV as it is rendered, measured against the offer's requirements */
-  report: ATSReport | null;
-  /** Ids of the gaps the user does not have, for the offer on screen */
-  dismissed: string[];
-  dismiss: (id: string) => void;
-  restore: (id: string) => void;
-  /** Writes a requirement the user says they have, from their proof: true once the CV covers it */
-  prove: (requirement: JobRequirement, proof: string) => Promise<boolean>;
-  /** The requirement being written, null otherwise */
-  provingId: string | null;
-}
-
-/**
- * The ATS tab: the report of the CV as it is rendered, recomputed on every edit
- * (a few milliseconds), and the two actions on a gap (plan § 5.2) — "J'ai cette
- * compétence" writes the requirement from the user's proof, checked by the same
- * truth guard as the tailoring; "Je ne l'ai pas" takes the gap out of the
- * reminder, the score unchanged.
+ * The ATS tab: the report of the CV as it prints, recomputed on every edit (a
+ * few milliseconds), and the one action on a gap, no AI call (arbitrage of
+ * 2026-10-07): "Je ne l'ai pas" takes the requirement out of the CV as it
+ * prints, "Remettre" puts it back.
  *
  * The report is null until the CV is loaded. Without requirements (no offer, or
  * its analysis not available) it carries no score, only the readability checks.
  */
-export function useATSAnalysis(deps: UseATSAnalysisDeps): ATSAnalysis {
-  const { cvData, setCvData, designSettings, requirements, offer, accessCode, notify } = deps;
-  const proveAction = useAction(api.ai.proveRequirement);
-  const { dismissed, dismiss, restore } = useDismissedGaps(offer);
-  const [provingId, setProvingId] = useState<string | null>(null);
-
+export function useATSAnalysis({ cvData, printedCV, setCvData, designSettings, requirements }: UseATSAnalysisDeps): ATSAnalysis {
   const report = useMemo(
-    () => (cvData ? computeATSReport(cvData, requirements, { design: designSettings }) : null),
-    [cvData, designSettings, requirements],
+    () => (printedCV ? computeATSReport(printedCV, requirements, { design: designSettings }) : null),
+    [printedCV, designSettings, requirements],
   );
-
-  const prove = useCallback(async (requirement: JobRequirement, proof: string) => {
-    if (!cvData) return false;
-    setProvingId(requirement.id);
-    try {
-      const result = await proveAction({ cvData, jobDescription: offer, requirements, requirementId: requirement.id, proof, accessCode });
-      // The CV is replaced only when the server wrote something: a failed
-      // placement used to change the CV while telling the user nothing happened
-      if (result.written) setCvData(result.cv);
-      notify(result.written
-        ? { message: `« ${requirement.label} » ajouté au CV.`, type: 'success' }
-        : { message: `« ${requirement.label} » n'a pas pu être placé : précisez où vous l'avez mis en œuvre, chez quel employeur.`, type: 'error' });
-      return result.written;
-    } catch (error) {
-      console.error('Error proving requirement:', error);
-      notify({ message: getUserErrorMessage(error, "Erreur lors de l'ajout au CV."), type: 'error' });
-      return false;
-    } finally {
-      setProvingId(null);
-    }
-  }, [cvData, offer, requirements, accessCode, proveAction, setCvData, notify]);
-
-  return { report, dismissed, dismiss, restore, prove, provingId };
+  const dismissed = cvData?.dismissedRequirements ?? NO_IDS;
+  const dismiss = useCallback((id: string) => setCvData(cv => (cv ? withDismissed(cv, id, true) : cv)), [setCvData]);
+  const restore = useCallback((id: string) => setCvData(cv => (cv ? withDismissed(cv, id, false) : cv)), [setCvData]);
+  return { report, dismissed, dismiss, restore };
 }

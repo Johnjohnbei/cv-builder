@@ -10,12 +10,11 @@ import { coverLetterOf } from "./_ai/coverLetter";
 import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
-import { companyMetaOf, experienceMetaOf } from "./_ai/companyMeta";
+import { companyMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 import { EXTRACTION_DEADLINE_MS, extractRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
-import { provePipeline } from "./_ai/prove";
-import { assertBoundedPrompt, assertMaxLength, cvArgument, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
+import { assertBoundedPrompt, assertMaxLength, cvArgument, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
 
@@ -42,8 +41,6 @@ export const tailorCV = action({
     jobDescription: v.string(),
     /** Requirements the client already has for this offer: checked again, extracted when none is valid */
     requirements: v.optional(v.array(v.any())),
-    /** Ids of the requirements the user said they lack: never written freely */
-    excluded: v.optional(v.array(v.string())),
     pageLimit: v.optional(v.number()),
     accessCode: v.optional(v.string()),
   },
@@ -52,53 +49,15 @@ export const tailorCV = action({
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     const { detectedLanguage, languageOverride, cv, respond } = cvArgument(args.baseData);
     assertBoundedPrompt(cv, args.requirements);
-    // Travels back from the client: bounded like the requirements it names
-    assertBoundedPrompt(args.excluded ?? [], args.excluded);
     await verifyAccessCode(ctx, args.accessCode);
-    const { jobDescription, requirements, pageLimit, excluded } = args;
-    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride, excluded }, startedAt);
+    const { jobDescription, requirements, pageLimit } = args;
+    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride }, startedAt);
     return {
       // The language actually written (offer first, then the user's override),
       // so the toggle and the section titles match the content
       cv: respond(result.cv, resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage)),
       requirements: result.requirements,
       report: result.report,
-    };
-  },
-});
-
-/**
- * One requirement of the offer written into the CV from the user's own proof
- * (plan § 5.2): the same truth guard as the tailoring, the proof standing for
- * the source on what it states.
- */
-export const proveRequirement = action({
-  args: {
-    cvData: v.any(),
-    jobDescription: v.string(),
-    requirements: v.optional(v.array(v.any())),
-    requirementId: v.string(),
-    proof: v.string(),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const startedAt = Date.now();
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    assertMaxLength(args.proof, MAX_PROOF_CHARS);
-    // The translation cache is dropped like in tailorCV: the CV it mirrors has
-    // just changed, and a cached other language missing the requirement just
-    // written would be exported as the CV. The next language switch pays for a
-    // fresh translation (arbitrage: a stale bilingual CV is worse than a call).
-    const { detectedLanguage, languageOverride, cv, respond } = cvArgument(args.cvData);
-    assertBoundedPrompt(cv, args.requirements);
-    await verifyAccessCode(ctx, args.accessCode);
-    const { jobDescription, requirements, requirementId, proof } = args;
-    const result = await provePipeline({ cv, jobDescription, requirements, requirementId, proof, detectedLanguage, languageOverride }, startedAt);
-    return {
-      cv: respond(result.cv),
-      requirements: result.requirements,
-      report: result.report,
-      written: result.written,
     };
   },
 });
@@ -204,28 +163,6 @@ export const extractCompanyMeta = action({
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
     return await companyMetaOf(args.jobDescription);
-  },
-});
-
-/**
- * Batch-enrich every work experience on the CV with a deduced (stage, businessModel)
- * pair. Returns an array aligned with the input order. Each item is { stage, businessModel }
- * with possibly-null values when the LLM is not confident.
- */
-export const enrichExperienceMeta = action({
-  args: {
-    experiences: v.array(v.object({
-      company: v.string(),
-      position: v.string(),
-      intro: v.optional(v.string()),
-      description: v.optional(v.array(v.string())),
-    })),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    assertBoundedPrompt(args.experiences);
-    await verifyAccessCode(ctx, args.accessCode);
-    return { results: await experienceMetaOf(args.experiences) };
   },
 });
 

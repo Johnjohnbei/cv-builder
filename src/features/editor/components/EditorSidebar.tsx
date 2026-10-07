@@ -8,7 +8,7 @@ import type { WeakBulletResult } from '../lib/weak-bullet-detection';
 import { ATSPanel, type ATSPanelProps } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
 import {
-  OptimizePanel, PersonalInfoSection, SummarySection, ExperienceSection,
+  OfferAndPagesPanel, PersonalInfoSection, SummarySection, ExperienceSection,
   SkillsSection, EducationSection, LanguagesSection, DesignTab,
 } from './sections';
 import type { useExport, useTemplateSelection, useCoverLetter } from '../hooks';
@@ -39,22 +39,16 @@ interface Props {
   /** True while ANY AI action runs: every AI trigger in the sidebar is disabled */
   aiBusy: boolean;
   /**
-   * True while an AI call rewrites the whole CV (optimize, translate, enrich).
+   * True while an AI call rewrites the whole CV (a translation not cached yet).
    * Its answer replaces the CV, so editing is suspended meanwhile: an edit
    * made during the wait used to be silently overwritten.
    */
   isRewritingCV: boolean;
-  isOptimizing: boolean;
-  optimizeSeconds: number;
-  optimizeEstimate: number;
-  onOptimize: () => void;
   /** Target page count the fit pass condenses towards */
   targetPages: number;
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
-  isEnriching: boolean;
-  onEnrich: () => void;
 
   experienceScores: number[];
   weakBullets: WeakBulletResult[];
@@ -90,8 +84,7 @@ export function EditorSidebar(props: Props) {
     jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSection, toggles,
-    aiBusy, isRewritingCV, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
-    isEnriching, onEnrich, experienceScores, weakBullets,
+    aiBusy, isRewritingCV, experienceScores, weakBullets,
     ats, exports, templateSelection, coverLetter, notify,
   } = props;
 
@@ -159,7 +152,7 @@ export function EditorSidebar(props: Props) {
             <fieldset disabled={isRewritingCV} className="min-w-0 space-y-4">
             {activeTab === 'content' ? (
               <div className="space-y-3">
-                <OptimizePanel
+                <OfferAndPagesPanel
                   jobDescription={jobDescription}
                   onJobDescriptionChange={onJobDescriptionChange}
                   onJobDescriptionCommit={onJobDescriptionCommit}
@@ -170,11 +163,6 @@ export function EditorSidebar(props: Props) {
                   onTargetPagesChange={onTargetPagesChange}
                   isFitting={isFitting}
                   onFitToPages={onFitToPages}
-                  aiBusy={aiBusy}
-                  isOptimizing={isOptimizing}
-                  optimizeSeconds={optimizeSeconds}
-                  optimizeEstimate={optimizeEstimate}
-                  onOptimize={onOptimize}
                 />
                 <PersonalInfoSection
                   personalInfo={cvData?.personal_info}
@@ -185,6 +173,7 @@ export function EditorSidebar(props: Props) {
                 />
                 <SummarySection
                   summary={cvData?.personal_info?.summary}
+                  versions={cvData?.personal_info?.versions?.summary}
                   setCvData={setCvData}
                   expanded={expandedSection === 'summary'}
                   onToggle={toggles.summary}
@@ -196,9 +185,6 @@ export function EditorSidebar(props: Props) {
                   weakBullets={weakBullets}
                   expanded={expandedSection === 'experience'}
                   onToggle={toggles.experience}
-                  aiBusy={aiBusy}
-                  isEnrichingExperiences={isEnriching}
-                  onEnrich={onEnrich}
                 />
                 <SkillsSection
                   skills={cvData?.skills}

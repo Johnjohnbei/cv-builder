@@ -1,5 +1,21 @@
 // Shared types — single source of truth for the entire app
 
+/**
+ * A text in the two versions a generation leaves (arbitrage of 2026-10-07):
+ * the one adapted to the offer, and the user's own from the imported CV, in
+ * the same language. The user picks one in the editor, without any AI call.
+ */
+export interface TextVersions {
+  adapted: string;
+  original: string;
+}
+
+/** The texts of an experience a generation rewrites */
+export interface ExperienceText {
+  intro?: string;
+  description: string[];
+}
+
 export interface PersonalInfo {
   name: string;
   email: string;
@@ -20,6 +36,8 @@ export interface PersonalInfo {
    * portfolio instead of losing it — the other contact fields are blanked.
    */
   portfolio_anon_url?: string;
+  /** The summary and the title as adapted and as imported, when a generation wrote them */
+  versions?: { summary?: TextVersions; title?: TextVersions };
 }
 
 /**
@@ -69,6 +87,8 @@ export interface Experience {
   companyStage?: string;
   /** Company business model deduced or set by user (B2C, B2B, SaaS, Marketplace, etc.) */
   companyBusinessModel?: string;
+  /** Intro and bullets as adapted and as imported, when a generation wrote them */
+  versions?: { adapted: ExperienceText; original: ExperienceText };
 }
 
 export interface Education {
@@ -131,6 +151,12 @@ export interface CVData {
    *  switches to that language. Reading: just swap content. Writing: only
    *  on translate flow. May go stale if user edits content; that's accepted. */
   _translations?: Partial<Record<'fr' | 'en', TranslatableContent>>;
+  /**
+   * Ids of the offer's requirements the user said they lack ("je ne l'ai
+   * pas"). The CV keeps its texts; what writes them is left out of the CV
+   * as it prints and is measured (`withoutDismissed`), so "Remettre" loses nothing.
+   */
+  dismissedRequirements?: string[];
 }
 
 /** Every kind of job requirement: the server schema and the client cache check this list, the prompt guide is typed by it. */
@@ -172,15 +198,6 @@ export interface RequirementCoverage {
   /** Years measured from the dates, for a requirement of years of experience */
   years?: number;
 }
-
-/** A proof is a sentence or two: where the user put the requirement in practice */
-export const MAX_PROOF_CHARS = 500;
-
-/** A proof shorter than this ("oui") says nothing of where the requirement was put in practice */
-const MIN_PROOF_WORDS = 4;
-
-/** Whether the candidate's words say where they put a requirement in practice: the server writes nothing from less */
-export const saysWhere = (proof: string): boolean => proof.trim().split(/\s+/).filter(Boolean).length >= MIN_PROOF_WORDS;
 
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {

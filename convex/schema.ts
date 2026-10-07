@@ -17,6 +17,8 @@ const personalInfoValidator = v.object({
   portfolio_url: v.optional(v.string()),
   portfolio_label: v.optional(v.string()),
   portfolio_anon_url: v.optional(v.string()),
+  // The summary and the title as adapted and as imported (src/shared/types TextVersions)
+  versions: v.optional(v.any()),
 });
 
 const educationValidator = v.object({
@@ -86,6 +88,8 @@ export default defineSchema({
     // a save. Stored as `v.any()` because the inner shape mirrors CVData
     // content fields which can evolve.
     _translations: v.optional(v.any()),
+    // Requirements the user said they lack: left out of the CV as it prints
+    dismissedRequirements: v.optional(v.array(v.string())),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 

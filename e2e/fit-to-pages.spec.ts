@@ -178,9 +178,8 @@ test.describe('Rendu du CV', () => {
     await page.getByRole('switch', { name: 'Compétences' }).click();
 
     await expect(page.locator('[data-live-title="skills"]')).toHaveCount(0);
-    for (const cvPage of await page.locator('.cv-page').all()) {
-      await expect(cvPage).not.toContainText('Zeroheight');
-    }
+    // The whole preview, polled: the pagination may settle on fewer pages meanwhile
+    await expect.poll(async () => (await page.locator('.cv-page').allInnerTexts()).join(' ')).not.toContain('Zeroheight');
   });
 
   test('un résumé plus haut qu\'une page est signalé avant l\'export', async ({ page }) => {

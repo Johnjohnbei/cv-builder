@@ -9,12 +9,13 @@ import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useEditorAI } from '../features/editor/hooks';
+import { withoutDismissed } from '../features/editor/lib/dismissed-requirements';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
-import { useAutoNotification, useAccessCode, useDocumentTitle, useSecondsCounter } from '../shared/hooks';
+import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
 import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
@@ -82,27 +83,25 @@ export default function EditorPage() {
     }
   }, [loadedJobDescription]);
 
+  const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  // The CV as it prints and is measured: a requirement the user said they lack is left out of it
+  const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData, requirements) : null), [cvData, requirements]);
+
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
   const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount, hasClippedContent } = usePaginationFit(
-    cvData, designSettings, selectedTemplate, isAnonymous,
+    printedCV, designSettings, selectedTemplate, isAnonymous,
   );
   const pageAssignments = useMemo(
-    () => (isAnonymous && cvData ? maskHeaderBlocks(rawPageAssignments, cvData) : rawPageAssignments),
-    [rawPageAssignments, isAnonymous, cvData],
+    () => (isAnonymous && printedCV ? maskHeaderBlocks(rawPageAssignments, printedCV) : rawPageAssignments),
+    [rawPageAssignments, isAnonymous, printedCV],
   );
   const firstExperiencePage = useMemo(() => {
     const idx = pageAssignments.findIndex(p => p.blocks.some(b => b.block.type === 'experience'));
     return idx >= 0 ? idx : 0;
   }, [pageAssignments]);
 
-  const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
-  const atsAnalysis = useATSAnalysis({
-    cvData, setCvData, designSettings, requirements,
-    // The offer the requirements were extracted from, never the live text: a
-    // proof sent against an edited offer had its requirements refused server-side
-    offer: analyzedOffer, accessCode: getCode(), notify,
-  });
+  const atsAnalysis = useATSAnalysis({ cvData, printedCV, setCvData, designSettings, requirements });
 
   // Stable reference so memo(EditorPreview) can skip re-renders while the user
   // types in the sidebar (JD textarea, panel toggles...).
@@ -122,7 +121,8 @@ export default function EditorPage() {
   });
   const templateSelection = useTemplateSelection({ setSelectedTemplate, setDesignSettings });
   const coverLetter = useCoverLetter({
-    cvData,
+    // The letter speaks of the CV as it prints: never of a requirement the user said they lack
+    cvData: printedCV,
     jobDescription,
     isTailored,
     cvId,
@@ -145,24 +145,16 @@ export default function EditorPage() {
   // language the CV is currently showing.
   const exports = useExport({
     cvRef,
-    cvData,
+    cvData: printedCV,
     designSettings,
     notify,
     isAnonymous,
     language: currentLanguage,
   });
-  const ai = useEditorAI({
-    cvData, setCvData, designSettings,
-    jobDescription, user, isGuest, notify, accessCode: getCode(),
-    dismissed: atsAnalysis.dismissed,
-  });
-
   // One AI action at a time: prevents concurrent rewrites clobbering each other
-  const isProving = atsAnalysis.provingId !== null;
-  const aiBusy = ai.isOptimizing || language.isRegenerating || ai.isEnriching || coverLetter.isGenerating || isProving;
-  // These calls answer with a whole CV that replaces the current one
-  const isRewritingCV = ai.isOptimizing || language.isRegenerating || ai.isEnriching || isProving;
-  const optimizeSeconds = useSecondsCounter(ai.isOptimizing);
+  const aiBusy = language.isRegenerating || coverLetter.isGenerating;
+  // A translation not cached yet answers with a whole CV that replaces the current one
+  const isRewritingCV = language.isRegenerating;
 
   // Recompute zoom when the available width changes (sidebar toggle, tab).
   // cvData is deliberately NOT a dep: typing doesn't change the container
@@ -273,12 +265,6 @@ export default function EditorPage() {
         toggles={toggles}
         aiBusy={aiBusy}
         isRewritingCV={isRewritingCV}
-        isOptimizing={ai.isOptimizing}
-        optimizeSeconds={optimizeSeconds}
-        optimizeEstimate={ai.optimizeEstimate}
-        onOptimize={ai.optimize}
-        isEnriching={ai.isEnriching}
-        onEnrich={ai.enrichExperiences}
         experienceScores={experienceScores}
         weakBullets={weakBullets}
         ats={{

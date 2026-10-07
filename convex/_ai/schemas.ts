@@ -111,17 +111,6 @@ export {
   getLocalizedStage,
 } from '../../src/shared/constants/company-meta';
 
-/** Batch enrichment of work experiences with stage + businessModel tags. */
-export const ExperienceEnrichmentSchema = z.object({
-  results: z.array(
-    z.object({
-      stage: z.string().nullable(),
-      businessModel: z.string().nullable(),
-    }).passthrough(),
-  ),
-}).passthrough();
-export type ExperienceEnrichmentParsed = z.infer<typeof ExperienceEnrichmentSchema>;
-
 // ─── Tailoring pipeline (tailor.ts) ─────────────────────────────
 /** The rewritten CV and, per requirement written, the source quote proving it */
 export const GenerationSchema = z.object({

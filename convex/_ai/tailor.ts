@@ -31,8 +31,6 @@ export const REPAIR_CUTOFF_MS = 240_000;
 export const PIPELINE_DEADLINE_MS = 570_000;
 /** An offer analysis ends before this, leaving the rest of the budget to writing the CV */
 export const EXTRACTION_DEADLINE_MS = 120_000;
-/** Writing one requirement from the user's proof is one short call */
-export const PROOF_DEADLINE_MS = 120_000;
 export const MAX_REPAIRS = 2;
 
 const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
@@ -56,8 +54,6 @@ export interface TailorInput {
   pageLimit?: number;
   detectedLanguage?: "fr" | "en";
   languageOverride?: "fr" | "en";
-  /** Ids of the requirements the user said they lack ("je ne l'ai pas"): never written freely */
-  excluded?: string[];
 }
 
 export interface TailorResult {
@@ -120,7 +116,7 @@ function sourceNumbersOf(source: CVData, contents: string[]): Set<string> {
 }
 
 /** The repair's edits applied where they point; an edit pointing nowhere is ignored */
-export function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
+function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
   return edits.reduce<CVData>((next, edit) => {
     if (edit.target === "summary") return { ...next, personal_info: { ...next.personal_info, summary: edit.text } };
     if (edit.target === "skills") {
@@ -140,7 +136,7 @@ export function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
 }
 
 /** The edits the fast model answers with, for the pipeline's repair and for a proof */
-export function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadlineAt: number): Promise<RepairEdit[]> {
+function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadlineAt: number): Promise<RepairEdit[]> {
   return chatJSONThen(buildRepairPrompt(ctx), (raw) => {
     const parsed = RepairSchema.safeParse(raw);
     if (!parsed.success) throw invalidOutput();
@@ -149,26 +145,20 @@ export function repairEdits(ctx: Parameters<typeof buildRepairPrompt>[0], deadli
 }
 
 /** The fields of the CV an ATS reads, as the guard and the proofs read them */
-export function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
+function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
   return Object.values(cvSections({ ...source, detectedLanguage: language }, "content")).flat().map(prepareText);
 }
 
 /** What the guard is allowed to keep: the source, the requirements it proves, the numbers it gives */
-export function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean, extraNumbers: string[] = []): GuardContext {
+function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean): GuardContext {
   return {
     source,
     // Years are measured from the dates, never written
     unproven: requirements.filter(r => r.kind !== "experience_years" && !proven.has(r.id)),
-    sourceNumbers: new Set([...sourceNumbersOf(source, fields.map(field => field.raw)), ...extraNumbers]),
+    sourceNumbers: sourceNumbersOf(source, fields.map(field => field.raw)),
     sameLanguage,
   };
 }
-
-/** A CV guarded then measured, the one pair the pipeline compares versions with */
-export const measuredBy = (context: GuardContext, requirements: JobRequirement[]) => (cv: CVData) => {
-  const guarded = guard(cv, context);
-  return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
-};
 
 /** Sentences and words under which a summary reads as filler: one plain sentence proves nothing */
 const SUMMARY_MIN_SENTENCES = 2;
@@ -217,16 +207,14 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
 
-  // Ids, as the ATS tab dismisses them: one owner of "is this gap dismissed"
-  const excluded = new Set(input.excluded ?? []);
   const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const prompt = buildAdaptPrompt({
-    cvData: source, jobDescription, requirements: requirements.filter(r => !excluded.has(r.id)), pageLimit, detectedLanguage, languageOverride,
+    cvData: source, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride,
   });
   const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
   const byCV = provenIds(requirements, fields, generation.evidence);
   // Written whatever the source says: the user's choice of 2026-10-07
-  const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id) && !excluded.has(r.id));
+  const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id));
   const context: GuardContext = {
     ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language),
     free: {

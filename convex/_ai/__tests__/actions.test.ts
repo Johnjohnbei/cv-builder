@@ -23,8 +23,7 @@ vi.mock("../chat", async (importOriginal) => ({
 }));
 
 import {
-  enrichExperienceMeta, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter,
-  proveRequirement, tailorCV, translateCV,
+  extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter, tailorCV, translateCV,
 } from "../../ai";
 
 const handlerOf = <A, R>(action: unknown) => (action as { _handler: (ctx: unknown, args: A) => Promise<R> })._handler;
@@ -264,14 +263,11 @@ describe("bounds on every action that puts a CV in a prompt", () => {
   const CV = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };
   const huge = { ...CV, personal_info: { ...CV.personal_info, summary: "x".repeat(60_001) } };
 
-  it("refuses an oversized CV before the access code, on the letter, the translation and the enrichment", async () => {
+  it("refuses an oversized CV before the access code, on the letter and the translation", async () => {
     await expect(handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData: huge, jobDescription: "Designer" }))
       .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
     await expect(handlerOf<Record<string, unknown>, unknown>(translateCV)({}, { cvData: huge, targetLanguage: "en" }))
       .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(handlerOf<Record<string, unknown>, unknown>(enrichExperienceMeta)({}, {
-      experiences: [{ company: "Acme", position: "Designer", intro: "x".repeat(60_001) }],
-    })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
     expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
   });
 
@@ -280,51 +276,5 @@ describe("bounds on every action that puts a CV in a prompt", () => {
     await expect(handlerOf<Record<string, unknown>, unknown>(translateCV)({}, {
       cvData: { personal_info: { name: 1n } }, targetLanguage: "en",
     })).rejects.toMatchObject({ data: { code: "CV_INVALID" } });
-  });
-});
-
-describe("proveRequirement", () => {
-  const OFFER = "Product Designer. Requis : Figma, Kubernetes.";
-  const CV = {
-    personal_info: { name: "Alex", email: "alex@example.com", portfolio_url: "https://alex.design" },
-    experience: [{ company: "Acme", position: "Designer", start_date: "2020-01", current: true, description: ["Maquettes Figma"] }],
-    education: [], skills: [{ category: "Outils", items: ["Figma"] }], languages: [],
-    design: { template: "TEMPLATE_E" },
-    _translations: { en: { personal_info: { name: "Alex" } } },
-  };
-  const KUBERNETES = { label: "Kubernetes", kind: "tool", importance: "required", quote: "Kubernetes" };
-  type Result = { cv: Record<string, any>; report: { score: number | null }; written: boolean };
-  const run = (args: Record<string, unknown> = {}) => handlerOf<Record<string, unknown>, Result>(proveRequirement)({}, {
-    cvData: CV, jobDescription: OFFER, requirements: [KUBERNETES], requirementId: "kubernetes",
-    proof: "J'ai administré nos clusters Kubernetes chez Acme", ...args,
-  });
-
-  it("checks the access code before any paid call", async () => {
-    mocks.verifyAccessCode.mockRejectedValue(new Error("ACCESS_CODE_REQUIRED"));
-    await expect(run()).rejects.toThrow("ACCESS_CODE_REQUIRED");
-    expect(mocks.chatJSONThen).not.toHaveBeenCalled();
-  });
-
-  it("refuses a proof, an offer, a CV or a requirement list too long before the access code is used", async () => {
-    await expect(run({ proof: "x".repeat(501) })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(run({ jobDescription: "x".repeat(20_001) })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(run({ cvData: { ...CV, personal_info: { ...CV.personal_info, summary: "x".repeat(60_001) } } }))
-      .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(run({ requirements: Array.from({ length: 101 }, () => KUBERNETES) }))
-      .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
-  });
-
-  it("returns the CV written, the design and the portfolio back, and says what it wrote", async () => {
-    mocks.aiAnswer = { edits: [{ target: "experience", expIndex: 0, text: "Administré les clusters Kubernetes" }] };
-    const result = await run();
-    expect(result.written).toBe(true);
-    expect(result.cv.experience[0].description).toEqual(["Maquettes Figma", "Administré les clusters Kubernetes"]);
-    expect(result.cv.personal_info.portfolio_url).toBe("https://alex.design");
-    expect(result.cv.design).toEqual({ template: "TEMPLATE_E" });
-    // The CV it mirrors has just changed: a cached other language would be stale
-    expect(result.cv._translations).toBeUndefined();
-    const prompt = mocks.chatJSONThen.mock.calls[0][0] as string;
-    expect(prompt).not.toContain("alex.design");
   });
 });

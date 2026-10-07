@@ -3,6 +3,8 @@ import { User, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Input } from '../../../../shared/ui/Input';
 import { downscaleImageToDataURI } from '../../../../shared/lib/image-resize';
 import type { CVData, PersonalInfo } from '../../../../shared/types';
+import { versionOf, withPersonalVersion } from '../../lib/cv-versions';
+import { VersionSelect } from './VersionSelect';
 
 interface Props {
   personalInfo: PersonalInfo | undefined;
@@ -41,6 +43,14 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             value={personalInfo?.title || ''}
             onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, title: e.target.value}} : null)}
           />
+          {personalInfo?.versions?.title && (
+            <VersionSelect
+              id="title-version"
+              label="Version du titre"
+              version={versionOf(personalInfo.title, personalInfo.versions.title)}
+              onChoose={(version) => setCvData(prev => prev ? { ...prev, personal_info: withPersonalVersion(prev.personal_info, 'title', version) } : null)}
+            />
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Email"

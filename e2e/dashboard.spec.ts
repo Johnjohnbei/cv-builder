@@ -119,7 +119,8 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     expect(tailored).toHaveLength(1);
     expect(tailored[0].requirements.map((r: any) => r.label)).toEqual(LABELS);
     expect(tailored[0]).not.toHaveProperty('proofs');
-    expect(calls.answered).toEqual(['extractJobRequirements', 'tailorCV', 'translateCV']);
+    // The tailored CV into the other language, and the imported one into the generated language: one generation
+    expect(calls.answered).toEqual(['extractJobRequirements', 'tailorCV', 'translateCV', 'translateCV']);
     expect(calls.forwarded).toEqual([]);
   });
 

@@ -191,92 +191,76 @@ test.describe('Edge cases : données CV incomplètes', () => {
   });
 });
 
+// Arbitrage of 2026-10-07: no AI call in the editor after the generation. A
+// requirement the user lacks is taken out of the CV as it prints, without one.
 test.describe('ATS Panel : actions sur un écart', () => {
-  // Neither is in the mock CV: two gaps, so the buttons must name their own
   const LABELS = ['Figma', 'Kubernetes', 'Terraform'];
-  let calls: RoutedAICalls;
-  // The socket is routed, so watchAICalls sees nothing — unless the route never
-  // installed, and then every escaped call shows up here
   guardAICalls();
-
-  const answerWith = (page: Page, answer: (args: any) => unknown) => answerAIActions(page, { proveRequirement: answer });
-
-  const written = (args: any) => {
-    const [first, ...rest] = args.cvData.skills;
-    return {
-      cv: { ...args.cvData, skills: [{ ...first, items: [...first.items, 'Kubernetes'] }, ...rest] },
-      requirements: args.requirements,
-      written: true,
-      report: {
-        score: 100,
-        points: { covered: 9, total: 9 },
-        checks: [],
-        requirements: args.requirements.map((r: any) => ({ requirement: r, found: true, sections: ['skills'], weight: 3 })),
-      },
-    };
-  };
 
   const open = async (page: Page) => {
     await seedGuestSession(page, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION, requirementLabels: LABELS });
     await page.getByRole('tab', { name: 'ATS' }).click();
   };
+  const preview = (page: Page) => page.locator('.cv-page');
 
-  test("« Je ne l'ai pas » écarte l'exigence, « Remettre » la ramène, sans appel IA", async ({ page }) => {
-    calls = await answerWith(page, written);
+  test("« Je ne l'ai pas » range un écart, « Remettre » le ramène", async ({ page }) => {
     await open(page);
     await expect(page.getByText('Écarts (2)')).toBeVisible({ timeout: 8_000 });
     // Each gap names itself: two identical names would be one ambiguous control
     await page.getByRole('button', { name: "Kubernetes : je ne l'ai pas" }).click();
     await expect(page.getByText('Écartées (1)')).toBeVisible();
     await expect(page.getByText('Écarts (1)')).toBeVisible();
-    // The score does not move: an ATS looks for the requirement anyway
     await expect(atsScore(page)).toContainText(/\d{1,3}/);
 
     await page.getByRole('button', { name: 'Remettre' }).click();
     await expect(page.getByText('Écarts (2)')).toBeVisible();
-    expect(calls).toEqual({ answered: [], forwarded: [] });
   });
 
-  test("« J'ai cette compétence » écrit l'exigence dans le CV depuis la preuve", async ({ page }) => {
-    calls = await answerWith(page, written);
+  test("« Retirer » une exigence couverte l'enlève du CV imprimé, « Remettre » la rend", async ({ page }) => {
     await open(page);
-    await page.getByRole('button', { name: "Kubernetes : j'ai cette compétence" }).click();
-    await page.getByLabel("Où l'avez-vous mis en œuvre ?").fill("J'ai opéré nos clusters Kubernetes chez TechCorp");
-    await page.getByRole('button', { name: 'Écrire « Kubernetes » dans le CV' }).click();
+    await expect(preview(page).first()).toContainText('Figma', { timeout: 8_000 });
 
-    await expect(page.getByText('« Kubernetes » ajouté au CV.')).toBeVisible({ timeout: 8_000 });
-    // The CV the action answered is the one on screen now
-    await expect(page.locator('.cv-page').getByText('Kubernetes')).toBeVisible();
-    expect(calls).toEqual({ answered: ['proveRequirement'], forwarded: [] });
+    await page.getByRole('button', { name: "Figma : je ne l'ai pas, retirer du CV" }).click();
+    await expect(page.getByText('Écartées (1)')).toBeVisible();
+    // The whole preview, polled: the pagination settles on fewer pages meanwhile
+    await expect.poll(async () => (await preview(page).allInnerTexts()).join(' ')).not.toContain('Figma');
+    // The texts stay the user's: the summary still names it in the Contenu tab
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
+    expect(JSON.stringify(saved.skills ?? [])).toContain('Figma');
+
+    await page.getByRole('button', { name: 'Remettre' }).click();
+    await expect(preview(page).first()).toContainText('Figma');
   });
 
-  test("une preuve que le serveur n'a pas pu placer ne touche pas au CV", async ({ page }) => {
-    // written: false — the server kept the CV it was given
-    calls = await answerWith(page, (args: any) => ({
-      cv: { ...args.cvData, skills: [{ category: 'Vidé', items: [] }] },
-      requirements: args.requirements,
-      written: false,
-      report: { score: 0, points: { covered: 0, total: 9 }, checks: [], requirements: [] },
-    }));
+  test("l'onglet Contenu ne propose plus aucune réécriture par l'IA", async ({ page }) => {
     await open(page);
-    await page.getByRole('button', { name: "Kubernetes : j'ai cette compétence" }).click();
-    await page.getByLabel("Où l'avez-vous mis en œuvre ?").fill('Je connais bien cet outil');
-    await page.getByRole('button', { name: 'Écrire « Kubernetes » dans le CV' }).click();
-
-    await expect(page.getByText(/n'a pas pu être placé/)).toBeVisible({ timeout: 8_000 });
-    // The CV on screen is untouched, and the proof stays there to be corrected
-    await expect(page.locator('.cv-page').getByText('Adobe XD')).toBeVisible();
-    await expect(page.getByLabel("Où l'avez-vous mis en œuvre ?")).toHaveValue('Je connais bien cet outil');
-    expect(calls).toEqual({ answered: ['proveRequirement'], forwarded: [] });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await expect(page.getByRole('button', { name: "Adapter le CV à l'offre" })).toHaveCount(0);
+    await page.getByRole('button', { name: /Expériences/ }).click();
+    await expect(page.getByRole('button', { name: /Auto-détecter/ })).toHaveCount(0);
   });
+});
 
-  test("le champ de preuve est obligatoire avant l'envoi", async ({ page }) => {
-    calls = await answerWith(page, written);
-    await open(page);
-    await page.getByRole('button', { name: "Kubernetes : j'ai cette compétence" }).click();
-    await expect(page.getByRole('button', { name: 'Écrire « Kubernetes » dans le CV' })).toBeDisabled();
-    await page.getByRole('button', { name: 'Annuler' }).click();
-    await expect(page.getByRole('button', { name: "Kubernetes : j'ai cette compétence" })).toBeVisible();
-    expect(calls).toEqual({ answered: [], forwarded: [] });
+// The two versions a generation leaves, picked in the editor without any AI call
+test.describe('Contenu : version adaptée ou d\'origine', () => {
+  guardAICalls();
+  const ORIGINAL = "Mon résumé d'origine, écrit à la main pour mes candidatures, sans les mots de l'offre.";
+
+  test('le résumé passe de la version adaptée à la mienne, et revient', async ({ page }) => {
+    const adapted = MOCK_CV.personal_info.summary;
+    await seedGuestSession(page, {
+      cv: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, versions: { summary: { adapted, original: ORIGINAL } } } },
+      jd: MOCK_JOB_DESCRIPTION,
+    });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: /Résumé professionnel/ }).click();
+    const choice = page.getByLabel('Version du résumé');
+    await expect(choice).toHaveValue('adapted');
+
+    await choice.selectOption('original');
+    await expect(page.locator('[data-cv-section="summary"]').first()).toContainText(ORIGINAL);
+
+    await choice.selectOption('adapted');
+    await expect(page.locator('[data-cv-section="summary"]').first()).toContainText(adapted.slice(0, 40));
   });
 });

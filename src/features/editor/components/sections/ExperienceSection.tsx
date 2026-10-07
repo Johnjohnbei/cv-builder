@@ -1,6 +1,5 @@
 import { memo } from 'react';
-import { Briefcase, ChevronDown, ChevronUp, Plus, Sparkles } from 'lucide-react';
-import { Button } from '../../../../shared/ui/Button';
+import { Briefcase, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { CVData, Experience } from '../../../../shared/types';
 import { ExperienceCard } from './ExperienceCard';
@@ -13,14 +12,11 @@ interface Props {
   weakBullets: WeakBulletResult[];
   expanded: boolean;
   onToggle: () => void;
-  aiBusy: boolean;
-  isEnrichingExperiences: boolean;
-  onEnrich: () => void;
 }
 
 export const ExperienceSection = memo(function ExperienceSection({
   experience, setCvData, experienceScores,
-  weakBullets, expanded, onToggle, aiBusy, isEnrichingExperiences, onEnrich,
+  weakBullets, expanded, onToggle,
 }: Props) {
   // Every edit goes through these: a new object per changed experience, built
   // from the latest state. Edits used to assign into `experience[idx]` in
@@ -60,21 +56,6 @@ export const ExperienceSection = memo(function ExperienceSection({
       </button>
       {expanded && (
         <div className="p-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-          {/* ─── Bulk auto-detect company stage + business model ─── */}
-          {experience && experience.length > 0 && (
-            <Button
-              variant="ghost"
-              size="xs"
-              fullWidth
-              loading={isEnrichingExperiences}
-              disabled={aiBusy && !isEnrichingExperiences}
-              icon={<Sparkles className="w-3 h-3" />}
-              onClick={onEnrich}
-              className="border border-dashed border-gray-300 text-[11px] stitch-mono uppercase tracking-wider text-gray-600 hover:text-blue-600 hover:border-blue-300"
-            >
-              {isEnrichingExperiences ? 'Détection en cours…' : 'Auto-détecter stade + modèle (IA)'}
-            </Button>
-          )}
           {experience?.map((exp, idx) => (
             <ExperienceCard
               key={idx}

@@ -20,17 +20,11 @@ interface Props {
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
-  aiBusy: boolean;
-  isOptimizing: boolean;
-  optimizeSeconds: number;
-  optimizeEstimate: number;
-  onOptimize: () => void;
 }
 
-export const OptimizePanel = memo(function OptimizePanel({
+export const OfferAndPagesPanel = memo(function OfferAndPagesPanel({
   jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent, hasCvData,
   targetPages, onTargetPagesChange, isFitting, onFitToPages,
-  aiBusy, isOptimizing, optimizeSeconds, optimizeEstimate, onOptimize,
 }: Props) {
   // Focusing the field expands it for good; only "Replier l'offre" collapses it.
   // The preview used to replace the field at the first character typed, while
@@ -54,7 +48,7 @@ export const OptimizePanel = memo(function OptimizePanel({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-blue-600">
           <Sparkles className="w-4 h-4" />
-          <span className="text-[11px] font-bold uppercase tracking-widest">Adapter à l'offre</span>
+          <span className="text-[11px] font-bold uppercase tracking-widest">Offre et format</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-600 uppercase">Pages :</span>
@@ -148,26 +142,6 @@ export const OptimizePanel = memo(function OptimizePanel({
         {jobDescription.trim()
           ? "Instantané : remet chaque expérience au niveau de détail que sa pertinence pour l'offre justifie, puis condense les moins utiles jusqu'à tenir dans le format. Aucun texte n'est réécrit, tout reste réversible."
           : "Sans offre, les expériences récentes et longues gardent leur détail et les plus anciennes sont condensées en premier. Collez une offre pour trier par pertinence. Aucun texte n'est réécrit, tout reste réversible."}
-      </p>
-
-      {/* AI content optimization button */}
-      <Button
-        variant="secondary"
-        fullWidth
-        className="rounded-lg py-2 px-4 text-[11px] normal-case tracking-normal bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
-        icon={isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-        loading={false}
-        disabled={aiBusy || !jobDescription.trim()}
-        onClick={onOptimize}
-      >
-        {isOptimizing ? `Adaptation en cours... ${optimizeSeconds}s / ~${optimizeEstimate}s` : "Adapter le CV à l'offre"}
-      </Button>
-      <p className="text-[11px] text-gray-600 -mt-1">
-        {isOptimizing
-          ? "L'édition reprend dès la fin de l'adaptation, pour que rien ne soit écrasé."
-          : jobDescription.trim()
-            ? `Réécrit vos textes pour l'offre : chaque compétence demandée est écrite, vos diplômes, dates et chiffres restent les vôtres (~${optimizeEstimate}s, remplace le contenu actuel).`
-            : 'Collez une offre pour adapter le CV.'}
       </p>
 
       {/* Page count indicator */}

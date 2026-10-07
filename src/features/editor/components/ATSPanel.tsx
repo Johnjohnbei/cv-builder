@@ -1,12 +1,9 @@
-import { useRef, useState } from 'react';
 import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
-import { MAX_PROOF_CHARS } from '@/src/shared/types';
-import { gapsOf, isProvable } from '../lib/keyword-analysis';
+import { gapsOf } from '../lib/keyword-analysis';
 import type { RequirementsStatus } from '../lib/job-requirements-cache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
 import { formatPoints as points, GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
-import { Textarea } from '@/src/shared/ui/Textarea';
 
 export interface ATSPanelProps {
   /** The report and the actions on its gaps */
@@ -17,7 +14,7 @@ export interface ATSPanelProps {
   requirementsError?: string;
   /** Analyze the offer again after a failure */
   onRetryAnalysis: () => void;
-  /** True while ANY AI action runs: the retry and the gap actions are disabled */
+  /** True while an AI action runs: the retry is disabled */
   aiBusy?: boolean;
 }
 
@@ -47,79 +44,26 @@ const yearsHint = ({ years }: RequirementCoverage) =>
 
 interface GapProps {
   coverage: RequirementCoverage;
-  /** Absent for what a rewrite cannot write: a degree, a language, years of experience */
-  onProve?: (proof: string) => Promise<boolean>;
   onDismiss: () => void;
-  /** This gap is being written */
-  proving: boolean;
-  /** Another AI action runs */
-  disabled: boolean;
 }
 
 /**
- * A requirement of the offer the CV does not cover (plan § 5.2): the user has
- * it and says where, or does not and takes it out of the reminder.
+ * A requirement of the offer the CV does not cover. Nothing writes it after
+ * the generation (arbitrage of 2026-10-07): the user who lacks it takes it out
+ * of the reminder, and out of the CV where a sentence still names it.
  */
-function GapItem({ coverage, onProve, onDismiss, proving, disabled }: GapProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [proof, setProof] = useState('');
+function GapItem({ coverage, onDismiss }: GapProps) {
   const { requirement } = coverage;
-
-  const submit = async () => {
-    if (!onProve || !(await onProve(proof.trim()))) return;
-    setIsOpen(false);
-    setProof('');
-  };
-
   return (
-    <div className="flex flex-col gap-1.5 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-red-800">{requirement.label}</span>
-        <span className="text-gray-600 shrink-0" title={yearsHint(coverage)}>{points(coverage.weight)}{measuredYears(coverage)}</span>
-      </div>
-      {isOpen && onProve ? (
-        <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-          <Textarea
-            id={`proof-${requirement.id}`}
-            label="Où l'avez-vous mis en œuvre ?"
-            mono={false}
-            inputSize="sm"
-            rows={2}
-            maxLength={MAX_PROOF_CHARS}
-            value={proof}
-            onChange={(e) => setProof(e.target.value)}
-            placeholder="Ex. : maquettes de l'application mobile chez Acme"
-            autoFocus
-          />
-          <div className="flex gap-1.5">
-            <Button type="submit" size="sm" mono={false} loading={proving} disabled={disabled || !proof.trim()}>
-              {`Écrire « ${requirement.label} » dans le CV`}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" mono={false} disabled={proving} onClick={() => setIsOpen(false)}>Annuler</Button>
-          </div>
-        </form>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {/* The label is in the accessible name: a screen reader lists one set of
-              buttons per gap, and they all read alike without it */}
-          {onProve && (
-            <Button
-              variant="secondary" size="sm" mono={false} disabled={disabled}
-              aria-label={`${requirement.label} : j'ai cette compétence`}
-              onClick={() => setIsOpen(true)}
-            >
-              J'ai cette compétence
-            </Button>
-          )}
-          <Button
-            variant="ghost" size="sm" mono={false} disabled={disabled}
-            aria-label={`${requirement.label} : je ne l'ai pas`}
-            onClick={onDismiss}
-          >
-            Je ne l'ai pas
-          </Button>
-        </div>
-      )}
+    <div className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
+      <span className="font-semibold text-red-800">{requirement.label}</span>
+      <span className="flex items-center gap-2 shrink-0">
+        <span className="text-gray-600" title={yearsHint(coverage)}>{points(coverage.weight)}{measuredYears(coverage)}</span>
+        {/* The label is in the accessible name: every gap has this button */}
+        <Button variant="ghost" size="sm" mono={false} aria-label={`${requirement.label} : je ne l'ai pas`} onClick={onDismiss}>
+          Je ne l'ai pas
+        </Button>
+      </span>
     </div>
   );
 }
@@ -132,9 +76,7 @@ export function ATSPanel({
   onRetryAnalysis,
   aiBusy = false,
 }: ATSPanelProps) {
-  const { report, dismissed, dismiss, restore, prove, provingId } = analysis;
-  // Where the focus goes when a gap is written and its item leaves the list
-  const statusRef = useRef<HTMLDivElement>(null);
+  const { report, dismissed, dismiss, restore } = analysis;
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
@@ -146,7 +88,7 @@ export function ATSPanel({
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
       {/* ─── Score, or why there is none ─── */}
-      <div className="flex flex-col items-center" role="status" aria-live="polite" tabIndex={-1} ref={statusRef}>
+      <div className="flex flex-col items-center" role="status" aria-live="polite">
         {!hasJobDescription ? (
           <p className="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 leading-relaxed">
             Importez une offre d'emploi pour mesurer la part de ses exigences présentes dans votre CV.
@@ -179,10 +121,19 @@ export function ATSPanel({
             {covered.map(c => (
               <span
                 key={c.requirement.id}
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border bg-green-100 text-green-800 border-green-300"
+                className="inline-flex items-center gap-1 text-[11px] pl-2 rounded border bg-green-100 text-green-800 border-green-300"
               >
                 {c.requirement.label}
                 <span className="text-green-700 text-[10px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
+                {/* The generation writes every skill of the offer: the user takes out the one they lack */}
+                <Button
+                  variant="ghost" size="sm" mono={false} className="text-green-800"
+                  aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`}
+                  title="Je ne l'ai pas : retirer du CV"
+                  onClick={() => dismiss(c.requirement.id)}
+                >
+                  Retirer
+                </Button>
               </span>
             ))}
           </div>
@@ -191,21 +142,7 @@ export function ATSPanel({
             <div className="flex flex-col gap-1.5 mt-2">
               <span className={GAP_TITLE}>Écarts ({gaps.length})</span>
               {gaps.map(c => (
-                <GapItem
-                  key={c.requirement.id}
-                  coverage={c}
-                  onProve={isProvable(c.requirement)
-                    ? async (proof: string) => {
-                      const written = await prove(c.requirement, proof);
-                      // The item is about to unmount: the focus would fall on <body>
-                      if (written) statusRef.current?.focus();
-                      return written;
-                    }
-                    : undefined}
-                  onDismiss={() => dismiss(c.requirement.id)}
-                  proving={provingId === c.requirement.id}
-                  disabled={aiBusy || provingId !== null}
-                />
+                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement.id)} />
               ))}
             </div>
           )}
@@ -213,7 +150,7 @@ export function ATSPanel({
           {setAside.length > 0 && (
             <div className="flex flex-col gap-1.5 mt-2">
               <span className={SECTION_TITLE}>Écartées ({setAside.length})</span>
-              <p className="text-[11px] text-gray-500">Toujours comptées dans le score : un ATS les cherche quand même.</p>
+              <p className="text-[11px] text-gray-500">Ce qui les écrit est retiré du CV imprimé ; vos textes restent dans l'onglet Contenu. Toujours comptées dans le score : un ATS les cherche quand même.</p>
               {setAside.map(c => (
                 <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
                   <span className="text-gray-600">{c.requirement.label}</span>

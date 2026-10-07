@@ -85,19 +85,6 @@ function provenByQuote(requirements: JobRequirement[], fields: PreparedText[], e
   return new Set(requirements.filter(quoted).map(r => r.id));
 }
 
-/**
- * The experiences a proof allows writing under: those whose employer it names,
- * or, when it names none, those whose position it names. The employer decides
- * first — a proof saying "chez Beta, en tant que product designer" is about
- * Beta, even when another role carries that very position. Several roles at
- * one employer all qualify.
- */
-export function experiencesNamedBy(source: CVData, proof: PreparedText): number[] {
-  const named = (name: string | undefined) => Boolean(name && name.trim().length > 2 && matchPhrase(name, proof));
-  const byCompany = source.experience.flatMap((exp, i) => (named(exp.company) ? [i] : []));
-  return byCompany.length > 0 ? byCompany : source.experience.flatMap((exp, i) => (named(exp.position) ? [i] : []));
-}
-
 /** A language name's stem, and the stems of its translations: a CV written for an English offer translates them */
 const LANGUAGE_STEMS = LANGUAGE_NAMES.map(names => names.flatMap(stemsOf));
 const translations = (stem: string) => LANGUAGE_STEMS.find(stems => stems.includes(stem)) ?? [];

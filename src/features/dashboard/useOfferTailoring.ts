@@ -5,7 +5,6 @@ import type { CVData } from '@/src/shared/types';
 import { attachBilingualCache } from '@/src/lib/bilingual';
 import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
-import { dismissedGapsOf } from '@/src/features/editor/hooks/useATSAnalysis';
 
 interface Deps {
   baseCV: CVData | null;
@@ -21,8 +20,8 @@ interface Deps {
 /**
  * The dashboard's tailoring, from A to Z with no question asked (arbitrage of
  * 2026-10-07): the offer is analyzed, then ONE generation writes every
- * requirement it may, except those the user dismissed in the editor's ATS tab
- * ("je ne l'ai pas"). What is left to prove, that tab still takes.
+ * requirement it may. The editor never calls the AI again on this CV: the user
+ * picks between the adapted and the imported texts, and dismisses what they lack.
  */
 export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveDraft, onTailored }: Deps) {
   const extractAction = useAction(api.ai.extractJobRequirements);
@@ -52,12 +51,13 @@ export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveD
       if (!current()) return;
       analyzed = true;
       setPhase('generating');
-      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, excluded: dismissedGapsOf(offer), accessCode });
+      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, accessCode });
       if (!current()) return;
       writeCachedRequirements(offer, result.requirements);
       // A CV proposed for an offer comes with the portfolio version that offer calls for.
-      // Both languages now, so the editor toggle never shows a half-translated mix.
-      const cvData = await attachBilingualCache(withSuggestedPortfolio(result.cv, offer), translateCV, accessCode);
+      // Both languages now, so the editor toggle never shows a half-translated mix,
+      // each with the imported texts beside the adapted ones: the editor picks, never calls the AI.
+      const cvData = await attachBilingualCache(withSuggestedPortfolio(result.cv, offer), translateCV, accessCode, baseCV);
       if (!current()) return;
       const saved = await saveDraft(cvData);
       if (!current()) return;

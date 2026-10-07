@@ -1,4 +1,4 @@
-export { OptimizePanel } from './OptimizePanel';
+export { OfferAndPagesPanel } from './OfferAndPagesPanel';
 export { PersonalInfoSection } from './PersonalInfoSection';
 export { SummarySection } from './SummarySection';
 export { ExperienceSection } from './ExperienceSection';

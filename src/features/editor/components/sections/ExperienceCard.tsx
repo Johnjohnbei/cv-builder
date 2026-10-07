@@ -8,6 +8,8 @@ import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '../../../
 import type { WeakBulletResult } from '../../lib/weak-bullet-detection';
 import type { Experience } from '../../../../shared/types';
 import { ExperienceBullets } from './ExperienceBullets';
+import { VersionSelect } from './VersionSelect';
+import { experienceVersionOf, withExperienceVersion } from '../../lib/cv-versions';
 
 interface Props {
   exp: Experience;
@@ -157,6 +159,15 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               ))}
             </select>
           </div>
+          {/* ─── Adapted or imported intro and bullets, picked without any AI call ─── */}
+          {exp.versions && (
+            <VersionSelect
+              id={`experience-${idx}-version`}
+              label="Version de l'intro et des puces"
+              version={experienceVersionOf(exp) ?? 'adapted'}
+              onChoose={(version) => updateExperience(idx, x => withExperienceVersion(x, version))}
+            />
+          )}
           {/* ─── Intro (short role description) ─── */}
           <Textarea
             inputSize="xs"

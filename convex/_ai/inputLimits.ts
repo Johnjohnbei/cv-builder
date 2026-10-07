@@ -1,11 +1,10 @@
 import { userError } from "../_shared/errors";
-import { MAX_PROOF_CHARS, type CVData } from "../../src/shared/types";
+import type { CVData } from "../../src/shared/types";
 import { restoreUserOwnedFields, withoutUserOwnedFields } from "./normalizers";
 
-export { MAX_PROOF_CHARS };
 
 // ─── Input size ─────────────────────────────────────────────────────
-// Extracted from ai.ts, over its size limit once proveRequirement was added.
+// Extracted from ai.ts, over its size limit.
 
 export const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
 export const MAX_OFFER_CHARS = 20_000; // a job description
