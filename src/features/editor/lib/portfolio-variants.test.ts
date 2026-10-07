@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { PersonalInfo } from '@/src/shared/types';
-import { rankPortfolioVariants, withSuggestedPortfolio, type PortfolioVariant } from './portfolio-variants';
+import { portfolioIn, rankPortfolioVariants, withSuggestedPortfolio, type PortfolioVariant } from './portfolio-variants';
+import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
 
 const VARIANTS: PortfolioVariant[] = [
   {
@@ -9,6 +10,7 @@ const VARIANTS: PortfolioVariant[] = [
     url: 'https://example.com/portfolio/design-system',
     anonUrl: 'https://example.com/cv/abcd',
     keywords: ['design system', 'tokens', 'Figma', 'composants'],
+    en: { url: 'https://example.com/portfolio/design-system?lang=EN', anonUrl: 'https://example.com/cv/abcd-en' },
   },
   {
     id: 'ai-product',
@@ -118,5 +120,40 @@ describe('withSuggestedPortfolio', () => {
   it('leaves the CV untouched when nothing matches', () => {
     const input = cv();
     expect(withSuggestedPortfolio(input, 'Comptable confirme, logiciel Sage.', VARIANTS)).toBe(input);
+  });
+});
+
+describe('portfolioIn: the link in the language the CV prints in', () => {
+  const ds = VARIANTS[0];
+  const link = (url: string, label = ds.label) => ({ url, label });
+
+  it('links the English version on an English CV, the default one on a French CV', () => {
+    expect(portfolioIn(link(ds.url), 'en', VARIANTS).url).toBe(ds.en!.url);
+    expect(portfolioIn(link(ds.en!.url), 'fr', VARIANTS).url).toBe(ds.url);
+  });
+
+  it('swaps the anonymous link too', () => {
+    expect(portfolioIn(link(ds.anonUrl!, 'Portfolio'), 'en', VARIANTS)).toEqual({ url: ds.en!.anonUrl, label: 'Portfolio' });
+  });
+
+  it('prints a variant with no English version, and a link typed by hand, as they are', () => {
+    const ai = VARIANTS[1];
+    expect(portfolioIn(link(ai.url, ai.label), 'en', VARIANTS).url).toBe(ai.url);
+    expect(portfolioIn(link('https://me.dev'), 'en', VARIANTS)).toEqual(link('https://me.dev'));
+  });
+
+  it('takes the English label when there is one and the CV carries the default', () => {
+    const named = [{ ...ds, en: { ...ds.en!, label: 'Portfolio: Design System' } }];
+    expect(portfolioIn(link(ds.url), 'en', named).label).toBe('Portfolio: Design System');
+    expect(portfolioIn(link(ds.url, 'Mon portfolio'), 'en', named).label).toBe('Mon portfolio');
+  });
+});
+
+describe('maskPersonalInfo', () => {
+  // The city names nobody, and a recruiter filters on it (arbitrage of 2026-10-07)
+  it('keeps the city of an anonymous CV', () => {
+    const source = { personal_info: { name: 'Alex', email: 'a@b.c', location: 'Paris, France' }, experience: [], education: [], skills: [], languages: [] };
+    const masked = maskPersonalInfo(source);
+    expect(masked.personal_info).toMatchObject({ location: 'Paris, France', email: '' });
   });
 });

@@ -2,6 +2,7 @@ import { Mail, Phone, MapPin, Globe } from 'lucide-react';
 import type { CVData, Education, PersonalInfo } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { formatDateShort } from '../lib/formatting';
+import { portfolioIn } from '../lib/portfolio-variants';
 import { cn } from '@/src/shared/lib/cn';
 import { getLocalizedStage } from '@/src/shared/constants/company-meta';
 import { shouldShowKPI, getIntro, getActionBullets } from '../lib/display-modes';
@@ -152,7 +153,7 @@ export interface ContactEntry {
  * every template and the .docx: a template once hand-picked three fields and
  * silently dropped LinkedIn and the portfolio link.
  */
-export function getContactEntries(info: PersonalInfo | undefined): ContactEntry[] {
+export function getContactEntries(info: PersonalInfo | undefined, language: SupportedLanguage): ContactEntry[] {
   if (!info) return [];
   const entries: ContactEntry[] = [];
   if (info.email) entries.push({ key: 'email', value: info.email });
@@ -161,11 +162,13 @@ export function getContactEntries(info: PersonalInfo | undefined): ContactEntry[
   if (info.linkedin) {
     entries.push({ key: 'linkedin', value: info.linkedin.replace(/^https?:\/\/(www\.)?/, '') });
   }
-  const url = info.portfolio_url?.trim();
-  if (url) {
+  const typed = info.portfolio_url?.trim();
+  if (typed) {
+    // The version of the portfolio in the language the CV prints in
+    const { url, label } = portfolioIn({ url: typed, label: info.portfolio_label?.trim() ?? '' }, language);
     entries.push({
       key: 'portfolio',
-      value: info.portfolio_label?.trim() || url.replace(/^https?:\/\/(www\.)?/, ''),
+      value: label || url.replace(/^https?:\/\/(www\.)?/, ''),
       href: /^https?:\/\//.test(url) ? url : `https://${url}`,
     });
   }
@@ -191,10 +194,10 @@ const CONTACT_ICONS: Record<ContactEntry['key'], React.ReactNode> = {
 };
 
 /** Inline contact row: an icon beside each value, the value always printed as text. */
-export function renderContactInfo(cvData: CVData, className?: string) {
+export function renderContactInfo(cvData: CVData, language: SupportedLanguage, className?: string) {
   return (
     <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-sm", className)}>
-      {getContactEntries(cvData.personal_info).map(entry => (
+      {getContactEntries(cvData.personal_info, language).map(entry => (
         <span key={entry.key} className="flex items-center gap-1">
           {CONTACT_ICONS[entry.key]}
           {' '}

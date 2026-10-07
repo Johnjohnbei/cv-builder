@@ -11,10 +11,10 @@ import { detectTextLanguage, resolveAdaptLanguage } from "./_ai/languageDetectio
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
 import { companyMetaOf, experienceMetaOf } from "./_ai/companyMeta";
-import { normalizeCVData, restoreUserOwnedFields } from "./_ai/normalizers";
+import { normalizeCVData, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
-import { EXTRACTION_DEADLINE_MS, extractRequirements, tailorPipeline } from "./_ai/tailor";
-import { gapsPipeline, provePipeline } from "./_ai/prove";
+import { EXTRACTION_DEADLINE_MS, extractRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
+import { provePipeline } from "./_ai/prove";
 import { assertBoundedPrompt, assertMaxLength, cvArgument, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS, MAX_PROOF_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -33,28 +33,6 @@ export const extractCVDataFromPDF = action({
 });
 
 /**
- * What the CV proves of an offer before it is tailored (convex/_ai/tailor.ts):
- * the requirements, the quotes of the CV proving them, and the gaps the
- * candidate is asked about while the generation can still use the answer.
- */
-export const analyzeGaps = action({
-  args: {
-    baseData: v.any(),
-    jobDescription: v.string(),
-    requirements: v.optional(v.array(v.any())),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const startedAt = Date.now();
-    assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    const { cv, detectedLanguage, languageOverride } = cvArgument(args.baseData);
-    assertBoundedPrompt(cv, args.requirements);
-    await verifyAccessCode(ctx, args.accessCode);
-    return await gapsPipeline({ cv, jobDescription: args.jobDescription, requirements: args.requirements, detectedLanguage, languageOverride }, startedAt);
-  },
-});
-
-/**
  * The CV tailored to an offer by the verified pipeline (convex/_ai/tailor.ts),
  * with the offer's requirements and the ATS report measured on the result.
  */
@@ -64,31 +42,27 @@ export const tailorCV = action({
     jobDescription: v.string(),
     /** Requirements the client already has for this offer: checked again, extracted when none is valid */
     requirements: v.optional(v.array(v.any())),
-    /** Quotes of the CV analyzeGaps returned: checked again against the CV */
-    evidence: v.optional(v.array(v.any())),
-    /** The candidate's own words for the gaps: { id, text } */
-    proofs: v.optional(v.array(v.object({ id: v.string(), text: v.string() }))),
+    /** Ids of the requirements the user said they lack: never written freely */
+    excluded: v.optional(v.array(v.string())),
     pageLimit: v.optional(v.number()),
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const startedAt = Date.now();
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    for (const proof of args.proofs ?? []) assertMaxLength(proof.text, MAX_PROOF_CHARS);
     const { detectedLanguage, languageOverride, cv, respond } = cvArgument(args.baseData);
     assertBoundedPrompt(cv, args.requirements);
-    // Both travel back from the client: their size and their count are bounded too
-    assertBoundedPrompt({ evidence: args.evidence, proofs: args.proofs }, [...(args.evidence ?? []), ...(args.proofs ?? [])]);
+    // Travels back from the client: bounded like the requirements it names
+    assertBoundedPrompt(args.excluded ?? [], args.excluded);
     await verifyAccessCode(ctx, args.accessCode);
-    const { jobDescription, requirements, evidence, proofs, pageLimit } = args;
-    const result = await tailorPipeline({ cv, jobDescription, requirements, evidence, proofs, pageLimit, detectedLanguage, languageOverride }, startedAt);
+    const { jobDescription, requirements, pageLimit, excluded } = args;
+    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride, excluded }, startedAt);
     return {
       // The language actually written (offer first, then the user's override),
       // so the toggle and the section titles match the content
       cv: respond(result.cv, resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage)),
       requirements: result.requirements,
       report: result.report,
-      unproven: result.unproven,
     };
   },
 });
@@ -278,7 +252,16 @@ export const translateCV = action({
     });
     // "fast" model: a 1:1 translation with an imposed structure needs fidelity,
     // not reasoning. Sonnet was doing word-for-word work at 3x the price.
-    const normalized = restoreUserOwnedFields(await chatJSONThen(prompt, normalizeCVData, "fast"), contentOnly);
+    const source = readSourceCV(cv);
+    // An experience dropped or added would take another one's employer and dates: thrown here, the answer is retried
+    const translated = await chatJSONThen(prompt, (raw) => {
+      const answer = normalizeCVData(raw);
+      if (answer.experience.length !== source.experience.length) {
+        throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
+      }
+      return withSourceContacts(answer, source, { translatedPlaces: true });
+    }, "fast");
+    const normalized = restoreUserOwnedFields(translated, contentOnly);
     return {
       ...normalized,
       ...(design && { design }),

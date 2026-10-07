@@ -111,6 +111,15 @@ export function isProvable(r: JobRequirement): boolean {
   return isWritable(r) && r.kind !== 'title';
 }
 
+/**
+ * Whether the tailoring writes this requirement even when the CV does not
+ * prove it (arbitrage of 2026-10-07): a skill, a tool, a method, a domain. A
+ * certification is checked like a degree, so it stays a fact of the source.
+ */
+export function isWrittenFreely(r: JobRequirement): boolean {
+  return isProvable(r) && r.kind !== 'certification';
+}
+
 /** Whether these fields, as the CV prints them, write the requirement */
 export const writesRequirement = (fields: PreparedText[], r: JobRequirement): boolean =>
   [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field)));

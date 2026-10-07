@@ -13,7 +13,8 @@ export function maskPersonalInfo(cv: CVData): CVData {
       name: ANONYMOUS_NAME[getCVLanguage(cv)],
       email: '',
       phone: '',
-      location: '',
+      // The city stays (arbitrage of 2026-10-07): it names nobody, and a
+      // recruiter filters on it
       linkedin: '',
       github: '',
       website: '',

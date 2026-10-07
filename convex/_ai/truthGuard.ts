@@ -121,12 +121,14 @@ export interface GuardContext {
   source: CVData;
   unproven: JobRequirement[];
   /**
-   * Requirements only the user's own words prove. A text writing one of them
-   * stands in an experience its proof names (`where`, never the summary or the
-   * title), names nobody the source, the proofs or the requirements do not
-   * name (`said`), and only then may give the proofs' numbers.
+   * Requirements written although the source does not prove them (arbitrage of
+   * 2026-10-07). A text writing one of them names nobody the source or the
+   * requirements do not name (`said`): a client or a brand the model adds to
+   * make it credible is a fact, and facts are the source's. The offer is not a
+   * source of names: its company and its clients were never the candidate's.
+   * Nor does one stand in a title, a position, a company tag or a category.
    */
-  claimed?: { requirements: JobRequirement[]; said: PreparedText; where: Map<string, number[]>; numbers: Set<string> };
+  free?: { requirements: JobRequirement[]; said: PreparedText };
   /**
    * Every reading of every number the source gives: its content, the years of
    * its dates and the years of experience they add up to.
@@ -139,31 +141,26 @@ export interface GuardContext {
 
 /**
  * The CV without what nothing in the source backs: a requirement the source
- * does not prove, or a number it never gives (FABRICATION_GUARD, KPI of the
+ * does not prove and may not be written freely, a name a freely written
+ * requirement brings, or a number it never gives (FABRICATION_GUARD, KPI of the
  * arbitrage Q2), wherever the model wrote it. A bullet takes back the source's
  * bullet at its place when the bullets still line up, a sentence of the summary
  * or an intro is removed, a KPI emptied, a skill removed, a title, position,
  * tag or category name goes back to the source's. Degrees and languages are
  * the source's, in the model's words only when those name the same entry.
  */
-export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage, claimed }: GuardContext): CVData {
+export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage, free }: GuardContext): CVData {
   const writes = (text?: string) => mentions(text, unproven);
-  const claims = (text?: string) => Boolean(claimed && mentions(text, claimed.requirements));
-  const withProofNumbers = new Set([...sourceNumbers, ...(claimed?.numbers ?? [])]);
-  const namesNobodyGave = (text: string) => !namesStated(text).every(name => matchPhrase(name, claimed!.said));
-  /** `outside`: the requirements the proofs do not allow at this place */
-  const invents = (text?: string, outside: JobRequirement[] = []) => {
-    if (writes(text) || mentions(text, outside)) return true;
-    if (!claims(text)) return hasUnbackedNumber(text, sourceNumbers);
-    return hasUnbackedNumber(text, withProofNumbers) || namesNobodyGave(text!);
-  };
-  const everywhere = claimed?.requirements ?? [];
-  const outsideOf = (i: number) => everywhere.filter(r => !claimed!.where.get(r.id)?.includes(i));
+  const namesNobodyGave = (text: string) => !namesStated(text).every(name => matchPhrase(name, free!.said));
+  const freely = (text?: string) => Boolean(free && text && mentions(text, free.requirements));
+  const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers) || (freely(text) && namesNobodyGave(text!));
+  /** A title, a position, a tag or a category name is a fact: a requirement written freely never stands there */
+  const inventsFact = (text?: string) => invents(text) || freely(text);
   // A text left empty by the filter is a text the CV no longer carries: the
   // source's comes back, as it does for a title or a position. Only in the
   // source's language: a French summary in an English CV is worse than none.
-  const sentencesKept = (text: string | undefined, fallback: string | undefined, outside: JobRequirement[]) => {
-    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s, outside)).join(" ");
+  const sentencesKept = (text: string | undefined, fallback: string | undefined) => {
+    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
     return kept?.trim() || !text?.trim() ? kept : sameLanguage ? fallback : kept;
   };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
@@ -171,21 +168,20 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     ...cv,
     personal_info: {
       ...cv.personal_info,
-      title: invents(cv.personal_info.title, everywhere) ? source.personal_info.title : cv.personal_info.title,
-      summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary, everywhere),
+      title: inventsFact(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
+      summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary),
     },
     experience: cv.experience.map((exp, i) => {
       const src = source.experience[i];
-      const outside = outsideOf(i);
       const lineUp = sameLanguage && exp.description.length === src.description.length;
-      const bullets = exp.description.map((bullet, b) => (!invents(bullet, outside) ? bullet : lineUp ? src.description[b] : undefined));
+      const bullets = exp.description.map((bullet, b) => (!invents(bullet) ? bullet : lineUp ? src.description[b] : undefined));
       return {
         ...exp,
-        position: invents(exp.position, everywhere) ? src.position : exp.position,
+        position: inventsFact(exp.position) ? src.position : exp.position,
         companyStage: localized(lang => getLocalizedStage(exp.companyStage, lang)) ? src.companyStage : exp.companyStage,
-        companyBusinessModel: invents(exp.companyBusinessModel, everywhere) ? src.companyBusinessModel : exp.companyBusinessModel,
-        intro: sentencesKept(exp.intro, src.intro, outside),
-        kpi: invents(exp.kpi, outside) ? "" : exp.kpi,
+        companyBusinessModel: inventsFact(exp.companyBusinessModel) ? src.companyBusinessModel : exp.companyBusinessModel,
+        intro: sentencesKept(exp.intro, src.intro),
+        kpi: invents(exp.kpi) ? "" : exp.kpi,
         description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
       };
     }),
@@ -204,7 +200,7 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     skills: cv.skills
       .map((cat, i) => ({
         ...cat,
-        category: writes(cat.category) || localized(lang => getSkillCategoryTitle(cat.category as SkillCategoryKey, lang))
+        category: writes(cat.category) || freely(cat.category) || localized(lang => getSkillCategoryTitle(cat.category as SkillCategoryKey, lang))
           ? source.skills[i]?.category ?? "Compétences"
           : cat.category,
         items: cat.items.filter(item => !invents(item)),

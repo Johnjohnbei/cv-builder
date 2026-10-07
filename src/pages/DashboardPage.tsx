@@ -25,7 +25,6 @@ import { DashboardMobileNav } from '../features/dashboard/components/DashboardMo
 import { CvImportPanel } from '../features/dashboard/components/CvImportPanel';
 import { JobOfferPanel } from '../features/dashboard/components/JobOfferPanel';
 import { SavedCVsView, type SavedCVEntry } from '../features/dashboard/components/SavedCVsView';
-import { OfferGapsPanel } from '../features/dashboard/components/OfferGapsPanel';
 
 export default function DashboardPage() {
   useDocumentTitle('Dashboard');
@@ -101,11 +100,10 @@ export default function DashboardPage() {
   const generatingSeconds = useSecondsCounter(isGenerating);
   const busyLabel = {
     idle: null,
-    analyzing: `Lecture de l'offre et du CV… ${generatingSeconds}s`,
-    asking: 'Répondez aux écarts ci-dessus',
+    analyzing: `Lecture de l'offre… ${generatingSeconds}s`,
     generating: `Écriture du CV… ${generatingSeconds}s`,
   }[tailoring.phase];
-  /** A new offer, typed or imported, leaves the questions about the previous one behind */
+  /** A new offer, typed or imported, drops a tailoring still running for the previous one */
   const showOffer = (text: string) => { tailoring.reset(); setJobDescription(text); };
 
   const imports = useDashboardImports({
@@ -284,23 +282,6 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="col-span-12 lg:col-span-8 space-y-6">
-                {tailoring.gaps && tailoring.asked && tailoring.phase !== 'idle' && (
-                  <OfferGapsPanel
-                    requirementCount={tailoring.gaps.requirements.length}
-                    provable={tailoring.gaps.provable}
-                    factual={tailoring.gaps.factual}
-                    proofs={tailoring.proofs}
-                    onProofChange={tailoring.setProof}
-                    tooShort={tailoring.tooShort}
-                    dismissed={tailoring.dismissed}
-                    onDismiss={tailoring.dismiss}
-                    onRestore={tailoring.restore}
-                    onGenerate={tailoring.confirm}
-                    onCancel={tailoring.reset}
-                    isGenerating={tailoring.phase === 'generating'}
-                    generatingSeconds={generatingSeconds}
-                  />
-                )}
                 <JobOfferPanel
                   jobUrl={jobUrl}
                   onJobUrlChange={setJobUrl}
@@ -313,7 +294,7 @@ export default function DashboardPage() {
                   hasBaseCV={Boolean(baseCV)}
                   onOptimize={handleOptimize}
                   busyLabel={busyLabel}
-                  offerLocked={tailoring.phase === 'analyzing' || tailoring.phase === 'generating'}
+                  offerLocked={isGenerating}
                   estimateSeconds={estimateSeconds}
                 />
               </div>

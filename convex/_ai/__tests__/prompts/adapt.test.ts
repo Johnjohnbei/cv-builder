@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAdaptPrompt, buildEvidencePrompt } from "../../prompts/adapt";
+import { buildAdaptPrompt } from "../../prompts/adapt";
 import { FABRICATION_GUARD, KPI_RULES_EN, KPI_RULES_FR } from "../../prompts/fragments";
 import type { JobRequirement } from "../../../../src/shared/types";
 
@@ -59,30 +59,9 @@ describe("buildAdaptPrompt", () => {
     expect(prompt().trim().endsWith("Retourne UNIQUEMENT l'objet JSON.")).toBe(true);
   });
 
-  it("names the quote already found for a requirement, and leaves the others bare", () => {
-    const withQuote = prompt({ quotes: new Map([["recherche-utilisateur", 'Mené 30 "entretiens"']]) });
-    expect(withQuote).toContain("recherche-utilisateur | recherche utilisateur | method | preferred | prouvée par : Mené 30 entretiens");
-    expect(withQuote).toContain("figma | Figma | tool | required\n");
-  });
-
-  it("gives no proof block when the candidate gave none", () => {
+  it("lists every requirement bare, and asks for them all with no question to the candidate", () => {
+    expect(prompt()).toContain("figma | Figma | tool | required\n");
+    expect(prompt()).toContain("sans aucune question au candidat");
     expect(prompt()).not.toContain("PREUVES DU CANDIDAT");
-    expect(prompt({ proofs: new Map([["figma", "Maquettes Figma chez Acme"]]) })).toContain("- figma | Figma | Maquettes Figma chez Acme");
-  });
-});
-
-describe("buildEvidencePrompt", () => {
-  const evidence = buildEvidencePrompt({ cvData: CV, requirements: REQUIREMENTS });
-
-  it("lists each requirement with every spelling it may take, and the CV", () => {
-    expect(evidence).toContain("- recherche-utilisateur | recherche utilisateur / user research");
-    expect(evidence).toContain('"name":"Jane"');
-  });
-
-  // The code keeps a quote only when it is words of the CV and one of the requirement's own words
-  it("asks for verbatim quotes carrying a word of the requirement's own", () => {
-    expect(evidence).toContain("MOT POUR MOT");
-    expect(evidence).toContain("un mot propre à cette exigence");
-    expect(evidence).toContain('"evidence"');
   });
 });

@@ -175,7 +175,7 @@ test.describe('Rendu du CV', () => {
     await expect(page.locator('.cv-page').last()).toContainText('Zeroheight', { timeout: 15_000 });
 
     await page.getByRole('tab', { name: 'Design' }).click();
-    await page.getByRole('button', { name: /Compétences/ }).click();
+    await page.getByRole('switch', { name: 'Compétences' }).click();
 
     await expect(page.locator('[data-live-title="skills"]')).toHaveCount(0);
     for (const cvPage of await page.locator('.cv-page').all()) {
@@ -352,5 +352,26 @@ test.describe('Lien portfolio', () => {
     await expect(header.locator('a').first()).toHaveAttribute('href', 'https://example.com/cv/ab12');
     // The free-text label could carry the name: a masked CV prints a neutral one
     await expect(header.locator('a').first()).toHaveText('Portfolio');
+    // The city names nobody: it stays (arbitrage of 2026-10-07)
+    await expect(header).toContainText('Paris, France');
+  });
+
+  // The CV stores the default link in both languages: the English one prints on an English CV
+  test("un CV en anglais lie la version anglaise du portfolio, anonyme comprise", async ({ page }) => {
+    await setupLongCV(page, {
+      ...LONG_CV,
+      detectedLanguage: 'en',
+      personal_info: {
+        ...LONG_CV.personal_info,
+        portfolio_url: 'https://example.com/portfolio/design-system',
+        portfolio_label: 'Portfolio Design System',
+        portfolio_anon_url: 'https://example.com/cv/ab12',
+      },
+    });
+    const header = page.locator('[data-cv-section="header"]').first();
+    await expect(header.locator('a').first()).toHaveAttribute('href', 'https://example.com/portfolio/design-system?lang=EN', { timeout: 15_000 });
+
+    await page.getByRole('button', { name: /Anonyme/i }).click();
+    await expect(header.locator('a').first()).toHaveAttribute('href', 'https://example.com/cv/ab12-en');
   });
 });

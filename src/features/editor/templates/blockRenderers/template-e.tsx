@@ -26,7 +26,7 @@ function getSectionHeader(title: string, primaryColor: string) {
 
 // ─── Block Renderers ───
 
-function HeaderBlock({ block, designSettings }: BlockRendererProps) {
+function HeaderBlock({ block, designSettings, language }: BlockRendererProps) {
   const data = block.block.data as PersonalInfo;
   const { primaryColor } = designSettings;
   const showPhoto = designSettings.showPhoto;
@@ -45,7 +45,7 @@ function HeaderBlock({ block, designSettings }: BlockRendererProps) {
       </div>
       {/* gray-600, not gray-500: 10px text below 4.5:1 is unreadable printed */}
       <div className="text-[10px] text-right space-y-0.5 text-gray-600 shrink-0">
-        {getContactEntries(data).map(entry => (
+        {getContactEntries(data, language).map(entry => (
           <p key={entry.key}>
             {renderContactValue(entry, { color: primaryColor })}
           </p>

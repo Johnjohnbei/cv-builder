@@ -94,6 +94,27 @@ export function restoreUserOwnedFields(result: CVData, source: { personal_info?:
   };
 }
 
+/**
+ * The source's contacts, employers and dates put back on a CV the model
+ * rewrote or translated: they are facts, never words to rewrite. Places too,
+ * except a translation's own ("Londres" is "London" in English): a place it
+ * left out comes back, as a translation without "Paris, France" printed a CV
+ * without its address. The experiences must line up with the source's: the
+ * caller rejects an answer that drops or adds one.
+ */
+export function withSourceContacts(cv: CVData, source: CVData, { translatedPlaces = false } = {}): CVData {
+  const { name, email, phone, location, linkedin, github, website } = source.personal_info;
+  const place = (written: string | undefined, original: string | undefined) => (translatedPlaces && written?.trim() ? written : original);
+  return {
+    ...cv,
+    personal_info: { ...cv.personal_info, name, email, phone, linkedin, github, website, location: place(cv.personal_info.location, location) },
+    experience: cv.experience.map((exp, i) => {
+      const src = source.experience[i];
+      return { ...exp, company: src.company, start_date: src.start_date, end_date: src.end_date, current: src.current, location: place(exp.location, src.location) };
+    }),
+  };
+}
+
 // ─── Proficiency: store RAW, localize at render ──────────────────
 // The backend must NOT freeze proficiency to a localized string. It used to
 // map to French ("Courant (C1)"), which then rendered French even on an

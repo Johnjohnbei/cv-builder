@@ -6,7 +6,7 @@ export interface RepairContext {
     experience: Array<{ position?: string; company?: string; intro?: string; description?: string[] }>;
     skills: Array<{ category?: string; items: string[] }>;
   };
-  /** Requirements the source CV proves but the tailored CV does not write, with the quote proving each when there is one */
+  /** Requirements the tailored CV does not write, with the quote of the source proving each when there is one */
   missing: Array<{ label: string; evidence?: string }>;
   language: "fr" | "en";
   /**
@@ -21,7 +21,7 @@ export interface RepairContext {
  * break is what a text written by a candidate would otherwise close its own
  * block with.
  */
-export const asData = (text: string) => text.replace(/[`"«»\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+const asData = (text: string) => text.replace(/[`"«»\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 
 /** Experiences with their bullets indexed, so an edit can point at one */
 function summarizeExperiences(experiences: RepairContext["cv"]["experience"]): string {
@@ -37,7 +37,7 @@ function summarizeExperiences(experiences: RepairContext["cv"]["experience"]): s
 
 /**
  * The repair of the tailoring pipeline (tailor.ts): writes back, in their exact
- * form, the proven requirements a generation left out. Short, on the fast model;
+ * form, the requirements a generation left out. Short, on the fast model;
  * the pipeline applies the edits and checks them again.
  */
 export function buildRepairPrompt(ctx: RepairContext): string {
@@ -52,10 +52,10 @@ export function buildRepairPrompt(ctx: RepairContext): string {
     .join("\n");
   const mission = fromCandidate
     ? "MISSION : le candidat affirme posséder cette exigence de l'offre et dit où il l'a mise en œuvre. Écris-la sous la forme exacte donnée, à l'endroit qu'il nomme, sans rien ajouter qu'il n'écrit pas."
-    : "MISSION : ce CV a été adapté à une offre, mais il n'écrit pas ces exigences, que le parcours du candidat prouve. Écris chacune sous la forme exacte donnée, à l'endroit qui porte sa preuve.";
+    : "MISSION : ce CV a été adapté à une offre, mais il n'écrit pas ces exigences. Écris chacune sous la forme exacte donnée : à l'endroit qui porte sa preuve quand elle en a une, sinon dans l'expérience où elle est la plus crédible (même métier, même domaine) ou dans les compétences, sans inventer d'employeur, de client ni de chiffre.";
   const bulletRule = fromCandidate
     ? `1. "experience" : donne l'expIndex de l'expérience que le candidat nomme ; une puce y est AJOUTÉE, n'en réécris aucune.`
-    : `1. "experience" : réécris la puce (expIndex, bulletIndex) qui porte la preuve pour y intégrer l'exigence naturellement, sans changer les faits qu'elle décrit ; sans bulletIndex, une puce est ajoutée.`;
+    : `1. "experience" : réécris la puce (expIndex, bulletIndex) qui porte la preuve, ou la plus proche de l'exigence, pour y intégrer l'exigence naturellement, sans changer les faits qu'elle décrit ; sans bulletIndex, une puce est ajoutée.`;
   const skills = ctx.cv.skills.map(cat => `- ${cat.category ?? ""} : ${cat.items.join(", ")}`).join("\n");
 
   return `Tu es un expert en optimisation de CV pour ATS.

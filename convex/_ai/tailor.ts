@@ -1,25 +1,29 @@
 "use node";
 
-import { saysWhere, type ATSReport, type CVData, type JobRequirement } from "../../src/shared/types";
-import { computeATSReport, cvSections, gapsOf, isProvable, isWritable } from "../../src/features/editor/lib/keyword-analysis";
+import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
+import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
 import { prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
 import { resolveAdaptLanguage } from "./languageDetection";
-import { normalizeCVData, normalizeJobRequirements } from "./normalizers";
+import { normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
 import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
 import { buildRepairPrompt } from "./prompts/distribute";
 import { buildJobRequirementsPrompt } from "./prompts/jobDescription";
 import { GenerationSchema, JobRequirementsSchema, RepairSchema, type RepairEdit } from "./schemas";
-import { experiencesNamedBy, guard, provenByQuote, provenIds, type GuardContext } from "./truthGuard";
+import { guard, provenIds, type GuardContext } from "./truthGuard";
 
 // ─── Tailoring a CV to an offer (plan § 4) ──────────────────────────
 // The offer's requirements, one generation, a truth guard in code
 // (truthGuard.ts), the same measure as the editor's ATS score, then at most two
 // short repairs. Extracted from ai.ts, which was over its size limit.
+// Since 2026-10-07 (arbitrage of the user) the CV is written in one go, no
+// question asked: every method, tool or skill of the offer is written even when
+// the source does not prove it. A degree, a language, years, a title and any
+// number stay the source's.
 
 /** No repair starts after this: the version measured so far is returned */
 export const REPAIR_CUTOFF_MS = 240_000;
@@ -31,7 +35,7 @@ export const EXTRACTION_DEADLINE_MS = 120_000;
 export const PROOF_DEADLINE_MS = 120_000;
 export const MAX_REPAIRS = 2;
 
-export const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
+const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
 
 /** The requirements an offer states, each quoted from it. An answer with none is invalid: thrown inside the transform, it is retried. */
 export async function extractRequirements(jobDescription: string, deadlineAt?: number): Promise<JobRequirement[]> {
@@ -52,10 +56,8 @@ export interface TailorInput {
   pageLimit?: number;
   detectedLanguage?: "fr" | "en";
   languageOverride?: "fr" | "en";
-  /** Quotes of the CV the client already has (gapsPipeline), checked again against the CV */
-  evidence?: unknown[];
-  /** The candidate's own words for requirements the CV does not prove: { id, text } */
-  proofs?: unknown[];
+  /** Ids of the requirements the user said they lack ("je ne l'ai pas"): never written freely */
+  excluded?: string[];
 }
 
 export interface TailorResult {
@@ -63,8 +65,6 @@ export interface TailorResult {
   requirements: JobRequirement[];
   /** Measured on every experience and skill, before the fit to pages */
   report: ATSReport;
-  /** Ids of the requirements a rewrite could cover but the source CV gives no proof of */
-  unproven: string[];
 }
 
 /** The CV the client sends, read like an answer: it comes from outside the server */
@@ -93,28 +93,20 @@ function readGeneration(raw: unknown, source: CVData, requirements: JobRequireme
   const cv = normalizeCVData(parsed.data.cv);
   // A dropped or added experience would take another one's company and dates
   if (cv.experience.length !== source.experience.length) throw invalidOutput();
-  const { name, email, phone, location, linkedin, github, website } = source.personal_info;
   return {
-    cv: {
-      ...cv,
-      personal_info: { ...cv.personal_info, name, email, phone, location, linkedin, github, website },
-      experience: cv.experience.map((exp, i) => {
-        const { company, start_date, end_date, current, location: place } = source.experience[i];
-        return { ...exp, company, start_date, end_date, current, location: place };
-      }),
-    },
-    evidence: readPairs(parsed.data.evidence, "quote", requirements),
+    cv: withSourceContacts(cv, source),
+    evidence: readQuotes(parsed.data.evidence, requirements),
   };
 }
 
 /**
- * `{ id, [text]: string }` entries read one by one, as a map: a malformed one
- * or one naming no requirement is skipped, never the whole list.
+ * `{ id, quote }` entries read one by one, as a map: a malformed one or one
+ * naming no requirement is skipped, never the whole list.
  */
-export function readPairs(entries: unknown[], text: "quote" | "text", requirements: JobRequirement[]): Map<string, string> {
+function readQuotes(entries: unknown[], requirements: JobRequirement[]): Map<string, string> {
   const ids = new Set(requirements.map(r => r.id));
   return new Map(entries.flatMap((entry) => {
-    const { id, [text]: value } = (entry ?? {}) as Record<string, unknown>;
+    const { id, quote: value } = (entry ?? {}) as Record<string, unknown>;
     return typeof id === "string" && typeof value === "string" && ids.has(id) ? [[id, value] as const] : [];
   }));
 }
@@ -177,43 +169,44 @@ export const measuredBy = (context: GuardContext, requirements: JobRequirement[]
   return { cv: guarded, report: computeATSReport(guarded, requirements, { view: "content" }) };
 };
 
+/** Sentences and words under which a summary reads as filler: one plain sentence proves nothing */
+const SUMMARY_MIN_SENTENCES = 2;
+const SUMMARY_MIN_WORDS = 30;
+
+function isSubstantialSummary(text: string | undefined): boolean {
+  const summary = text?.trim() ?? "";
+  return summary.split(/(?<=[.!?])\s+/).filter(Boolean).length >= SUMMARY_MIN_SENTENCES
+    && summary.split(/\s+/).length >= SUMMARY_MIN_WORDS;
+}
+
+/**
+ * The summary is where a reader decides whether a person wrote the CV. A thin
+ * one (the guard may have cut its sentences) gives way to the source's when
+ * that one says more in the same language, or to none: no summary prints
+ * better than one plain sentence.
+ */
+function withSubstantialSummary(cv: CVData, source: CVData, sameLanguage: boolean): CVData {
+  const written = cv.personal_info.summary;
+  if (isSubstantialSummary(written)) return cv;
+  const fallback = sameLanguage && isSubstantialSummary(source.personal_info.summary) ? source.personal_info.summary : "";
+  return { ...cv, personal_info: { ...cv.personal_info, summary: fallback } };
+}
+
 /** The client's requirements checked again against the offer, or the offer analyzed when none holds */
-export async function requirementsFor(jobDescription: string, given: unknown[] | undefined, startedAt: number): Promise<JobRequirement[]> {
+async function requirementsFor(jobDescription: string, given: unknown[] | undefined, startedAt: number): Promise<JobRequirement[]> {
   const checked = normalizeJobRequirements(given ?? [], jobDescription);
   return checked.length > 0 ? checked : extractRequirements(jobDescription, startedAt + EXTRACTION_DEADLINE_MS);
 }
 
 /** The language the source is written in: the client strips it off the CV it sends */
-export const sourceLanguageOf = (source: CVData, input: Pick<TailorInput, "detectedLanguage" | "languageOverride">) =>
+const sourceLanguageOf = (source: CVData, input: Pick<TailorInput, "detectedLanguage" | "languageOverride">) =>
   input.languageOverride ?? input.detectedLanguage ?? detectCVLanguage(source);
 
-/** What the client sends besides the CV, read as words of the CV or of the candidate */
-function clientProofs(input: TailorInput, requirements: JobRequirement[], fields: PreparedText[]) {
-  // A quote is words of the CV proving its requirement, or nothing, like the model's
-  const given = readPairs(input.evidence ?? [], "quote", requirements);
-  const byQuote = provenByQuote(requirements, fields, given);
-  const quotes = new Map([...given].filter(([id]) => byQuote.has(id)));
-  // A proof stands for a requirement a rewrite can write, and says where
-  const proofs = new Map([...readPairs(input.proofs ?? [], "text", requirements.filter(isProvable))].filter(([, text]) => saysWhere(text)));
-  return { quotes, proofs };
-}
-
-/** What only the candidate's words prove: where it may be written, with which names and numbers */
-function claimedBy(proofs: Map<string, string>, ids: string[], source: CVData, requirements: JobRequirement[], fields: PreparedText[]): GuardContext["claimed"] {
-  const claimed = requirements.filter(r => ids.includes(r.id));
-  const texts = claimed.map(r => proofs.get(r.id)!);
-  return {
-    requirements: claimed,
-    where: new Map(claimed.map(r => [r.id, experiencesNamedBy(source, prepareText(proofs.get(r.id)!))])),
-    said: prepareText([...fields.map(field => field.raw), ...texts, ...claimed.flatMap(r => [r.label, ...r.variants])].join(" . ")),
-    numbers: new Set(texts.flatMap(numbersOf)),
-  };
-}
-
 /**
- * The CV rewritten for the offer, everything it writes backed by the source,
- * measured like the editor measures it. A repair that fails or does not score
- * higher ends the repairs, and never costs the version already measured.
+ * The CV rewritten for the offer: every method, tool or skill it asks for
+ * written, the facts (degrees, languages, years, titles, numbers) backed by the
+ * source, measured like the editor measures it. A repair that fails or does not
+ * score higher ends the repairs, and never costs the version already measured.
  */
 export async function tailorPipeline(input: TailorInput, startedAt: number = Date.now()): Promise<TailorResult> {
   const source = readSourceCV(input.cv);
@@ -222,16 +215,22 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const requirements = await requirementsFor(jobDescription, input.requirements, startedAt);
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
-  const { quotes, proofs } = clientProofs(input, requirements, fields);
 
-  const prompt = buildAdaptPrompt({ cvData: source, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride, quotes, proofs });
+  const excluded = new Set(input.excluded ?? []);
+  const prompt = buildAdaptPrompt({
+    cvData: source, jobDescription, requirements: requirements.filter(r => !excluded.has(r.id)), pageLimit, detectedLanguage, languageOverride,
+  });
   const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
-  const byCV = new Set([...quotes.keys(), ...provenIds(requirements, fields, generation.evidence)]);
-  const byProof = [...proofs.keys()].filter(id => !byCV.has(id));
+  const byCV = provenIds(requirements, fields, generation.evidence);
+  // Written whatever the source says: the user's choice of 2026-10-07
+  const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id) && !excluded.has(r.id));
   const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const context: GuardContext = {
-    ...guardContext(source, requirements, new Set([...byCV, ...byProof]), fields, sourceLanguage === language),
-    claimed: claimedBy(proofs, byProof, source, requirements, fields),
+    ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language),
+    free: {
+      requirements: free,
+      said: prepareText([...fields.map(field => field.raw), ...requirements.flatMap(r => [r.label, ...r.variants])].join(" . ")),
+    },
   };
   const measure = measuredBy(context, requirements);
 
@@ -239,10 +238,9 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const generatedScore = best.report.score;
   let repairs = 0;
   for (let repair = 0; repair < MAX_REPAIRS && Date.now() - startedAt < REPAIR_CUTOFF_MS; repair++) {
-    // A repair rewrites the bullet carrying words of the CV: none carries a candidate's proof
     const missing = best.report.requirements
-      .filter(c => !c.found && isWritable(c.requirement) && byCV.has(c.requirement.id))
-      .map(c => ({ label: c.requirement.label, evidence: quotes.get(c.requirement.id) ?? generation.evidence.get(c.requirement.id) }));
+      .filter(c => !c.found && isWritable(c.requirement) && (free.some(r => r.id === c.requirement.id) || byCV.has(c.requirement.id)))
+      .map(c => ({ label: c.requirement.label, evidence: generation.evidence.get(c.requirement.id) }));
     if (missing.length === 0) break;
     let edits: RepairEdit[];
     try {
@@ -257,8 +255,10 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     best = candidate;
     repairs += 1;
   }
+  const final = measure(withSubstantialSummary(best.cv, source, sourceLanguage === language));
   // One line per tailoring: a low score is explained by the logs, never guessed
-  console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} provenByProof=${byProof.length} `
-    + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} language=${sourceLanguage}->${language}`);
-  return { cv: best.cv, requirements, report: best.report, unproven: context.unproven.filter(isWritable).map(r => r.id) };
+  console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} free=${free.length} `
+    + `generated=${generatedScore} final=${final.report.score} gaps=${gapsOf(final.report).length} repairs=${repairs} `
+    + `summary=${final.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
+  return { cv: final.cv, requirements, report: final.report };
 }

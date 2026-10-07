@@ -6,7 +6,7 @@ import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
 
-/** Gaps the user said they do not have, per offer: a per-browser convenience, never sent */
+/** Gaps the user said they do not have, per offer: kept in this browser, sent only as ids to the next tailoring of that offer */
 const KEY = 'dismissed_gaps';
 const MAX_OFFERS = 5;
 
@@ -57,9 +57,9 @@ export function withDismissed(entries: DismissedGaps, offer: string, ids: string
 }
 
 /**
- * The gaps the user dismissed for `offer`, kept in this browser. Shared by the
- * editor's ATS tab and the dashboard's questions before a tailoring: a gap
- * dismissed in one is dismissed in the other.
+ * The gaps the user dismissed for `offer`, kept in this browser. Dismissed in
+ * the editor's ATS tab, a gap is never written by the next tailoring of that
+ * offer from the dashboard.
  */
 export function useDismissedGaps(offer: string) {
   const [entries, setEntries] = useState(() => parseDismissedGaps(readStoredJSON<unknown>(KEY, [])));

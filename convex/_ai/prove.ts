@@ -1,27 +1,20 @@
 "use node";
 
 import { saysWhere, type ATSReport, type CVData, type JobRequirement } from "../../src/shared/types";
-import { computeATSReport, isProvable, isWritable } from "../../src/features/editor/lib/keyword-analysis";
+import { isProvable, isWritable } from "../../src/features/editor/lib/keyword-analysis";
 import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { normalizeJobRequirements } from "./normalizers";
 import { numbersOf } from "./numbers";
 import type { RepairEdit } from "./schemas";
-import { experiencesNamedBy, namesStated, provenByQuote, provenIds } from "./truthGuard";
-import { chatJSONThen } from "./chat";
-import { buildEvidencePrompt } from "./prompts/adapt";
-import { EvidenceSchema } from "./schemas";
-import {
-  applyRepair, guardContext, invalidOutput, measuredBy, preparedFields, readPairs, readSourceCV, repairEdits, requirementsFor,
-  sourceLanguageOf, PROOF_DEADLINE_MS, type TailorInput,
-} from "./tailor";
+import { experiencesNamedBy, namesStated, provenIds } from "./truthGuard";
+import { applyRepair, guardContext, measuredBy, preparedFields, readSourceCV, repairEdits, PROOF_DEADLINE_MS } from "./tailor";
 
 // ─── The candidate's own words in the CV (plan § 5.2) ────────────────
-// Before the tailoring, what the CV does not prove is found and asked about
-// (gapsPipeline); after it, one requirement is written from a proof.
-// Extracted from tailor.ts, over its size limit. The proof is the user's, so it
-// backs what it states; everything else stays under the tailoring's guard, and
+// After the tailoring, one requirement is written from the user's proof, from
+// the editor's ATS tab. Extracted from tailor.ts, over its size limit. The
+// proof is the user's, so it backs what it states; everything else stays under the tailoring's guard, and
 // what the model answers is read strictly before a single word reaches the CV.
 
 export interface ProveInput {
@@ -44,44 +37,6 @@ export interface ProveResult {
   requirements: JobRequirement[];
   /** False when nothing was written: the CV returned is then the one given */
   written: boolean;
-}
-
-/** Reading what the CV proves is one short call, before the candidate is asked about the rest */
-export const EVIDENCE_DEADLINE_MS = 90_000;
-
-export interface GapsResult {
-  requirements: JobRequirement[];
-  /** The quotes of the CV that prove a requirement, each checked against the CV */
-  evidence: { id: string; quote: string }[];
-  /** Ids of the requirements the CV neither proves nor states, in the offer's order */
-  gaps: string[];
-}
-
-/**
- * What the CV proves of the offer before a word is written, so the candidate
- * is asked about the rest while the one generation can still use the answer.
- * A degree, a language or years are read from the CV as the score reads them.
- */
-export async function gapsPipeline(input: TailorInput, startedAt: number = Date.now()): Promise<GapsResult> {
-  const source = readSourceCV(input.cv);
-  const requirements = await requirementsFor(input.jobDescription, input.requirements, startedAt);
-  // Counted from its own start: the analysis of the offer may have used its whole budget
-  const quotes = await chatJSONThen(buildEvidencePrompt({ cvData: source, requirements }), (raw) => {
-    const parsed = EvidenceSchema.safeParse(raw);
-    if (!parsed.success) throw invalidOutput();
-    return readPairs(parsed.data.evidence, "quote", requirements);
-  }, "fast", Date.now() + EVIDENCE_DEADLINE_MS);
-  const language = sourceLanguageOf(source, input);
-  const fields = preparedFields(source, language);
-  const proven = provenIds(requirements, fields, quotes);
-  const stated = computeATSReport({ ...source, detectedLanguage: language }, requirements, { view: "content" });
-  const found = new Set(stated.requirements.filter(c => c.found).map(c => c.requirement.id));
-  const byQuote = provenByQuote(requirements, fields, quotes);
-  return {
-    requirements,
-    evidence: [...quotes].filter(([id]) => byQuote.has(id) && !found.has(id)).map(([id, quote]) => ({ id, quote })),
-    gaps: requirements.filter(r => !found.has(r.id) && (!isWritable(r) || !proven.has(r.id))).map(r => r.id),
-  };
 }
 
 /**

@@ -91,69 +91,22 @@ test.describe('Tableau de bord (mode invité)', () => {
   });
 });
 
-// Plan of 2026-09-17, lot D: the gaps are asked before the one generation,
+// Arbitrage of 2026-10-07: the CV is written from A to Z with no question asked,
 // and the score is read in the editor, on the CV as it prints
-test.describe("Tableau de bord : les écarts avant l'écriture du CV", () => {
+test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
   const LABELS = ['Figma', 'Kubernetes', 'Storybook'];
-  const PROOF = "Chez TechCorp, j'ai déployé nos environnements sur Kubernetes";
-
-  test("les écarts sont demandés avant la génération, puis l'éditeur s'ouvre sur l'onglet ATS", async ({ page }) => {
-    const tailored: any[] = [];
-    const calls = await answerAIActions(page, {
-      extractJobRequirements: () => ({ requirements: requirementsOf(LABELS) }),
-      analyzeGaps: (args) => ({ requirements: args.requirements, evidence: [], gaps: ['kubernetes', 'storybook'] }),
-      tailorCV: (args) => {
-        tailored.push(args);
-        return {
-          cv: { ...args.baseData, detectedLanguage: 'fr' },
-          requirements: args.requirements,
-          unproven: [],
-          report: { score: 100, points: { covered: 9, total: 9 }, checks: [], requirements: [] },
-        };
-      },
-      translateCV: (args) => ({ ...args.cvData, detectedLanguage: args.targetLanguage }),
-    });
-    await openGuestDashboard(page, { baseCv: MOCK_CV });
-    await page.evaluate(() => localStorage.setItem('calibre_access_code', 'CODE-E2E'));
-    await page.getByPlaceholder("Collez l'offre d'emploi ici...").fill(MOCK_JOB_DESCRIPTION);
-    await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
-
-    const panel = page.getByRole('region', { name: "Avant d'écrire votre CV" });
-    await expect(panel).toBeVisible();
-    await expect(panel.getByText("Votre CV prouve 1 exigence de l'offre sur 3.")).toBeVisible();
-
-    // Too short to say where: the button waits
-    const kubernetes = panel.getByLabel('Où avez-vous mis en œuvre « Kubernetes » ?');
-    await kubernetes.fill('oui');
-    await expect(panel.getByText(/4 mots au moins/)).toBeVisible();
-    await expect(panel.getByRole('button', { name: 'Écrire mon CV' })).toBeDisabled();
-    await kubernetes.fill(PROOF);
-
-    await panel.getByRole('button', { name: "Storybook : je ne l'ai pas" }).click();
-    await expect(panel.getByText('Écartées (1)')).toBeVisible();
-
-    await panel.getByRole('button', { name: 'Écrire mon CV' }).click();
-    await expect(page).toHaveURL(/\/editor/);
-    await expect(page.getByRole('tab', { name: 'ATS' })).toHaveAttribute('aria-selected', 'true');
-
-    expect(tailored).toHaveLength(1);
-    expect(tailored[0].proofs).toEqual([{ id: 'kubernetes', text: PROOF }]);
-    expect(calls.answered).toEqual(['extractJobRequirements', 'analyzeGaps', 'tailorCV', 'translateCV']);
-    expect(calls.forwarded).toEqual([]);
-  });
 
   const tailoredCV = (args: any) => ({
     cv: { ...args.baseData, detectedLanguage: 'fr' },
     requirements: args.requirements,
-    unproven: [],
     report: { score: 100, points: { covered: 9, total: 9 }, checks: [], requirements: [] },
   });
 
-  test("sans écart à prouver, le CV s'écrit directement, sans question", async ({ page }) => {
+  test("le CV s'écrit sans aucune question, puis l'éditeur s'ouvre sur l'onglet ATS", async ({ page }) => {
+    const tailored: any[] = [];
     const calls = await answerAIActions(page, {
       extractJobRequirements: () => ({ requirements: requirementsOf(LABELS) }),
-      analyzeGaps: (args) => ({ requirements: args.requirements, evidence: [], gaps: [] }),
-      tailorCV: tailoredCV,
+      tailorCV: (args) => { tailored.push(args); return tailoredCV(args); },
       translateCV: (args) => ({ ...args.cvData, detectedLanguage: args.targetLanguage }),
     });
     await openGuestDashboard(page, { baseCv: MOCK_CV });
@@ -162,15 +115,18 @@ test.describe("Tableau de bord : les écarts avant l'écriture du CV", () => {
     await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
 
     await expect(page).toHaveURL(/\/editor/);
-    expect(calls.answered).toEqual(['extractJobRequirements', 'analyzeGaps', 'tailorCV', 'translateCV']);
+    await expect(page.getByRole('tab', { name: 'ATS' })).toHaveAttribute('aria-selected', 'true');
+    expect(tailored).toHaveLength(1);
+    expect(tailored[0].requirements.map((r: any) => r.label)).toEqual(LABELS);
+    expect(tailored[0]).not.toHaveProperty('proofs');
+    expect(calls.answered).toEqual(['extractJobRequirements', 'tailorCV', 'translateCV']);
     expect(calls.forwarded).toEqual([]);
   });
 
-  test("une génération qui échoue rend les questions, réponses comprises", async ({ page }) => {
+  test("une génération qui échoue le dit et rend l'offre, sans question", async ({ page }) => {
     let attempts = 0;
     const calls = await answerAIActions(page, {
       extractJobRequirements: () => ({ requirements: requirementsOf(LABELS) }),
-      analyzeGaps: (args) => ({ requirements: args.requirements, evidence: [], gaps: ['kubernetes'] }),
       tailorCV: () => { attempts += 1; throw new Error('Server Error'); },
     });
     await openGuestDashboard(page, { baseCv: MOCK_CV });
@@ -178,13 +134,9 @@ test.describe("Tableau de bord : les écarts avant l'écriture du CV", () => {
     await page.getByPlaceholder("Collez l'offre d'emploi ici...").fill(MOCK_JOB_DESCRIPTION);
     await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
 
-    const panel = page.getByRole('region', { name: "Avant d'écrire votre CV" });
-    await panel.getByLabel('Où avez-vous mis en œuvre « Kubernetes » ?').fill(PROOF);
-    await panel.getByRole('button', { name: 'Écrire mon CV' }).click();
-
     await expect(page.getByRole('alert')).toBeVisible();
-    await expect(panel.getByLabel('Où avez-vous mis en œuvre « Kubernetes » ?')).toHaveValue(PROOF);
     await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' })).toBeEnabled();
     expect(attempts).toBe(1);
     expect(calls.forwarded).toEqual([]);
   });

@@ -47,7 +47,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
   // ── Contact line ──
   // Same entries as the PDF header (one owner), and the portfolio is the same
   // clickable label-only hyperlink ("Portfolio Design System") as in the PDF.
-  const contactEntries = getContactEntries(personal_info);
+  const contactEntries = getContactEntries(personal_info, language);
   if (contactEntries.length) {
     const contactRun = (text: string) => new TextRun({ text, size: 18, color: '888888', font: 'Calibri' });
     children.push(new Paragraph({

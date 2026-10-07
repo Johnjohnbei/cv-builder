@@ -14,6 +14,7 @@ const E2E_PORTFOLIO_VARIANTS = JSON.stringify([
     url: 'https://example.com/portfolio/design-system',
     anonUrl: 'https://example.com/cv/ab12',
     keywords: ['systeme de design', 'design system', 'accessibilite', 'tokens'],
+    en: { url: 'https://example.com/portfolio/design-system?lang=EN', anonUrl: 'https://example.com/cv/ab12-en' },
   },
   {
     id: 'ia',

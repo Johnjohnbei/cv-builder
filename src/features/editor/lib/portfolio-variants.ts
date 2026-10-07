@@ -15,12 +15,20 @@
 //       "label": "Portfolio : Design System",
 //       "url": "https://example.com/portfolio/design-system",
 //       "anonUrl": "https://example.com/cv/8f2a",
-//       "keywords": ["design system", "tokens", "figma", "composants"]
+//       "keywords": ["design system", "tokens", "figma", "composants"],
+//       "en": {
+//         "url": "https://example.com/portfolio/design-system?lang=EN",
+//         "anonUrl": "https://example.com/cv/8f2a-en"
+//       }
 //     }
 //   ]
-// `anonUrl` is optional and used when the anonymize toggle is on.
+// `anonUrl` is optional and used when the anonymize toggle is on. `en` is
+// optional: the English version, linked whenever the CV prints in English.
+// Its `label` replaces a French default label, its `anonUrl` the default
+// anonymous link; each one left out falls back to the default.
 
 import type { PersonalInfo } from '@/src/shared/types';
+import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { matchPhrase, prepareText } from '@/src/shared/lib/text';
 
 export interface PortfolioVariant {
@@ -32,16 +40,27 @@ export interface PortfolioVariant {
   anonUrl?: string;
   /** Terms that make this variant the right answer to an offer */
   keywords: string[];
+  /** The English version of the portfolio, linked on a CV printed in English */
+  en?: { url: string; anonUrl?: string; label?: string };
+}
+
+const isHttp = (value: unknown) => typeof value === 'string' && /^https?:\/\//.test(value);
+
+function isEnglishVersion(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return isHttp(v.url) && (v.anonUrl === undefined || isHttp(v.anonUrl)) && (v.label === undefined || typeof v.label === 'string');
 }
 
 function isVariant(value: unknown): value is PortfolioVariant {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  return (
+  return isEnglishVersion(v.en) && (
     typeof v.id === 'string' && v.id.length > 0
     && typeof v.label === 'string' && v.label.length > 0
-    && typeof v.url === 'string' && /^https?:\/\//.test(v.url)
-    && (v.anonUrl === undefined || (typeof v.anonUrl === 'string' && /^https?:\/\//.test(v.anonUrl)))
+    && isHttp(v.url)
+    && (v.anonUrl === undefined || isHttp(v.anonUrl))
     && Array.isArray(v.keywords) && v.keywords.every(k => typeof k === 'string')
   );
 }
@@ -131,4 +150,28 @@ export function withSuggestedPortfolio<T extends { personal_info: PersonalInfo }
   const current = cv.personal_info.portfolio_url?.trim();
   if (current && !variants.some(v => v.url === current)) return cv;
   return { ...cv, personal_info: applyVariantToPersonalInfo(cv.personal_info, top.variant) };
+}
+
+/**
+ * The portfolio link a CV prints, in the CV's language. The CV stores the
+ * variant's default (French) link, in both languages, since the link is the
+ * user's field; a variant with an English version swaps it here, its anonymous
+ * link as well. A link typed by hand, matching no variant, prints as typed.
+ */
+export function portfolioIn(
+  link: { url: string; label: string },
+  language: SupportedLanguage,
+  variants: PortfolioVariant[] = getPortfolioVariants(),
+): { url: string; label: string } {
+  for (const v of variants) {
+    const anonymous = link.url === v.anonUrl || link.url === v.en?.anonUrl;
+    if (!anonymous && link.url !== v.url && link.url !== v.en?.url) continue;
+    const english = language === 'en' && v.en;
+    const url = anonymous
+      ? (english ? v.en!.anonUrl : v.anonUrl) ?? link.url
+      : english ? v.en!.url : v.url;
+    const label = english && v.en!.label && link.label === v.label ? v.en!.label : link.label;
+    return { url, label };
+  }
+  return link;
 }

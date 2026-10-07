@@ -23,7 +23,7 @@ vi.mock("../chat", async (importOriginal) => ({
 }));
 
 import {
-  analyzeGaps, enrichExperienceMeta, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter,
+  enrichExperienceMeta, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter,
   proveRequirement, tailorCV, translateCV,
 } from "../../ai";
 
@@ -165,7 +165,7 @@ describe("tailorCV", () => {
     _translations: { en: { personal_info: { name: "Alex" } } },
   };
   const FIGMA = { label: "Figma", kind: "tool", importance: "required", quote: "Figma" };
-  type Result = { cv: Record<string, any>; requirements: { id: string }[]; report: { score: number | null }; unproven: string[] };
+  type Result = { cv: Record<string, any>; requirements: { id: string }[]; report: { score: number | null } };
   const run = (args: Record<string, unknown> = {}) =>
     handlerOf<Record<string, unknown>, Result>(tailorCV)({}, { baseData: BASE, jobDescription: OFFER, requirements: [FIGMA], ...args });
 
@@ -210,44 +210,46 @@ describe("tailorCV", () => {
     expect(result.cv.detectedLanguage).toBe("fr");
     expect(result.requirements.map(r => r.id)).toEqual(["figma"]);
     expect(result.report.score).toBe(100);
-    expect(result.unproven).toEqual([]);
-  });
-
-  // Quotes and proofs come back from the client: bounded like the CV they travel with
-  it("refuses proofs or quotes too big or too many, before the access code is used", async () => {
-    await expect(run({ proofs: [{ id: "figma", text: "x".repeat(501) }] })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(run({ evidence: [{ id: "figma", quote: "x".repeat(60_001) }] })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    await expect(run({ evidence: Array.from({ length: 101 }, () => ({ id: "figma", quote: "Maquettes Figma" })) }))
-      .rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
   });
 });
 
-describe("analyzeGaps", () => {
-  const OFFER = "Product Designer. Requis : Figma, Kubernetes.";
-  const BASE = {
-    personal_info: { name: "Alex", email: "alex@example.com", portfolio_url: "https://alex.design" },
-    experience: [{ company: "Acme", position: "Designer", start_date: "2020-01", current: true, description: ["Maquettes Figma"] }],
+describe("translateCV", () => {
+  const CV = {
+    personal_info: { name: "Alex", email: "alex@example.com", location: "Paris, France", portfolio_url: "https://alex.design" },
+    experience: [{ company: "Acme", position: "Designer", location: "Paris", start_date: "2020-01", current: true, description: ["Maquettes Figma"] }],
     education: [], skills: [], languages: [],
   };
-  const requirement = (label: string) => ({ label, kind: "tool", importance: "required", quote: label });
-  const run = (args: Record<string, unknown> = {}) => handlerOf<Record<string, unknown>, { gaps: string[] }>(analyzeGaps)(
-    {}, { baseData: BASE, jobDescription: OFFER, requirements: [requirement("Figma"), requirement("Kubernetes")], ...args },
-  );
 
-  it("bounds its input, then checks the access code, before any paid call", async () => {
-    await expect(run({ requirements: Array.from({ length: 101 }, () => requirement("Figma")) })).rejects.toMatchObject({ data: { code: "INPUT_TOO_LONG" } });
-    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
-    mocks.verifyAccessCode.mockRejectedValue(new Error("ACCESS_CODE_REQUIRED"));
-    await expect(run()).rejects.toThrow("ACCESS_CODE_REQUIRED");
-    expect(mocks.chatJSONThen).not.toHaveBeenCalled();
+  // A translation that left the place out printed a CV without "Paris, France"
+  it("keeps the source's contacts and places, whatever the translation answers", async () => {
+    mocks.aiAnswer = {
+      personal_info: { name: "Alex", email: "other@example.com" },
+      experience: [{ company: "Acme Inc", position: "Designer", start_date: "2021-01", current: true, description: ["Figma mockups"] }],
+      education: [], skills: [], languages: [],
+    };
+    const result = await handlerOf<Record<string, unknown>, { personal_info: Record<string, unknown>; experience: Record<string, unknown>[] }>(translateCV)(
+      {}, { cvData: CV, targetLanguage: "en" },
+    );
+    expect(result.personal_info).toMatchObject({ email: "alex@example.com", location: "Paris, France", portfolio_url: "https://alex.design" });
+    expect(result.experience[0]).toMatchObject({ company: "Acme", location: "Paris", start_date: "2020-01", description: ["Figma mockups"] });
   });
 
-  it("returns the gaps of the CV, its portfolio never sent", async () => {
-    mocks.aiAnswer = { evidence: [] };
-    const result = await run();
-    expect(result.gaps).toEqual(["kubernetes"]);
-    expect(mocks.chatJSONThen.mock.calls[0][0]).not.toContain("alex.design");
+  // "Londres" is "London" in English: a place the translation writes is its own
+  it("keeps a place the translation writes", async () => {
+    mocks.aiAnswer = {
+      personal_info: { name: "Alex", email: "alex@example.com", location: "Paris, France" },
+      experience: [{ company: "Acme", position: "Designer", location: "London", start_date: "2020-01", current: true, description: ["Figma mockups"] }],
+      education: [], skills: [], languages: [],
+    };
+    const result = await handlerOf<Record<string, unknown>, { experience: Record<string, unknown>[] }>(translateCV)({}, { cvData: CV, targetLanguage: "en" });
+    expect(result.experience[0].location).toBe("London");
+  });
+
+  // Paired by place, every experience after a dropped one took its neighbour's employer and dates
+  it("rejects a translation that drops an experience, so the call is retried", async () => {
+    mocks.aiAnswer = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };
+    await expect(handlerOf<Record<string, unknown>, unknown>(translateCV)({}, { cvData: CV, targetLanguage: "en" }))
+      .rejects.toMatchObject({ data: { code: "AI_INVALID_OUTPUT" } });
   });
 });
 

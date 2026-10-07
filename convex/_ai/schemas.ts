@@ -130,11 +130,6 @@ export const GenerationSchema = z.object({
   evidence: z.array(z.unknown()).nullish().transform(v => v ?? []),
 }).passthrough();
 
-/** The quotes of the source CV proving each requirement, read one by one (tailor.ts) */
-export const EvidenceSchema = z.object({
-  evidence: z.array(z.unknown()).nullish().transform(v => v ?? []),
-}).passthrough();
-
 /** Edits of the targeted repair, applied by code */
 export const RepairSchema = z.object({
   edits: z.array(z.object({
