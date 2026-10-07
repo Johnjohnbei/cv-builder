@@ -106,7 +106,7 @@ describe('withVersionChosen', () => {
     expect(out._translations?.en?.personal_info.summary).toBe('Product designer in B2B SaaS. Six years.');
   });
 
-  // Moved in one language only, a role is found by its employer and its start date
+  // Moved in one language only, a role is found by the key of its versions
   it('finds the same role in the cached language whatever its place', () => {
     const moved: CVData = { ...cv, experience: [cv.experience[1], cv.experience[0]] };
     const out = withVersionChosen(moved, { experience: 1 }, 'original');
@@ -123,6 +123,14 @@ describe('withVersionChosen', () => {
     };
     const out = withVersionChosen(twins, { experience: 0 }, 'original');
     expect(out._translations?.en?.experience.map(exp => exp.description)).toEqual([['Designed the mockups'], ['Designed Figma mockups', 'Built in Node.js']]);
+  });
+
+  it('leaves a summary the other language shows typed as it is', () => {
+    const typedEn = { ...en.personal_info, summary: 'My own typed summary.' };
+    const withTyped: CVData = { ...cv, _translations: { en: { ...cv._translations!.en!, personal_info: typedEn } } };
+    const out = withVersionChosen(withTyped, { field: 'summary' }, 'original');
+    expect(out.personal_info.summary).toBe(imported.personal_info.summary);
+    expect(out._translations?.en?.personal_info.summary).toBe('My own typed summary.');
   });
 
   it('leaves a block the other language shows typed as it is', () => {

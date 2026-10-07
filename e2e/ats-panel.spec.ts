@@ -285,7 +285,7 @@ test.describe('Contenu : version d\'une expérience', () => {
     const [first, ...rest] = MOCK_CV.experience;
     const adapted = { intro: first.intro, description: first.description };
     await seedGuestSession(page, {
-      cv: { ...MOCK_CV, experience: [{ ...first, versions: { adapted, original: { intro: first.intro, description: ['Ma puce importée, telle quelle'] } } }, ...rest] },
+      cv: { ...MOCK_CV, experience: [{ ...first, versions: { key: 0, adapted, original: { intro: first.intro, description: ['Ma puce importée, telle quelle'] } } }, ...rest] },
       jd: MOCK_JOB_DESCRIPTION,
     });
     await page.getByRole('tab', { name: 'Contenu' }).click();

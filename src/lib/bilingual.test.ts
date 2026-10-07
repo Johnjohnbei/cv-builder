@@ -96,6 +96,14 @@ describe('attachBilingualCache with the imported CV', () => {
     });
   });
 
+  // The key finds a role again in the other language: it must be the same in both
+  it('gives each role the same key in both languages', async () => {
+    const translate = vi.fn(async ({ cvData }: { cvData: CVData }) => (cvData === TAILORED_EN ? TAILORED_FR : IMPORTED_EN) as CVData);
+    const result = await attachBilingualCache(TAILORED_EN, translate, undefined, IMPORTED_FR);
+    expect(result.experience.map(exp => exp.versions?.key)).toEqual([0]);
+    expect(result._translations?.fr?.experience.map(exp => exp.versions?.key)).toEqual([0]);
+  });
+
   it('keeps the versions it has when translating the imported CV fails', async () => {
     const translate = vi.fn(async ({ cvData }: { cvData: CVData }) => {
       if (cvData === IMPORTED_FR) throw new Error('provider down');
