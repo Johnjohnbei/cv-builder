@@ -212,7 +212,7 @@ describe("normalizeSkills", () => {
 
   it("defaults category to 'Compétences' when missing", () => {
     const result = normalizeSkills([{ items: ["a"] }]);
-    expect(result[0].category).toBe("Compétences");
+    expect(result[0].category).toBe("other");
   });
 });
 

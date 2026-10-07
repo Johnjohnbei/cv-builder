@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { PersonalInfo } from '@/src/shared/types';
 import { portfolioIn, rankPortfolioVariants, withSuggestedPortfolio, type PortfolioVariant } from './portfolio-variants';
 import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
@@ -146,6 +146,22 @@ describe('portfolioIn: the link in the language the CV prints in', () => {
     const named = [{ ...ds, en: { ...ds.en!, label: 'Portfolio: Design System' } }];
     expect(portfolioIn(link(ds.url), 'en', named).label).toBe('Portfolio: Design System');
     expect(portfolioIn(link(ds.url, 'Mon portfolio'), 'en', named).label).toBe('Mon portfolio');
+  });
+});
+
+describe('getPortfolioVariants', () => {
+  // A typo in the English block took the whole variant, French link included, without a word
+  it('drops a malformed English version alone, keeping the variant', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_PORTFOLIO_VARIANTS', JSON.stringify([{ ...VARIANTS[0], en: { label: 'Portfolio' } }]));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { getPortfolioVariants } = await import('./portfolio-variants');
+    const [variant] = getPortfolioVariants();
+    expect(variant).toMatchObject({ id: 'design-system', url: VARIANTS[0].url });
+    expect(variant.en).toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    vi.unstubAllEnvs();
+    warn.mockRestore();
   });
 });
 

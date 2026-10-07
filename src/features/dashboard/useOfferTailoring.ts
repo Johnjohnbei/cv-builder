@@ -5,7 +5,7 @@ import type { CVData } from '@/src/shared/types';
 import { attachBilingualCache } from '@/src/lib/bilingual';
 import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
-import { useDismissedGaps } from '@/src/features/editor/hooks/useATSAnalysis';
+import { dismissedGapsOf } from '@/src/features/editor/hooks/useATSAnalysis';
 
 interface Deps {
   baseCV: CVData | null;
@@ -29,7 +29,6 @@ export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveD
   const tailorCV = useAction(api.ai.tailorCV);
   const translateCV = useAction(api.ai.translateCV);
   const [phase, setPhase] = useState<'idle' | 'analyzing' | 'generating'>('idle');
-  const { dismissed } = useDismissedGaps(offer);
   /**
    * The run each answer belongs to. A run left behind (the offer changed, the
    * page closed) must not store its CV or open the editor: its paid answer is
@@ -53,7 +52,7 @@ export function useOfferTailoring({ baseCV, offer, getCode, reportAIError, saveD
       if (!current()) return;
       analyzed = true;
       setPhase('generating');
-      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, excluded: dismissed, accessCode });
+      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, excluded: dismissedGapsOf(offer), accessCode });
       if (!current()) return;
       writeCachedRequirements(offer, result.requirements);
       // A CV proposed for an offer comes with the portfolio version that offer calls for.

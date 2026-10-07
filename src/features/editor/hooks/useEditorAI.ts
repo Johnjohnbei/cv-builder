@@ -6,6 +6,7 @@ import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { withSuggestedPortfolio } from '../lib/portfolio-variants';
 import { adoptRequirements, pendingRequirements } from '../lib/job-requirements-cache';
+import { dismissedGapsOf } from './useATSAnalysis';
 
 export interface UseEditorAIDeps {
   cvData: CVData | null;
@@ -73,6 +74,8 @@ export function useEditorAI(deps: UseEditorAIDeps): UseEditorAIResult {
         jobDescription,
         pageLimit: designSettings.pageLimit || 2,
         requirements,
+        // A gap dismissed in the ATS tab is never written
+        excluded: dismissedGapsOf(jobDescription),
         accessCode,
       });
       // Its requirements are the offer's analysis: the ATS tab waits on them, and they are cached

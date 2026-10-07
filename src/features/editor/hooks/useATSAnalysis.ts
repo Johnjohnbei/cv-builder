@@ -57,6 +57,16 @@ export function withDismissed(entries: DismissedGaps, offer: string, ids: string
 }
 
 /**
+ * The gaps the user dismissed for `offer`, read from this browser when a
+ * tailoring starts: a hook's copy would miss a gap dismissed in another view
+ * since it mounted. Sent as `excluded`, they are never written freely.
+ */
+export function dismissedGapsOf(offer: string): string[] {
+  const key = offerKey(offer);
+  return parseDismissedGaps(readStoredJSON<unknown>(KEY, [])).find(([o]) => o === key)?.[1] ?? [];
+}
+
+/**
  * The gaps the user dismissed for `offer`, kept in this browser. Dismissed in
  * the editor's ATS tab, a gap is never written by the next tailoring of that
  * offer from the dashboard.

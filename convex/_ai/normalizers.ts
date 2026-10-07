@@ -15,7 +15,7 @@ import { statesYears } from "./numbers";
 const MAX_REQUIREMENTS = 25;
 
 /** Symbols carry meaning in skill names: C++, C# and C must not share an id. Combining marks are kept (バス is not パス). */
-const slugOf = (key: string) => key
+export const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
   .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
 
@@ -104,7 +104,9 @@ export function restoreUserOwnedFields(result: CVData, source: { personal_info?:
  */
 export function withSourceContacts(cv: CVData, source: CVData, { translatedPlaces = false } = {}): CVData {
   const { name, email, phone, location, linkedin, github, website } = source.personal_info;
-  const place = (written: string | undefined, original: string | undefined) => (translatedPlaces && written?.trim() ? written : original);
+  // A place the source does not give is one the model made up, translated or not
+  const place = (written: string | undefined, original: string | undefined) =>
+    (translatedPlaces && original?.trim() && written?.trim() ? written : original);
   return {
     ...cv,
     personal_info: { ...cv.personal_info, name, email, phone, linkedin, github, website, location: place(cv.personal_info.location, location) },
@@ -209,7 +211,8 @@ export function normalizeSkills(raw: unknown): SkillCategory[] {
       const category =
         typeof cat?.category === "string" && cat.category.trim().length > 0
           ? cat.category
-          : "Compétences";
+          // A key the templates print in the CV's language, never a French word on an English CV
+          : "other";
       const rawItems = Array.isArray(cat?.items) ? cat.items : [];
       const stringItems: string[] = rawItems
         .map((item: any): string => {

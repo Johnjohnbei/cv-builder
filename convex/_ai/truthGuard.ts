@@ -73,7 +73,7 @@ export function provenIds(requirements: JobRequirement[], fields: PreparedText[]
 }
 
 /** The requirements whose quote alone proves them, by the rule of provenIds */
-export function provenByQuote(requirements: JobRequirement[], fields: PreparedText[], evidence: Map<string, string>): Set<string> {
+function provenByQuote(requirements: JobRequirement[], fields: PreparedText[], evidence: Map<string, string>): Set<string> {
   const stemsOfRequirement = new Map(requirements.map(r => [r.id, new Set(termsOf(r).flatMap(longStemsOf))]));
   const owners = (stem: string) => requirements.filter(r => stemsOfRequirement.get(r.id)!.has(stem)).length;
   const quoted = (r: JobRequirement) => {
@@ -201,7 +201,7 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
       .map((cat, i) => ({
         ...cat,
         category: writes(cat.category) || freely(cat.category) || localized(lang => getSkillCategoryTitle(cat.category as SkillCategoryKey, lang))
-          ? source.skills[i]?.category ?? "Compétences"
+          ? source.skills[i]?.category ?? "other"
           : cat.category,
         items: cat.items.filter(item => !invents(item)),
       }))

@@ -3,12 +3,12 @@
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
 import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
-import { prepareText, type PreparedText } from "../../src/shared/lib/text";
+import { normalizeForMatch, prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
 import { resolveAdaptLanguage } from "./languageDetection";
-import { normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
+import { normalizeCVData, normalizeJobRequirements, slugOf, withSourceContacts } from "./normalizers";
 import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
 import { buildRepairPrompt } from "./prompts/distribute";
@@ -87,14 +87,15 @@ interface Generation {
  * contacts are never the model's. Degrees and languages are matched to the
  * source's by the guard, which reads what they name.
  */
-function readGeneration(raw: unknown, source: CVData, requirements: JobRequirement[]): Generation {
+function readGeneration(raw: unknown, source: CVData, requirements: JobRequirement[], translated: boolean): Generation {
   const parsed = GenerationSchema.safeParse(raw);
   if (!parsed.success) throw invalidOutput();
   const cv = normalizeCVData(parsed.data.cv);
   // A dropped or added experience would take another one's company and dates
   if (cv.experience.length !== source.experience.length) throw invalidOutput();
   return {
-    cv: withSourceContacts(cv, source),
+    // Written in another language, a place the source gives is the model's to translate
+    cv: withSourceContacts(cv, source, { translatedPlaces: translated }),
     evidence: readQuotes(parsed.data.evidence, requirements),
   };
 }
@@ -126,7 +127,7 @@ export function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
       const known = next.skills.some(cat => cat.items.some(item => item.toLowerCase() === edit.text.toLowerCase()));
       if (known) return next;
       const [first, ...rest] = next.skills;
-      return { ...next, skills: first ? [{ ...first, items: [...first.items, edit.text] }, ...rest] : [{ category: "Compétences", items: [edit.text] }] };
+      return { ...next, skills: first ? [{ ...first, items: [...first.items, edit.text] }, ...rest] : [{ category: "other", items: [edit.text] }] };
     }
     const expIndex = edit.expIndex ?? -1;
     const exp = next.experience[expIndex];
@@ -216,15 +217,19 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
 
-  const excluded = new Set(input.excluded ?? []);
+  const said = new Set(input.excluded ?? []);
+  // A dismissed id is the slug of a label: one extracted again may say it another way, as a variant
+  const excluded = new Set(requirements
+    .filter(r => said.has(r.id) || r.variants.some(variant => said.has(slugOf(normalizeForMatch(variant)))))
+    .map(r => r.id));
+  const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const prompt = buildAdaptPrompt({
     cvData: source, jobDescription, requirements: requirements.filter(r => !excluded.has(r.id)), pageLimit, detectedLanguage, languageOverride,
   });
-  const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
+  const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements, sourceLanguage !== language), "default", deadlineAt);
   const byCV = provenIds(requirements, fields, generation.evidence);
   // Written whatever the source says: the user's choice of 2026-10-07
   const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id) && !excluded.has(r.id));
-  const language = resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const context: GuardContext = {
     ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language),
     free: {
@@ -232,7 +237,12 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
       said: prepareText([...fields.map(field => field.raw), ...requirements.flatMap(r => [r.label, ...r.variants])].join(" . ")),
     },
   };
-  const measure = measuredBy(context, requirements);
+  // The summary rule after the guard, which cuts sentences, and inside the
+  // measure: a repair writing a thin summary is never kept on a score it then loses
+  const measure = (cv: CVData) => {
+    const kept = withSubstantialSummary(guard(cv, context), source, sourceLanguage === language);
+    return { cv: kept, report: computeATSReport(kept, requirements, { view: "content" }) };
+  };
 
   let best = measure(generation.cv);
   const generatedScore = best.report.score;
@@ -255,10 +265,9 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     best = candidate;
     repairs += 1;
   }
-  const final = measure(withSubstantialSummary(best.cv, source, sourceLanguage === language));
   // One line per tailoring: a low score is explained by the logs, never guessed
   console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} free=${free.length} `
-    + `generated=${generatedScore} final=${final.report.score} gaps=${gapsOf(final.report).length} repairs=${repairs} `
-    + `summary=${final.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
-  return { cv: final.cv, requirements, report: final.report };
+    + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} `
+    + `summary=${best.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
+  return { cv: best.cv, requirements, report: best.report };
 }

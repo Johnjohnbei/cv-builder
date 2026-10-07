@@ -89,7 +89,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
 // ─── The score ───
 
 /** A title filters candidates first; a soft skill is never what decides */
-export function weightOf(r: JobRequirement): number {
+function weightOf(r: JobRequirement): number {
   if (r.kind === 'soft_skill') return 1;
   return r.kind === 'title' || r.importance === 'required' ? 3 : 1;
 }

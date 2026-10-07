@@ -53,10 +53,18 @@ function isEnglishVersion(value: unknown): boolean {
   return isHttp(v.url) && (v.anonUrl === undefined || isHttp(v.anonUrl)) && (v.label === undefined || typeof v.label === 'string');
 }
 
+function withValidEnglish(variant: PortfolioVariant): PortfolioVariant {
+  if (isEnglishVersion(variant.en)) return variant;
+  console.warn(`[portfolio] variant "${variant.id}": its "en" block needs an http(s) url, English version ignored`);
+  const { en: _ignored, ...rest } = variant;
+  void _ignored;
+  return rest;
+}
+
 function isVariant(value: unknown): value is PortfolioVariant {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
-  return isEnglishVersion(v.en) && (
+  return (
     typeof v.id === 'string' && v.id.length > 0
     && typeof v.label === 'string' && v.label.length > 0
     && isHttp(v.url)
@@ -83,7 +91,8 @@ export function getPortfolioVariants(): PortfolioVariant[] {
 
   try {
     const parsed = JSON.parse(raw);
-    cached = Array.isArray(parsed) ? parsed.filter(isVariant) : [];
+    // A malformed English version is dropped alone: the variant and its default link stay
+    cached = Array.isArray(parsed) ? parsed.filter(isVariant).map(withValidEnglish) : [];
   } catch {
     console.warn('[portfolio] VITE_PORTFOLIO_VARIANTS is not valid JSON, feature disabled');
     cached = [];

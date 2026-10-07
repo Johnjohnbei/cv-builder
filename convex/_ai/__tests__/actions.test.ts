@@ -245,6 +245,13 @@ describe("translateCV", () => {
     expect(result.experience[0].location).toBe("London");
   });
 
+  it("never keeps a place the source does not give", async () => {
+    const noPlace = { ...CV, personal_info: { ...CV.personal_info, location: "" } };
+    mocks.aiAnswer = { ...CV, personal_info: { name: "Alex", email: "alex@example.com", location: "Lyon, France" } };
+    const result = await handlerOf<Record<string, unknown>, { personal_info: Record<string, unknown> }>(translateCV)({}, { cvData: noPlace, targetLanguage: "en" });
+    expect(result.personal_info.location).toBe("");
+  });
+
   // Paired by place, every experience after a dropped one took its neighbour's employer and dates
   it("rejects a translation that drops an experience, so the call is retried", async () => {
     mocks.aiAnswer = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };

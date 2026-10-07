@@ -437,10 +437,51 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     expect(mocks.chat).toHaveBeenCalledTimes(1);
   });
 
+  // Extracted again, a requirement may carry the dismissed label as a variant
+  it("knows a dismissed requirement again by one of its variants", async () => {
+    const node = { ...NODE, label: "Node", variants: ["Node.js"] };
+    answers(generated(cv => { cv.skills[0].items.push("Node"); }), { edits: [] });
+    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER, requirements: [FIGMA, node], excluded: ["node-js"] });
+    expect(result.cv.skills[0].items).toEqual(["Figma", "Sketch"]);
+  });
+
+  it("names a category it adds with a key the CV's language prints, never a French word", async () => {
+    answers(generated(cv => { cv.skills.push({ category: "Node.js", items: ["Node.js"] }); }));
+    const { cv } = await run([FIGMA, NODE]);
+    expect(cv.skills[1]).toEqual({ category: "other", items: ["Node.js"] });
+  });
+
+  // Kept on its score, a summary the repair wrote thin was then replaced and the requirement lost
+  it("never keeps a repair that writes a thin summary", async () => {
+    answers(generated(() => {}), { edits: [{ target: "summary", text: "Expert Node.js." }] }, { edits: [] });
+    const result = await run([FIGMA, NODE]);
+    expect(result.cv.personal_info.summary).toBe(SUMMARY);
+    expect(covered(result, "node-js")).toBe(false);
+  });
+
   it("removes a freely written requirement that gives a number the source never gives", async () => {
     answers(generated(cv => { cv.experience[0].description.push("Développé en Node.js sur 40 serveurs"); }), { edits: [] });
     const result = await run([FIGMA, NODE]);
     expect(JSON.stringify(result.cv)).not.toContain("40 serveurs");
+  });
+});
+
+describe("tailorPipeline: places", () => {
+  const OFFER_EN = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
+  const withPlace: CVData = { ...SOURCE, experience: [{ ...SOURCE.experience[0], location: "Londres" }, SOURCE.experience[1]] };
+
+  it("keeps the place an English CV writes for a French source's place", async () => {
+    answers(generated(cv => { cv.experience[0].location = "London"; }, [], withPlace));
+    const { cv } = await tailorPipeline({ cv: withPlace, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
+    expect(cv.experience[0].location).toBe("London");
+  });
+
+  it("never keeps a place the source does not give, nor rewrites one in the source's own language", async () => {
+    answers(generated(cv => { cv.experience[1].location = "Lyon"; }));
+    const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
+    expect(cv.experience[1].location).toBeUndefined();
+    answers(generated(cv => { cv.experience[0].location = "Londres, UK"; }, [], withPlace));
+    expect((await run([FIGMA], Date.now(), withPlace)).cv.experience[0].location).toBe("Londres");
   });
 });
 
