@@ -72,6 +72,29 @@ export function buildPersistedCV(cvData: CVData, designSettings: DesignSettings,
   });
 }
 
+/**
+ * The `cvs` record of a saved version, field by field: Convex refuses an
+ * argument it does not declare. A field left out here is lost at reopening, as
+ * the dismissed requirements were. Exported for unit testing.
+ */
+export function cvsRecordOf(persisted: CVData, jobDescription: string) {
+  return {
+    personal_info: persisted.personal_info,
+    experience: persisted.experience,
+    education: persisted.education,
+    skills: persisted.skills,
+    languages: persisted.languages,
+    design: persisted.design,
+    detectedLanguage: persisted.detectedLanguage,
+    languageOverride: persisted.languageOverride,
+    _translations: persisted._translations,
+    dismissedRequirements: persisted.dismissedRequirements,
+    // Saved without it, a version reopened from "Mes CV" came back with
+    // whatever offer the previous draft carried.
+    jobDescription,
+  };
+}
+
 /** Append a CV to the guest list, capped to keep localStorage small. */
 export function appendToGuestList(existing: unknown[], newCv: CVData & { _id: string; createdAt: string }): unknown[] {
   return [newCv, ...existing];
@@ -103,20 +126,7 @@ export function useCVPersistence(deps: UseCVPersistenceDeps): UseCVPersistenceRe
         // 2) Sync the working draft `users.lastGeneratedCV` so a refresh
         //    of the editor restores the current state (not just the last
         //    optimize from the dashboard).
-        await createCV({
-          personal_info: persisted.personal_info,
-          experience: persisted.experience,
-          education: persisted.education,
-          skills: persisted.skills,
-          languages: persisted.languages,
-          design: persisted.design,
-          detectedLanguage: persisted.detectedLanguage,
-          languageOverride: persisted.languageOverride,
-          _translations: persisted._translations,
-          // Saved without it, a version reopened from "Mes CV" came back with
-          // whatever offer the previous draft carried.
-          jobDescription,
-        });
+        await createCV(cvsRecordOf(persisted, jobDescription));
         await updateLastCV({ cvData: persisted });
       } else if (isGuest) {
         const existing = readStoredJSON<unknown[]>(GUEST_CVS_KEY, []);

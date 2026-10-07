@@ -8,6 +8,8 @@
 export interface TextVersions {
   adapted: string;
   original: string;
+  /** What the user typed, kept when they pick another version: never lost */
+  edited?: string;
 }
 
 /** The texts of an experience a generation rewrites */
@@ -88,7 +90,7 @@ export interface Experience {
   /** Company business model deduced or set by user (B2C, B2B, SaaS, Marketplace, etc.) */
   companyBusinessModel?: string;
   /** Intro and bullets as adapted and as imported, when a generation wrote them */
-  versions?: { adapted: ExperienceText; original: ExperienceText };
+  versions?: { adapted: ExperienceText; original: ExperienceText; edited?: ExperienceText };
 }
 
 export interface Education {

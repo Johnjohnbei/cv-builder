@@ -127,6 +127,8 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
       // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {
         ...translatedData,
+        // The server reads a CV without it: what the user said they lack stays out in every language
+        dismissedRequirements: cvData.dismissedRequirements,
         _translations: {
           ...cvData._translations,
           [currentLang]: currentSnapshot,

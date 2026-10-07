@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPersistedCV, appendToGuestList, replacesDraft, stripPersistenceArtifacts } from './useCVPersistence';
+import { buildPersistedCV, appendToGuestList, cvsRecordOf, replacesDraft, stripPersistenceArtifacts } from './useCVPersistence';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
 const SAMPLE_CV: CVData = {
@@ -91,5 +91,13 @@ describe('appendToGuestList', () => {
     const out = appendToGuestList(existing, next);
     expect(out).not.toBe(existing);
     expect(existing).toEqual([]);
+  });
+});
+
+describe('cvsRecordOf', () => {
+  // Left out, a version reopened from "Mes CV" printed again what the user said they lack
+  it('saves the dismissed requirements and the offer with the version', () => {
+    const cv = { personal_info: { name: 'A', email: 'a@b.c' }, experience: [], education: [], skills: [], languages: [], dismissedRequirements: ['figma'] } as CVData;
+    expect(cvsRecordOf(cv, 'Offre A')).toMatchObject({ dismissedRequirements: ['figma'], jobDescription: 'Offre A' });
   });
 });

@@ -6,15 +6,17 @@ interface Props {
   /** What the choice is about, read by a screen reader: "Version du résumé" */
   label: string;
   version: Version;
-  onChoose: (version: Exclude<Version, 'edited'>) => void;
+  /** The user typed in this text once: their version stays one of the choices */
+  hasOwnVersion: boolean;
+  onChoose: (version: Version) => void;
 }
 
 /**
- * The choice between the text adapted to the offer and the user's own, made in
- * the editor without any AI call (arbitrage of 2026-10-07). A text the user
- * typed in is neither: it shows as edited until they pick one again.
+ * The choice between the text adapted to the offer, the user's imported one
+ * and, once they typed in it, their own, made in the editor without any AI
+ * call (arbitrage of 2026-10-07). Picking one never loses another.
  */
-export function VersionSelect({ id, label, version, onChoose }: Props) {
+export function VersionSelect({ id, label, version, hasOwnVersion, onChoose }: Props) {
   return (
     <Select
       id={id}
@@ -22,13 +24,11 @@ export function VersionSelect({ id, label, version, onChoose }: Props) {
       inputSize="sm"
       mono={false}
       value={version}
-      onChange={(e) => {
-        if (e.target.value !== 'edited') onChoose(e.target.value as Exclude<Version, 'edited'>);
-      }}
+      onChange={(e) => onChoose(e.target.value as Version)}
     >
       <option value="adapted">Adaptée à l'offre</option>
       <option value="original">Mon texte d'origine</option>
-      {version === 'edited' && <option value="edited" disabled>Modifiée à la main</option>}
+      {(hasOwnVersion || version === 'edited') && <option value="edited">Ma version modifiée</option>}
     </Select>
   );
 }

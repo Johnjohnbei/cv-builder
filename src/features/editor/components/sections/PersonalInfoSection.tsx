@@ -48,6 +48,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
               id="title-version"
               label="Version du titre"
               version={versionOf(personalInfo.title, personalInfo.versions.title)}
+              hasOwnVersion={personalInfo.versions.title.edited !== undefined}
               onChoose={(version) => setCvData(prev => prev ? { ...prev, personal_info: withPersonalVersion(prev.personal_info, 'title', version) } : null)}
             />
           )}

@@ -14,10 +14,12 @@ export function withDismissed(cv: CVData, id: string, dismissed: boolean): CVDat
 }
 
 /**
- * The CV as it prints: a summary sentence, a bullet, an intro or a skill
- * writing a dismissed requirement is left out. A summary that loses a sentence
- * and an experience that loses every bullet take the imported version when it
- * does not write it either; an intro writing one takes it the same way, or none.
+ * The CV as it prints: a summary sentence, a bullet, an intro, a KPI or a
+ * skill writing a dismissed requirement is left out. A title, a position, a
+ * company tag, a degree or a language is a fact of the imported CV: kept. A
+ * summary that loses a sentence and an experience that loses every bullet take
+ * the imported version when it does not write it either; an intro writing one
+ * takes it the same way, or none.
  */
 export function withoutDismissed(cv: CVData, requirements: JobRequirement[]): CVData {
   const ids = cv.dismissedRequirements ?? [];
@@ -45,9 +47,10 @@ export function withoutDismissed(cv: CVData, requirements: JobRequirement[]): CV
         ? own.description.filter(bullet => !writes(bullet))
         : bullets;
       const intro = writes(exp.intro) ? clean(own?.intro) : exp.intro;
-      const unchanged = intro === exp.intro && description.length === exp.description.length
+      const kpi = writes(exp.kpi) ? '' : exp.kpi;
+      const unchanged = intro === exp.intro && kpi === exp.kpi && description.length === exp.description.length
         && description.every((bullet, i) => bullet === exp.description[i]);
-      return unchanged ? exp : { ...exp, intro, description };
+      return unchanged ? exp : { ...exp, intro, kpi, description };
     }),
     skills: cv.skills
       .map(cat => ({ ...cat, items: cat.items.filter(item => !writes(item)) }))

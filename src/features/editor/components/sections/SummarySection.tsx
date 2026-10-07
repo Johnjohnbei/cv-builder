@@ -36,6 +36,7 @@ export const SummarySection = memo(function SummarySection({
               id="summary-version"
               label="Version du résumé"
               version={versionOf(summary, versions)}
+              hasOwnVersion={versions.edited !== undefined}
               onChoose={(version) => setCvData(prev => prev ? { ...prev, personal_info: withPersonalVersion(prev.personal_info, 'summary', version) } : null)}
             />
           )}

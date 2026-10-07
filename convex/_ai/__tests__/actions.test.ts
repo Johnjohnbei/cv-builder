@@ -259,6 +259,28 @@ describe("translateCV", () => {
   });
 });
 
+describe("the editor's own state in a prompt", () => {
+  // A dismissed requirement's adapted text, read from a version, came back in the letter
+  it("sends neither the versions nor the dismissed requirements to the letter or the translation", async () => {
+    const cvData = {
+      personal_info: { name: "Alex", email: "alex@example.com", summary: "Designer produit.", versions: { summary: { adapted: "Expert Kubernetes.", original: "Designer produit." } } },
+      experience: [{ company: "Acme", position: "Designer", start_date: "2020", current: true, description: ["Maquettes"], versions: { adapted: { description: ["Déployé Kubernetes"] }, original: { description: ["Maquettes"] } } }],
+      education: [], skills: [], languages: [], dismissedRequirements: ["kubernetes"],
+    };
+    mocks.chatText.mockResolvedValue("Lettre.");
+    await handlerOf<Record<string, unknown>, unknown>(generateCoverLetter)({}, { cvData, jobDescription: "Designer produit, Kubernetes requis." }).catch(() => undefined);
+    mocks.aiAnswer = { ...cvData, versions: undefined };
+    await handlerOf<Record<string, unknown>, unknown>(translateCV)({}, { cvData, targetLanguage: "en" }).catch(() => undefined);
+    const prompts = [...mocks.chatText.mock.calls, ...mocks.chatJSONThen.mock.calls].map(call => String(call[0]));
+    expect(prompts.length).toBeGreaterThan(0);
+    for (const prompt of prompts) {
+      expect(prompt).not.toContain("Expert Kubernetes");
+      expect(prompt).not.toContain("Déployé Kubernetes");
+      expect(prompt).not.toContain("dismissedRequirements");
+    }
+  });
+});
+
 describe("bounds on every action that puts a CV in a prompt", () => {
   const CV = { personal_info: { name: "Alex", email: "alex@example.com" }, experience: [], education: [], skills: [], languages: [] };
   const huge = { ...CV, personal_info: { ...CV.personal_info, summary: "x".repeat(60_001) } };

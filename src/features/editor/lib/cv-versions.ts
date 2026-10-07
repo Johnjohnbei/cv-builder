@@ -43,7 +43,7 @@ export function withVersions(cv: CVData, original: CVData): CVData {
   };
 }
 
-/** The version a text shows */
+/** The version a text shows: a text matching neither imported nor adapted is the user's own */
 export function versionOf(current: string | undefined, versions: TextVersions): Version {
   const text = (current ?? '').trim();
   if (text === versions.adapted.trim()) return 'adapted';
@@ -57,13 +57,25 @@ export function experienceVersionOf(exp: Experience): Version | null {
   return sameTexts(textsOf(exp), exp.versions.original) ? 'original' : 'edited';
 }
 
-/** The summary or the title in the version chosen */
-export function withPersonalVersion(info: PersonalInfo, field: 'summary' | 'title', version: Exclude<Version, 'edited'>): PersonalInfo {
+/**
+ * The summary or the title in the version chosen. A text the user typed is
+ * kept as their own version before another one takes its place.
+ */
+export function withPersonalVersion(info: PersonalInfo, field: 'summary' | 'title', version: Version): PersonalInfo {
   const versions = info.versions?.[field];
-  return versions ? { ...info, [field]: versions[version] } : info;
+  if (!versions) return info;
+  const typed = versionOf(info[field], versions) === 'edited' ? info[field] ?? '' : versions.edited;
+  const kept = typed === undefined ? versions : { ...versions, edited: typed };
+  const text = version === 'edited' ? kept.edited ?? info[field] ?? '' : kept[version];
+  return { ...info, [field]: text, versions: { ...info.versions, [field]: kept } };
 }
 
-/** An experience's intro and bullets in the version chosen */
-export function withExperienceVersion(exp: Experience, version: Exclude<Version, 'edited'>): Experience {
-  return exp.versions ? { ...exp, ...exp.versions[version] } : exp;
+/** An experience's intro and bullets in the version chosen, what the user typed kept the same way */
+export function withExperienceVersion(exp: Experience, version: Version): Experience {
+  const versions = exp.versions;
+  if (!versions) return exp;
+  const typed = experienceVersionOf(exp) === 'edited' ? textsOf(exp) : versions.edited;
+  const kept = typed === undefined ? versions : { ...versions, edited: typed };
+  const texts = version === 'edited' ? kept.edited ?? textsOf(exp) : kept[version];
+  return { ...exp, ...texts, versions: kept };
 }

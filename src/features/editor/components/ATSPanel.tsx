@@ -1,5 +1,5 @@
 import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
-import { gapsOf } from '../lib/keyword-analysis';
+import { gapsOf, isWrittenFreely } from '../lib/keyword-analysis';
 import type { RequirementsStatus } from '../lib/job-requirements-cache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
 import { formatPoints as points, GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
@@ -80,10 +80,10 @@ export function ATSPanel({
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
-  const covered = report.requirements.filter(r => r.found);
-  const missing = gapsOf(report);
-  const gaps = missing.filter(r => !dismissed.includes(r.requirement.id));
-  const setAside = missing.filter(r => dismissed.includes(r.requirement.id));
+  // A dismissed requirement is set aside, "Remettre" beside it, even when a fact still writes it
+  const setAside = report.requirements.filter(r => dismissed.includes(r.requirement.id));
+  const covered = report.requirements.filter(r => r.found && !dismissed.includes(r.requirement.id));
+  const gaps = gapsOf(report).filter(r => !dismissed.includes(r.requirement.id));
 
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
@@ -125,15 +125,16 @@ export function ATSPanel({
               >
                 {c.requirement.label}
                 <span className="text-green-700 text-[10px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
-                {/* The generation writes every skill of the offer: the user takes out the one they lack */}
-                <Button
+                {/* The generation writes every skill of the offer: the user takes out the one they lack.
+                    A degree, a language, years or a title are facts of their own CV: nothing to take out */}
+                {isWrittenFreely(c.requirement) && <Button
                   variant="ghost" size="sm" mono={false} className="text-green-800"
                   aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`}
                   title="Je ne l'ai pas : retirer du CV"
                   onClick={() => dismiss(c.requirement.id)}
                 >
                   Retirer
-                </Button>
+                </Button>}
               </span>
             ))}
           </div>

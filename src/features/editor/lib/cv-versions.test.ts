@@ -69,3 +69,23 @@ describe('choosing a version', () => {
     expect(experienceVersionOf(cv.experience[1])).toBeNull();
   });
 });
+
+describe('what the user typed', () => {
+  const cv = withVersions(adapted, imported);
+
+  it('is kept as their own version when they pick another, and comes back', () => {
+    const typed = { ...cv.personal_info, summary: 'Mon résumé tapé à la main.' };
+    const own = withPersonalVersion(typed, 'summary', 'original');
+    expect(own.summary).toBe(imported.personal_info.summary);
+    expect(own.versions?.summary?.edited).toBe('Mon résumé tapé à la main.');
+    expect(withPersonalVersion(own, 'summary', 'edited').summary).toBe('Mon résumé tapé à la main.');
+    expect(versionOf('Mon résumé tapé à la main.', own.versions!.summary!)).toBe('edited');
+  });
+
+  it('is kept the same way for an experience', () => {
+    const typed = { ...cv.experience[0], description: ['Ma puce à moi'] };
+    const own = withExperienceVersion(typed, 'adapted');
+    expect(own.versions?.edited?.description).toEqual(['Ma puce à moi']);
+    expect(withExperienceVersion(own, 'edited').description).toEqual(['Ma puce à moi']);
+  });
+});

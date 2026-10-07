@@ -48,7 +48,8 @@ export async function attachBilingualCache(
 ): Promise<CVData> {
   const langA = getCVLanguage(cv);
   const langB: SupportedLanguage = langA === 'en' ? 'fr' : 'en';
-  const sourceLang = source ? detectCVLanguage(source) : langA;
+  // Its hints first, its content after, as the server reads it (tailor.ts sourceLanguageOf)
+  const sourceLang = source ? source.languageOverride ?? source.detectedLanguage ?? detectCVLanguage(source) : langA;
   const otherLang: SupportedLanguage = sourceLang === 'en' ? 'fr' : 'en';
   const [translated, sourceTranslated] = await Promise.all([
     translate({ cvData: cv, targetLanguage: langB, accessCode })

@@ -46,6 +46,21 @@ export function assertMaxLength(value: string | undefined, max: number) {
 
 // ─── Input shape ────────────────────────────────────────────────────
 
+/** The CV without the versions a block was not printed in: the editor's choice, never the model's input */
+function withoutEditorVersions<T extends { personal_info?: object; experience?: unknown }>(cv: T): T {
+  const { versions: _ignored, ...personal } = (cv.personal_info ?? {}) as Record<string, unknown>;
+  void _ignored;
+  const experience = Array.isArray(cv.experience)
+    ? cv.experience.map((exp) => {
+      if (!exp || typeof exp !== "object") return exp;
+      const { versions: _unused, ...rest } = exp as Record<string, unknown>;
+      void _unused;
+      return rest;
+    })
+    : cv.experience;
+  return { ...cv, ...(cv.personal_info && { personal_info: personal }), experience };
+}
+
 type Language = "fr" | "en";
 
 /**
@@ -55,15 +70,18 @@ type Language = "fr" | "en";
  * never returned. `respond` puts back what the model never saw.
  */
 export function cvArgument(raw: unknown) {
-  const { design, detectedLanguage, languageOverride, _translations: _staleCache, ...rest } = (raw || {}) as Record<string, any>;
-  void _staleCache;
+  // The editor's own state stays out of every prompt too: the versions a block
+  // was not printed in, and the requirements the user said they lack (their
+  // texts would bring them back into a letter or a translation)
+  const { design, detectedLanguage, languageOverride, _translations: _staleCache, dismissedRequirements: _dismissed, ...rest } = (raw || {}) as Record<string, any>;
+  void _staleCache; void _dismissed;
   const content = rest as { personal_info?: CVData["personal_info"] };
   const hints = { detectedLanguage: detectedLanguage as Language | undefined, languageOverride: languageOverride as Language | undefined };
   return {
     design: design as CVData["design"] | undefined,
     ...hints,
     content,
-    cv: withoutUserOwnedFields(content),
+    cv: withoutEditorVersions(withoutUserOwnedFields(content)),
     /**
      * The model's CV with the user's fields and the design back. `written` is
      * the language the CV is now in: an override older than it follows it, or

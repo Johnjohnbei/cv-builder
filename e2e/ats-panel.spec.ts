@@ -264,3 +264,43 @@ test.describe('Contenu : version adaptée ou d\'origine', () => {
     await expect(page.locator('[data-cv-section="summary"]').first()).toContainText(adapted.slice(0, 40));
   });
 });
+
+test.describe('Contenu : version d\'une expérience', () => {
+  guardAICalls();
+
+  test("une expérience passe à mes puces d'origine, et ma modification reste un choix", async ({ page }) => {
+    const [first, ...rest] = MOCK_CV.experience;
+    const adapted = { intro: first.intro, description: first.description };
+    await seedGuestSession(page, {
+      cv: { ...MOCK_CV, experience: [{ ...first, versions: { adapted, original: { intro: first.intro, description: ['Ma puce importée, telle quelle'] } } }, ...rest] },
+      jd: MOCK_JOB_DESCRIPTION,
+    });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: /Expériences/ }).click();
+    const choice = page.getByLabel("Version de l'intro et des puces").first();
+    await choice.selectOption('original');
+    await expect(page.locator('.cv-page').first()).toContainText('Ma puce importée, telle quelle');
+    await choice.selectOption('adapted');
+    await expect(page.locator('.cv-page').first()).not.toContainText('Ma puce importée, telle quelle');
+  });
+});
+
+// The translation the generation could not cache runs later: what the user dismissed stays out
+test.describe('Langue : traduction paresseuse', () => {
+  test('une traduction garde les exigences écartées', async ({ page }) => {
+    const calls = await answerAIActions(page, {
+      translateCV: (args) => ({ ...args.cvData, dismissedRequirements: undefined, detectedLanguage: args.targetLanguage, languageOverride: args.targetLanguage }),
+    });
+    await seedGuestSession(page, {
+      cv: { ...MOCK_CV, _translations: undefined, dismissedRequirements: ['figma'] },
+      jd: MOCK_JOB_DESCRIPTION,
+      requirementLabels: ['Figma', 'Kubernetes', 'Terraform'],
+    });
+    await page.getByRole('button', { name: 'EN', exact: true }).click();
+    await page.getByRole('button', { name: 'Traduire le contenu en anglais' }).click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').detectedLanguage)).toBe('en');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}'));
+    expect(saved.dismissedRequirements).toEqual(['figma']);
+    expect(calls).toEqual({ answered: ['translateCV'], forwarded: [] });
+  });
+});

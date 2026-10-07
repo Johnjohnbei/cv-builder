@@ -44,6 +44,13 @@ describe('withoutDismissed: the CV as it prints', () => {
     expect(printed.experience[1].description).toEqual(['Dessiné les écrans']);
   });
 
+  it('empties a KPI writing it, and keeps the facts of the CV', () => {
+    const cv: CVData = { ...CV, dismissedRequirements: ['node-js'], experience: [{ ...CV.experience[0], kpi: 'Migré 12 services vers Node.js', position: 'Développeur Node.js' }] };
+    const [exp] = withoutDismissed(cv, [NODE]).experience;
+    expect(exp.kpi).toBe('');
+    expect(exp.position).toBe('Développeur Node.js');
+  });
+
   it('keeps the other sentences of a summary with no imported version', () => {
     const cv = { ...CV, personal_info: { ...CV.personal_info, versions: undefined }, dismissedRequirements: ['node-js'] };
     expect(withoutDismissed(cv, [NODE]).personal_info.summary).toBe('Product designer en SaaS B2B. Six ans de parcours.');

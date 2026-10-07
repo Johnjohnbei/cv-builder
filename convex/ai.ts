@@ -116,7 +116,7 @@ export const extractJobRequirements = action({
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode);
-    // Bounded like in tailorCV: "Adapter" in the editor waits on this analysis
+    // Bounded like in tailorCV
     return { requirements: await extractRequirements(args.jobDescription, Date.now() + EXTRACTION_DEADLINE_MS) };
   },
 });
@@ -134,7 +134,8 @@ export const generateCoverLetter = action({
   },
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    assertBoundedPrompt(args.cvData);
+    // What the prompt reads is bounded, not the cache and the versions that travel with it
+    assertBoundedPrompt(cvArgument(args.cvData).cv);
     await verifyAccessCode(ctx, args.accessCode);
     // Server-side fallback detection: trust the client's hint when provided,
     // otherwise detect from the job description ourselves so the prompt always
@@ -179,7 +180,8 @@ export const translateCV = action({
     accessCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    assertBoundedPrompt(args.cvData);
+    // What the prompt reads is bounded, not the cache and the versions that travel with it
+    assertBoundedPrompt(cvArgument(args.cvData).cv);
     await verifyAccessCode(ctx, args.accessCode);
     // The language hints and the cache stay out: the client rebuilds _translations after the call
     const { design, content: contentOnly, cv } = cvArgument(args.cvData);

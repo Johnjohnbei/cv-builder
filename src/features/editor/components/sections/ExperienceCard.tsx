@@ -165,6 +165,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               id={`experience-${idx}-version`}
               label="Version de l'intro et des puces"
               version={experienceVersionOf(exp) ?? 'adapted'}
+              hasOwnVersion={exp.versions.edited !== undefined}
               onChoose={(version) => updateExperience(idx, x => withExperienceVersion(x, version))}
             />
           )}

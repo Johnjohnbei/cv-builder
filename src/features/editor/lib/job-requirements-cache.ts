@@ -128,8 +128,7 @@ export function readCachedRequirements(jobDescription: string): JobRequirement[]
 // The one owner of "extract the requirements of an offer": a single request per
 // offer and access code at a time in the tab, cached once answered. The
 // StrictMode remount and a return to an offer still being analyzed each sent a
-// second request; "Adapter" only waits on a running one, and while the server
-// tailors (extracting when none ran), its answer is the running analysis.
+// second request.
 
 type RequirementsAnswer = Promise<{ requirements: unknown }>;
 type ExtractRequirements = (args: { jobDescription: string; accessCode?: string }) => RequirementsAnswer;
@@ -139,7 +138,7 @@ const inflight = new Map<string, Promise<JobRequirement[]>>();
 const inflightKey = (offer: string, accessCode?: string) => JSON.stringify([normalize(offer), accessCode ?? '']);
 
 /** Cached or already running, never a new (billed) request: undefined otherwise */
-export function pendingRequirements(offer: string, accessCode?: string): Promise<JobRequirement[]> | undefined {
+function pendingRequirements(offer: string, accessCode?: string): Promise<JobRequirement[]> | undefined {
   const cached = readCachedRequirements(offer);
   return cached ? Promise.resolve(cached) : inflight.get(inflightKey(offer, accessCode));
 }
@@ -165,26 +164,9 @@ function track(offer: string, accessCode: string | undefined, answer: Requiremen
   return request;
 }
 
-/** Analyses that are tailorings: their failure is the tailoring's, not the offer's */
-const tailorings = new WeakSet<Promise<JobRequirement[]>>();
-
-/**
- * Cached, already running, or a new request for `offer`. Waiting on a
- * tailoring that fails, it asks for the requirements itself: a CV that could
- * not be written says nothing of the offer.
- */
+/** Cached, already running, or a new request for `offer` */
 export function requestRequirements(offer: string, accessCode: string | undefined, extract: ExtractRequirements): Promise<JobRequirement[]> {
-  const running = pendingRequirements(offer, accessCode);
-  if (!running) return track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
-  return tailorings.has(running) ? running.catch(() => requestRequirements(offer, accessCode, extract)) : running;
-}
-
-/** A tailoring running for `offer` answers its requirements: nothing asks for them again meanwhile */
-export function adoptRequirements(offer: string, accessCode: string | undefined, tailoring: RequirementsAnswer): void {
-  const request = track(offer, accessCode, tailoring);
-  tailorings.add(request);
-  // The caller reports a failed tailoring
-  request.catch(() => {});
+  return pendingRequirements(offer, accessCode) ?? track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
 }
 
 export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {

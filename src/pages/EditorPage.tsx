@@ -86,6 +86,13 @@ export default function EditorPage() {
   const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
   // The CV as it prints and is measured: a requirement the user said they lack is left out of it
   const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData, requirements) : null), [cvData, requirements]);
+  // What the CV still claims: the fit pass protects and the badges count these only.
+  // The fit pass rebuilds experiences from cvData, so it gets the user's texts, never the printed ones.
+  const dismissedIds = cvData?.dismissedRequirements;
+  const claimedRequirements = useMemo(
+    () => requirements.filter(r => !dismissedIds?.includes(r.id)),
+    [requirements, dismissedIds],
+  );
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
@@ -168,7 +175,7 @@ export default function EditorPage() {
   // the fit waits for them (an offer being typed or analyzed).
   const targetPages = designSettings.pageLimit ?? 2;
   const fit = useFitToPages({
-    cvData, setCvData, requirements,
+    cvData, setCvData, requirements: claimedRequirements,
     requirementsReady: isRequirementsSettled(requirementsStatus),
     stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
   });
@@ -179,10 +186,10 @@ export default function EditorPage() {
 
   // The badge of each experience: the share of the provable requirements it evidences, none without them
   const experienceScores = useMemo(
-    () => requirements.some(isWritable)
-      ? (cvData?.experience ?? []).map(exp => computeRequirementMatch(exp, requirements, currentLanguage))
+    () => claimedRequirements.some(isWritable)
+      ? (cvData?.experience ?? []).map(exp => computeRequirementMatch(exp, claimedRequirements, currentLanguage))
       : [],
-    [cvData?.experience, requirements, currentLanguage],
+    [cvData?.experience, claimedRequirements, currentLanguage],
   );
 
   const weakBullets = useMemo(
