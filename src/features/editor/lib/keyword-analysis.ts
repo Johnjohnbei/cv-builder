@@ -111,13 +111,17 @@ export function isProvable(r: Pick<JobRequirement, 'kind'>): boolean {
   return isWritable(r) && r.kind !== 'title';
 }
 
+/** The kinds a rewrite writes without a proof: a skill, a tool, a method, a domain, a soft skill */
+const WRITTEN_FREELY: readonly string[] = ['hard_skill', 'tool', 'method', 'domain', 'soft_skill'] satisfies JobRequirement['kind'][];
+
 /**
  * Whether the tailoring writes this requirement even when the CV does not
- * prove it (arbitrage of 2026-10-07): a skill, a tool, a method, a domain. A
- * certification is checked like a degree, so it stays a fact of the source.
+ * prove it (arbitrage of 2026-10-07). A certification is checked like a
+ * degree, so it stays a fact of the source. A list of what is allowed: a kind
+ * read from storage that no longer exists takes nothing out of a CV.
  */
 export function isWrittenFreely(r: Pick<JobRequirement, 'kind'>): boolean {
-  return isProvable(r) && r.kind !== 'certification';
+  return WRITTEN_FREELY.includes(r.kind);
 }
 
 /** Whether these fields, as the CV prints them, write the requirement */

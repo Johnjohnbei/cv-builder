@@ -80,10 +80,11 @@ export function ATSPanel({
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
-  // A dismissed requirement is set aside, "Remettre" beside it, even when a fact still writes it
-  const setAside = report.requirements.filter(r => dismissed.includes(r.requirement.id));
-  const covered = report.requirements.filter(r => r.found && !dismissed.includes(r.requirement.id));
-  const gaps = gapsOf(report).filter(r => !dismissed.includes(r.requirement.id));
+  // Every dismissal the CV keeps is listed with "Remettre", whatever offer is on screen:
+  // one left out of the list would keep taking text out with no way back
+  const dismissedIds = dismissed.map(r => r.id);
+  const covered = report.requirements.filter(r => r.found && !dismissedIds.includes(r.requirement.id));
+  const gaps = gapsOf(report).filter(r => !dismissedIds.includes(r.requirement.id));
 
   return (
     <div className="flex flex-col gap-5 p-4 overflow-y-auto">
@@ -148,18 +149,20 @@ export function ATSPanel({
             </div>
           )}
 
-          {setAside.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-2">
-              <span className={SECTION_TITLE}>Écartées ({setAside.length})</span>
-              <p className="text-[11px] text-gray-500">Ce qui les écrit est retiré du CV imprimé ; vos textes restent dans l'onglet Contenu. Toujours comptées dans le score : un ATS les cherche quand même.</p>
-              {setAside.map(c => (
-                <div key={c.requirement.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                  <span className="text-gray-600">{c.requirement.label}</span>
-                  <Button variant="ghost" size="sm" mono={false} onClick={() => restore(c.requirement)}>Remettre</Button>
-                </div>
-              ))}
+        </div>
+      )}
+
+      {/* ─── What the user said they lack: always listed, so it can always be put back ─── */}
+      {dismissed.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className={SECTION_TITLE}>Écartées ({dismissed.length})</span>
+          <p className="text-[11px] text-gray-500">Ce qui les écrit est retiré du CV imprimé ; vos textes restent dans l'onglet Contenu. Toujours comptées dans le score de l'offre qui les demande : un ATS les cherche quand même.</p>
+          {dismissed.map(r => (
+            <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
+              <span className="text-gray-600">{r.label}</span>
+              <Button variant="ghost" size="sm" mono={false} aria-label={`${r.label} : remettre`} onClick={() => restore(r.id)}>Remettre</Button>
             </div>
-          )}
+          ))}
         </div>
       )}
 

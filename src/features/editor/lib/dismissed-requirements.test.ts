@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData, JobRequirement, RequirementKind } from '@/src/shared/types';
-import { dismissedIdsOf, withDismissed, withoutDismissed } from './dismissed-requirements';
+import { dismissedIdsOf, dismissedOf, withDismissed, withRestored, withoutDismissed } from './dismissed-requirements';
 
 const requirement = (id: string, label: string, variants: string[] = [], kind: RequirementKind = 'tool'): JobRequirement =>
   ({ id, label, variants, kind, importance: 'required', quote: label });
@@ -29,7 +29,7 @@ const CV: CVData = {
 };
 
 const dismissing = (cv: CVData, ...requirements: JobRequirement[]) =>
-  requirements.reduce((next, r) => withDismissed(next, r, true), cv);
+  requirements.reduce((next, r) => withDismissed(next, r), cv);
 
 describe('withoutDismissed: the CV as it prints', () => {
   it('prints the CV untouched while nothing is dismissed', () => {
@@ -43,16 +43,16 @@ describe('withoutDismissed: the CV as it prints', () => {
     expect(printed.skills).toEqual([{ category: 'tools', items: ['Figma'] }]);
   });
 
-  it('takes the imported summary, intro or bullets where the adapted ones wrote it', () => {
+  it('keeps what is left of the summary, and takes the imported intro or bullets where it empties them', () => {
     const printed = withoutDismissed(dismissing(CV, NODE));
-    expect(printed.personal_info.summary).toBe('Designer produit en SaaS B2B. Six ans de parcours.');
+    expect(printed.personal_info.summary).toBe('Product designer en SaaS B2B. Six ans de parcours.');
     expect(printed.experience[0].intro).toBe('Équipe paiement.');
     // Every bullet wrote it: the imported ones print instead
     expect(printed.experience[1].description).toEqual(['Dessiné les écrans']);
   });
 
-  // The user's own text is theirs: never swapped for the imported one
-  it('keeps what is left of a text the user typed', () => {
+  // A typo fixed in a block does not change what prints for the whole block
+  it('treats a text the user typed like any other: what is left stays, an emptied one takes the imported', () => {
     const typed: CVData = {
       ...CV,
       personal_info: { ...CV.personal_info, summary: 'Mon résumé. Je connais Node.js. Fin.' },
@@ -60,7 +60,7 @@ describe('withoutDismissed: the CV as it prints', () => {
     };
     const printed = withoutDismissed(dismissing(typed, NODE));
     expect(printed.personal_info.summary).toBe('Mon résumé. Fin.');
-    expect(printed.experience[0].description).toEqual([]);
+    expect(printed.experience[0].description).toEqual(['Conçu les maquettes']);
   });
 
   it('empties a KPI writing it, and keeps the facts of the CV', () => {
@@ -86,7 +86,7 @@ describe('withoutDismissed: the CV as it prints', () => {
   it('keeps the CV\'s own texts: "Remettre" prints them again', () => {
     const dismissed = dismissing(CV, NODE);
     expect(dismissed.experience).toBe(CV.experience);
-    const restored = withDismissed(dismissed, NODE, false);
+    const restored = withRestored(dismissed, NODE.id);
     expect(dismissedIdsOf(restored)).toEqual([]);
     expect(withoutDismissed(restored)).toBe(restored);
   });
@@ -94,5 +94,18 @@ describe('withoutDismissed: the CV as it prints', () => {
   it('keeps one entry per requirement, only what finds it in a text', () => {
     const cv = dismissing(CV, FIGMA, FIGMA);
     expect(cv.dismissedRequirements).toEqual([{ id: 'figma', label: 'Figma', variants: [], kind: 'tool' }]);
+  });
+
+  // A build that never shipped kept bare ids: read as nothing, never as a crash
+  it('skips a dismissal stored in another shape', () => {
+    const stale = { ...CV, dismissedRequirements: ['figma'] } as unknown as CVData;
+    expect(dismissedOf(stale)).toEqual([]);
+    expect(withoutDismissed(stale)).toBe(stale);
+  });
+
+  // A kind that no longer exists is no skill: it takes nothing out
+  it('takes nothing out for a kind it does not know', () => {
+    const odd = { ...CV, dismissedRequirements: [{ id: 'node-js', label: 'Node.js', variants: [], kind: 'diploma' }] } as unknown as CVData;
+    expect(withoutDismissed(odd).experience[0].description).toEqual(ACME.description);
   });
 });

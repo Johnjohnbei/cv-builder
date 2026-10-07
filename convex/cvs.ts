@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { notAuthorized, unauthenticated } from "./_shared/errors";
+import { dismissedRequirementValidator } from "./schema";
 
 export const listMyCVs = query({
   args: {},
@@ -30,7 +31,7 @@ export const createMyCV = mutation({
     detectedLanguage: v.optional(v.string()),
     languageOverride: v.optional(v.string()),
     _translations: v.optional(v.any()),
-    dismissedRequirements: v.optional(v.array(v.object({ id: v.string(), label: v.string(), variants: v.array(v.string()), kind: v.string() }))),
+    dismissedRequirements: v.optional(v.array(dismissedRequirementValidator)),
     // The offer this version was tailored to: reopening it restores that offer
     jobDescription: v.optional(v.string()),
   },

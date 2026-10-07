@@ -87,7 +87,7 @@ export default function EditorPage() {
   // The CV as it prints and is measured: a requirement the user said they lack is left out of it
   const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData) : null), [cvData]);
   // What the CV still claims: the fit pass protects and the badges count these only.
-  // The fit pass rebuilds experiences from cvData, so it gets the user's texts, never the printed ones.
+  // Both measure the printed CV; the fit pass writes display modes back on cvData, never printed texts.
   const claimedRequirements = useMemo(() => {
     const dismissedIds = dismissedIdsOf(cvData);
     return requirements.filter(r => !dismissedIds.includes(r.id));

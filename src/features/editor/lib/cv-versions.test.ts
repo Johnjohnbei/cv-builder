@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData } from '@/src/shared/types';
-import { experienceVersionOf, versionOf, withExperienceVersion, withPersonalVersion, withVersions } from './cv-versions';
+import {
+  adaptedTextsOf, experienceVersionOf, importedTextsOf, needsAdaptedTranslation, versionOf, withExperienceVersion,
+  withPersonalVersion, withTranslatedVersions, withVersions,
+} from './cv-versions';
 
 const imported: CVData = {
   personal_info: { name: 'Alex', email: 'a@b.c', title: 'Designer produit', summary: 'Designer produit en SaaS B2B. Six ans de parcours.' },
@@ -89,3 +92,52 @@ describe('what the user typed', () => {
     expect(withExperienceVersion(own, 'edited').description).toEqual(['Ma puce à moi']);
   });
 });
+
+// A lazy translation rebuilds the versions in the new language, block by block
+describe('withTranslatedVersions', () => {
+  const cv = withVersions(adapted, imported);
+  /** A translation that marks every text it writes, so each version can be traced */
+  const en = (source: CVData): CVData => ({
+    ...source,
+    personal_info: { ...source.personal_info, summary: `EN ${source.personal_info.summary}`, title: `EN ${source.personal_info.title}`, versions: undefined },
+    experience: source.experience.map(exp => ({ ...exp, intro: exp.intro && `EN ${exp.intro}`, description: exp.description.map(b => `EN ${b}`), versions: undefined })),
+  });
+
+  it('pairs the translated adapted and imported texts, the CV as it shows giving the adapted ones', () => {
+    expect(needsAdaptedTranslation(cv)).toBe(false);
+    const out = withTranslatedVersions(cv, en(cv), en(importedTextsOf(cv)), null);
+    expect(out.personal_info.versions?.summary).toEqual({ adapted: `EN ${adapted.personal_info.summary}`, original: `EN ${imported.personal_info.summary}` });
+    expect(out.experience[0].versions?.original.description).toEqual(['EN Conçu les maquettes']);
+  });
+
+  // A translation of the same text twice may differ: no choice appears where there was none
+  it('gives no choice to a block that had none', () => {
+    const out = withTranslatedVersions(cv, en(cv), en(importedTextsOf(cv)), null);
+    expect(out.experience[1].versions).toBeUndefined();
+  });
+
+  it('keeps the version the user picked, and what they typed, in the new language', () => {
+    const picked: CVData = {
+      ...cv,
+      personal_info: withPersonalVersion(cv.personal_info, 'summary', 'original'),
+      experience: [{ ...cv.experience[0], description: ['Ma puce à moi'] }, cv.experience[1]],
+    };
+    expect(needsAdaptedTranslation(picked)).toBe(true);
+    const out = withTranslatedVersions(picked, en(picked), en(importedTextsOf(picked)), en(adaptedTextsOf(picked)));
+    expect(out.personal_info.summary).toBe(`EN ${imported.personal_info.summary}`);
+    expect(out.personal_info.versions?.summary?.adapted).toBe(`EN ${adapted.personal_info.summary}`);
+    expect(versionOf(out.personal_info.summary, out.personal_info.versions!.summary!)).toBe('original');
+    expect(out.experience[0].versions?.edited?.description).toEqual(['EN Ma puce à moi']);
+    expect(experienceVersionOf(out.experience[0])).toBe('edited');
+  });
+
+  it('drops a choice, never a text, when a translation of the versions failed', () => {
+    const translated = en(cv);
+    expect(withTranslatedVersions(cv, translated, null, null)).toBe(translated);
+    const picked = { ...cv, personal_info: withPersonalVersion(cv.personal_info, 'summary', 'original') };
+    const out = withTranslatedVersions(picked, en(picked), en(importedTextsOf(picked)), null);
+    expect(out.personal_info.versions).toBeUndefined();
+    expect(out.personal_info.summary).toBe(`EN ${imported.personal_info.summary}`);
+  });
+});
+

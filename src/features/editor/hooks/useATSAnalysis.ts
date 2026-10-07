@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import type { ATSReport, CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
+import type { ATSReport, CVData, DesignSettings, DismissedRequirement, JobRequirement } from '@/src/shared/types';
 import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
-import { dismissedIdsOf, withDismissed } from '@/src/features/editor/lib/dismissed-requirements';
+import { dismissedOf, withDismissed, withRestored } from '@/src/features/editor/lib/dismissed-requirements';
 
 export interface UseATSAnalysisDeps {
   /** The CV as the user wrote it: dismissing writes on it */
@@ -16,10 +16,13 @@ export interface UseATSAnalysisDeps {
 export interface ATSAnalysis {
   /** The CV as it prints, measured against the offer's requirements */
   report: ATSReport | null;
-  /** Ids of the requirements the user said they lack, kept on the CV */
-  dismissed: string[];
+  /**
+   * The requirements the user said they lack, as the CV keeps them: listed
+   * whatever offer is on screen, so each one can always be put back
+   */
+  dismissed: DismissedRequirement[];
   dismiss: (requirement: JobRequirement) => void;
-  restore: (requirement: JobRequirement) => void;
+  restore: (id: string) => void;
 }
 
 /**
@@ -36,8 +39,8 @@ export function useATSAnalysis({ cvData, printedCV, setCvData, designSettings, r
     () => (printedCV ? computeATSReport(printedCV, requirements, { design: designSettings }) : null),
     [printedCV, designSettings, requirements],
   );
-  const dismissed = useMemo(() => dismissedIdsOf(cvData), [cvData]);
-  const dismiss = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r, true) : cv)), [setCvData]);
-  const restore = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r, false) : cv)), [setCvData]);
+  const dismissed = useMemo(() => dismissedOf(cvData), [cvData]);
+  const dismiss = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r) : cv)), [setCvData]);
+  const restore = useCallback((id: string) => setCvData(cv => (cv ? withRestored(cv, id) : cv)), [setCvData]);
   return { report, dismissed, dismiss, restore };
 }

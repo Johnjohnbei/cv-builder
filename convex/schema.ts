@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { REQUIREMENT_KINDS } from "../src/shared/types";
 
 // ─── Reusable validators ───
 
@@ -55,6 +56,18 @@ const designValidator = v.object({
   // guest's browser can still carry it, and migratedDesign drops it there.
 });
 
+/**
+ * A requirement the user said they lack, kept whole on the CV (src/shared/types
+ * DismissedRequirement). Its kind is one of the known ones: an unknown kind
+ * would be read as a skill and take the user's text out.
+ */
+export const dismissedRequirementValidator = v.object({
+  id: v.string(),
+  label: v.string(),
+  variants: v.array(v.string()),
+  kind: v.union(...REQUIREMENT_KINDS.map(kind => v.literal(kind))),
+});
+
 // ─── Schema ───
 // Note: experience and skills use v.any() because AI responses can include
 // unpredictable extra fields (displayMode, kpi, intro, proficiency objects).
@@ -89,7 +102,7 @@ export default defineSchema({
     // content fields which can evolve.
     _translations: v.optional(v.any()),
     // Requirements the user said they lack: left out of the CV as it prints
-    dismissedRequirements: v.optional(v.array(v.object({ id: v.string(), label: v.string(), variants: v.array(v.string()), kind: v.string() }))),
+    dismissedRequirements: v.optional(v.array(dismissedRequirementValidator)),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 

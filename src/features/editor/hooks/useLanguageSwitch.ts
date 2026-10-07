@@ -4,7 +4,7 @@ import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { contentSnapshot } from '@/src/lib/bilingual';
-import { hasVersions, importedTextsOf, withVersions } from '../lib/cv-versions';
+import { adaptedTextsOf, hasVersions, importedTextsOf, needsAdaptedTranslation, withTranslatedVersions } from '../lib/cv-versions';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
@@ -119,16 +119,20 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
     // both directions so the next toggle is free.
     setIsRegenerating(true);
     try {
-      // The imported texts are translated beside the CV, in the same action: the
-      // new language offers both versions too. A failure there drops the choice, never the translation.
-      // ponytail: the CV's current texts become the "adapted" version there, whichever the user picked
-      const [translatedCV, translatedImported] = await Promise.all([
-        translateCVAction({ cvData, targetLanguage: pendingLanguage, accessCode }),
-        hasVersions(cvData)
-          ? translateCVAction({ cvData: importedTextsOf(cvData), targetLanguage: pendingLanguage, accessCode }).catch(() => null)
-          : null,
+      // The imported texts, and the adapted ones when a block shows another
+      // version, are translated beside the CV in the same action: the new
+      // language keeps every choice. A failure there drops a choice, never the translation.
+      const versionsLost = (error: unknown) => {
+        console.warn('[useLanguageSwitch] versions not translated, the new language offers no choice there:', error);
+        return null;
+      };
+      const translate = (cv: CVData) => translateCVAction({ cvData: cv, targetLanguage: pendingLanguage, accessCode });
+      const [translatedCV, translatedImported, translatedAdapted] = await Promise.all([
+        translate(cvData),
+        hasVersions(cvData) ? translate(importedTextsOf(cvData)).catch(versionsLost) : null,
+        needsAdaptedTranslation(cvData) ? translate(adaptedTextsOf(cvData)).catch(versionsLost) : null,
       ]);
-      const translatedData = translatedImported ? withVersions(translatedCV, translatedImported) : translatedCV;
+      const translatedData = withTranslatedVersions(cvData, translatedCV, translatedImported, translatedAdapted);
       const translatedSnapshot = contentSnapshot(translatedData);
       // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {
