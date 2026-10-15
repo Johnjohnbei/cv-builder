@@ -26,6 +26,8 @@
       "Bash(grep:*)",
       "Bash(where:*)",
       "Bash(gh:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel redeploy:*)",
       "WebFetch",
       "WebSearch",
       "Skill(gsd-discuss-phase)",
