@@ -7,6 +7,8 @@ import { applyVariantToPersonalInfo, getPortfolioVariants, rankPortfolioVariants
 
 interface Props {
   jobDescription: string;
+  /** The offer's job title, as its analysis read it: it decides before the keyword count */
+  offerTitle: string;
   personalInfo: PersonalInfo | undefined;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
   notify: (n: { message: string; type: 'success' | 'error' }) => void;
@@ -22,11 +24,11 @@ interface Props {
  * best match preselected. Renders nothing without VITE_PORTFOLIO_VARIANTS.
  */
 export const PortfolioSuggestion = memo(function PortfolioSuggestion({
-  jobDescription, personalInfo, setCvData, notify,
+  jobDescription, offerTitle, personalInfo, setCvData, notify,
 }: Props) {
   const ranked = useMemo(
-    () => rankPortfolioVariants(getPortfolioVariants(), jobDescription),
-    [jobDescription],
+    () => rankPortfolioVariants(getPortfolioVariants(), jobDescription, offerTitle),
+    [jobDescription, offerTitle],
   );
   const [chosenId, setChosenId] = useState<string | null>(null);
 
@@ -61,7 +63,8 @@ export const PortfolioSuggestion = memo(function PortfolioSuggestion({
         {best ? (
           <>
             Suggéré pour cette offre : <strong className="text-gray-900">{best.variant.label}</strong>
-            {' '}({best.hits} terme{best.hits > 1 ? 's' : ''} en commun)
+            {best.inTitle > 0 && <>, d'après l'intitulé « {offerTitle} »</>}
+            . Termes trouvés : {best.terms.join(', ')}.
           </>
         ) : jobDescription.trim()
           ? "Aucune version ne ressort de l'offre : choisissez celle à mettre en avant."

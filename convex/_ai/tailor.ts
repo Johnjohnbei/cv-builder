@@ -7,7 +7,7 @@ import { prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
-import { resolveAdaptLanguage } from "./languageDetection";
+import { offerLanguageOf, resolveAdaptLanguage } from "./languageDetection";
 import { normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
 import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
@@ -22,8 +22,9 @@ import { guard, provenIds, type GuardContext } from "./truthGuard";
 // short repairs. Extracted from ai.ts, which was over its size limit.
 // Since 2026-10-07 (arbitrage of the user) the CV is written in one go, no
 // question asked: every method, tool or skill of the offer is written even when
-// the source does not prove it. A degree, a language, years, a title and any
-// number stay the source's.
+// the source does not prove it. A degree, a language, years, a position and any
+// number stay the source's. The profile title is the offer's (arbitrage of
+// 2026-10-21): it names the role applied for.
 
 /** No repair starts after this: the version measured so far is returned */
 export const REPAIR_CUTOFF_MS = 240_000;
@@ -217,7 +218,13 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const byCV = provenIds(requirements, fields, generation.evidence);
   // Written whatever the source says: the user's choice of 2026-10-07
   const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id));
+  const titles = requirements.filter(r => r.kind === "title");
   const context: GuardContext = {
+    offerTitle: titles.length === 0 ? undefined : {
+      terms: titles.flatMap(r => [r.label, ...r.variants]),
+      // The label is in the offer's words: written as is only in the offer's language, the first title the offer gives
+      label: offerLanguageOf(jobDescription) === language ? titles[0].label : undefined,
+    },
     ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language),
     free: {
       requirements: free,

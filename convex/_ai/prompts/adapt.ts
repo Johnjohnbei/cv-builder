@@ -54,7 +54,7 @@ RÈGLES :
 3. Diplôme, certification, langue, années d'expérience et intitulé de poste (types education, certification, language, experience_years, title) sont des faits : écris-les seulement si le CV source les prouve, jamais autrement.
 4. N'invente ni employeur, ni client, ni marque, ni produit, ni chiffre : une exigence ajoutée s'écrit avec les faits que le CV source donne déjà.
 5. Au plus 2 exigences par puce, et un même terme au plus 3 fois dans tout le CV. Aucun texte caché, aucune liste de mots-clés.
-6. Titre du profil (personal_info.title) : aligne-le sur l'intitulé de l'offre seulement si une expérience le justifie.
+6. Titre du profil (personal_info.title) : c'est le poste visé, pas un poste occupé. Écris l'intitulé de l'offre (exigence de type title), traduit dans la langue du CV si besoin, sans rien y ajouter. Les intitulés des expériences (position) restent ceux du CV source.
 7. Résumé (personal_info.summary) : c'est la partie qui prouve qu'un humain a écrit ce CV. 3 à 4 phrases, 50 à 90 mots, sans titre ni puce, à la première personne implicite (sans « je »). Il dit, avec les faits du CV source : le métier et le niveau, le parcours (secteurs, types d'entreprises, employeurs marquants cités tels quels), une réalisation concrète tirée d'une expérience, et ce que le candidat apporte à CE poste. Interdits : formules creuses (passionné, dynamique, rigoureux, orienté résultats, fort de, doté de, véritable, n'hésitez pas), superlatifs, enchaînement de mots-clés, phrase générique qui irait à n'importe quel candidat.
 8. Réécris les puces avec des verbes d'action (${verbs}) ; condense les expériences sans rapport avec l'offre, sans les retirer.
 9. ${intro}

@@ -4,7 +4,7 @@ import { api } from '@/convex/_generated/api';
 import type { CVData } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { attachBilingualCache } from '@/src/lib/bilingual';
-import { withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
+import { offerTitleOf, withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
 
 interface Deps {
@@ -60,7 +60,8 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
       // A CV proposed for an offer comes with the portfolio version that offer calls for.
       // Both languages now, so the editor toggle never shows a half-translated mix,
       // each with the imported texts beside the adapted ones: the editor picks, never calls the AI.
-      const cvData = await attachBilingualCache(withSuggestedPortfolio(result.cv, offer), translateCV, accessCode, baseCV);
+      const portfolio = withSuggestedPortfolio(result.cv, offer, offerTitleOf(result.requirements));
+      const cvData = await attachBilingualCache(portfolio, translateCV, accessCode, baseCV);
       if (!current()) return;
       const saved = await saveDraft(cvData);
       if (!current()) return;

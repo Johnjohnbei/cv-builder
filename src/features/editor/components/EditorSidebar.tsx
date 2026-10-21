@@ -7,6 +7,7 @@ import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { WeakBulletResult } from '../lib/weak-bullet-detection';
 import { ATSPanel, type ATSPanelProps } from './ATSPanel';
 import { PortfolioSuggestion } from './PortfolioSuggestion';
+import { offerTitleOf } from '../lib/portfolio-variants';
 import {
   OfferAndPagesPanel, PersonalInfoSection, SummarySection, ExperienceSection,
   SkillsSection, EducationSection, LanguagesSection, DesignTab,
@@ -223,6 +224,7 @@ export function EditorSidebar(props: Props) {
               <>
               <PortfolioSuggestion
                 jobDescription={jobDescription}
+                offerTitle={offerTitleOf(ats.analysis.report?.requirements.map(c => c.requirement) ?? [])}
                 personalInfo={cvData?.personal_info}
                 setCvData={setCvData}
                 notify={notify}

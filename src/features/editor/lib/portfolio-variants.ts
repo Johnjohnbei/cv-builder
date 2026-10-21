@@ -27,7 +27,7 @@
 // Its `label` replaces a French default label, its `anonUrl` the default
 // anonymous link; each one left out falls back to the default.
 
-import type { PersonalInfo } from '@/src/shared/types';
+import type { JobRequirement, PersonalInfo } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { matchPhrase, prepareText } from '@/src/shared/lib/text';
 
@@ -112,14 +112,29 @@ export function applyVariantToPersonalInfo(personalInfo: PersonalInfo, variant: 
 
 export interface VariantMatch {
   variant: PortfolioVariant;
-  /** How many of the variant's keywords the offer mentions */
+  /** How many of the variant's keywords the offer mentions, a plural counted once */
   hits: number;
+  /** The keywords the offer mentions, shown so the user sees why a version is suggested */
+  terms: string[];
+  /** Words of the longest keyword the offer's job title writes, 0 when it writes none */
+  inTitle: number;
+}
+
+const wordCount = (keyword: string) => keyword.trim().split(/\s+/).length;
+
+/** The offer's job title, as its analysis read it: the label of its first `title` requirement, the one the CV's title writes */
+export function offerTitleOf(requirements: readonly JobRequirement[]): string {
+  return requirements.find(r => r.kind === 'title')?.label ?? '';
 }
 
 /**
- * Every variant, ordered by how strongly the offer calls for it: most keywords
- * mentioned first. Ties keep declaration order, so the list order doubles as
- * priority.
+ * Every variant, ordered by how strongly the offer calls for it. The job title
+ * decides first, its most specific keyword winning ("lead product design" over
+ * "product designer" for a Lead Product Designer): counted alone, the generic
+ * vocabulary every design offer writes (Figma, wireframe, recherche
+ * utilisateur) made the generic version win a lead offer. Then the most
+ * keywords mentioned. Ties keep declaration order, so the list order doubles
+ * as priority.
  *
  * Matching ignores accents and plurals: a real offer writes "système de
  * design" or "accessibilité" where the config says "systeme de design", and an
@@ -131,15 +146,21 @@ export interface VariantMatch {
 export function rankPortfolioVariants(
   variants: PortfolioVariant[],
   jobDescription: string,
+  offerTitle = '',
 ): VariantMatch[] {
   const hasOffer = jobDescription.trim().length > 0;
   const text = prepareText(jobDescription);
+  const title = prepareText(offerTitle);
   return variants
-    .map(variant => ({
-      variant,
-      hits: hasOffer ? variant.keywords.filter(k => matchPhrase(k, text)).length : 0,
-    }))
-    .sort((a, b) => b.hits - a.hits);
+    .map(variant => {
+      const found = hasOffer ? variant.keywords.filter(k => matchPhrase(k, text)) : [];
+      // "design system" and "design systems" are one term
+      const terms = found.filter((k, i) => found.findIndex(o => prepareText(o).stemmed === prepareText(k).stemmed) === i);
+      const inTitle = Math.max(0, ...variant.keywords.filter(k => matchPhrase(k, title)).map(wordCount));
+      return { variant, hits: terms.length, terms, inTitle };
+    })
+    // A variant the offer's text never mentions is no suggestion, whatever a stale title says
+    .sort((a, b) => Number(b.hits > 0) - Number(a.hits > 0) || b.inTitle - a.inTitle || b.hits - a.hits);
 }
 
 /**
@@ -152,9 +173,10 @@ export function rankPortfolioVariants(
 export function withSuggestedPortfolio<T extends { personal_info: PersonalInfo }>(
   cv: T,
   jobDescription: string,
+  offerTitle = '',
   variants: PortfolioVariant[] = getPortfolioVariants(),
 ): T {
-  const [top] = rankPortfolioVariants(variants, jobDescription);
+  const [top] = rankPortfolioVariants(variants, jobDescription, offerTitle);
   if (!top || top.hits === 0) return cv;
   const current = cv.personal_info.portfolio_url?.trim();
   if (current && !variants.some(v => v.url === current)) return cv;

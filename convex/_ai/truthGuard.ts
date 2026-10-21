@@ -124,6 +124,14 @@ export interface GuardContext {
   sourceNumbers: Set<string>;
   /** The CV is written in the source's language: a source bullet can stand in for an invented one */
   sameLanguage: boolean;
+  /**
+   * The offer's job title (arbitrage of 2026-10-21): the profile title names the
+   * role applied for, not a role held, so it is the offer's whatever the source
+   * proves. `terms` are its wordings (label and variants, both languages): the
+   * model's title is kept when it writes one of them whole and adds no word;
+   * `label` is written otherwise, and only when the offer is in the CV's language.
+   */
+  offerTitle?: { terms: string[]; label?: string };
 }
 
 /**
@@ -132,11 +140,12 @@ export interface GuardContext {
  * requirement brings, or a number it never gives (FABRICATION_GUARD, KPI of the
  * arbitrage Q2), wherever the model wrote it. A bullet takes back the source's
  * bullet at its place when the bullets still line up, a sentence of the summary
- * or an intro is removed, a KPI emptied, a skill removed, a title, position,
- * tag or category name goes back to the source's. Degrees and languages are
+ * or an intro is removed, a KPI emptied, a skill removed, a position, tag or
+ * category name goes back to the source's, the profile title to the offer's
+ * (`offerTitle`) or else the source's. Degrees and languages are
  * the source's, in the model's words only when those name the same entry.
  */
-export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage, free }: GuardContext): CVData {
+export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguage, free, offerTitle }: GuardContext): CVData {
   const writes = (text?: string) => mentions(text, unproven);
   const namesNobodyGave = (text: string) => !namesStated(text).every(name => matchPhrase(name, free!.said));
   const freely = (text?: string) => Boolean(free && text && mentions(text, free.requirements));
@@ -151,11 +160,22 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     return kept?.trim() || !text?.trim() ? kept : sameLanguage ? fallback : kept;
   };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
+  /**
+   * One wording of the offer's title, whole and alone ("Senior Product Designer"
+   * of "Product Designer Senior", never "Designer" of "Lead Product Designer"),
+   * else the offer's label, else a fact like a position. An emptied title is the source's.
+   */
+  const isOfferTitle = (text: string) => offerTitle!.terms.some(term => namesOnly(text, term) && namesOnly(term, text));
+  const headline = (text?: string) => {
+    if (!text?.trim()) return source.personal_info.title;
+    if (offerTitle && isOfferTitle(text)) return text;
+    return offerTitle?.label ?? (inventsFact(text) ? source.personal_info.title : text);
+  };
   return {
     ...cv,
     personal_info: {
       ...cv.personal_info,
-      title: inventsFact(cv.personal_info.title) ? source.personal_info.title : cv.personal_info.title,
+      title: headline(cv.personal_info.title),
       summary: sentencesKept(cv.personal_info.summary, source.personal_info.summary),
     },
     experience: cv.experience.map((exp, i) => {

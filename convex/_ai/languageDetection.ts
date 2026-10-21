@@ -21,8 +21,10 @@ export function resolveAdaptLanguage(
   languageOverride: SupportedLanguage | undefined,
   detectedLanguage: SupportedLanguage | undefined,
 ): SupportedLanguage {
-  if (jobDescription && jobDescription.trim().length >= MIN_TEXT_LENGTH) {
-    return detectTextLanguage(jobDescription);
-  }
-  return languageOverride ?? detectedLanguage ?? 'fr';
+  return offerLanguageOf(jobDescription) ?? languageOverride ?? detectedLanguage ?? 'fr';
+}
+
+/** The language an offer is written in, undefined when it is too short to tell */
+export function offerLanguageOf(jobDescription: string | undefined): SupportedLanguage | undefined {
+  return jobDescription && jobDescription.trim().length >= MIN_TEXT_LENGTH ? detectTextLanguage(jobDescription) : undefined;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { PersonalInfo } from '@/src/shared/types';
-import { portfolioIn, rankPortfolioVariants, withSuggestedPortfolio, type PortfolioVariant } from './portfolio-variants';
+import { offerTitleOf, portfolioIn, rankPortfolioVariants, withSuggestedPortfolio, type PortfolioVariant } from './portfolio-variants';
 import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
 
 const VARIANTS: PortfolioVariant[] = [
@@ -93,6 +93,44 @@ describe('rankPortfolioVariants', () => {
     const jd = 'Figma et LLM';
     expect(rankPortfolioVariants(VARIANTS, jd).map(m => m.variant.id)).toEqual(['design-system', 'ai-product']);
   });
+
+  // A lead offer writes the vocabulary of every design offer: counted alone, it suggested the generic version
+  describe('the offer job title decides first', () => {
+    const ROLES: PortfolioVariant[] = [
+      { id: 'pd', label: 'Product Designer', url: 'https://e.com/pd', keywords: ['product designer', 'figma', 'wireframe', 'recherche utilisateur', 'parcours utilisateur'] },
+      { id: 'lead', label: 'Head of Design', url: 'https://e.com/lead', keywords: ['lead product designer', 'management', 'stakeholders'] },
+      { id: 'ds', label: 'Design System', url: 'https://e.com/ds', keywords: ['design system', 'design systems', 'tokens'] },
+    ];
+    const LEAD_JD = "Lead Product Designer. Vous encadrez l'équipe : management, stakeholders, parcours utilisateur, "
+      + 'wireframe et recherche utilisateur sur Figma, évolution du design system.';
+
+    it('suggests the version its most specific keyword names, before the keyword count', () => {
+      expect(rankPortfolioVariants(ROLES, LEAD_JD, '').map(m => m.variant.id)[0]).toBe('pd');
+      expect(rankPortfolioVariants(ROLES, LEAD_JD, 'Lead Product Designer').map(m => m.variant.id)).toEqual(['lead', 'pd', 'ds']);
+    });
+
+    it('applies it to the CV proposed for the offer', () => {
+      const out = withSuggestedPortfolio<{ personal_info: PersonalInfo }>({ personal_info: { name: 'J', email: 'j@e.com' } }, LEAD_JD, 'Lead Product Designer', ROLES);
+      expect(out.personal_info.portfolio_url).toBe('https://e.com/lead');
+    });
+
+    it('counts a plural once and names the terms found', () => {
+      const ds = rankPortfolioVariants(ROLES, 'Nos design systems et leurs tokens.', '').find(m => m.variant.id === 'ds')!;
+      expect(ds.hits).toBe(2);
+      expect(ds.terms).toEqual(['design system', 'tokens']);
+    });
+
+    it('reads the title from the first requirement of kind title', () => {
+      const req = (label: string, kind: string) => ({ id: label, label, kind, importance: 'required', quote: label, variants: [] }) as never;
+      expect(offerTitleOf([req('Figma', 'tool'), req('Lead Product Designer', 'title'), req('Head of Design', 'title')])).toBe('Lead Product Designer');
+      expect(offerTitleOf([req('Figma', 'tool')])).toBe('');
+    });
+
+    it('never ranks a version the offer text does not mention before one it does', () => {
+      const ranked = rankPortfolioVariants(ROLES, 'Vos tokens et le design system.', 'Lead Product Designer');
+      expect(ranked[0].variant.id).toBe('ds');
+    });
+  });
 });
 
 describe('withSuggestedPortfolio', () => {
@@ -101,25 +139,25 @@ describe('withSuggestedPortfolio', () => {
     ({ personal_info: { name: 'Jane', email: 'j@e.com', portfolio_url } });
 
   it('links the best-matching variant on a proposed CV', () => {
-    const out = withSuggestedPortfolio(cv(), DS_JD, VARIANTS);
+    const out = withSuggestedPortfolio(cv(), DS_JD, '', VARIANTS);
     expect(out.personal_info.portfolio_url).toBe('https://example.com/portfolio/design-system');
     expect(out.personal_info.portfolio_label).toBe('Portfolio : Design System');
     expect(out.personal_info.portfolio_anon_url).toBe('https://example.com/cv/abcd');
   });
 
   it('swaps a previously linked variant for the one this offer calls for', () => {
-    const out = withSuggestedPortfolio(cv('https://example.com/portfolio/ai-product'), DS_JD, VARIANTS);
+    const out = withSuggestedPortfolio(cv('https://example.com/portfolio/ai-product'), DS_JD, '', VARIANTS);
     expect(out.personal_info.portfolio_url).toBe('https://example.com/portfolio/design-system');
   });
 
   it('never replaces a link typed by hand', () => {
     const input = cv('https://my-site.com');
-    expect(withSuggestedPortfolio(input, DS_JD, VARIANTS)).toBe(input);
+    expect(withSuggestedPortfolio(input, DS_JD, '', VARIANTS)).toBe(input);
   });
 
   it('leaves the CV untouched when nothing matches', () => {
     const input = cv();
-    expect(withSuggestedPortfolio(input, 'Comptable confirme, logiciel Sage.', VARIANTS)).toBe(input);
+    expect(withSuggestedPortfolio(input, 'Comptable confirme, logiciel Sage.', '', VARIANTS)).toBe(input);
   });
 });
 

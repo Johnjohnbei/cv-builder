@@ -420,6 +420,66 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     expect(cv.skills[0].category).toBe("Outils");
   });
 
+  // The profile title names the role applied for (arbitrage of 2026-10-21)
+  describe("profile title", () => {
+    const LEAD = { ...requirement("Lead Product Designer", "title"), variants: ["Lead Product Designer"] };
+    const offer = `Lead Product Designer. ${OFFER}`;
+
+    it("keeps the offer's title the model wrote, though no role of the source proves it", async () => {
+      answers(generated(cv => { cv.personal_info.title = "Lead Product Designer"; }), { edits: [] });
+      const { cv } = await run([FIGMA, LEAD], Date.now(), SOURCE, offer);
+      expect(cv.personal_info.title).toBe("Lead Product Designer");
+      expect(cv.experience[0].position).toBe("Product Designer");
+    });
+
+    it("writes the offer's title when the model kept the source's", async () => {
+      answers(generated(() => {}), { edits: [] });
+      const { cv } = await run([FIGMA, LEAD], Date.now(), SOURCE, offer);
+      expect(cv.personal_info.title).toBe("Lead Product Designer");
+    });
+
+    it("writes the offer's title instead of one that adds words the offer's title has not", async () => {
+      answers(generated(cv => { cv.personal_info.title = "Lead Product Designer Node.js"; }), { edits: [] });
+      const { cv } = await run([FIGMA, NODE, LEAD], Date.now(), SOURCE, offer);
+      expect(cv.personal_info.title).toBe("Lead Product Designer");
+    });
+
+    it("writes the whole offer's title over a part of it", async () => {
+      answers(generated(cv => { cv.personal_info.title = "Product Designer"; }), { edits: [] });
+      const { cv } = await run([FIGMA, LEAD], Date.now(), SOURCE, offer);
+      expect(cv.personal_info.title).toBe("Lead Product Designer");
+    });
+
+    it("keeps the model's title when it writes a wording of the offer's in other words, in the CV's language", async () => {
+      const french = { ...requirement("Concepteur produit principal", "title"), variants: ["Lead Product Designer"] };
+      const english = "Concepteur produit principal. Requis : Figma, maquettes, recherche utilisateur.";
+      answers(generated(cv => { cv.personal_info.title = "Product Designer Lead"; }), { edits: [] });
+      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, french], language: "en" });
+      expect(cv.personal_info.title).toBe("Product Designer Lead");
+    });
+
+    it("puts the source's title back on a title the model emptied, the offer in another language", async () => {
+      const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
+      answers(generated(cv => { cv.personal_info.title = ""; }), { edits: [] });
+      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      expect(cv.personal_info.title).toBe("Designer produit");
+    });
+
+    it("writes the first title of several, the one the portfolio reads", async () => {
+      const head = { ...requirement("Head of Design", "title"), variants: [] };
+      answers(generated(() => {}), { edits: [] });
+      const { cv } = await run([FIGMA, LEAD, head], Date.now(), SOURCE, `${offer} Head of Design.`);
+      expect(cv.personal_info.title).toBe("Lead Product Designer");
+    });
+
+    it("keeps the source's title when the offer, in another language, names none the model wrote", async () => {
+      const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
+      answers(generated(() => {}), { edits: [] });
+      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      expect(cv.personal_info.title).toBe("Designer produit");
+    });
+  });
+
   // The offer's company and its clients were never the candidate's
   it("removes a freely written requirement that names someone only the offer names", async () => {
     const offer = `${OFFER} Doctolib recrute pour ses clients de l'AP-HP.`;
