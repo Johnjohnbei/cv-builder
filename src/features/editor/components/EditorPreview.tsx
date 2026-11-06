@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft } from 'lucide-react';
 import type { DesignSettings } from '@/src/shared/types';
 import type { PageAssignment, BlockRendererMap } from '../lib/pagination/types';
+import type { InPlaceEditing } from '../lib/in-place-edit';
 import { PaginatedCV } from './PaginatedCV';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
   templateStyle: React.CSSProperties;
   firstExperiencePage: number;
   zoom: number;
+  /** Makes the CV's texts editable where they are read */
+  editing: InPlaceEditing;
   /** Ref on the [data-cv-root] node: read by the PDF export and the pagination reconcile */
   cvRootRef: React.Ref<HTMLDivElement>;
 }
@@ -31,7 +34,7 @@ interface Props {
 export const EditorPreview = memo(forwardRef<HTMLDivElement, Props>(
   function EditorPreview({
     pageAssignments, hasCvData, designSettings, language, blockRenderers,
-    templateStyle, firstExperiencePage, zoom, cvRootRef,
+    templateStyle, firstExperiencePage, zoom, cvRootRef, editing,
   }, scrollRef) {
     const renderPageWrapper = useCallback((cvPage: React.ReactNode, pageIndex: number, totalPages: number) => (
       <div
@@ -84,6 +87,7 @@ export const EditorPreview = memo(forwardRef<HTMLDivElement, Props>(
               blockRenderers={blockRenderers}
               templateStyle={templateStyle}
               firstExperiencePage={firstExperiencePage}
+              editing={editing}
               renderPageWrapper={renderPageWrapper}
             />
           </div>

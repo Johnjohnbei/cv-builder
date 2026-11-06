@@ -79,6 +79,8 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               key={option.value}
               onClick={() => updateExperience(idx, x => ({ ...x, displayMode: option.value }))}
               title={option.label}
+              aria-label={`Niveau de détail : ${option.label}`}
+              aria-pressed={mode === option.value}
               className={cn(
                 "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
                 mode === option.value ? "text-white" : "text-gray-600 hover:bg-gray-100"

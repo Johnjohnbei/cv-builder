@@ -224,6 +224,47 @@ body {
   background: #CBD5E0;
 }
 
+/* ─── Editing the CV where it is read ─── */
+/*
+ * The preview's texts open a field in place (EditableText). The affordance is
+ * a hover outline and nothing else: no element is added to the printed DOM,
+ * and the outline cannot reach the PDF, which is rendered without a pointer.
+ */
+.cv-editable {
+  cursor: text;
+  border-radius: 2px;
+}
+
+.cv-editable:hover,
+.cv-editable:focus-visible {
+  outline: 1px dashed rgba(26, 115, 232, 0.6);
+  outline-offset: 2px;
+  background-color: rgba(26, 115, 232, 0.06);
+}
+
+.cv-editing {
+  display: inline-block;
+  min-width: 4ch;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #1a73e8;
+  background-color: rgba(26, 115, 232, 0.06);
+  resize: none;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.cv-editing:focus {
+  outline: none;
+}
+
+/* What belongs in an empty slot, shown in the editor only */
+.cv-placeholder {
+  color: #9aa0a6;
+  font-style: italic;
+}
+
 /* ─── Print styles ─── */
 /*
  * Single-tree architecture: the same DOM is used for preview AND print.
@@ -233,6 +274,11 @@ body {
  * page-breaks.
  */
 @media print {
+  /* The editor's own marks: never part of the document */
+  [data-preview-only] {
+    display: none !important;
+  }
+
   @page {
     size: A4 portrait;
     margin: 0;

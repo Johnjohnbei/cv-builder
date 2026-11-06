@@ -30,6 +30,12 @@ export interface ContentBlock {
   subBlocks?: SubBlock[];
   /** Reference to the source data */
   data: Experience | SkillCategory | Education[] | Language[] | PersonalInfo | string;
+  /**
+   * For an experience block: the role's index in `cvData.experience`, which
+   * `id` does not give (it counts the visible roles only). An edit made in the
+   * preview writes at this index.
+   */
+  sourceIndex?: number;
 }
 
 // ─── Page Assignment ───
@@ -81,6 +87,12 @@ export interface BlockRendererProps {
   designSettings: import('@/src/shared/types').DesignSettings;
   language: 'fr' | 'en';
   isPage2Plus?: boolean;
+  /**
+   * Set in the editor's preview only: the texts become editable where they are
+   * read. Absent when the CV is printed, exported or drawn as a thumbnail, so
+   * those render exactly the same DOM as before.
+   */
+  editing?: import('../in-place-edit').InPlaceEditing;
 }
 
 export type BlockRenderer = (props: BlockRendererProps) => React.ReactNode;

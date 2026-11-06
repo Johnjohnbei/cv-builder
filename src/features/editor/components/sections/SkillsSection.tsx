@@ -27,6 +27,7 @@ export const SkillsSection = memo(function SkillsSection({
     <section className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
+        aria-expanded={expanded}
         className="w-full stitch-panel-header flex items-center justify-between hover:bg-gray-100 transition-colors"
       >
         <div className="flex items-center gap-2">
@@ -47,6 +48,8 @@ export const SkillsSection = memo(function SkillsSection({
                       key={mode.value}
                       onClick={() => updateCategory(catIdx, c => ({ ...c, displayMode: mode.value }))}
                       title={mode.label}
+                      aria-label={`Compétences affichées : ${mode.label}`}
+                      aria-pressed={(cat.displayMode || 'normal') === mode.value}
                       className={cn(
                         "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
                         (cat.displayMode || 'normal') === mode.value

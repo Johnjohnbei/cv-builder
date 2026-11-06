@@ -135,3 +135,23 @@ describe('isSkillHidden', () => {
     expect(isSkillHidden(makeSkills())).toBe(false);
   });
 });
+
+// "Ajouter un point" leaves an empty field to type in: it must not print a
+// bullet dot with nothing beside it, nor a chip with no label
+describe('a field left empty does not print', () => {
+  it('leaves blank bullets out, and keeps the intro on the first written one', () => {
+    const exp = makeExp({ description: ['', '  ', 'Bullet 1', 'Bullet 2'], displayMode: 'extended' });
+    expect(getIntro(exp)).toBe('Bullet 1');
+    expect(getActionBullets(exp)).toEqual(['Bullet 2']);
+    expect(getVisibleBullets(exp)).toEqual(['Bullet 1', 'Bullet 2']);
+  });
+
+  it('leaves blank skills out', () => {
+    expect(getVisibleSkills(makeSkills({ items: ['React', '', '   ', 'Go'] }))).toEqual(['React', 'Go']);
+  });
+
+  it('leaves a blank intro and a blank KPI out', () => {
+    expect(getIntro(makeExp({ intro: '   ' }))).toBe('Intro line');
+    expect(shouldShowKPI(makeExp({ kpi: '  ', showKpi: true }))).toBe(false);
+  });
+});

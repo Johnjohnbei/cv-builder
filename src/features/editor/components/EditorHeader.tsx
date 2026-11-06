@@ -1,4 +1,4 @@
-import { Layout as LayoutIcon, Save, Download, Loader2, Minus, Plus, Maximize2, EyeOff, Eye } from 'lucide-react';
+import { Layout as LayoutIcon, Save, Download, Loader2, Minus, Plus, Maximize2, EyeOff, Eye, Undo2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
 import { LanguageSelector } from '@/src/shared/ui/LanguageSelector';
@@ -35,6 +35,10 @@ interface Props {
    * the CV condensed under the user's eyes with nothing to explain it.
    */
   isFitting?: boolean;
+  /** Undoes the last edit made in the preview (Ctrl+Z does the same) */
+  onUndo: () => void;
+  /** False when nothing was edited in the preview yet */
+  canUndo: boolean;
 }
 
 export function EditorHeader({
@@ -47,6 +51,7 @@ export function EditorHeader({
   lastAutoSaveAt = null,
   autoSaveFailed = false,
   isFitting = false,
+  onUndo, canUndo,
 }: Props) {
   // The fit comes first: it suspends the auto-save, so the save state behind it
   // is the one from before and says nothing about what is happening now
@@ -124,6 +129,15 @@ export function EditorHeader({
       </div>
 
       <div className="flex items-center space-x-2">
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30"
+          title="Annuler la dernière modification faite dans l'aperçu (Ctrl+Z)"
+          aria-label="Annuler la dernière modification"
+        >
+          <Undo2 className="w-4 h-4" />
+        </button>
         <button
           onClick={onSave}
           disabled={isSaving || !hasCvData}

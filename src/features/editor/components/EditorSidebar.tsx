@@ -34,7 +34,8 @@ interface Props {
   actualPageCount: number;
   hasClippedContent: boolean;
 
-  expandedSection: string | null;
+  /** The sections open in the Contenu tab: several can be open at once */
+  expandedSections: ReadonlySet<string>;
   toggles: Record<'personal' | 'summary' | 'experience' | 'skills' | 'education' | 'languages', () => void>;
 
   /** True while ANY AI action runs: every AI trigger in the sidebar is disabled */
@@ -84,7 +85,7 @@ export function EditorSidebar(props: Props) {
     cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
     jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
-    expandedSection, toggles,
+    expandedSections, toggles,
     aiBusy, isRewritingCV, experienceScores, weakBullets,
     ats, exports, templateSelection, coverLetter, notify,
   } = props;
@@ -165,10 +166,16 @@ export function EditorSidebar(props: Props) {
                   isFitting={isFitting}
                   onFitToPages={onFitToPages}
                 />
+                {/* The preview edits the same data as these fields: said here,
+                    because nothing else tells you the CV itself is clickable */}
+                <p className="text-[11px] text-gray-600 px-1">
+                  Cliquez un texte du CV, à droite, pour le modifier à l'endroit où il se lit.
+                  Ctrl+Z annule.
+                </p>
                 <PersonalInfoSection
                   personalInfo={cvData?.personal_info}
                   setCvData={setCvData}
-                  expanded={expandedSection === 'personal'}
+                  expanded={expandedSections.has('personal')}
                   onToggle={toggles.personal}
                   notify={notify}
                 />
@@ -176,7 +183,7 @@ export function EditorSidebar(props: Props) {
                   summary={cvData?.personal_info?.summary}
                   versions={cvData?.personal_info?.versions?.summary}
                   setCvData={setCvData}
-                  expanded={expandedSection === 'summary'}
+                  expanded={expandedSections.has('summary')}
                   onToggle={toggles.summary}
                 />
                 <ExperienceSection
@@ -184,25 +191,25 @@ export function EditorSidebar(props: Props) {
                   setCvData={setCvData}
                   experienceScores={experienceScores}
                   weakBullets={weakBullets}
-                  expanded={expandedSection === 'experience'}
+                  expanded={expandedSections.has('experience')}
                   onToggle={toggles.experience}
                 />
                 <SkillsSection
                   skills={cvData?.skills}
                   setCvData={setCvData}
-                  expanded={expandedSection === 'skills'}
+                  expanded={expandedSections.has('skills')}
                   onToggle={toggles.skills}
                 />
                 <EducationSection
                   education={cvData?.education}
                   setCvData={setCvData}
-                  expanded={expandedSection === 'education'}
+                  expanded={expandedSections.has('education')}
                   onToggle={toggles.education}
                 />
                 <LanguagesSection
                   languages={cvData?.languages}
                   setCvData={setCvData}
-                  expanded={expandedSection === 'languages'}
+                  expanded={expandedSections.has('languages')}
                   onToggle={toggles.languages}
                 />
               </div>

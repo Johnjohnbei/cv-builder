@@ -221,6 +221,29 @@ test.describe('Édition du contenu', () => {
     await expect(page.locator('.cv-page').first()).toContainText('adopte a 95% en 4 mois');
   });
 
+  // Arbitrage of 2026-11-06: a defect gets corrected where it shows
+  test("modifier une puce dans l'aperçu écrit dans le CV, et Annuler la remet", async ({ page }) => {
+    await setupLongCV(page, TRIAGED_CV);
+    const preview = page.locator('.cv-page').first();
+    const original = LONG_CV.experience[0].description[0];
+    const edited = original.replace('adopte a 90% en 6 mois', 'adopte a 95% en 4 mois');
+
+    await preview.getByRole('button', { name: "Modifier : point de l'expérience" }).first().click();
+    const field = preview.getByRole('textbox', { name: "point de l'expérience" });
+    await expect(field).toHaveValue(original);
+    await field.fill(edited);
+    await field.press('Enter');
+
+    await expect(preview).toContainText('adopte a 95% en 4 mois');
+    // The sidebar reads the same source: the preview never edits the rendered text
+    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: 'Expériences' }).click();
+    await expect(page.locator('[data-cv-block="experience"]').first().getByRole('textbox').nth(6)).toHaveValue(edited);
+
+    await page.getByRole('button', { name: 'Annuler la dernière modification' }).click();
+    await expect(page.locator('.cv-page').first()).toContainText('adopte a 90% en 6 mois');
+  });
+
   test('une modification faite juste avant de quitter l\'éditeur est enregistrée', async ({ page }) => {
     await setupLongCV(page, TRIAGED_CV);
     await page.getByRole('tab', { name: 'Contenu' }).click();

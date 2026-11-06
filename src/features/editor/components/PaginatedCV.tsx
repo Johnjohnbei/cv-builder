@@ -1,5 +1,6 @@
 import { forwardRef, memo, Fragment } from 'react';
 import type { PageAssignment, PlacedBlock, BlockRendererMap } from '../lib/pagination/types';
+import type { InPlaceEditing } from '../lib/in-place-edit';
 import type { DesignSettings } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { CVPage } from './CVPage';
@@ -34,6 +35,8 @@ interface Props {
   templateStyle?: React.CSSProperties;
   /** Index of the first page that has experience blocks (for "suite" label) */
   firstExperiencePage?: number;
+  /** Set by the editor's preview only: the CV's texts are then editable where they are read */
+  editing?: InPlaceEditing;
   /**
    * Optional per-page chrome wrapper — lets the caller inject preview visuals
    * (scale, shadow, page labels, spacing) around each CVPage while keeping a
@@ -75,6 +78,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
     blockRenderers,
     templateStyle,
     firstExperiencePage = 0,
+    editing,
     renderPageWrapper,
   }, ref) {
     const { primaryColor } = designSettings;
@@ -91,6 +95,7 @@ export const PaginatedCV = memo(forwardRef<HTMLDivElement, Props>(
         designSettings,
         language,
         isPage2Plus: pageIndex > 0,
+        editing,
       });
     };
 

@@ -9,12 +9,13 @@ import { renderPhoto, renderContactInfo, isKPIInRange, CompanyTags, getSlicedBul
 import { getVisibleSkills } from '../../lib/display-modes';
 import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '../../lib/formatting';
 import { getSectionTitle, getSkillCategoryTitle } from '../../lib/ats-rules';
+import { EditableText } from '../EditableText';
 import type { SkillCategoryKey } from '../../lib/skill-dictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
 
 // ─── Block Renderers ───
 
-function HeaderBlock({ block, designSettings, language }: BlockRendererProps) {
+function HeaderBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const data = block.block.data as PersonalInfo;
   const { primaryColor } = designSettings;
   const showPhoto = designSettings.showPhoto;
@@ -24,28 +25,39 @@ function HeaderBlock({ block, designSettings, language }: BlockRendererProps) {
     <header data-cv-section="header" className="text-center space-y-2 flex flex-col items-center">
       {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-full mb-1 border-2 border-gray-100")}
       <h1 className="text-3xl font-light tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
-      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{data?.title}</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+        <EditableText value={data?.title ?? ''} target={{ kind: 'title' }} editing={editing} label="titre du profil">
+          {data?.title}
+        </EditableText>
+      </p>
       {renderContactInfo(cvDataShim, language, "justify-center text-[9px] font-mono text-gray-500 uppercase tracking-widest")}
     </header>
   );
 }
 
-function SummaryBlock({ block, designSettings, language }: BlockRendererProps) {
+function SummaryBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const summary = block.block.data as string;
 
   return (
     <section data-cv-section="summary" className="max-w-2xl mx-auto text-center">
       <h2 className="text-gray-400 mb-2 font-bold uppercase tracking-wider" style={{ fontSize: '11px' }}>{getSectionTitle('summary', language)}</h2>
-      <p className="text-sm text-gray-600 leading-relaxed italic">"{renderInlineMarkdown(summary)}"</p>
+      <p className="text-sm text-gray-600 leading-relaxed italic">
+        "<EditableText value={summary ?? ''} target={{ kind: 'summary' }} editing={editing} label="profil" block>
+          {renderInlineMarkdown(summary)}
+        </EditableText>"
+      </p>
     </section>
   );
 }
 
-function ExperienceBlock({ block, designSettings, language }: BlockRendererProps) {
+function ExperienceBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor } = designSettings;
   const { intro, bullets, bulletOffset } = getSlicedBullets(exp, block);
   const isOverflow = (block.startSubBlock ?? 0) > 0;
+  // Without the role's place in cvData there is nothing to write into
+  const experience = block.block.sourceIndex ?? -1;
+  const edit = block.block.sourceIndex === undefined ? undefined : editing;
 
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id} className="grid grid-cols-[120px_1fr] gap-8">
@@ -56,12 +68,24 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
           </div>
           <div className="space-y-2">
             <div data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">
-              <h3 className="font-bold text-gray-900 uppercase tracking-tight">{exp.position}</h3>
+              <h3 className="font-bold text-gray-900 uppercase tracking-tight">
+                <EditableText value={exp.position} target={{ kind: 'position', experience }} editing={edit} label="intitulé du poste">
+                  {exp.position}
+                </EditableText>
+              </h3>
               <p className="text-xs font-medium mt-2" style={{ color: secondaryColor }}>
-                {exp.company}
+                <EditableText value={exp.company} target={{ kind: 'company', experience }} editing={edit} label="nom de l'entreprise">
+                  {exp.company}
+                </EditableText>
                 <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} language={language} />
               </p>
-              {intro && <p className="text-sm text-gray-600 leading-relaxed pt-2">{renderInlineMarkdown(intro)}</p>}
+              {intro && (
+                <p className="text-sm text-gray-600 leading-relaxed pt-2">
+                  <EditableText value={intro} target={{ kind: 'intro', experience }} editing={edit} label="description du poste" block>
+                    {renderInlineMarkdown(intro)}
+                  </EditableText>
+                </p>
+              )}
             </div>
             <div>
               {bullets.length > 0 && (
@@ -69,7 +93,9 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
                   {bullets.map((bullet, bIdx) => (
                     <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
                       <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                      {renderInlineMarkdown(bullet)}
+                      <EditableText value={bullet} target={{ kind: 'bullet', experience, was: bullet }} editing={edit} label="point de l'expérience" block>
+                        {renderInlineMarkdown(bullet)}
+                      </EditableText>
                     </li>
                   ))}
                 </ul>
@@ -91,7 +117,9 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
                 {bullets.map((bullet, bIdx) => (
                   <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
                     <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
-                    {renderInlineMarkdown(bullet)}
+                    <EditableText value={bullet} target={{ kind: 'bullet', experience, was: bullet }} editing={edit} label="point de l'expérience" block>
+                      {renderInlineMarkdown(bullet)}
+                    </EditableText>
                   </li>
                 ))}
               </ul>
@@ -108,7 +136,7 @@ function ExperienceBlock({ block, designSettings, language }: BlockRendererProps
   );
 }
 
-function SkillCategoryBlock({ block, designSettings, language }: BlockRendererProps) {
+function SkillCategoryBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const cat = block.block.data as SkillCategory;
   const visibleSkills = getVisibleSkills(cat);
 
@@ -122,7 +150,9 @@ function SkillCategoryBlock({ block, designSettings, language }: BlockRendererPr
       <div className="flex flex-wrap gap-1.5">
         {visibleSkills.map((skill) => (
           <span key={skill} className="text-[10px] text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-            {skill}
+            <EditableText value={skill} target={{ kind: 'skill', category: cat.category, was: skill }} editing={editing} label="compétence">
+              {skill}
+            </EditableText>
           </span>
         ))}
       </div>

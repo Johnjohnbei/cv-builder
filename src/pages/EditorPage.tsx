@@ -10,7 +10,7 @@ import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
 import { dismissedIdsOf, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
@@ -34,7 +34,9 @@ export default function EditorPage() {
 
   // ─── UI state ───
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
-  const [expandedSection, setExpandedSection] = useState<string | null>('personal');
+  // Several sections open at once: experiences and skills were exclusive, so
+  // comparing them meant closing one to read the other
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(() => new Set(['personal']));
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -52,6 +54,7 @@ export default function EditorPage() {
     selectedTemplate, setSelectedTemplate,
     isLoading,
     loadedJobDescription,
+    corrections,
   } = useCVLoader(user, userData, isGuest);
 
   const isTailored = Boolean(
@@ -191,13 +194,27 @@ export default function EditorPage() {
     [printedCV?.experience, claimedRequirements, currentLanguage],
   );
 
+  const { editing, undo, canUndo } = useInPlaceEditing({ cvData, setCvData });
+
+  // What the code corrected by itself when the CV was loaded, said once
+  const correctionsTold = useRef(false);
+  useEffect(() => {
+    if (correctionsTold.current || corrections.length === 0) return;
+    correctionsTold.current = true;
+    notify({ message: `Corrigé automatiquement : ${corrections.join(', ')}.`, type: 'success' });
+  }, [corrections]);
+
   const weakBullets = useMemo(
     () => cvData ? analyzeWeakBullets(cvData.experience) : [],
     [cvData?.experience],
   );
 
   const toggleSection = useCallback((section: string) => {
-    setExpandedSection(prev => (prev === section ? null : section));
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (!next.delete(section)) next.add(section);
+      return next;
+    });
   }, []);
   // Stable per-section toggles so memo() on the section components holds
   const toggles = useMemo(() => ({
@@ -267,7 +284,7 @@ export default function EditorPage() {
         onTargetPagesChange={(n) => setDesignSettings(prev => ({ ...prev, pageLimit: n }))}
         isFitting={fit.isFitting}
         onFitToPages={fit.runFit}
-        expandedSection={expandedSection}
+        expandedSections={expandedSections}
         toggles={toggles}
         aiBusy={aiBusy}
         isRewritingCV={isRewritingCV}
@@ -311,6 +328,8 @@ export default function EditorPage() {
           isLanguageLocked={isRewritingCV}
           isAnonymous={isAnonymous}
           onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
+          onUndo={undo}
+          canUndo={canUndo}
         />
 
         <EditorPreview
@@ -324,6 +343,7 @@ export default function EditorPage() {
           templateStyle={templateStyle}
           firstExperiencePage={firstExperiencePage}
           zoom={zoom}
+          editing={editing}
         />
       </main>
 

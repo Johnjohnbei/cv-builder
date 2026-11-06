@@ -15,13 +15,16 @@ export function TemplatePicker({ selectedTemplate, primaryColor, onRequestTempla
       <div className="stitch-panel-header">Templates</div>
       <div className="p-4 grid grid-cols-2 gap-3">
         {TEMPLATES.map((tpl) => (
-          <div
+          <button
             key={tpl.id}
+            type="button"
             onClick={() => {
               if (selectedTemplate !== tpl.id) onRequestTemplateChange(tpl.id);
             }}
+            aria-pressed={selectedTemplate === tpl.id}
+            aria-label={`Modèle ${tpl.name} : ${tpl.description}`}
             className={cn(
-              "stitch-panel p-2 cursor-pointer transition-all flex flex-col gap-2",
+              "stitch-panel p-2 cursor-pointer transition-all flex flex-col gap-2 text-left",
               selectedTemplate === tpl.id ? "border-blue-600 ring-1 ring-blue-600 bg-blue-50/30" : "opacity-60 hover:opacity-100 hover:bg-gray-50"
             )}
           >
@@ -33,7 +36,7 @@ export function TemplatePicker({ selectedTemplate, primaryColor, onRequestTempla
               <TemplateThumbnail templateId={tpl.id} primaryColor={primaryColor} />
             </div>
             <span className="text-[11px] text-gray-500 uppercase leading-tight">{tpl.description}</span>
-          </div>
+          </button>
         ))}
       </div>
     </section>

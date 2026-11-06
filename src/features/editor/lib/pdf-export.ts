@@ -52,6 +52,9 @@ export function serializeCV(cvElement: HTMLElement): { html: string; styles: str
     .join('\n');
 
   const clone = cvElement.cloneNode(true) as HTMLElement;
+  // What the editor shows and the document does not: the placeholder of a field
+  // left empty. @media print hides it for Ctrl+P, this takes it out of the PDF.
+  clone.querySelectorAll('[data-preview-only]').forEach(mark => mark.remove());
   clone.style.transform = 'none';
   clone.style.position = 'relative';
   clone.style.top = '0';
@@ -184,6 +187,9 @@ export function renderPDF(
 
   // Clone the CV content
   const clone = cvElement.cloneNode(true) as HTMLElement;
+  // What the editor shows and the document does not: the placeholder of a field
+  // left empty. @media print hides it for Ctrl+P, this takes it out of the PDF.
+  clone.querySelectorAll('[data-preview-only]').forEach(mark => mark.remove());
   clone.style.transform = 'none';
   clone.style.position = 'relative';
   clone.style.top = '0';

@@ -4,6 +4,8 @@ import { DEFAULT_DESIGN } from '@/src/shared/types';
 import { stripPersistenceArtifacts } from './useCVPersistence';
 import { readStoredJSON, readStoredText } from '@/src/shared/lib/storage';
 import { migratedDesign } from '../lib/pagination/template-layouts';
+import { autoCorrect } from '../lib/auto-corrections';
+import { detectCVLanguage } from '@/src/lib/language-detection';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -14,6 +16,8 @@ interface CVLoaderResult {
   setSelectedTemplate: React.Dispatch<React.SetStateAction<string>>;
   isLoading: boolean;
   loadedJobDescription: string;
+  /** What the code corrected by itself on the CV it loaded, in French, to be shown once */
+  corrections: string[];
 }
 
 /** What the editor reads of the signed-in account: its working draft and the offer that draft was tailored to */
@@ -50,13 +54,19 @@ export function useCVLoader(
   const [selectedTemplate, setSelectedTemplate] = useState<string>(DEFAULT_DESIGN.template);
   const [isLoading, setIsLoading] = useState(true);
   const [loadedJobDescription, setLoadedJobDescription] = useState('');
+  const [corrections, setCorrections] = useState<string[]>([]);
 
   /**
    * The CV as loaded, its design migrated in the CV too: the AI actions save
    * the CV with the design it carries, and wrote a removed template or the
    * "Mode ATS" flag back before the auto-save replaced it.
    */
-  const applyLoaded = (loaded: CVData) => {
+  const applyLoaded = (source: CVData) => {
+    // Form defects the code can fix without inventing anything are fixed here,
+    // once, on the CV the editor opens on (arbitrage of 2026-11-06). The
+    // auto-save then persists the corrected CV like any other change.
+    const { cv: loaded, corrections: corrected } = autoCorrect(source, detectCVLanguage(source));
+    if (corrected.length > 0) setCorrections(corrected);
     if (!loaded.design) {
       setCvData(loaded);
       return;
@@ -103,5 +113,6 @@ export function useCVLoader(
     selectedTemplate, setSelectedTemplate,
     isLoading,
     loadedJobDescription,
+    corrections,
   };
 }

@@ -16,6 +16,25 @@ interface Props {
   showAccessHint: boolean;
 }
 
+/**
+ * What the import actually read, in one line.
+ *
+ * The generation cannot be run twice (arbitrage of 2026-10-07), so the user
+ * has to see what will be adapted BEFORE paying for it: an import that caught
+ * two of five roles is caught here, not in the editor.
+ */
+function extracted(cv: CVData): string {
+  const count = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+  const bullets = cv.experience?.reduce((total, exp) => total + (exp.description?.filter(b => b.trim()).length ?? 0), 0) ?? 0;
+  const skills = cv.skills?.reduce((total, cat) => total + cat.items.filter(item => item.trim()).length, 0) ?? 0;
+  return [
+    count(cv.experience?.length ?? 0, 'expérience', 'expériences'),
+    count(bullets, 'point', 'points'),
+    count(skills, 'compétence', 'compétences'),
+    count(cv.education?.length ?? 0, 'formation', 'formations'),
+  ].join(' · ');
+}
+
 /** Step 1 of the dashboard (the CV) and the three-step guide. Extracted from DashboardPage, over its size limit. */
 export function CvImportPanel({ baseCV, isUploading, dropzone, onStartEmpty, onReplace, offerLength, showAccessHint }: Props) {
   const { getRootProps, getInputProps, isDragActive } = dropzone;
@@ -59,6 +78,7 @@ export function CvImportPanel({ baseCV, isUploading, dropzone, onStartEmpty, onR
               <div className="p-3 bg-gray-50 border border-[#DADCE0] rounded">
                 <p className="text-xs font-bold">{baseCV.personal_info.name}</p>
                 <p className="text-[11px] text-gray-500">{baseCV.personal_info.title}</p>
+                <p className="text-[11px] text-gray-600 mt-1.5 stitch-mono">{extracted(baseCV)}</p>
               </div>
               <Button variant="ghost" size="xs" mono={false} className="text-blue-600" onClick={onReplace}>
                 Remplacer le CV importé

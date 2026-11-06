@@ -1,6 +1,14 @@
 import type { Experience, ExperienceDisplayMode, SkillCategory, SkillDisplayMode } from '@/src/shared/types';
 
 /**
+ * A text with something in it. "Ajouter un point" and "Ajouter une
+ * compétence" leave an empty field for the user to type in, and an empty
+ * field is a bullet dot or a chip with nothing beside it in the preview and in
+ * the exported PDF. The field stays in the sidebar, it just does not print.
+ */
+const written = (text: string) => text.trim().length > 0;
+
+/**
  * Returns the action bullet points for an experience based on displayMode.
  * The intro text is always shown separately (not included here).
  * compact: 0 bullets (intro only)
@@ -9,7 +17,7 @@ import type { Experience, ExperienceDisplayMode, SkillCategory, SkillDisplayMode
  */
 export function getVisibleBullets(exp: Experience): string[] {
   const mode = getMode(exp);
-  const desc = exp.description || [];
+  const desc = (exp.description || []).filter(written);
   
   switch (mode) {
     case 'hidden': return [];
@@ -25,9 +33,9 @@ export function getVisibleBullets(exp: Experience): string[] {
  * Falls back to first description item if no dedicated intro field.
  */
 export function getIntro(exp: Experience): string | null {
-  if (exp.intro) return exp.intro;
+  if (exp.intro?.trim()) return exp.intro;
   // Fallback: use first description as intro if no dedicated field
-  return exp.description?.[0] || null;
+  return (exp.description || []).filter(written)[0] || null;
 }
 
 /**
@@ -38,7 +46,8 @@ export function getActionBullets(exp: Experience): string[] {
   if (mode === 'hidden') return [];
   
   // If there's a dedicated intro, all description items are action bullets
-  const bullets = exp.intro ? (exp.description || []) : (exp.description || []).slice(1);
+  const writtenBullets = (exp.description || []).filter(written);
+  const bullets = exp.intro?.trim() ? writtenBullets : writtenBullets.slice(1);
   
   switch (mode) {
     case 'compact': return [];  // no action bullets
@@ -50,7 +59,7 @@ export function getActionBullets(exp: Experience): string[] {
 
 export function shouldShowKPI(exp: Experience): boolean {
   // No KPI content → nothing to show
-  if (!exp.kpi) return false;
+  if (!exp.kpi?.trim()) return false;
   // Explicit per-experience override wins over default
   if (exp.showKpi === true) return true;
   if (exp.showKpi === false) return false;
@@ -95,8 +104,9 @@ export function isSkillHidden(cat: SkillCategory): boolean {
 export function getVisibleSkills(cat: SkillCategory): string[] {
   const mode = getSkillMode(cat);
   if (mode === 'hidden') return [];
-  if (mode === 'compact') return cat.items.slice(0, 3);
-  return cat.items; // normal: all
+  const items = cat.items.filter(written);
+  if (mode === 'compact') return items.slice(0, 3);
+  return items; // normal: all
 }
 
 export const SKILL_DISPLAY_MODES: { value: SkillDisplayMode; label: string; icon: string; color: string }[] = [

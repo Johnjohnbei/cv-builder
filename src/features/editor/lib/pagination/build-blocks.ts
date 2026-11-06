@@ -52,8 +52,14 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
     });
   }
 
-  // Experiences (one block per visible experience)
-  if (shows('experience')) cvData.experience?.filter(exp => !isHidden(exp)).forEach((exp, idx) => {
+  // Experiences (one block per visible experience). The block keeps the role's
+  // place in cvData too: its id counts the VISIBLE roles (hiding one renames
+  // the others, cf reconcile.ts), while an edit in the preview has to find the
+  // role in the CV itself.
+  if (shows('experience')) cvData.experience
+    ?.map((exp, sourceIndex) => ({ exp, sourceIndex }))
+    .filter(({ exp }) => !isHidden(exp))
+    .forEach(({ exp, sourceIndex }, idx) => {
     const intro = getIntro(exp);
     const bullets = getActionBullets(exp);
     // Same rule as the renderers (showKpi forces it in any mode): the estimate
@@ -85,6 +91,7 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
       splittable: bullets.length >= 2,
       subBlocks,
       data: exp,
+      sourceIndex,
     });
   });
 
@@ -110,25 +117,28 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
     });
   });
 
-  // Education
-  if (shows('education') && cvData.education?.length) {
+  // Education. An entry added and not filled in yet printed an empty line
+  // under the heading: the sidebar keeps the fields, the CV prints what is written.
+  const education = (cvData.education ?? []).filter(edu => [edu.degree, edu.school, edu.field].some(part => part?.trim()));
+  if (shows('education') && education.length) {
     blocks.push({
       id: 'education',
       type: 'education',
-      heightPx: Math.ceil(SECTION_TITLE_H + cvData.education.length * 40),
+      heightPx: Math.ceil(SECTION_TITLE_H + education.length * 40),
       splittable: false,
-      data: cvData.education,
+      data: education,
     });
   }
 
   // Languages
-  if (shows('languages') && cvData.languages?.length) {
+  const languages = (cvData.languages ?? []).filter(lang => lang.name?.trim());
+  if (shows('languages') && languages.length) {
     blocks.push({
       id: 'languages',
       type: 'languages',
-      heightPx: Math.ceil(SECTION_TITLE_H + cvData.languages.length * 26),
+      heightPx: Math.ceil(SECTION_TITLE_H + languages.length * 26),
       splittable: false,
-      data: cvData.languages,
+      data: languages,
     });
   }
 

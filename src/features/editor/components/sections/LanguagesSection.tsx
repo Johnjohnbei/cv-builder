@@ -28,6 +28,7 @@ export const LanguagesSection = memo(function LanguagesSection({
     <section className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
+        aria-expanded={expanded}
         className="w-full stitch-panel-header flex items-center justify-between hover:bg-gray-100 transition-colors"
       >
         <div className="flex items-center gap-2">

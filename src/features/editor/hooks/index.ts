@@ -9,3 +9,4 @@ export { useCoverLetter } from './useCoverLetter';
 export type { CoverLetterData } from './useCoverLetter';
 export { useLanguageSwitch } from './useLanguageSwitch';
 export { useAutoSaveDraft } from './useAutoSaveDraft';
+export { useInPlaceEditing } from './useInPlaceEditing';

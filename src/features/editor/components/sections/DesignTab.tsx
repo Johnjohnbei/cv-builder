@@ -25,6 +25,17 @@ const COLOR_THEMES: ReadonlyArray<ColorTheme> = [
   { name: 'Tech', p: '#2563eb', s: '#475569', f: 'mono' },
 ];
 
+/** The colour pairs offered as presets. The names were comments, which no screen reader reads. */
+const COLOR_PRESETS = [
+  { name: 'Bleu Google', p: '#1A73E8', s: '#5F6368' },
+  { name: 'Noir', p: '#000000', s: '#666666' },
+  { name: 'Ardoise', p: '#2D3436', s: '#636E72' },
+  { name: 'Bleu', p: '#0984E3', s: '#74B9FF' },
+  { name: 'Violet', p: '#6C5CE7', s: '#A29BFE' },
+  { name: 'Vert', p: '#00B894', s: '#55EFC4' },
+  { name: 'Rouge', p: '#D63031', s: '#FF7675' },
+] as const;
+
 interface Props {
   designSettings: DesignSettings;
   setDesignSettings: React.Dispatch<React.SetStateAction<DesignSettings>>;
@@ -82,19 +93,14 @@ export const DesignTab = memo(function DesignTab({
           <div>
             <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Préréglages</label>
             <div className="flex flex-wrap gap-2">
-              {[
-                { p: '#1A73E8', s: '#5F6368' }, // Google
-                { p: '#000000', s: '#666666' }, // Noir
-                { p: '#2D3436', s: '#636E72' }, // Slate
-                { p: '#0984E3', s: '#74B9FF' }, // Blue
-                { p: '#6C5CE7', s: '#A29BFE' }, // Purple
-                { p: '#00B894', s: '#55EFC4' }, // Green
-                { p: '#D63031', s: '#FF7675' }, // Red
-              ].map((preset, i) => (
+              {COLOR_PRESETS.map((preset) => (
                 <button
-                  key={i}
+                  key={preset.name}
                   onClick={() => setDesignSettings(prev => ({ ...prev, primaryColor: preset.p, secondaryColor: preset.s }))}
                   className="w-6 h-6 rounded border border-gray-200 flex overflow-hidden"
+                  title={preset.name}
+                  aria-label={`Couleurs ${preset.name}`}
+                  aria-pressed={designSettings.primaryColor === preset.p && designSettings.secondaryColor === preset.s}
                 >
                   <div className="flex-1" style={{ backgroundColor: preset.p }} />
                   <div className="flex-1" style={{ backgroundColor: preset.s }} />
