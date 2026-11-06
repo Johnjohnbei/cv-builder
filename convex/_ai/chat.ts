@@ -120,7 +120,10 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("Failed to parse AI response as JSON:", text.slice(0, 300));
+    // The length and the shape, never the text: a model's answer starts with
+    // personal_info, so 300 characters of it is the candidate's name, email
+    // and phone number, written to the production logs.
+    console.error(`Failed to parse AI response as JSON: ${text.length} characters, starting with ${JSON.stringify(text.slice(0, 20))}`);
     throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
   }
 }

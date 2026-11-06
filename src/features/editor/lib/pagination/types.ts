@@ -71,8 +71,6 @@ export interface TemplateLayout {
 
 /** A4 page height in mm */
 export const A4_HEIGHT_MM = 297;
-/** A4 page width in mm */
-export const A4_WIDTH_MM = 210;
 /** Minimum sub-blocks to keep on current page before splitting */
 export const MIN_KEEP_SUB_BLOCKS = 2;
 /**

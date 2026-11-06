@@ -10,6 +10,7 @@ import {
   LANGUAGE_OUTPUT_INSTRUCTION,
   LANGUAGE_LOCK,
   SUMMARY_RULES,
+  fencedOffer,
 } from "./fragments";
 
 export interface AdaptContext {
@@ -79,8 +80,7 @@ Une entrée "evidence" par exigence que le CV source prouve déjà, avec l'extra
 CV SOURCE :
 ${JSON.stringify(ctx.cvData)}
 
-OFFRE D'EMPLOI :
-${ctx.jobDescription}
+${fencedOffer(ctx.jobDescription)}
 
 ${LANGUAGE_LOCK(isEn)}
 

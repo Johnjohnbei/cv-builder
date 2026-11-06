@@ -1,4 +1,5 @@
 import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS, type JobRequirement } from '@/src/shared/types';
+import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
 
 /**
  * Local cache of the AI-extracted job requirements, keyed by the job description.
@@ -89,15 +90,10 @@ function isRequirement(value: unknown): value is JobRequirement {
 }
 
 function readEntries(): CachedRequirements[] {
-  try {
-    const raw = localStorage.getItem(REQUIREMENTS_CACHE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((e): e is CachedRequirements => typeof e?.jobDescription === 'string' && Array.isArray(e.requirements))
-      : [];
-  } catch {
-    return [];
-  }
+  const parsed = readStoredJSON<unknown>(REQUIREMENTS_CACHE_KEY, []);
+  return Array.isArray(parsed)
+    ? parsed.filter((e): e is CachedRequirements => typeof e?.jobDescription === 'string' && Array.isArray(e.requirements))
+    : [];
 }
 
 /**
@@ -179,9 +175,7 @@ export function writeCachedRequirements(jobDescription: string, requirements: Jo
   const jd = normalize(jobDescription);
   if (!jd) return;
   answeredInTab = mostRecentOffers([{ jobDescription: jd, requirements }, ...answeredInTab]);
-  try {
-    localStorage.setItem(REQUIREMENTS_CACHE_KEY, JSON.stringify(mostRecentOffers([{ jobDescription: jd, requirements }, ...readEntries()])));
-  } catch {
-    // Quota or private mode: the in-memory copy still answers for this tab
-  }
+  // Refused by a full quota or by private mode: the in-memory copy still
+  // answers for this tab, which is what writeStoredText's false return says
+  writeStoredText(REQUIREMENTS_CACHE_KEY, JSON.stringify(mostRecentOffers([{ jobDescription: jd, requirements }, ...readEntries()])));
 }

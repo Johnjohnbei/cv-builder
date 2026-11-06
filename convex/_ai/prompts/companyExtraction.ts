@@ -2,6 +2,8 @@
 // Bilingual (FR/EN) — instructs the LLM to detect the JD language and apply the
 // same language-aware rules, but the output JSON keys stay English.
 
+import { fencedOffer } from "./fragments";
+
 export interface CompanyExtractionContext {
   jobDescription: string;
 }
@@ -12,8 +14,7 @@ export function buildCompanyExtractionPrompt(ctx: CompanyExtractionContext): str
 MISSION : Extrais les métadonnées de l'entreprise qui recrute à partir de l'offre ci-dessous.
 Détecte la langue de l'offre (français ou anglais) et applique les mêmes règles.
 
-OFFRE D'EMPLOI :
-${ctx.jobDescription}
+${fencedOffer(ctx.jobDescription)}
 
 CHAMPS À RETOURNER :
 - companyName : le nom exact de l'entité qui recrute (ex: "Google", "Airbus", "Société Générale", "BNP Paribas"). Utilise la casse officielle.

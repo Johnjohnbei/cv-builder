@@ -134,5 +134,7 @@ export default defineSchema({
     email: v.string(),
     message: v.optional(v.string()),
     createdAt: v.string(),
-  }),
+    // requestAccess is open to anyone: without this index it read the whole
+    // table on every call, which is what a flood would have cost
+  }).index("by_email", ["email"]),
 });

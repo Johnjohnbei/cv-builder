@@ -6,7 +6,6 @@ import { api } from '@/convex/_generated/api';
 import { Button } from '@/src/shared/ui/Button';
 import { Input } from '@/src/shared/ui/Input';
 import { Textarea } from '@/src/shared/ui/Textarea';
-import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
 import { canSave, findLatestSavedForCv, getLetterLanguage, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
 import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/company-meta';
 import { MIN_OFFER_CHARS, type PersonalInfo } from '@/src/shared/types';
@@ -184,9 +183,9 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                     : 'Recharger la dernière lettre sauvegardée'}
                 </Button>
               )}
-              <Panel>
-                <PanelHeader>Configuration</PanelHeader>
-                <PanelBody className="space-y-4">
+              <section className="stitch-panel">
+                <div className="stitch-panel-header">Configuration</div>
+                <div className="p-4 space-y-4">
                   <Input
                     label="Nom de l'entreprise"
                     value={controller.companyName}
@@ -284,12 +283,12 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                     Générer la lettre
                   </Button>
                   <p className="text-[11px] text-gray-500 text-center">Rédigée par l'IA à partir de votre CV et de l'offre (environ 30 secondes).</p>
-                </PanelBody>
-              </Panel>
+                </div>
+              </section>
 
-              <Panel>
-                <PanelHeader>Résultat</PanelHeader>
-                <PanelBody>
+              <section className="stitch-panel">
+                <div className="stitch-panel-header">Résultat</div>
+                <div className="p-4">
                   {!letter ? (
                     <div className="py-12 text-center">
                       <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -328,8 +327,8 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                       )}
                     </div>
                   )}
-                </PanelBody>
-              </Panel>
+                </div>
+              </section>
             </div>
 
             {/* Footer (sticky) */}

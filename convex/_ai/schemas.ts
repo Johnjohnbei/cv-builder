@@ -102,7 +102,7 @@ export const CompanyMetaSchema = z.object({
 }).passthrough();
 export type CompanyMetaParsed = z.infer<typeof CompanyMetaSchema>;
 
-// Company metadata constants live in src/shared/constants/companyMeta.ts
+// Company metadata constants live in src/shared/constants/company-meta.ts
 // (zod-free) so UI imports don't pull zod into the editor bundle.
 // Re-exported here for server-side/back-compat imports.
 export {

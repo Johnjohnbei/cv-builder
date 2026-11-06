@@ -140,30 +140,6 @@ body {
   font-size: 12px;
 }
 
-.stitch-button-primary {
-  background-color: var(--google-blue);
-  color: white;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.stitch-button-primary:hover {
-  background-color: var(--google-blue-hover);
-}
-
-.stitch-button-secondary {
-  border: 1px solid var(--border-color);
-  background: white;
-  color: var(--google-blue);
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 4px;
-}
-
 .stitch-input {
   border: 1px solid var(--border-color);
   border-radius: 4px;

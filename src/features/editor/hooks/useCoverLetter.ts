@@ -5,7 +5,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
 import { detectTextLanguage, getCVLanguage } from '@/src/lib/language-detection';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
-import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
+import { STORAGE_FAILED_MESSAGE, readStoredText, writeStoredText } from '@/src/shared/lib/storage';
 import { stripAccents } from '@/src/shared/lib/text';
 
 export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
@@ -280,9 +280,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   const open = useCallback(() => {
     // Restore the whole drawer context so closing never loses work, and so an
     // already known company never triggers a second extraction.
-    let stored: StoredCoverLetterContext | null = null;
-    try { stored = parseStoredContext(localStorage.getItem(COVER_LETTER_STORAGE_KEY)); }
-    catch { /* storage unavailable */ }
+    const stored = parseStoredContext(readStoredText(COVER_LETTER_STORAGE_KEY));
 
     const jd = localJobDescription.length > 0 ? localJobDescription
       : (jobDescription.length > 0 ? jobDescription : stored?.jobDescription ?? '');

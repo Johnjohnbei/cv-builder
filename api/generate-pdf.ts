@@ -21,7 +21,8 @@ interface GeneratePDFRequest {
 // browser. A script can forge the header: the rate limit, the payload cap and
 // the locked-down page below are what bound that case.
 
-function isAllowedOrigin(request: Request): boolean {
+/** Exported for unit testing: the three guards of this endpoint are pure */
+export function isAllowedOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   const host = request.headers.get('host');
   if (!origin || !host) return false;
@@ -40,7 +41,7 @@ const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 const hits = new Map<string, { count: number; windowStart: number }>();
 
-function isRateLimited(ip: string): boolean {
+export function isRateLimited(ip: string): boolean {
   const now = Date.now();
   // Forget expired windows once the map grows, or it keeps every IP ever seen
   if (hits.size > 1_000) {
@@ -109,7 +110,7 @@ async function getBrowser() {
 
 // ─── Payload validation ───
 
-function validatePayload(body: unknown): { valid: true; data: GeneratePDFRequest } | { valid: false; error: string } {
+export function validatePayload(body: unknown): { valid: true; data: GeneratePDFRequest } | { valid: false; error: string } {
   if (typeof body !== 'object' || body === null) {
     return { valid: false, error: 'Invalid payload: html and styles (strings) required' };
   }

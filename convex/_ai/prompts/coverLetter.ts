@@ -1,3 +1,5 @@
+import { fencedOffer } from "./fragments";
+
 export interface CoverLetterContext {
   cvData: unknown;
   jobDescription: string;
@@ -44,8 +46,7 @@ ${companyContext}
 CV du candidat :
 ${JSON.stringify(ctx.cvData)}
 
-Offre d'emploi :
-${ctx.jobDescription}
+${fencedOffer(ctx.jobDescription)}
 
 CONTRAINTES ABSOLUES — respecte-les toutes :
 1. Texte brut uniquement. Zéro markdown : pas de **, pas de *, pas de #, pas de tirets en liste.
@@ -82,8 +83,7 @@ ${companyContext}
 Candidate's CV (translate any non-English content to English in your output):
 ${JSON.stringify(ctx.cvData)}
 
-Job posting:
-${ctx.jobDescription}
+${fencedOffer(ctx.jobDescription)}
 
 ABSOLUTE CONSTRAINTS — respect them all:
 1. ENGLISH OUTPUT ONLY. Do not produce a single French word in the output, even if the CV is in French.

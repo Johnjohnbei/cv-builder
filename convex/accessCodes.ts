@@ -107,7 +107,7 @@ export const requestAccess = mutation({
     // dropped, and the free text is capped, so it cannot be used to flood the table.
     const existing = await ctx.db
       .query("accessRequests")
-      .filter((q) => q.eq(q.field("email"), email))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
     if (existing) return { success: true };
 

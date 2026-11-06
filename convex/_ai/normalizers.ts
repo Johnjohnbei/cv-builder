@@ -342,13 +342,10 @@ function withoutNulls(value: unknown): unknown {
 export function normalizeCVData(raw: unknown): CVData {
   const parsed = CVDataSchema.safeParse(withoutNulls(raw));
   if (!parsed.success) {
-    const preview = JSON.stringify(raw).slice(0, 500);
-    console.error(
-      "[normalizeCVData] Zod parse failed:",
-      parsed.error.message,
-      "raw:",
-      preview
-    );
+    // What is wrong and where, never the CV: a 500-character preview of a CV
+    // is the candidate's identity in the production logs. Zod's message names
+    // the paths that failed, which is what a fix needs.
+    console.error("[normalizeCVData] Zod parse failed:", parsed.error.message, `raw: ${JSON.stringify(raw).length} characters`);
     throw new Error("L'IA a retourné un CV invalide. Veuillez réessayer.");
   }
   const data = parsed.data;

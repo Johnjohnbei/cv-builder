@@ -123,7 +123,7 @@ export const extractJobRequirements = action({
   },
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
+    await verifyAccessCode(ctx, args.accessCode, false);
     // Bounded like in tailorCV
     return { requirements: await extractRequirements(args.jobDescription, Date.now() + EXTRACTION_DEADLINE_MS) };
   },
@@ -170,7 +170,7 @@ export const extractCompanyMeta = action({
   },
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode);
+    await verifyAccessCode(ctx, args.accessCode, false);
     return await companyMetaOf(args.jobDescription);
   },
 });
@@ -190,7 +190,7 @@ export const translateCV = action({
   handler: async (ctx, args) => {
     // What the prompt reads is bounded, not the cache and the versions that travel with it
     assertBoundedPrompt(cvArgument(args.cvData).cv);
-    await verifyAccessCode(ctx, args.accessCode);
+    await verifyAccessCode(ctx, args.accessCode, false);
     // The language hints and the cache stay out: the client rebuilds _translations after the call
     const { design, content: contentOnly, cv } = cvArgument(args.cvData);
     const prompt = buildTranslatePrompt({

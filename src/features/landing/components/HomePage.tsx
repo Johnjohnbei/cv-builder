@@ -101,9 +101,11 @@ export default function HomePage() {
                     <div className="h-2 w-3/4 bg-gray-100 rounded" />
                   </div>
                   <div className="pt-4 flex justify-between items-center">
+                    {/* An illustration, not a measure: the figure was written
+                        as if a CV had scored it. The frame says what it is. */}
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-16 bg-green-100 rounded" />
-                      <span className="text-[11px] font-mono text-green-600 font-bold">ATS: 94%</span>
+                      <span className="text-[11px] font-mono text-gray-500">Exemple d'aperçu</span>
                     </div>
                     <div className="h-8 w-24 bg-[#1A73E8] rounded" />
                   </div>
