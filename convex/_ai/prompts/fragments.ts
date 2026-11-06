@@ -6,9 +6,12 @@ export const FABRICATION_GUARD = `RÈGLE ABSOLUE : Ne JAMAIS inventer de chiffre
 
 // ─── Action verbs (FR/EN) ────────────────────────────────────────
 // Used by the tailoring and repair prompts (adapt.ts, distribute.ts)
-export const ACTION_VERBS_FR = `Pilote, Conçoit, Orchestre, Déploie, Optimise, Structure, Dirige ; JAMAIS "Responsable de", "Aide à", "Participe à", "Gère"`;
+// Twenty-odd verbs, same tense on both sides (a French CV writes the past
+// tense of a finished job as a participle, an English one as a simple past):
+// with seven, every bullet of a CV opened with the same three.
+export const ACTION_VERBS_FR = `Piloté, Conçu, Orchestré, Déployé, Optimisé, Structuré, Dirigé, Lancé, Refondu, Automatisé, Industrialisé, Cadré, Arbitré, Accéléré, Réduit, Doublé, Fiabilisé, Standardisé, Formé, Négocié, Priorisé, Mesuré, Migré, Fédéré ; JAMAIS "Responsable de", "Aide à", "Participe à", "Gère", "En charge de". Deux puces qui se suivent ne commencent JAMAIS par le même verbe.`;
 
-export const ACTION_VERBS_EN = `Led, Designed, Orchestrated, Deployed, Optimized, Structured; NEVER "Responsible for", "Helped with", "Participated in"`;
+export const ACTION_VERBS_EN = `Led, Designed, Orchestrated, Deployed, Optimized, Structured, Directed, Launched, Rebuilt, Automated, Industrialized, Framed, Arbitrated, Accelerated, Reduced, Doubled, Hardened, Standardized, Trained, Negotiated, Prioritized, Measured, Migrated, United; NEVER "Responsible for", "Helped with", "Participated in", "In charge of". Two bullets in a row NEVER start with the same verb.`;
 
 // ─── KPI rules (arbitrage Q2 of 2026-09-15: only what the source gives) ───
 // A KPI synthesized from the role was an invention found out in an interview.
@@ -32,9 +35,24 @@ export function KPI_RULES(isEn: boolean): string {
 }
 
 // ─── Intro preservation rule ────────────────────────────────────
-export const INTRO_PRESERVATION_FR = `Le champ "intro" de chaque expérience DOIT être préservé (1-2 lignes décrivant le rôle/contexte). Si absent dans l'entrée, synthétise-le à partir de position + company + secteur.`;
+// An intro synthesized "from position + company" repeats the two fields printed
+// right above it, and reads as filler: absent stays absent.
+export const INTRO_PRESERVATION_FR = `Le champ "intro" de chaque expérience DOIT être préservé tel quel (1-2 lignes décrivant le rôle/contexte). Absent dans l'entrée, il reste absent : n'en fabrique pas un à partir de l'intitulé et de l'entreprise, qui sont déjà imprimés juste au dessus.`;
 
-export const INTRO_PRESERVATION_EN = `The "intro" field of each experience MUST be preserved (1-2 lines describing the role/context). If missing from input, synthesize from position + company + industry.`;
+export const INTRO_PRESERVATION_EN = `The "intro" field of each experience MUST be kept as is (1-2 lines describing the role/context). Missing from the input, it stays missing: do not make one up from the position and the company, which are printed right above it.`;
+
+// ─── Summary rules ──────────────────────────────────────────────
+// The summary is the part a reader uses to decide whether a person wrote the
+// CV. The English twin exists for the same reason KPI_RULES_EN does: an
+// English CV was written against French rules, so nothing forbade
+// "passionate" or "results-driven".
+export const SUMMARY_RULES_FR = `Résumé (personal_info.summary) : c'est la partie qui prouve qu'un humain a écrit ce CV. 3 à 4 phrases, 50 à 90 mots, sans titre ni puce, à la première personne implicite (sans « je »). Il dit, avec les faits du CV source : le métier et le niveau, le parcours (secteurs, types d'entreprises, employeurs marquants cités tels quels), une réalisation concrète tirée d'une expérience, et ce que le candidat apporte à CE poste. Interdits : formules creuses (passionné, dynamique, rigoureux, orienté résultats, fort de, doté de, véritable, n'hésitez pas), superlatifs, enchaînement de mots-clés, phrase générique qui irait à n'importe quel candidat.`;
+
+export const SUMMARY_RULES_EN = `Summary (personal_info.summary): this is the part that proves a person wrote this CV. 3 to 4 sentences, 50 to 90 words, no heading, no bullet, implicit first person (never "I"). It states, with the facts of the source CV: the craft and the level, the track record (industries, kinds of companies, notable employers named as they stand), one concrete achievement taken from an experience, and what the candidate brings to THIS job. Forbidden: empty formulas (passionate, dynamic, detail-oriented, results-driven, proven track record, hard-working, team player, go-getter), superlatives, keyword strings, any sentence that would fit any candidate.`;
+
+export function SUMMARY_RULES(isEn: boolean): string {
+  return isEn ? SUMMARY_RULES_EN : SUMMARY_RULES_FR;
+}
 
 // ─── Language output instruction ────────────────────────────────
 export function LANGUAGE_OUTPUT_INSTRUCTION(isEn: boolean): string {

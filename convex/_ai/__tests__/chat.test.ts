@@ -390,3 +390,17 @@ describe("safeParseJSON", () => {
     expect(dataOf(caught).code).toBe("AI_INVALID_OUTPUT");
   });
 });
+
+// A sentence before the object threw away a whole generation otherwise valid
+describe("safeParseJSON: a preamble in prose", () => {
+  it("reads the object a sentence introduces", () => {
+    expect(safeParseJSON('Voici le JSON demandé :\n{"cv": {"name": "Alex"}}')).toEqual({ cv: { name: "Alex" } });
+    expect(safeParseJSON('```json\n{"a": 1}\n```')).toEqual({ a: 1 });
+    expect(safeParseJSON('{"a": 1}')).toEqual({ a: 1 });
+  });
+
+  it("still refuses a half answer", () => {
+    expect(() => safeParseJSON('Voici : {"cv": {"name": ')).toThrow();
+    expect(() => safeParseJSON("aucune accolade ici")).toThrow();
+  });
+});

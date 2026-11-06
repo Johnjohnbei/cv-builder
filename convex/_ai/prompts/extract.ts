@@ -1,3 +1,5 @@
+import { KPI_RULES_FR } from "./fragments";
+
 export interface ExtractContext {
   pdfText: string;
 }
@@ -16,25 +18,13 @@ RÈGLES IMPORTANTES :
    Si seule l'année est disponible, utilise juste "YYYY".
    Pour un poste actuel, met end_date à "" et current à true.
 
-2. EXPÉRIENCES : Chaque expérience a trois parties distinctes :
-   - "intro" : UNE phrase de description du rôle/contexte (1-2 lignes). Toujours présent.
-   - "description" : Liste de bullet points d'ACTIONS concrètes et résultats.
-     Chaque bullet commence par un verbe d'action. Maximum 4 bullets par expérience.
-     L'intro décrit LE QUOI, les bullets décrivent LE COMMENT et LES RÉSULTATS.
-   - "kpi" : UN résultat chiffré ou indicateur d'envergure marquant (OBLIGATOIRE, jamais vide).
-     Extrais-le du texte source si présent. Sinon, synthétise-le à partir du contexte de l'expérience
-     en restant réaliste et crédible. Règles de calibrage :
-     * CALIBRAGE SUR LA DURÉE : un stage de 3 mois ne peut pas avoir "+50% de CA sur 3 ans".
-       Adapte l'ampleur au temps réellement passé sur la mission (start_date → end_date).
-     * PRÉFÈRE L'ENVERGURE AUX POURCENTAGES INVENTÉS : taille d'équipe, nombre de projets gérés,
-       périmètre (marques, marchés, utilisateurs), stack technique déployée.
-     * EXEMPLES CRÉDIBLES :
-       - "Équipe de 8 designers encadrée" (périmètre managérial)
-       - "Refonte couvrant 5 marques et 30M+ utilisateurs" (envergure projet)
-       - "12 projets simultanés livrés" (volumétrie)
-       - "Stack Notion / Figma / GTM déployée" (scope technique)
-     * NE PAS INVENTER de pourcentages précis si le texte source ne les mentionne pas.
-     * NE JAMAIS laisser kpi vide — toujours produire au moins un indicateur d'envergure déduit.
+2. EXPÉRIENCES : Tu EXTRAIS, tu n'écris pas. Chaque expérience a trois parties :
+   - "intro" : la phrase de description du rôle/contexte que le CV donne (1-2 lignes).
+     Absente du texte source, elle reste vide ("") : ne la déduis pas de l'intitulé
+     et de l'entreprise, qui sont déjà extraits à côté.
+   - "description" : les puces d'ACTIONS et de résultats que le texte source donne.
+     Maximum 4 bullets par expérience, reprises du texte, jamais inventées.
+   - "kpi" : voir les règles ci-dessous.
 
 3. TITRE PROFESSIONNEL : Utilise un titre court et percutant (max 5 mots).
    Pas de liste de postes, pas de "Ex-xxx".
@@ -46,6 +36,8 @@ RÈGLES IMPORTANTES :
    Chaque item est un mot ou expression courte (1-3 mots).
 
 6. LANGUES : Utilise les proficiencies standards : "Natif", "Bilingue", "Courant (C1)", "Intermédiaire (B1/B2)", "Débutant (A1/A2)".
+
+${KPI_RULES_FR}
 
 Structure JSON attendue :
 {

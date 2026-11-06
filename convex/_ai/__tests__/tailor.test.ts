@@ -638,3 +638,57 @@ describe("tailorPipeline: targeted repair", () => {
     expect(result.cv.skills[0].items).toEqual(["Sketch"]);
   });
 });
+
+// Changes of the 2026-11-06 lot 5: what the guard may keep, and what a repair may cost
+describe("the summary may name the job applied for", () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-06T10:00:00Z")); });
+  afterEach(() => vi.useRealTimers());
+
+  // The header prints the offer's title (2026-10-21); left in `unproven`, the
+  // guard deleted the very sentence of the summary that named it
+  it("keeps the sentence that names the offer's title, which the header prints anyway", async () => {
+    const offer = "Nous recrutons un Staff Product Designer. Requis : Figma.";
+    const summary = "Staff Product Designer en SaaS B2B. Des parcours web et mobiles conçus avec les équipes produit, de la recherche auprès des utilisateurs jusqu'aux écrans livrés aux développeurs, dans des startups puis des scale-ups.";
+    answers(generated(cv => { cv.personal_info.summary = summary; }));
+    const result = await run([
+      { label: "Staff Product Designer", kind: "title", importance: "required", quote: "un Staff Product Designer" },
+      FIGMA,
+    ], Date.now(), SOURCE, offer);
+    expect(result.cv.personal_info.summary).toContain("Staff Product Designer");
+    expect(result.cv.personal_info.title).toBe("Staff Product Designer");
+  });
+});
+
+describe("a repair is never paid for with a requirement", () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-06T10:00:00Z")); });
+  afterEach(() => vi.useRealTimers());
+
+  it("drops a repair that covers one requirement and loses another", async () => {
+    const generation = generated(cv => {
+      cv.experience[0].description = ["Conçu les maquettes sous Figma", "Mené 30 entretiens utilisateurs"];
+    });
+    // The repair rewrites the Figma bullet into a longer one that no longer says Figma
+    const edits = { edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Conçu les maquettes et les prototypes avec les équipes produit, sur toute la gamme" }] };
+    answers(generation, edits, edits);
+    const result = await run([FIGMA, MOCKUPS, SKETCH]);
+    expect(covered(result, "figma")).toBe(true);
+  });
+
+  it("ignores an edit that shortens the bullet it replaces", async () => {
+    const long = "Conçu les maquettes de bout en bout avec les équipes produit et les développeurs";
+    const generation = generated(cv => { cv.experience[0].description = [long]; });
+    answers(generation, { edits: [{ target: "experience", expIndex: 0, bulletIndex: 0, text: "Conçu les maquettes" }] });
+    const result = await run([FIGMA, MOCKUPS]);
+    expect(result.cv.experience[0].description[0]).toBe(long);
+  });
+
+  it("files a repaired skill under its own category", async () => {
+    const source: CVData = structuredClone(SOURCE);
+    source.skills = [{ category: "methodologies", items: ["Scrum"] }, { category: "tools", items: ["Figma"] }];
+    const generation = generated(cv => { cv.skills = structuredClone(source.skills); }, [], source);
+    answers(generation, { edits: [{ target: "skills", text: "Sketch" }] });
+    const result = await run([FIGMA, SKETCH], Date.now(), source);
+    expect(result.cv.skills.find(c => c.category === "tools")?.items).toContain("Sketch");
+    expect(result.cv.skills.find(c => c.category === "methodologies")?.items).not.toContain("Sketch");
+  });
+});

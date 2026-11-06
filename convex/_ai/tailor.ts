@@ -3,6 +3,7 @@
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
 import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
+import { categorizeSkills } from "../../src/features/editor/lib/skill-dictionary";
 import { prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
@@ -120,6 +121,13 @@ function sourceNumbersOf(source: CVData, contents: string[]): Set<string> {
   return new Set([...contents.flatMap(numbersOf), ...dateYears, String(Math.floor(years)), String(Math.round(years))]);
 }
 
+/** The category a skill belongs to, so a repair does not pile every keyword into the first one */
+function skillCategoryOf(cv: CVData, skill: string): number {
+  const [categorized] = categorizeSkills([skill]);
+  const at = cv.skills.findIndex(cat => cat.category === categorized?.category);
+  return at >= 0 ? at : 0;
+}
+
 /** The repair's edits applied where they point; an edit pointing nowhere is ignored */
 function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
   return edits.reduce<CVData>((next, edit) => {
@@ -127,13 +135,20 @@ function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
     if (edit.target === "skills") {
       const known = next.skills.some(cat => cat.items.some(item => item.toLowerCase() === edit.text.toLowerCase()));
       if (known) return next;
-      const [first, ...rest] = next.skills;
-      return { ...next, skills: first ? [{ ...first, items: [...first.items, edit.text] }, ...rest] : [{ category: "other", items: [edit.text] }] };
+      if (next.skills.length === 0) return { ...next, skills: [{ category: "other", items: [edit.text] }] };
+      // In its own category: every repaired keyword used to land in skills[0],
+      // whatever it was, which printed tools under "Méthodes"
+      const at = skillCategoryOf(next, edit.text);
+      return { ...next, skills: next.skills.map((cat, i) => (i === at ? { ...cat, items: [...cat.items, edit.text] } : cat)) };
     }
     const expIndex = edit.expIndex ?? -1;
     const exp = next.experience[expIndex];
     const at = edit.bulletIndex ?? exp?.description.length ?? -1;
     if (!exp || at < 0 || at > exp.description.length) return next;
+    // A rewritten bullet takes the old one's content and adds the requirement:
+    // shorter means the repair replaced instead of merging, and content is lost
+    const replaced = exp.description[at];
+    if (replaced && edit.text.trim().length < replaced.trim().length) return next;
     const description = [...exp.description];
     description[at] = edit.text; // at the end, a new bullet
     return { ...next, experience: next.experience.map((e, i) => (i === expIndex ? { ...e, description } : e)) };
@@ -155,11 +170,19 @@ function preparedFields(source: CVData, language: "fr" | "en"): PreparedText[] {
 }
 
 /** What the guard is allowed to keep: the source, the requirements it proves, the numbers it gives */
-function guardContext(source: CVData, requirements: JobRequirement[], proven: Set<string>, fields: PreparedText[], sameLanguage: boolean): GuardContext {
+function guardContext(
+  source: CVData,
+  requirements: JobRequirement[],
+  proven: Set<string>,
+  fields: PreparedText[],
+  sameLanguage: boolean,
+  /** Kinds the guard never deletes, whatever the source proves */
+  keptKinds: string[] = ["experience_years"],
+): GuardContext {
   return {
     source,
     // Years are measured from the dates, never written
-    unproven: requirements.filter(r => r.kind !== "experience_years" && !proven.has(r.id)),
+    unproven: requirements.filter(r => !keptKinds.includes(r.kind) && !proven.has(r.id)),
     sourceNumbers: sourceNumbersOf(source, fields.map(field => field.raw)),
     sameLanguage,
   };
@@ -219,16 +242,24 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   // Written whatever the source says: the user's choice of 2026-10-07
   const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id));
   const titles = requirements.filter(r => r.kind === "title");
+  // The header prints the offer's title (arbitrage of 2026-10-21), so the
+  // summary may say it too: left in `unproven`, the guard deleted the very
+  // sentence that named the job applied for
+  const unprovenKinds = titles.length > 0 ? ["experience_years", "title"] : ["experience_years"];
   const context: GuardContext = {
     offerTitle: titles.length === 0 ? undefined : {
       terms: titles.flatMap(r => [r.label, ...r.variants]),
       // The label is in the offer's words: written as is only in the offer's language, the first title the offer gives
       label: offerLanguageOf(jobDescription) === language ? titles[0].label : undefined,
     },
-    ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language),
+    ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language, unprovenKinds),
     free: {
       requirements: free,
-      said: prepareText([...fields.map(field => field.raw), ...requirements.flatMap(r => [r.label, ...r.variants])].join(" . ")),
+      // The source's own words, and nothing else: with the requirement labels
+      // in here, a tool the offer asks for ("Salesforce") stood as a past
+      // client of the candidate. The guard allows, text by text, the wordings
+      // of the requirement that text is writing.
+      said: prepareText(fields.map(field => field.raw).join(" . ")),
     },
   };
   // The summary rule after the guard, which cuts sentences, and inside the
@@ -244,7 +275,12 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   for (let repair = 0; repair < MAX_REPAIRS && Date.now() - startedAt < REPAIR_CUTOFF_MS; repair++) {
     const missing = best.report.requirements
       .filter(c => !c.found && isWritable(c.requirement) && (free.some(r => r.id === c.requirement.id) || byCV.has(c.requirement.id)))
-      .map(c => ({ label: c.requirement.label, evidence: generation.evidence.get(c.requirement.id) }));
+      .map(c => ({
+        label: c.requirement.label,
+        variants: c.requirement.variants,
+        kind: c.requirement.kind,
+        evidence: generation.evidence.get(c.requirement.id),
+      }));
     if (missing.length === 0) break;
     let edits: RepairEdit[];
     try {
@@ -254,8 +290,11 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
       break;
     }
     const candidate = measure(applyRepair(best.cv, edits));
-    // A repair that did not help would not help twice
-    if ((candidate.report.score ?? 0) <= (best.report.score ?? 0)) break;
+    // A repair that did not help would not help twice. Nor is a higher score
+    // worth a requirement lost on the way: the aggregate hid the trade.
+    const lost = best.report.requirements.filter(c =>
+      c.found && !candidate.report.requirements.find(n => n.requirement.id === c.requirement.id)?.found);
+    if (lost.length > 0 || (candidate.report.score ?? 0) <= (best.report.score ?? 0)) break;
     best = candidate;
     repairs += 1;
   }

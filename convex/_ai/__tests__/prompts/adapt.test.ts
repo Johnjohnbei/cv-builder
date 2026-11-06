@@ -17,9 +17,11 @@ describe("buildAdaptPrompt", () => {
     expect(prompt()).toContain("Poste de Product Designer à Paris");
   });
 
-  it("lists every requirement with its id, exact label, kind and importance", () => {
+  // The score accepts the variants too: asking for the exact label alone is
+  // what produced the keyword stuffing a reader sees at a glance
+  it("lists every requirement with its id, its wordings, kind and importance", () => {
     expect(prompt()).toContain("figma | Figma | tool | required");
-    expect(prompt()).toContain("recherche-utilisateur | recherche utilisateur | method | preferred");
+    expect(prompt()).toContain("recherche-utilisateur | recherche utilisateur ou user research | method | preferred");
   });
 
   // The server keeps a placed requirement only with a quote of the source CV proving it

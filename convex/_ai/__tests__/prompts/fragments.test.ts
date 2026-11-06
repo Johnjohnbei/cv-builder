@@ -18,10 +18,12 @@ describe("FABRICATION_GUARD", () => {
 });
 
 describe("ACTION_VERBS_FR", () => {
-  it("contains core strong verbs", () => {
-    expect(ACTION_VERBS_FR).toContain("Pilote");
-    expect(ACTION_VERBS_FR).toContain("Orchestre");
-    expect(ACTION_VERBS_FR).toContain("Optimise");
+  // Seven verbs opened every bullet of a CV with the same three
+  it("offers twenty verbs or more, and forbids two in a row", () => {
+    expect(ACTION_VERBS_FR.split(",").length).toBeGreaterThanOrEqual(20);
+    expect(ACTION_VERBS_FR).toContain("Piloté");
+    expect(ACTION_VERBS_FR).toContain("Orchestré");
+    expect(ACTION_VERBS_FR).toMatch(/jamais par le même verbe/i);
   });
   it("calls out weak verbs to avoid", () => {
     expect(ACTION_VERBS_FR).toContain("Responsable de");
@@ -29,9 +31,11 @@ describe("ACTION_VERBS_FR", () => {
 });
 
 describe("ACTION_VERBS_EN", () => {
-  it("contains core strong verbs", () => {
+  it("offers twenty verbs or more, and forbids two in a row", () => {
+    expect(ACTION_VERBS_EN.split(",").length).toBeGreaterThanOrEqual(20);
     expect(ACTION_VERBS_EN).toContain("Led");
     expect(ACTION_VERBS_EN).toContain("Orchestrated");
+    expect(ACTION_VERBS_EN).toMatch(/never start with the same verb/i);
   });
   it("calls out weak verbs to avoid", () => {
     expect(ACTION_VERBS_EN).toContain("Responsible for");
@@ -50,14 +54,16 @@ describe("KPI_RULES", () => {
   });
 });
 
+// An intro made up "from position + company" repeats the two fields printed
+// right above it: absent in the source, it stays absent
 describe("INTRO_PRESERVATION", () => {
-  it("FR version mentions intro", () => {
+  it("keeps the intro the source gives, and forbids making one up", () => {
     expect(INTRO_PRESERVATION_FR.toLowerCase()).toContain("intro");
-    expect(INTRO_PRESERVATION_FR.toLowerCase()).toContain("préservé");
-  });
-  it("EN version mentions intro", () => {
+    expect(INTRO_PRESERVATION_FR).toMatch(/reste absent/);
+    expect(INTRO_PRESERVATION_FR).not.toMatch(/synthétise/i);
     expect(INTRO_PRESERVATION_EN.toLowerCase()).toContain("intro");
-    expect(INTRO_PRESERVATION_EN.toLowerCase()).toContain("preserved");
+    expect(INTRO_PRESERVATION_EN).toMatch(/stays missing/);
+    expect(INTRO_PRESERVATION_EN).not.toMatch(/synthesize/i);
   });
 });
 

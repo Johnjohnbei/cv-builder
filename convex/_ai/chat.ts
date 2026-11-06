@@ -58,6 +58,13 @@ export const AI_CALL_WORST_CASE_MS =
 /** An attempt with less time than this left before its deadline is not started (and not billed) */
 const MIN_ATTEMPT_MS = { default: 60_000, fast: 5_000 } as const;
 
+/**
+ * How long one action may spend on its AI calls, retries included. A Convex
+ * action stops at ten minutes; without this, a call that retried twice could
+ * run for about nineteen minutes and die with no message for the user.
+ */
+export const ACTION_DEADLINE_MS = 570_000;
+
 const DEADLINE_MSG = "L'IA n'a pas répondu dans le temps imparti. Réessayez dans une minute.";
 const ALL_PROVIDERS_FAILED_MSG =
   "Les services IA sont momentanément indisponibles. Réessayez dans une minute.";
@@ -96,6 +103,20 @@ export function safeParseJSON(text: string | undefined | null, _fallback: any = 
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
   }
 
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // A sentence before the object ("Voici le JSON :") threw away a whole
+    // generation that was otherwise valid. The outermost braces, and only when
+    // they parse: a half-answer still fails, as it must.
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(cleaned.slice(start, end + 1));
+      } catch { /* falls through to the error below */ }
+    }
+  }
   try {
     return JSON.parse(cleaned);
   } catch (e) {
@@ -187,7 +208,7 @@ function extractAnthropicText(response: Anthropic.Message): string {
 
 // ─── Per-provider raw calls ─────────────────────────────────────────
 
-async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast", timeoutMs: number): Promise<string> {
+async function rawChatText(provider: AIProvider, prompt: string, speed: "default" | "fast", timeoutMs: number, json = false): Promise<string> {
   // max_tokens 30000 requires streaming — client.messages.create() throws
   // "Streaming is required..." (K004). stream().finalMessage() is mandatory.
   // `timeout` still bounds the wait for headers and is sent to the API as
@@ -197,9 +218,12 @@ async function rawChatText(provider: AIProvider, prompt: string, speed: "default
     {
       model: getModel(speed, provider),
       max_tokens: 30000,
-      // The fast model extracts, translates and repairs: the same offer must
-      // give the same requirements, or the score moved between two analyses
-      temperature: speed === "fast" ? 0 : 0.3,
+      // Coupled to what is written, not to the model that writes it. JSON is
+      // read by code and must not move: the same offer gives the same
+      // requirements, or the score moved between two analyses. Prose is read
+      // by a person: a cover letter runs on the fast model and was therefore
+      // written at temperature 0, the flattest the model can produce.
+      temperature: json ? 0 : 0.5,
       messages: [{ role: "user", content: prompt }],
     },
     { signal: AbortSignal.timeout(timeoutMs) },
@@ -223,12 +247,18 @@ async function rawChatText(provider: AIProvider, prompt: string, speed: "default
     }
     throw e;
   }
-  console.log("[ai] usage", JSON.stringify({ model: message.model, usage: message.usage }));
+  console.log("[ai] usage", JSON.stringify({ model: message.model, usage: message.usage, stop_reason: message.stop_reason }));
+  // Stopped on the token ceiling: the text is cut, so JSON never parses and
+  // prose ends mid-sentence. Thrown here, the call is retried like any other
+  // provider failure instead of surfacing a truncated answer as a result.
+  if (message.stop_reason === "max_tokens") {
+    throw userError("L'IA a été coupée avant la fin de sa réponse. Veuillez réessayer.", "AI_TRUNCATED_OUTPUT");
+  }
   return extractAnthropicText(message);
 }
 
 async function rawChatJSON(provider: AIProvider, prompt: string, speed: "default" | "fast", timeoutMs: number): Promise<any> {
-  return safeParseJSON(await rawChatText(provider, prompt, speed, timeoutMs));
+  return safeParseJSON(await rawChatText(provider, prompt, speed, timeoutMs, true));
 }
 
 // ─── Public API ─────────────────────────────────────────────────────
@@ -263,7 +293,8 @@ export async function chatJSONThen<T>(
 export async function chatJSONSchema<T>(
   prompt: string,
   schema: ZodType<T>,
-  speed: "default" | "fast" = "default"
+  speed: "default" | "fast" = "default",
+  deadlineAt?: number,
 ): Promise<T> {
   return withRetry(async (provider, timeoutMs) => {
     const raw = await rawChatJSON(provider, prompt, speed, timeoutMs);
@@ -273,15 +304,15 @@ export async function chatJSONSchema<T>(
       throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
     }
     return parsed.data;
-  });
+  }, deadlineAt, MIN_ATTEMPT_MS[speed]);
 }
 
-export async function chatText(prompt: string, speed: "default" | "fast" = "default"): Promise<string> {
+export async function chatText(prompt: string, speed: "default" | "fast" = "default", deadlineAt?: number): Promise<string> {
   return withRetry(async (provider, timeoutMs) => {
     const text = await rawChatText(provider, prompt, speed, timeoutMs);
     // An empty answer is a failed call, retried, not a result: it used to reach
     // the dashboard as an empty job offer.
     if (!text.trim()) throw userError("L'IA a retourné une réponse vide. Veuillez réessayer.", "AI_EMPTY_OUTPUT");
     return text;
-  });
+  }, deadlineAt, MIN_ATTEMPT_MS[speed]);
 }

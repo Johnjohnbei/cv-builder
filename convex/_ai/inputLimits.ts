@@ -10,7 +10,11 @@ export const MAX_DOCUMENT_CHARS = 60_000; // an extracted PDF (CV or offer)
 export const MAX_OFFER_CHARS = 20_000; // a job description
 export const MAX_CV_CHARS = 60_000; // a CV as the prompt writes it, photo and portfolio already out
 /** An offer states a couple of dozen requirements; each one sent is read and matched */
-export const MAX_REQUIREMENTS_SENT = 100;
+/**
+ * What normalizeJobRequirements keeps (MAX_REQUIREMENTS). It read 100: the 75
+ * extra were sent, paid for in tokens, and dropped without a word.
+ */
+export const MAX_REQUIREMENTS_SENT = 25;
 
 /**
  * Bound what a CV action puts in a prompt, the pasted texts aside: the CV

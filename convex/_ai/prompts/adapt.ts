@@ -9,6 +9,7 @@ import {
   INTRO_PRESERVATION_EN,
   LANGUAGE_OUTPUT_INSTRUCTION,
   LANGUAGE_LOCK,
+  SUMMARY_RULES,
 } from "./fragments";
 
 export interface AdaptContext {
@@ -37,7 +38,11 @@ export function buildAdaptPrompt(ctx: AdaptContext): string {
   const isEn = ctx.language === "en";
   const verbs = isEn ? ACTION_VERBS_EN : ACTION_VERBS_FR;
   const intro = isEn ? INTRO_PRESERVATION_EN : INTRO_PRESERVATION_FR;
-  const requirements = ctx.requirements.map(r => `- ${r.id} | ${r.label} | ${r.kind} | ${r.importance}`).join("\n");
+  // Variants included: the score accepts them, so asking for the exact label
+  // alone is what produced the keyword stuffing a reader sees at a glance
+  const requirements = ctx.requirements
+    .map(r => `- ${r.id} | ${[r.label, ...r.variants].join(" ou ")} | ${r.kind} | ${r.importance}`)
+    .join("\n");
 
   return `Tu es un rédacteur de CV senior, spécialiste des ATS (Applicant Tracking Systems).
 
@@ -45,17 +50,17 @@ LANGUE : ${LANGUAGE_OUTPUT_INSTRUCTION(isEn)}
 
 MISSION : adapter ce CV à l'offre pour qu'un ATS y trouve TOUTES les exigences de l'offre, avec le score le plus proche possible de 100, sans aucune question au candidat.
 
-EXIGENCES DE L'OFFRE (id | libellé exact | type | importance) :
+EXIGENCES DE L'OFFRE (id | libellé, ou toute écriture listée après « ou » | type | importance) :
 ${requirements}
 
 RÈGLES :
 1. Garde toutes les expériences, dans le même ordre, avec leurs entreprises et leurs dates ; garde formations, compétences et langues. Ne supprime rien.
-2. Écris CHAQUE exigence de type hard_skill, tool, method, domain ou soft_skill sous son libellé exact, même si le CV source ne la mentionne pas : dans une puce de l'expérience où elle est la plus crédible (même métier, même domaine, poste le plus récent d'abord), dans les compétences pour un outil ou une compétence nommée, dans le résumé pour une exigence transverse. Chacune absente du CV est un point perdu devant l'ATS.
+2. Écris CHAQUE exigence de type hard_skill, tool, method, domain ou soft_skill, sous son libellé ou sous l'une des écritures listées, celle qui tombe le plus naturellement dans la phrase, même si le CV source ne la mentionne pas : dans une puce de l'expérience où elle est la plus crédible (même métier, même domaine, poste le plus récent d'abord), dans les compétences pour un outil ou une compétence nommée, dans le résumé pour une exigence transverse. Chacune absente du CV est un point perdu devant l'ATS.
 3. Diplôme, certification, langue, années d'expérience et intitulé de poste (types education, certification, language, experience_years, title) sont des faits : écris-les seulement si le CV source les prouve, jamais autrement.
 4. N'invente ni employeur, ni client, ni marque, ni produit, ni chiffre : une exigence ajoutée s'écrit avec les faits que le CV source donne déjà.
 5. Au plus 2 exigences par puce, et un même terme au plus 3 fois dans tout le CV. Aucun texte caché, aucune liste de mots-clés.
 6. Titre du profil (personal_info.title) : c'est le poste visé, pas un poste occupé. Écris l'intitulé de l'offre (exigence de type title), traduit dans la langue du CV si besoin, sans rien y ajouter. Les intitulés des expériences (position) restent ceux du CV source.
-7. Résumé (personal_info.summary) : c'est la partie qui prouve qu'un humain a écrit ce CV. 3 à 4 phrases, 50 à 90 mots, sans titre ni puce, à la première personne implicite (sans « je »). Il dit, avec les faits du CV source : le métier et le niveau, le parcours (secteurs, types d'entreprises, employeurs marquants cités tels quels), une réalisation concrète tirée d'une expérience, et ce que le candidat apporte à CE poste. Interdits : formules creuses (passionné, dynamique, rigoureux, orienté résultats, fort de, doté de, véritable, n'hésitez pas), superlatifs, enchaînement de mots-clés, phrase générique qui irait à n'importe quel candidat.
+7. ${SUMMARY_RULES(isEn)}
 8. Réécris les puces avec des verbes d'action (${verbs}) ; condense les expériences sans rapport avec l'offre, sans les retirer.
 9. ${intro}
 10. Chaque expérience porte "companyStage" (${COMPANY_STAGE_OPTIONS.join("|")}) et "companyBusinessModel" (${COMPANY_BUSINESS_MODEL_OPTIONS.join("|")}), omis seulement s'ils sont indéterminables.

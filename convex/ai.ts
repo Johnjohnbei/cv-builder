@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { chatJSONThen, chatText } from "./_ai/chat";
+import { ACTION_DEADLINE_MS, chatJSONThen, chatText } from "./_ai/chat";
 import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
@@ -96,7 +96,9 @@ export const extractJobDescriptionFromURL = action({
     }
 
     const prompt = buildJobDescriptionFromURLPrompt({ url: target.toString(), pageText });
-    return await chatText(prompt);
+    // "fast": the same work from a PDF already runs there. Extracting an offer
+    // from a page is reading, not reasoning.
+    return await chatText(prompt, "fast", Date.now() + ACTION_DEADLINE_MS);
   },
 });
 
@@ -205,7 +207,7 @@ export const translateCV = action({
         throw userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
       }
       return withSourceContacts(answer, source, { translatedPlaces: true });
-    }, "fast");
+    }, "fast", Date.now() + ACTION_DEADLINE_MS);
     const normalized = restoreUserOwnedFields(translated, contentOnly);
     return {
       ...normalized,
