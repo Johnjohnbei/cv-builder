@@ -9,7 +9,7 @@ import type { BlockRendererMap, BlockRendererProps } from '../../lib/pagination/
 import { renderPhoto, isKPIInRange, CompanyTags, getSlicedBullets, getContactEntries, renderContactValue, getEducationLines } from '../TemplateParts';
 import { getVisibleSkills } from '../../lib/display-modes';
 import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '../../lib/formatting';
-import { getShortSectionTitle, getSkillCategoryTitle } from '../../lib/ats-rules';
+import { getContinuationMarker, getShortSectionTitle, getSkillCategoryTitle } from '../../lib/ats-rules';
 import { EditableText } from '../EditableText';
 import type { SkillCategoryKey } from '../../lib/skill-dictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
@@ -18,7 +18,7 @@ import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVDa
 
 function getSectionHeader(title: string, primaryColor: string) {
   return (
-    <div className="flex items-center gap-4 mb-3">
+    <div className="flex items-center gap-4 mb-1.5">
       <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{title}</h2>
       <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
     </div>
@@ -67,7 +67,7 @@ function SummaryBlock({ block, designSettings, language, editing }: BlockRendere
   return (
     <section data-cv-section="summary">
       {getSectionHeader(getShortSectionTitle('summary', language), primaryColor)}
-      <p className="text-sm text-gray-600 leading-relaxed">
+      <p className="text-sm text-gray-600 leading-snug">
         <EditableText value={summary ?? ''} target={{ kind: 'summary' }} editing={editing} label="profil" block>
           {renderInlineMarkdown(summary)}
         </EditableText>
@@ -96,7 +96,7 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
           <div className="relative">
             <div className="absolute -left-[29px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
           </div>
-          <div className="flex justify-between items-start gap-4 mb-2">
+          <div className="flex justify-between items-start gap-4 mb-1">
             <h3 className="font-bold text-gray-900">
               <EditableText value={exp.position} target={{ kind: 'position', experience: experience ?? -1 }} editing={edit} label="intitulé du poste">
                 {exp.position}
@@ -107,14 +107,14 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
               <div>{exp.current ? getCurrentLabel(language).toUpperCase() : formatDateShort(exp.end_date, language)}</div>
             </div>
           </div>
-          <p className="text-xs font-bold mb-3" style={{ color: secondaryColor }}>
+          <p className="text-xs font-bold mb-1.5" style={{ color: secondaryColor }}>
             <EditableText value={exp.company} target={{ kind: 'company', experience: experience ?? -1 }} editing={edit} label="nom de l'entreprise">
               {exp.company}
             </EditableText>
             <CompanyTags stage={exp.companyStage} businessModel={exp.companyBusinessModel} language={language} />
           </p>
           {intro && (
-            <p className="text-sm text-gray-600 leading-relaxed">
+            <p className="text-sm text-gray-600 leading-snug">
               <EditableText value={intro} target={{ kind: 'intro', experience: experience ?? -1 }} editing={edit} label="description du poste" block>
                 {renderInlineMarkdown(intro)}
               </EditableText>
@@ -123,14 +123,18 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
         </div>
       )}
       {isOverflow && (
-        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }}>{/* anti-vibe-ok: cv template design */}
-          {/* Continuation of experience from previous page */}
+        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-type="exp-continued">{/* anti-vibe-ok: cv template design */}
+          {/* The bullets of a role carried over: without this line they open the
+              page with no owner, for the reader and for the parser alike */}
+          <p className="text-xs font-bold text-gray-600">
+            {exp.position} · {exp.company} {getContinuationMarker(language).trim()}
+          </p>
         </div>
       )}
       {bullets.length > 0 && (
         <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>{/* anti-vibe-ok: cv template design */}
           {bullets.map((bullet, bIdx) => (
-            <li key={bIdx} className="text-sm text-gray-600 leading-relaxed flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
+            <li key={bIdx} className="text-sm text-gray-600 leading-snug flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
               <EditableText value={bullet} target={{ kind: 'bullet', experience: experience ?? -1, was: bullet }} editing={edit} label="point de l'expérience" block>
                 {renderInlineMarkdown(bullet)}
@@ -158,19 +162,23 @@ function SkillCategoryBlock({ block, designSettings, language, editing }: BlockR
   if (visibleSkills.length === 0) return null;
 
   return (
-    <div data-measure-id={block.block.id}>
-      <p className="text-[10px] font-bold uppercase mb-1 text-gray-600">
-        {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}
-      </p>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {visibleSkills.map((skill) => (
-          <span key={skill} className="text-xs text-gray-700 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-            <EditableText value={skill} target={{ kind: 'skill', category: cat.category, was: skill }} editing={editing} label="compétence">
-              {skill}
-            </EditableText>
-          </span>
-        ))}
-      </div>
+    // One wrapped line per category, label included: five categories were five
+    // lines of label alone, and every skill carried a box worth 18px of padding
+    // and borders, half a row past eight of them. Written as text, not as flex
+    // items: the separators are in the text, so the PDF carries a list and not
+    // one run-on word.
+    <div data-measure-id={block.block.id} className="text-xs text-gray-700">
+      <span className="text-[10px] font-bold uppercase text-gray-600">
+        {getSkillCategoryTitle(cat.category as SkillCategoryKey, language)}{' : '}
+      </span>
+      {visibleSkills.map((skill, index) => (
+        <span key={skill}>
+          <EditableText value={skill} target={{ kind: 'skill', category: cat.category, was: skill }} editing={editing} label="compétence">
+            {skill}
+          </EditableText>
+          {index < visibleSkills.length - 1 ? ' · ' : ''}
+        </span>
+      ))}
     </div>
   );
 }
@@ -182,7 +190,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
       {getSectionHeader(getShortSectionTitle('education', language), primaryColor)}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {educations.map((edu, idx) => {
           const lines = getEducationLines(edu, language);
           return (
@@ -204,7 +212,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
       {getSectionHeader(getShortSectionTitle('languages', language), primaryColor)}
-      <div className="flex flex-wrap gap-x-12 gap-y-4">
+      <div className="flex flex-wrap gap-x-8 gap-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">{localizeLanguageName(lang.name, language)}</span>

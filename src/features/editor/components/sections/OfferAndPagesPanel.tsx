@@ -15,16 +15,20 @@ interface Props {
   onJobDescriptionCommit: () => void;
   actualPageCount: number;
   hasClippedContent: boolean;
+  /** Blank left at the bottom of the last page, in millimetres */
+  lastPageFreeMm: number;
   hasCvData: boolean;
   targetPages: number;
+  /** False while the budget is the one read from the CV's dates */
+  isPageLimitChosen: boolean;
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
 }
 
 export const OfferAndPagesPanel = memo(function OfferAndPagesPanel({
-  jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent, hasCvData,
-  targetPages, onTargetPagesChange, isFitting, onFitToPages,
+  jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent, lastPageFreeMm, hasCvData,
+  targetPages, isPageLimitChosen, onTargetPagesChange, isFitting, onFitToPages,
 }: Props) {
   // Focusing the field expands it for good; only "Replier l'offre" collapses it.
   // The preview used to replace the field at the first character typed, while
@@ -126,6 +130,12 @@ export const OfferAndPagesPanel = memo(function OfferAndPagesPanel({
         </div>
         <span className="text-[11px] text-gray-600">page{targetPages > 1 ? 's' : ''}</span>
       </div>
+      {!isPageLimitChosen && (
+        <p className="text-[11px] text-gray-600">
+          Déduit de vos dates : {targetPages === 1 ? 'moins de 8 ans cumulés tiennent sur une page' : 'au delà de 8 ans cumulés, deux pages'}.
+          Changez-le si vous préférez.
+        </p>
+      )}
 
       {/* Fit button */}
       <Button
@@ -150,6 +160,7 @@ export const OfferAndPagesPanel = memo(function OfferAndPagesPanel({
         targetPages={targetPages}
         hasCvData={hasCvData}
         hasClippedContent={hasClippedContent}
+        lastPageFreeMm={lastPageFreeMm}
       />
     </section>
   );

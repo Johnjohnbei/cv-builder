@@ -9,11 +9,17 @@ import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro, 
 
 // ─── Constants ───
 
-/** Characters per line at the page's content width (single-column templates) */
-const CHARS_PER_LINE = 90;
+/**
+ * Characters per line at the page's content width. Measured on the rendered
+ * font at the width of a bullet: 102, not the 90 written here, which
+ * over-estimated every text by 12% and could show a page that was not needed
+ * before the live measurement arrived.
+ */
+const CHARS_PER_LINE = 102;
 const LINE_HEIGHT = 20;
 const SECTION_TITLE_H = 32;
-const SPACING = 16;
+/** The gap CVPage puts between blocks (gap-3) */
+const SPACING = 12;
 
 function estimateTextHeight(text: string, charsPerLine: number): number {
   return Math.max(1, Math.ceil(text.length / charsPerLine)) * LINE_HEIGHT;

@@ -32,6 +32,8 @@ interface Props {
   onJobDescriptionCommit: () => void;
   actualPageCount: number;
   hasClippedContent: boolean;
+  /** Blank left at the bottom of the last page, in millimetres */
+  lastPageFreeMm: number;
 
   /** The sections open in the Contenu tab: several can be open at once */
   expandedSections: ReadonlySet<string>;
@@ -47,6 +49,8 @@ interface Props {
   isRewritingCV: boolean;
   /** Target page count the fit pass condenses towards */
   targetPages: number;
+  /** False while the budget is the one read from the CV's dates */
+  isPageLimitChosen: boolean;
   onTargetPagesChange: (n: number) => void;
   isFitting: boolean;
   onFitToPages: () => void;
@@ -81,8 +85,8 @@ export function EditorSidebar(props: Props) {
   const {
     isOpen, onClose, activeTab, onTabChange,
     cvData, setCvData, designSettings, setDesignSettings,
-    jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent,
-    targetPages, onTargetPagesChange, isFitting, onFitToPages,
+    jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent, lastPageFreeMm,
+    targetPages, isPageLimitChosen, onTargetPagesChange, isFitting, onFitToPages,
     expandedSections, toggles,
     aiBusy, isRewritingCV, experienceScores, weakBullets,
     ats, exports, coverLetter, notify,
@@ -158,8 +162,10 @@ export function EditorSidebar(props: Props) {
                   onJobDescriptionCommit={onJobDescriptionCommit}
                   actualPageCount={actualPageCount}
                   hasClippedContent={hasClippedContent}
+                  lastPageFreeMm={lastPageFreeMm}
                   hasCvData={!!cvData}
                   targetPages={targetPages}
+                  isPageLimitChosen={isPageLimitChosen}
                   onTargetPagesChange={onTargetPagesChange}
                   isFitting={isFitting}
                   onFitToPages={onFitToPages}

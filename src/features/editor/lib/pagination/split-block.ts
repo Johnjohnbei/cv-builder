@@ -4,7 +4,7 @@
 // split again on a later page and renderers can map indices to content 1:1.
 
 import type { ContentBlock, PlacedBlock } from './types';
-import { MIN_KEEP_SUB_BLOCKS, MEASUREMENT_SAFETY_PX } from './types';
+import { MIN_KEEP_SUB_BLOCKS, MIN_OVERFLOW_SUB_BLOCKS, MEASUREMENT_SAFETY_PX } from './types';
 
 interface SplitResult {
   /** Block portion that stays on the current page */
@@ -20,8 +20,9 @@ interface SplitResult {
  * Rules:
  * - Experience blocks split between bullets. The "exp-header" (position + company + intro)
  *   is insecable and only present when startFrom === 0 (continuation slices have no header).
- * - At least MIN_KEEP_SUB_BLOCKS bullet sub-blocks must remain on the current page,
- *   and at least one sub-block must overflow (otherwise it's not a split).
+ * - At least MIN_KEEP_SUB_BLOCKS bullet sub-blocks must remain on the current
+ *   page, and at least MIN_OVERFLOW_SUB_BLOCKS must carry over: a lone bullet
+ *   opening a page belongs to no one, on the page and in the PDF's text.
  * - Non-splittable blocks (header, summary, skills, education, languages) return null.
  */
 export function splitBlock(block: ContentBlock, remainingPx: number, startFrom = 0): SplitResult | null {
@@ -64,11 +65,19 @@ export function splitBlock(block: ContentBlock, remainingPx: number, startFrom =
     return null;
   }
 
-  const splitIndex = startFrom + headerSubs.length + bulletsKept;
+  let splitIndex = startFrom + headerSubs.length + bulletsKept;
 
   if (splitIndex >= subs.length) {
     // Everything fits — nothing to overflow, not a split
     return null;
+  }
+
+  // One bullet alone on the next page: hand it a neighbour rather than leave
+  // it orphaned, and give up the split when that would starve this page
+  if (subs.length - splitIndex < MIN_OVERFLOW_SUB_BLOCKS) {
+    if (bulletsKept - 1 < MIN_KEEP_SUB_BLOCKS) return null;
+    bulletsKept -= 1;
+    splitIndex -= 1;
   }
 
   return {

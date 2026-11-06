@@ -8,11 +8,12 @@ import { getFontClass } from '../templates/TemplateParts';
 import { getSectionTitle, getContinuationMarker } from '../lib/ats-rules';
 
 /**
- * Padding of every page of every template: p-16 (64px). It must equal what
- * template-layouts.ts allocates, or the last block runs into the margin;
- * PaginatedCV.test.ts checks it.
+ * Padding of every page: p-12 (48px = 12.7mm), the usual print margin. It must
+ * equal what template-layouts.ts allocates, or the last block runs into the
+ * margin; PaginatedCV.test.ts checks it. It was p-16 (16.9mm), which cost
+ * 8.5mm of height and 8.5mm of width on every page.
  */
-export const PAGE_PADDING_CLASS = 'p-16';
+export const PAGE_PADDING_CLASS = 'p-12';
 
 /**
  * Every block is a stacking context of its own, so the PDF carries the CV in

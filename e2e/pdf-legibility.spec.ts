@@ -101,10 +101,13 @@ for (const geometry of GEOMETRIES) {
       expect(at('Mars 2018')).toBeGreaterThan(firstRole);
       expect(at('Mars 2018')).toBeLessThan(at(experience[1].description[0]));
       // Degrees and skills: what a parser fills its remaining fields with.
-      // Each skill is its own item, never glued to the next one.
+      // Two skills in a row never come out glued into one word: the separator
+      // is in the text, not in a flex gap the PDF does not carry.
       at(education[0].degree);
-      for (const skill of skills[0].items) {
-        expect(items.some(item => item.trim() === skill), `« ${skill} » doit sortir seul`).toBe(true);
+      for (const [index, skill] of skills[0].items.entries()) {
+        at(skill);
+        const next = skills[0].items[index + 1];
+        if (next) expect(text).toContain(`${squash(skill)}·${squash(next)}`);
       }
     });
   });

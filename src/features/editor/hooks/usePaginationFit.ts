@@ -2,7 +2,7 @@ import { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { ContentBlock, PageAssignment } from '../lib/pagination/types';
 import { getTemplateLayout } from '../lib/pagination/template-layouts';
-import { allocatePages, isPageOverfilled } from '../lib/pagination/allocate-pages';
+import { allocatePages, isPageOverfilled, pageFreeMm } from '../lib/pagination/allocate-pages';
 import { buildBlocks } from '../lib/pagination/build-blocks';
 import { blocksStable, carryOver, readLiveDOM, reconcileBlocks } from '../lib/pagination/reconcile';
 import { getCVLanguage } from '@/src/lib/language-detection';
@@ -40,6 +40,8 @@ export function usePaginationFit(
   stablePageCount: number | null;
   /** A block taller than a page is cut at the page edge: the user must shorten it */
   hasClippedContent: boolean;
+  /** Blank left at the bottom of the last page, in millimetres */
+  lastPageFreeMm: number;
 } {
   const layout = useMemo(() => getTemplateLayout(selectedTemplate), [selectedTemplate]);
 
@@ -146,5 +148,8 @@ export function usePaginationFit(
     [pageAssignments, layout],
   );
 
-  return { pageAssignments, actualPageCount: pageAssignments.length, stablePageCount, hasClippedContent };
+  const lastPage = pageAssignments[pageAssignments.length - 1];
+  const lastPageFreeMm = lastPage ? pageFreeMm(lastPage, layout) : 0;
+
+  return { pageAssignments, actualPageCount: pageAssignments.length, stablePageCount, hasClippedContent, lastPageFreeMm };
 }

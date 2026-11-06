@@ -7,12 +7,21 @@ interface Props {
   hasCvData: boolean;
   /** A block taller than a page, cut at the page edge in the PDF */
   hasClippedContent?: boolean;
+  /** Blank left at the bottom of the last page, in millimetres */
+  lastPageFreeMm?: number;
 }
 
-export function OverflowIndicator({ actualPageCount, targetPages, hasCvData, hasClippedContent = false }: Props) {
+/**
+ * Blank worth telling about: a third of a page. Below that, the bottom of a
+ * page is just where the text stops.
+ */
+const ROOM_TO_SAY_MM = 90;
+
+export function OverflowIndicator({ actualPageCount, targetPages, hasCvData, hasClippedContent = false, lastPageFreeMm = 0 }: Props) {
   if (!hasCvData) return null;
 
   const overBudget = actualPageCount > targetPages;
+  const roomLeft = !overBudget && lastPageFreeMm >= ROOM_TO_SAY_MM;
 
   return (
     <div className="space-y-1.5">
@@ -29,6 +38,11 @@ export function OverflowIndicator({ actualPageCount, targetPages, hasCvData, has
           </span>
         )}
       </div>
+      {roomLeft && (
+        <p className="px-3 py-1.5 rounded-lg text-[11px] border bg-gray-50 border-gray-200 text-gray-600">
+          Il reste {Math.round(lastPageFreeMm / 10)} cm en bas de la dernière page : une expérience peut passer en détail.
+        </p>
+      )}
       {hasClippedContent && (
         <p role="alert" className="px-3 py-1.5 rounded-lg text-[11px] border bg-red-50 border-red-200 text-red-700">
           Un bloc est plus haut qu'une page et sera coupé à l'export : raccourcissez le résumé ou l'expérience concernée.

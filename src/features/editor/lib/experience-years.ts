@@ -21,6 +21,17 @@ export const hasReadableDates = (exp: Experience) =>
   parseMonthYear(exp.start_date) !== null && (exp.current || parseMonthYear(exp.end_date) !== null);
 
 /**
+ * How many pages a CV is worth, read from its own dates.
+ *
+ * The usual rule of a French CV, and the one recruiters state: one page under
+ * about eight years of work, two beyond. It is a starting point the user
+ * changes in the Design panel, never a cap applied behind their back.
+ */
+export function suggestedPageLimit(experiences: Experience[], now?: Date): number {
+  return yearsOfExperience(experiences, now) < 8 ? 1 : 2;
+}
+
+/**
  * Whether every role writes its dates with the same precision: all of them
  * with a month, or none of them.
  *

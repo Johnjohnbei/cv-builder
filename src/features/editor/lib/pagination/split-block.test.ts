@@ -127,3 +127,28 @@ describe('getPlacedBlockHeight', () => {
     expect(height).toBe(80 + 24 + 24 + MEASUREMENT_SAFETY_PX);
   });
 });
+
+// A lone bullet opening a page belongs to no one, on the page and in the PDF
+describe('a bullet never carries over alone', () => {
+  const role = (bullets: number, bulletPx = 40) => ({
+    id: 'exp-0', type: 'experience' as const, heightPx: 0, splittable: true,
+    data: {} as never,
+    subBlocks: [
+      { id: 'exp-0-header', heightPx: 60, type: 'exp-header' as const },
+      ...Array.from({ length: bullets }, (_, i) => ({ id: `exp-0-bullet-${i}`, heightPx: bulletPx, type: 'bullet' as const })),
+    ],
+  });
+
+  it('keeps one bullet back so the next page opens with two', () => {
+    // Room for the header and three of the four bullets: the fourth would be alone
+    const split = splitBlock(role(4), 60 + 12 + 3 * (40 + 12));
+    expect(split?.kept.endSubBlock).toBe(3);
+    expect(split?.overflow.startSubBlock).toBe(3);
+  });
+
+  it('moves the whole role rather than leave one bullet behind or ahead', () => {
+    // Room for the header and two of the three bullets: giving one back would
+    // leave a single bullet on this page
+    expect(splitBlock(role(3), 60 + 12 + 2 * (40 + 12))).toBeNull();
+  });
+});

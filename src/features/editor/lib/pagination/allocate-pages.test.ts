@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allocatePages, isPageOverfilled } from './allocate-pages';
+import { allocatePages, isPageOverfilled, pageFreeMm } from './allocate-pages';
 import type { ContentBlock, TemplateLayout } from './types';
 
 // ─── Test Layout: usable page ≈ (297 - 16.9 - 10.6) mm ≈ 1018.6px ───
@@ -128,11 +128,11 @@ describe('allocatePages', () => {
   });
 
   it('reserves the injected section titles', () => {
-    // Without the experience and skills titles (45 + 16 each) the skill block
-    // would fit on page 1 with a few px to spare.
+    // Without the experience and skills titles (29 + 12 each) the three blocks
+    // and their gaps are 986px, which fits the ≈ 1026px page; with them, 1068.
     const pages = allocatePages([
       block('header', 'header', 200),
-      block('exp-0', 'experience', 400),
+      block('exp-0', 'experience', 500),
       block('skill-0', 'skill-category', 250),
     ], layout);
 
@@ -174,5 +174,19 @@ describe('allocatePages', () => {
     for (let i = 1; i < ranges.length; i++) {
       expect(ranges[i][0]).toBe(ranges[i - 1][1]); // contiguous, no duplication
     }
+  });
+});
+
+// The fit pass aims at a number of pages and never at a filling: a CV could
+// stop at two pages with the second a third full, and nothing said so
+describe('pageFreeMm', () => {
+  it('measures the blank left at the bottom of a page', () => {
+    const page = { pageIndex: 0, blocks: [], usedHeightPx: 500 };
+    // The fixture's usable page is 1018.6px; 500px used leaves 518.6px = 137mm
+    expect(Math.round(pageFreeMm(page, layout))).toBe(137);
+  });
+
+  it('never reports a negative blank on an overfilled page', () => {
+    expect(pageFreeMm({ pageIndex: 0, blocks: [], usedHeightPx: 5000 }, layout)).toBe(0);
   });
 });

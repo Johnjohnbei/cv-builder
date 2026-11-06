@@ -75,10 +75,22 @@ export const A4_HEIGHT_MM = 297;
 export const A4_WIDTH_MM = 210;
 /** Minimum sub-blocks to keep on current page before splitting */
 export const MIN_KEEP_SUB_BLOCKS = 2;
-/** Inter-block gap in px — matches CSS gap-4 (16px) used in CVPage */
-export const MEASUREMENT_SAFETY_PX = 16;
-/** Injected section title height in px (text-sm ~20px + pb-2 8px + border 1px + mb-4 16px) */
-export const SECTION_TITLE_HEIGHT_PX = 45;
+/**
+ * Minimum sub-blocks to carry over. The rule existed on the kept side only, so
+ * a role of three bullets cut after the second sent ONE bullet to open the next
+ * page, under a rule with no owner.
+ */
+export const MIN_OVERFLOW_SUB_BLOCKS = 2;
+/** Inter-block gap in px — matches CSS gap-3 (12px) used in CVPage */
+export const MEASUREMENT_SAFETY_PX = 12;
+/**
+ * Injected section title height in px: text-sm ~20px + pb-2 8px + border 1px.
+ * It read 45, counting an mb-4 that PaginatedCV says it does not render
+ * ("NOTE: no mb-4"): 16px over-reserved per injected title at the first paint,
+ * which the live measurement then corrected, after showing a page that was not
+ * needed.
+ */
+export const SECTION_TITLE_HEIGHT_PX = 29;
 
 // ─── Block Renderer Interface ───
 

@@ -21,6 +21,7 @@ import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
 import { detectCVLanguage } from '../lib/language-detection';
 import { analyzeWeakBullets } from '../features/editor/lib/weak-bullet-detection';
+import { suggestedPageLimit } from '../features/editor/lib/experience-years';
 
 export default function EditorPage() {
   useDocumentTitle('Éditeur');
@@ -102,7 +103,7 @@ export default function EditorPage() {
 
   const { zoom, setZoom, isAutoZoom, setIsAutoZoom, recomputeZoom } = useAutoZoom(previewContainerRef);
   const blockRenderers = useMemo(() => getBlockRenderers(selectedTemplate), [selectedTemplate]);
-  const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount, hasClippedContent } = usePaginationFit(
+  const { pageAssignments: rawPageAssignments, actualPageCount, stablePageCount, hasClippedContent, lastPageFreeMm } = usePaginationFit(
     printedCV, designSettings, selectedTemplate, isAnonymous,
   );
   const pageAssignments = useMemo(
@@ -178,7 +179,9 @@ export default function EditorPage() {
   // The relevance badge and the fit pass read the SAME requirements, with the
   // same matching, as the ATS score. No local guess while they are expected:
   // the fit waits for them (an offer being typed or analyzed).
-  const targetPages = designSettings.pageLimit ?? 2;
+  // Read from the CV's own dates when the user has not set it: a two-page
+  // budget on a three-year career spreads what would read better on one
+  const targetPages = designSettings.pageLimit ?? suggestedPageLimit(cvData?.experience ?? []);
   const fit = useFitToPages({
     cvData, printedCV, setCvData, requirements: claimedRequirements,
     requirementsReady: isRequirementsSettled(requirementsStatus),
@@ -273,7 +276,9 @@ export default function EditorPage() {
         onJobDescriptionCommit={commitJobDescription}
         actualPageCount={actualPageCount}
         hasClippedContent={hasClippedContent}
+        lastPageFreeMm={lastPageFreeMm}
         targetPages={targetPages}
+        isPageLimitChosen={designSettings.pageLimit !== undefined}
         onTargetPagesChange={(n) => setDesignSettings(prev => ({ ...prev, pageLimit: n }))}
         isFitting={fit.isFitting}
         onFitToPages={fit.runFit}

@@ -37,6 +37,20 @@ export function isPageOverfilled(page: PageAssignment, layout: TemplateLayout): 
   return page.usedHeightPx > getUsableHeight(padding.paddingTopMm, padding.paddingBottomMm) + 1;
 }
 
+/**
+ * What is left blank at the bottom of a page, in millimetres.
+ *
+ * Nothing measured it: the fit pass aims at a NUMBER OF PAGES and never at a
+ * filling, so a CV could stop at two pages with the second one a third full
+ * and nothing said so, while an experience sat condensed to fit a budget it
+ * was already inside.
+ */
+export function pageFreeMm(page: PageAssignment, layout: TemplateLayout): number {
+  const padding = page.pageIndex === 0 ? layout.page1 : layout.page2Plus;
+  const free = getUsableHeight(padding.paddingTopMm, padding.paddingBottomMm) - page.usedHeightPx;
+  return Math.max(0, free / MM_TO_PX);
+}
+
 // ─── Options ───
 
 /**

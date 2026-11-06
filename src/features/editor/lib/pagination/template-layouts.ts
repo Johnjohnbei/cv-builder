@@ -13,12 +13,12 @@ export const TEMPLATES = [
   { id: 'TEMPLATE_E', name: 'Elegant', description: 'Haut de gamme' },
 ] as const;
 
-/** Standard padding (p-16 = 64px ≈ 16.9mm) */
-const PAD_16 = 16.9;
+/** Standard padding (p-12 = 48px ≈ 12.7mm), the usual margin of a printed document */
+const PAD_12 = 12.7;
 
 const SINGLE_COLUMN: TemplateLayout = {
-  page1: { paddingTopMm: PAD_16, paddingBottomMm: PAD_16 },
-  page2Plus: { paddingTopMm: PAD_16, paddingBottomMm: PAD_16 },
+  page1: { paddingTopMm: PAD_12, paddingBottomMm: PAD_12 },
+  page2Plus: { paddingTopMm: PAD_12, paddingBottomMm: PAD_12 },
 };
 
 export type TemplateId = (typeof TEMPLATES)[number]['id'];

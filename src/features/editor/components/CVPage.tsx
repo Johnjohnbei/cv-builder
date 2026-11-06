@@ -40,8 +40,10 @@ export function CVPage({ pageIndex, accentColor, fontClass, style, children, pad
         />
       )}
 
-      <div className={cn('h-full', paddingClass, isPage2Plus && accentColor && 'pl-20')}>
-        <div className="flex flex-col gap-4 h-full">{children}</div>
+      {/* pl-14 beside the 3px rule, not pl-20: pages 2+ were 4.2mm narrower
+          than page 1 for a 0.8mm rule, and the allocator models no such width */}
+      <div className={cn('h-full', paddingClass, isPage2Plus && accentColor && 'pl-14')}>
+        <div className="flex flex-col gap-3 h-full">{children}</div>
       </div>
     </div>
   );
