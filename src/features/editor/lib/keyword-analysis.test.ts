@@ -267,7 +267,7 @@ describe('computeATSReport', () => {
       experience: [exp({ position: 'Sr. Designer', start_date: 'depuis longtemps' })],
     }), []);
     expect(Object.fromEntries(failing.checks.map(c => [c.id, c.passed])))
-      .toEqual({ email: false, phone: false, location: false, titles: false, dates: false });
+      .toEqual({ email: false, phone: false, location: false, titles: false, dates: false, dateFormat: false, size: true });
   });
 
   // Years are measured from the dates: an unreadable one silently lowered them
@@ -333,5 +333,47 @@ describe('a readability check with nothing to read', () => {
     const checks = Object.fromEntries(computeATSReport(noJobs, []).checks.map(c => [c.id, c.passed]));
     expect(checks.titles).toBe(true);
     expect(checks.dates).toBe(false);
+  });
+});
+
+// Greenhouse: "resumes without clear sections and differing formats throughout
+// each section". Each role apart was readable, the CV as a whole was not.
+describe('the dates of every role written the same way', () => {
+  const passed = (experience: Experience[]) =>
+    computeATSReport(cv({ experience }), []).checks.find(c => c.id === 'dateFormat')?.passed;
+
+  it('passes when every role writes its month, or none of them does', () => {
+    expect(passed([exp(), exp({ start_date: '2017-03', end_date: '2019-06' })])).toBe(true);
+    expect(passed([exp({ start_date: '2015', end_date: '2018' }), exp({ start_date: '2019', end_date: '2021' })])).toBe(true);
+  });
+
+  it('fails when one role writes a bare year and another a month', () => {
+    expect(passed([exp(), exp({ start_date: '2017', end_date: '2019' })])).toBe(false);
+  });
+
+  it('fails with no readable date at all', () => {
+    expect(passed([])).toBe(false);
+    expect(passed([exp({ start_date: 'depuis longtemps', end_date: '' })])).toBe(false);
+  });
+});
+
+// "Greenhouse Recruiting can't parse resumes larger than 2.5MB"
+describe('the weight of the exported PDF', () => {
+  const withPhoto = (photo: string, showPhoto = true) => computeATSReport(
+    cv({ personal_info: { ...cv().personal_info, photo_url: photo } }),
+    [], { design: { showPhoto } },
+  ).checks.find(c => c.id === 'size')?.passed;
+
+  it('passes without a photo, and with one the import downscaled', () => {
+    expect(withPhoto('')).toBe(true);
+    expect(withPhoto(`data:image/jpeg;base64,${'A'.repeat(80_000)}`)).toBe(true);
+  });
+
+  it('fails on a photo heavy enough to take the PDF past the limit', () => {
+    expect(withPhoto(`data:image/jpeg;base64,${'A'.repeat(3_000_000)}`)).toBe(false);
+  });
+
+  it('ignores a photo the CV does not print', () => {
+    expect(withPhoto(`data:image/jpeg;base64,${'A'.repeat(3_000_000)}`, false)).toBe(true);
   });
 });

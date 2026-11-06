@@ -12,7 +12,8 @@ import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, 
 import { getSkillCategoryTitle } from './ats-rules';
 import type { SkillCategoryKey } from './skill-dictionary';
 import { localizeLanguageName } from './formatting';
-import { hasReadableDates, yearsOfExperience } from './experience-years';
+import { hasHomogeneousDates, hasReadableDates, yearsOfExperience } from './experience-years';
+import { fitsParserSizeLimit } from '../../../shared/lib/image-resize';
 
 // ─── What an ATS reads ───
 
@@ -28,7 +29,7 @@ const SECTION_TOGGLE: Record<Exclude<CVSection, 'title' | 'location'>, string> =
   summary: 'summary', experience: 'experience', skills: 'skills', education: 'education', languages: 'languages',
 };
 
-type IncludedSections = Pick<DesignSettings, 'includedSections'>;
+type IncludedSections = Pick<DesignSettings, 'includedSections' | 'showPhoto'>;
 
 // The header carries the title and the city, and is always printed
 const isShown = (section: CVSection, design?: IncludedSections) =>
@@ -203,6 +204,9 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       passed: titles.length > 0 && !titles.some(t => ABBREVIATED_TITLE.test(normalizeForMatch(t))),
     },
     { id: 'dates', passed: experiences.length > 0 && experiences.every(hasReadableDates) },
+    // Both documented by Greenhouse among the resumes it cannot parse
+    { id: 'dateFormat', passed: hasHomogeneousDates(experiences) },
+    { id: 'size', passed: fitsParserSizeLimit(cv.personal_info.photo_url, design?.showPhoto) },
   ];
 
   const required = coverage.filter(c => c.requirement.importance === 'required');

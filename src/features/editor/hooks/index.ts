@@ -4,7 +4,6 @@ export { useATSAnalysis } from './useATSAnalysis';
 export { usePaginationFit } from './usePaginationFit';
 export { useCVPersistence } from './useCVPersistence';
 export { useExport } from './useExport';
-export { useTemplateSelection } from './useTemplateSelection';
 export { useCoverLetter } from './useCoverLetter';
 export type { CoverLetterData } from './useCoverLetter';
 export { useLanguageSwitch } from './useLanguageSwitch';

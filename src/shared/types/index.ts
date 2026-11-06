@@ -223,7 +223,7 @@ export interface RequirementCoverage {
 
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {
-  id: 'email' | 'phone' | 'location' | 'titles' | 'dates';
+  id: 'email' | 'phone' | 'location' | 'titles' | 'dates' | 'dateFormat' | 'size';
   passed: boolean;
 }
 
@@ -256,11 +256,14 @@ export const DEFAULT_DESIGN: DesignSettings = {
   template: 'TEMPLATE_E',
   primaryColor: '#1A73E8',
   secondaryColor: '#5F6368',
-  // Mirrors TEMPLATE_DEFAULTS.TEMPLATE_E in useTemplateSelection — a fresh CV
+  // The only template left since 2026-11-06, with its font — a fresh CV
   // must look exactly like one where the user picked Elegant by hand.
   fontFamily: 'outfit',
   pageLimit: 2,
-  showPhoto: true,
+  // Off by default: Workday and Greenhouse, the two ATS whose parsing failures
+  // are documented, name photos among them, and a French CV reads fine without
+  // one. It costs 1.85 mm of height, measured: it was never a space problem.
+  showPhoto: false,
   includedSections: ['personal', 'summary', 'experience', 'education', 'skills', 'languages'],
 };
 

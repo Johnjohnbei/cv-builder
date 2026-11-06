@@ -1,6 +1,5 @@
 import { Calendar, ExternalLink, FileText, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
-import { templateName } from '@/src/features/editor/lib/pagination/template-layouts';
 
 /**
  * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: only the
@@ -72,10 +71,6 @@ export function SavedCVsView({ savedCVs, onNewCV, onOpen, onRequestDelete }: Pro
                     {' à '}
                     {new Date(cv.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                </div>
-                <div className="flex items-center text-[11px] text-gray-500 space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="stitch-mono uppercase">Modèle : {templateName(cv.design?.template)}</span>
                 </div>
                 <Button
                   variant="secondary"

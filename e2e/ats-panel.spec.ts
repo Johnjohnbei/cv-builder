@@ -54,6 +54,15 @@ test.describe('ATS Panel : mode guest', () => {
     expect(score).toBeLessThanOrEqual(100);
   });
 
+  // Seven now: the two added on 2026-11-06 come from the same Greenhouse page
+  // as the five before them
+  test('les sept contrôles de lisibilité passent sur le CV type', async ({ page }) => {
+    await page.getByRole('tab', { name: 'ATS' }).click();
+    const checks = page.locator('li', { hasText: /conforme|à corriger/ });
+    await expect(checks).toHaveCount(7, { timeout: 8_000 });
+    await expect(page.getByText('à corriger')).toHaveCount(0);
+  });
+
   // A percentage hides a cut-off: one missing required requirement sorts the
   // application out at Taleo, and is a grade C at Workday
   test('les exigences requises sont comptées à part du pourcentage', async ({ page }) => {

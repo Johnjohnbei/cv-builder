@@ -10,13 +10,13 @@ import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
 import { dismissedIdsOf, requirementsOfOffer, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
-import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
+import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, TemplateConfirmModal, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
+import { EditorNotification, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
 import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
 import { detectCVLanguage } from '../lib/language-detection';
@@ -132,7 +132,6 @@ export default function EditorPage() {
     isGuest,
     notify,
   });
-  const templateSelection = useTemplateSelection({ setSelectedTemplate, setDesignSettings });
   const coverLetter = useCoverLetter({
     // The letter speaks of the CV as it prints: never of a requirement the user said they lack
     cvData: printedCV,
@@ -248,15 +247,6 @@ export default function EditorPage() {
       {/* Notifications */}
       {notification && <EditorNotification message={notification.message} type={notification.type} onClose={clearNotification} />}
 
-      {/* Confirmation Modal */}
-      {templateSelection.showTemplateConfirm && (
-        <TemplateConfirmModal
-          pendingTemplate={templateSelection.pendingTemplate}
-          onConfirm={templateSelection.confirmTemplateChange}
-          onCancel={templateSelection.cancelTemplateChange}
-        />
-      )}
-
       {/* Language regeneration modal */}
       {language.pendingLanguage && cvData && (
         <LanguageRegenerateModal
@@ -278,7 +268,6 @@ export default function EditorPage() {
         setCvData={setCvData}
         designSettings={designSettings}
         setDesignSettings={setDesignSettings}
-        selectedTemplate={selectedTemplate}
         jobDescription={jobDescription}
         onJobDescriptionChange={setJobDescription}
         onJobDescriptionCommit={commitJobDescription}
@@ -303,7 +292,6 @@ export default function EditorPage() {
           aiBusy,
         }}
         exports={exports}
-        templateSelection={templateSelection}
         coverLetter={coverLetter}
         notify={notify}
       />

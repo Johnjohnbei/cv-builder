@@ -326,8 +326,8 @@ test.describe('Lien portfolio', () => {
     await expect(header).toContainText('linkedin.com/in/marie-dupont', { timeout: 15_000 });
     await expect(header.locator('a')).toHaveAttribute('href', 'https://example.com/portfolio/design-system');
     await page.getByRole('tab', { name: 'Design' }).click();
-    // The selected template card (its name in blue), not the "Elegant" colour theme
-    await expect(page.getByText('Elegant', { exact: true }).first()).toHaveClass(/text-blue-600/);
+    // One template left since 2026-11-06: nothing to pick, nothing to confirm
+    await expect(page.getByText('Templates', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Modern', { exact: true })).toHaveCount(0);
     // The fit pass edits the CV: the auto-save writes the migrated design back
     await expect.poll(

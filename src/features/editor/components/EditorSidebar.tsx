@@ -12,7 +12,7 @@ import {
   OfferAndPagesPanel, PersonalInfoSection, SummarySection, ExperienceSection,
   SkillsSection, EducationSection, LanguagesSection, DesignTab,
 } from './sections';
-import type { useExport, useTemplateSelection, useCoverLetter } from '../hooks';
+import type { useExport, useCoverLetter } from '../hooks';
 
 export type EditorTab = 'content' | 'design' | 'ats';
 
@@ -26,7 +26,6 @@ interface Props {
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
   designSettings: DesignSettings;
   setDesignSettings: React.Dispatch<React.SetStateAction<DesignSettings>>;
-  selectedTemplate: string;
 
   jobDescription: string;
   onJobDescriptionChange: (v: string) => void;
@@ -59,7 +58,6 @@ interface Props {
   ats: ATSPanelProps;
 
   exports: ReturnType<typeof useExport>;
-  templateSelection: ReturnType<typeof useTemplateSelection>;
   coverLetter: ReturnType<typeof useCoverLetter>;
 
   notify: (args: { message: string; type: 'success' | 'error' }) => void;
@@ -82,12 +80,12 @@ const TAB_CLASSES = 'flex-1 py-3 text-[11px] font-bold uppercase tracking-widest
 export function EditorSidebar(props: Props) {
   const {
     isOpen, onClose, activeTab, onTabChange,
-    cvData, setCvData, designSettings, setDesignSettings, selectedTemplate,
+    cvData, setCvData, designSettings, setDesignSettings,
     jobDescription, onJobDescriptionChange, onJobDescriptionCommit, actualPageCount, hasClippedContent,
     targetPages, onTargetPagesChange, isFitting, onFitToPages,
     expandedSections, toggles,
     aiBusy, isRewritingCV, experienceScores, weakBullets,
-    ats, exports, templateSelection, coverLetter, notify,
+    ats, exports, coverLetter, notify,
   } = props;
 
   return (
@@ -217,8 +215,6 @@ export function EditorSidebar(props: Props) {
               <DesignTab
                 designSettings={designSettings}
                 setDesignSettings={setDesignSettings}
-                selectedTemplate={selectedTemplate}
-                onRequestTemplateChange={templateSelection.requestTemplateChange}
                 actualPageCount={actualPageCount}
                 onPreviewPDF={exports.previewPDF}
                 onDownloadPDF={exports.downloadPDF}

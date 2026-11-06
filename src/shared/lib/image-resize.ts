@@ -14,6 +14,32 @@ export function isRemotePhoto(photoUrl: string | undefined): boolean {
   return /^https?:\/\//i.test(photoUrl?.trim() ?? '');
 }
 
+/**
+ * "Greenhouse Recruiting can't parse resumes larger than 2.5MB"
+ * (support.greenhouse.io, primary source read on 2026-11-06). The CV itself is
+ * text and a subset of its fonts, a few hundred kB; the only thing that can
+ * cross the limit is the photo, carried inline as base64 on the CV.
+ */
+const PARSER_SIZE_LIMIT_BYTES = 2.5 * 1024 * 1024;
+
+/** What the exported PDF weighs beside the photo: the fonts it embeds, around 500 kB */
+const PDF_BASE_BYTES = 500 * 1024;
+
+/**
+ * Bytes a photo adds to the PDF. A data URI carries base64, four characters
+ * for every three bytes; a link weighs nothing and prints nothing either, the
+ * PDF renderer fetching no image.
+ */
+export function photoBytes(photoUrl: string | undefined): number {
+  const data = photoUrl?.startsWith('data:') ? photoUrl.split(',')[1] : undefined;
+  return data ? Math.round((data.length * 3) / 4) : 0;
+}
+
+/** Whether the exported PDF stays under the size a parser reads */
+export function fitsParserSizeLimit(photoUrl: string | undefined, showPhoto: boolean | undefined): boolean {
+  return PDF_BASE_BYTES + (showPhoto ? photoBytes(photoUrl) : 0) < PARSER_SIZE_LIMIT_BYTES;
+}
+
 export function downscaleImageToDataURI(file: File, maxSide = 512, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

@@ -4,7 +4,6 @@ import { cn } from '../../../../shared/lib/cn';
 import { Input } from '../../../../shared/ui/Input';
 import { Button } from '../../../../shared/ui/Button';
 import { Toggle } from '../../../../shared/ui/Toggle';
-import { TemplatePicker } from './TemplatePicker';
 import type { DesignSettings } from '../../../../shared/types';
 
 type FontFamily = DesignSettings['fontFamily'];
@@ -39,8 +38,6 @@ const COLOR_PRESETS = [
 interface Props {
   designSettings: DesignSettings;
   setDesignSettings: React.Dispatch<React.SetStateAction<DesignSettings>>;
-  selectedTemplate: string;
-  onRequestTemplateChange: (templateId: string) => void;
   actualPageCount: number;
   onPreviewPDF: () => void;
   onDownloadPDF: () => void;
@@ -51,18 +48,12 @@ interface Props {
 }
 
 export const DesignTab = memo(function DesignTab({
-  designSettings, setDesignSettings, selectedTemplate, onRequestTemplateChange,
+  designSettings, setDesignSettings,
   actualPageCount, onPreviewPDF, onDownloadPDF, isExporting, onExportDocx, isExportingDocx,
   onOpenCoverLetter,
 }: Props) {
   return (
     <div className="space-y-6">
-      <TemplatePicker
-        selectedTemplate={selectedTemplate}
-        primaryColor={designSettings.primaryColor}
-        onRequestTemplateChange={onRequestTemplateChange}
-      />
-
       <section className="stitch-panel">
         <div className="stitch-panel-header">Thèmes rapides</div>
         <div className="p-4 grid grid-cols-2 gap-2">
@@ -181,6 +172,11 @@ export const DesignTab = memo(function DesignTab({
                 checked={Boolean(designSettings.showPhoto)}
                 onChange={(showPhoto) => setDesignSettings(prev => ({ ...prev, showPhoto }))}
               />
+              <p className="mt-1 text-[11px] text-gray-600">
+                Attendue en France, en Allemagne et en Suisse. À retirer pour les États-Unis,
+                le Royaume-Uni, le Canada et l'Irlande, où elle expose le recruteur à un risque
+                de discrimination.
+              </p>
             </div>
           </div>
         </div>

@@ -21,6 +21,26 @@ export const hasReadableDates = (exp: Experience) =>
   parseMonthYear(exp.start_date) !== null && (exp.current || parseMonthYear(exp.end_date) !== null);
 
 /**
+ * Whether every role writes its dates with the same precision: all of them
+ * with a month, or none of them.
+ *
+ * Greenhouse names it among the resumes it cannot parse ("resumes without
+ * clear sections and differing formats throughout each section"): the check on
+ * each role apart passed on a CV mixing "2019" and "mars 2021", because both
+ * are readable on their own. A role with no readable date at all is left to
+ * the `dates` check, which already reports it.
+ */
+export function hasHomogeneousDates(experiences: Experience[]): boolean {
+  const written = experiences.filter(hasReadableDates);
+  if (written.length === 0) return false;
+  const months = written.flatMap(exp => [
+    parseMonthYear(exp.start_date)?.month,
+    ...(exp.current ? [] : [parseMonthYear(exp.end_date)?.month]),
+  ]);
+  return months.every(month => month !== null) || months.every(month => month === null);
+}
+
+/**
  * Years covered by these roles, as a CV reads them: the start and end months
  * both count ("January 2015 to December 2019" is five years), overlaps count
  * once, a current role runs through this month.

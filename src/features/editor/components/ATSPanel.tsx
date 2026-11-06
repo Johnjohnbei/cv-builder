@@ -29,6 +29,8 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
   location: 'Ville',
   titles: 'Intitulés de poste écrits en entier (pas « Sr. », « Resp. »)',
   dates: 'Dates de poste lisibles (par exemple « mars 2021 »)',
+  dateFormat: 'Dates écrites au même format partout (toutes avec le mois, ou toutes sans)',
+  size: 'PDF sous 2,5 Mo, la taille au delà de laquelle Greenhouse ne le lit plus',
 };
 
 const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
