@@ -54,6 +54,13 @@ test.describe('ATS Panel : mode guest', () => {
     expect(score).toBeLessThanOrEqual(100);
   });
 
+  // A percentage hides a cut-off: one missing required requirement sorts the
+  // application out at Taleo, and is a grade C at Workday
+  test('les exigences requises sont comptées à part du pourcentage', async ({ page }) => {
+    await page.getByRole('tab', { name: 'ATS' }).click();
+    await expect(page.getByText(/\d+\/\d+ requises/)).toBeVisible({ timeout: 8_000 });
+  });
+
   test('les exigences couvertes sont affichées en vert, les écarts listés', async ({ page }) => {
     await page.getByRole('tab', { name: 'ATS' }).click();
     await expect(page.locator('.bg-green-100').first()).toBeVisible({ timeout: 8_000 });
@@ -231,6 +238,28 @@ test.describe('ATS Panel : actions sur un écart', () => {
     await page.getByRole('button', { name: 'Remettre' }).click();
     await expect(preview(page).first()).toContainText('Figma');
   });
+
+  // The offer states a contract and a benefit and asks them of nobody: their
+  // weight stayed in the denominator, which capped the score for good
+  test("« Pas une exigence » retire le poids du score, « Recompter » le remet", async ({ page }) => {
+    await open(page);
+    await expect(page.getByText('Écarts (2)')).toBeVisible({ timeout: 8_000 });
+    const before = Number((await atsScore(page).textContent())!.match(/(\d{1,3})/)![1]);
+
+    await page.getByRole('button', { name: "Kubernetes : ce n'est pas une exigence" }).click();
+    await expect(page.getByText('Pas des exigences (1)')).toBeVisible();
+    await expect(page.getByText('Écarts (1)')).toBeVisible();
+    await expect.poll(async () => Number((await atsScore(page).textContent())!.match(/(\d{1,3})/)![1])).toBeGreaterThan(before);
+    // Kept on the CV, so the score stays true on another device; no text changed
+    await expect.poll(async () => page.evaluate(
+      () => (JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').notRequirements ?? []).map((r: { id: string }) => r.id),
+    )).toEqual(['kubernetes']);
+
+    await page.getByRole('button', { name: 'Kubernetes : recompter dans le score' }).click();
+    await expect(page.getByText('Écarts (2)')).toBeVisible();
+    await expect.poll(async () => Number((await atsScore(page).textContent())!.match(/(\d{1,3})/)![1])).toBe(before);
+  });
+
 
   // Another offer on screen: the dismissal still takes its text out, and stays restorable
   test("une exigence écartée que l'offre affichée ne demande pas reste listée, « Remettre » la rend", async ({ page }) => {

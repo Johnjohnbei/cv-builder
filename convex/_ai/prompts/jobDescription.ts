@@ -57,6 +57,7 @@ const KIND_GUIDE: Record<RequirementKind, string> = {
   certification: "une certification (PMP, AWS, ITIL)",
   domain: "un secteur ou un domaine (SaaS B2B, e-commerce, santé)",
   soft_skill: "une qualité humaine, UNIQUEMENT si l'offre la demande explicitement",
+  location: "la ville ou la région où le poste est basé, UNIQUEMENT si l'offre exige d'y être (présence sur site), jamais un simple siège social",
 };
 
 /** Typed by the importance list, like KIND_GUIDE */
@@ -95,11 +96,11 @@ RÈGLES :
 - "importance" :
 ${Object.entries(IMPORTANCE_GUIDE).map(([importance, guide]) => `  - "${importance}" : ${guide}`).join("\n")}
 - "minYears" : le nombre d'années écrit dans "quote", en chiffres ou en lettres ; uniquement pour experience_years.
-- "label" : la forme exacte employée par l'offre, dans sa langue ; elle doit figurer dans "quote" (sauf pour title et education).
-- "variants" : TOUJOURS la traduction du libellé dans l'autre langue (en français si l'offre est en anglais, en anglais si elle est en français), écrite comme un CV l'écrirait ("user research" : "recherche utilisateur") ; puis les autres écritures qu'un CV peut employer pour la même exigence (acronyme, forme longue). Un nom propre (outil, certification) n'a pas de traduction.
+- "label" : la forme exacte employée par l'offre, dans sa langue ; elle doit figurer dans "quote" (sauf pour title et education). CINQ MOTS AU PLUS : si l'offre écrit une phrase (« Capacité à travailler en autonomie dans un environnement international »), le label est le terme qu'elle contient (« autonomie »), jamais la phrase.
+- "variants" : TOUJOURS la traduction du libellé dans l'autre langue (en français si l'offre est en anglais, en anglais si elle est en français), écrite comme un CV l'écrirait ("user research" : "recherche utilisateur") ; puis les autres écritures qu'un CV peut employer pour la même exigence (acronyme, forme longue). Un nom propre (outil, certification) ne se traduit pas, mais donne TOUJOURS ses autres écritures : « React.js » donne « React » et « ReactJS », « CI/CD » donne « CICD » et « intégration continue ».
 - "quote" : l'extrait de l'offre, recopié mot pour mot, qui énonce l'exigence.
 - N'extrais JAMAIS les avantages, la rémunération, la présentation de l'entreprise, le processus de recrutement, ni une mission qui ne demande aucune compétence.
-- N'extrais JAMAIS de mot générique (équipe, projet, entreprise, gestion) ni de verbe d'action.
+- N'extrais JAMAIS de mot générique (équipe, projet, entreprise, gestion), ni de verbe d'action, ni le nom de l'entreprise qui recrute, ni le type de contrat (CDI, stage, alternance).
 
 FORMAT :
 { "requirements": [

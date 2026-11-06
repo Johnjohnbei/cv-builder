@@ -9,7 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { isWritable } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
-import { dismissedIdsOf, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
+import { dismissedIdsOf, requirementsOfOffer, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useTemplateSelection, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
 import { useFitToPages } from '../features/editor/hooks/useFitToPages';
@@ -86,7 +86,11 @@ export default function EditorPage() {
     }
   }, [loadedJobDescription]);
 
-  const { requirements, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  const { requirements: analyzed, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  // What the offer really asks: an entry the user says is none (a contract, a
+  // benefit, the recruiting company's name) leaves the list, so it leaves the
+  // score's denominator, the badges and the fit pass at once
+  const requirements = useMemo(() => requirementsOfOffer(cvData, analyzed), [cvData, analyzed]);
   // The CV as it prints and is measured: a requirement the user said they lack is left out of it
   const printedCV = useMemo(() => (cvData ? withoutDismissed(cvData) : null), [cvData]);
   // What the CV still claims: the fit pass protects and the badges count these only.

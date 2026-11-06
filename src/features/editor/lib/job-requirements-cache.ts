@@ -23,8 +23,15 @@ interface CachedRequirements {
   requirements: JobRequirement[];
 }
 
+/**
+ * Two offers that read the same are the same offer. Whitespace only: a space
+ * added at the end of the field, a line break pasted twice, a tab from a
+ * website relaunched the analysis, which is a paid AI call, for a text saying
+ * exactly the same thing. Anything else is a different offer and is analyzed
+ * again, as it must be.
+ */
 function normalize(jd: string): string {
-  return jd.trim();
+  return jd.replace(/\s+/g, ' ').trim();
 }
 
 /** Requirements together with the offer they were extracted from */

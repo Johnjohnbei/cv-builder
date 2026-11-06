@@ -106,6 +106,51 @@ describe('matchPhrase', () => {
     expect(matchPhrase('Unix', prepareText('Université Royaume-Uni'))).toBe(false);
   });
 
+  // The offer gives the label, so it is always the CV that writes the name the
+  // other way: measured on 14 cases, every one of them counted lost (2026-11-06)
+  it('reads a technical name whatever separates its parts', () => {
+    const found = (term: string, cv: string) => matchPhrase(term, prepareText(cv));
+    expect(found('CI/CD', 'pipelines CI / CD')).toBe(true);
+    expect(found('CI/CD', 'Pipelines CICD GitLab')).toBe(true);
+    expect(found('full-stack', 'Developpeur full stack')).toBe(true);
+    expect(found('full stack', 'Developpeur full-stack')).toBe(true);
+    expect(found('e-commerce', 'Projets ecommerce B2C')).toBe(true);
+    expect(found('front-end', 'Developpement frontend React')).toBe(true);
+    expect(found('back-end', 'Back end Node')).toBe(true);
+    expect(found('data-driven', 'Culture data driven')).toBe(true);
+  });
+
+  it('reads a framework with or without its js', () => {
+    const found = (term: string, cv: string) => matchPhrase(term, prepareText(cv));
+    expect(found('React.js', 'React, TypeScript, Node')).toBe(true);
+    expect(found('Node.js', 'Node et Express')).toBe(true);
+    expect(found('Vue.js', 'Vue, Nuxt')).toBe(true);
+    expect(found('Angular', 'AngularJS legacy')).toBe(true);
+    expect(found('React', 'React.js et Redux')).toBe(true);
+    // The rule stops at the js: Java is still not JavaScript
+    expect(found('Java', 'JavaScript on the backend')).toBe(false);
+  });
+
+  // Two very short parts are written in either order, longer ones are not
+  it('reads UX/UI as UI/UX, and never front-end as end-front', () => {
+    expect(matchPhrase('UX/UI', prepareText('UI/UX Designer senior'))).toBe(true);
+    expect(matchPhrase('front-end', prepareText('end front developer'))).toBe(false);
+  });
+
+  // Under four characters nothing is stemmed and a word boundary is cheap:
+  // these are the names of the languages and tools offers filter on
+  it('does not find a short name in a common word or a compound', () => {
+    expect(matchPhrase('Vue', prepareText("Une vue d'ensemble du produit"))).toBe(false);
+    expect(matchPhrase('Go', prepareText('Go-to-market strategy'))).toBe(false);
+    expect(matchPhrase('R', prepareText('R&D chez Thales'))).toBe(false);
+    expect(matchPhrase('Office', prepareText('Gestion du back-office'))).toBe(false);
+    // And still finds them where they are named
+    expect(matchPhrase('Vue', prepareText('Vue, Nuxt, Tailwind'))).toBe(true);
+    expect(matchPhrase('Go', prepareText('Langages : Go, Python'))).toBe(true);
+    expect(matchPhrase('R', prepareText('Python, R, SQL'))).toBe(true);
+    expect(matchPhrase('Office', prepareText('Suite Office 365'))).toBe(true);
+  });
+
   it('finds a name joined to another by "+"', () => {
     expect(matchPhrase('Bac', prepareText('Bac+5 en informatique'))).toBe(true);
     expect(matchPhrase('React', prepareText('React+Redux'))).toBe(true);

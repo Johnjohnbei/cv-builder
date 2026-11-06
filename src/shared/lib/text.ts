@@ -99,31 +99,95 @@ export function prepareText(text: string): PreparedText {
 
 /** A letter, combining mark or digit, in any script */
 const WORD = '[\\p{L}\\p{M}\\p{N}]';
+const NOT_WORD = '[^\\p{L}\\p{M}\\p{N}]';
 const STARTS_WITH_WORD = new RegExp(`^${WORD}`, 'u');
 const ENDS_WITH_WORD = new RegExp(`${WORD}$`, 'u');
+
+/**
+ * What a technical name writes between its parts, and what a CV writes
+ * instead: "CI/CD" is also "CI / CD" and "CICD", "full-stack" is "full stack",
+ * "e-commerce" is "ecommerce". The offer gives the label, so it is always the
+ * CV that spells it the other way, and the requirement was counted lost.
+ */
+const SEPARATOR = '[\\s./-]*';
+const SEGMENTED = new RegExp(`^${WORD}+(?:[\\s./-]+${WORD}+)+$`, 'u');
+
+/**
+ * The "js" of a framework, optional on both sides: an offer asking for
+ * "React.js" is answered by a CV writing "React", and "Angular" is written
+ * "AngularJS". Only on a root of three characters or more, so "js" alone keeps
+ * its meaning.
+ */
+const JS_SUFFIX = /^(.{3,}?)[.\s-]?js$/u;
+const ALPHANUMERIC = /^[\p{L}\p{M}\p{N}]+$/u;
+
+/** A name of three characters or less: Go, R, C, Vue, SAS are exactly the ones an offer filters on */
+const SHORT_NAME = /^[\p{L}\p{M}\p{N}]{1,3}$/u;
+
+const escapeRegExp = (term: string) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * `term` as a regular expression, its parts allowed to be written with another
+ * separator or none. Two parts of three characters or less may come in either
+ * order ("UX/UI" is "UI/UX"), which longer names never get: "front end" is not
+ * "end front".
+ */
+function patternOf(term: string): string {
+  const js = term.match(JS_SUFFIX);
+  const base = js ? js[1] : term;
+  const tail = ALPHANUMERIC.test(base) && base.length >= 3 ? '(?:[.\\s-]?js)?' : '';
+  if (!SEGMENTED.test(base)) return escapeRegExp(base) + tail;
+  const parts = base.split(/[\s./-]+/).map(escapeRegExp);
+  const joined = parts.join(SEPARATOR);
+  const swapped = parts.length === 2 && parts.every(part => part.length <= 3)
+    ? `|${parts[1]}${SEPARATOR}${parts[0]}`
+    : '';
+  return `(?:${joined}${swapped})${tail}`;
+}
 
 /**
  * `term` as whole words of `text`, both normalized. A term starting or ending
  * with a symbol (the dot of .NET) needs no boundary on that side. "+" and "#"
  * ending a name belong to it (C is not in C++ or C#), not when a word follows
- * (Bac is in Bac+5). The left boundary consumes a character: a lookbehind is a
- * SyntaxError before Safari 16.4.
+ * (Bac is in Bac+5). A hyphen or an ampersand glued to another word is not a
+ * boundary either: "Office" is not in "back-office", "Go" is not in
+ * "go-to-market", "R" is not in "R&D". The left boundary consumes a character:
+ * a lookbehind is a SyntaxError before Safari 16.4.
  */
 function containsWords(text: string, term: string): boolean {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const left = STARTS_WITH_WORD.test(term) ? `(?:^|[^\\p{L}\\p{M}\\p{N}])` : '';
-  const right = ENDS_WITH_WORD.test(term) ? `(?!${WORD}|[+#]+(?!${WORD}))` : '';
-  return new RegExp(`${left}${escaped}${right}`, 'u').test(text);
+  const left = STARTS_WITH_WORD.test(term) ? `(?:^[-&]?|[^\\p{L}\\p{M}\\p{N}&-]|${NOT_WORD}[-&])` : '';
+  const right = ENDS_WITH_WORD.test(term) ? `(?!${WORD}|[-&]${WORD}|[+#]+(?!${WORD}))` : '';
+  return new RegExp(`${left}${patternOf(term)}${right}`, 'u').test(text);
+}
+
+/**
+ * A short name written with the capitals the offer gives it.
+ *
+ * Under four characters nothing is stemmed and a word boundary is cheap, so
+ * "Vue" was found in "vue d'ensemble" and "Go" in a sentence that merely says
+ * go. Capitals are what tells a product from a common word, and only a term
+ * carrying one is asked for them, in its own case or in full capitals (a CV
+ * listing its skills in capitals still answers).
+ */
+function writtenAsNamed(phrase: string, raw: string): boolean {
+  // One short word, its js left aside ("Vue.js" is the name "Vue"). A name
+  // written with a separator ("C/C++", "CI/CD") is not one of these.
+  const name = stripAccents(phrase).replace(/[.\s-]?js$/i, '');
+  if (!SHORT_NAME.test(name) || name === name.toLowerCase()) return true;
+  const text = stripAccents(raw);
+  return text.includes(name) || text.includes(name.toUpperCase());
 }
 
 /**
  * Contiguous phrase match on word boundaries of any script, tolerant to
- * accents, typography and plural or suffix variants on both sides. Word order
- * and adjacency are kept: "equipe design" must not match an "équipe" in one
- * paragraph and a "design" in another, and "Java" is not in "JavaScript".
+ * accents, typography, plural or suffix variants on both sides, and to the
+ * separator a technical name is written with. Word order and adjacency are
+ * kept: "equipe design" must not match an "équipe" in one paragraph and a
+ * "design" in another, and "Java" is not in "JavaScript".
  */
 export function matchPhrase(phrase: string, text: PreparedText): boolean {
   const normalized = normalizeForMatch(phrase);
   if (!normalized) return false;
+  if (!writtenAsNamed(phrase, text.raw)) return false;
   return containsWords(text.normalized, normalized) || containsWords(text.stemmed, stemPhrase(normalized));
 }

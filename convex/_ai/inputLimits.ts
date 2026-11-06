@@ -73,8 +73,8 @@ export function cvArgument(raw: unknown) {
   // The editor's own state stays out of every prompt too: the versions a block
   // was not printed in, and the requirements the user said they lack (their
   // texts would bring them back into a letter or a translation)
-  const { design, detectedLanguage, languageOverride, _translations: _staleCache, dismissedRequirements: _dismissed, ...rest } = (raw || {}) as Record<string, any>;
-  void _staleCache; void _dismissed;
+  const { design, detectedLanguage, languageOverride, _translations: _staleCache, dismissedRequirements: _dismissed, notRequirements: _none, ...rest } = (raw || {}) as Record<string, any>;
+  void _staleCache; void _dismissed; void _none;
   const content = rest as { personal_info?: CVData["personal_info"] };
   const hints = { detectedLanguage: detectedLanguage as Language | undefined, languageOverride: languageOverride as Language | undefined };
   return {

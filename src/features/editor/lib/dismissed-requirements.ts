@@ -14,7 +14,11 @@ import { isWrittenFreely, writesRequirement } from './keyword-analysis';
  * skipped, never read, and never saved: Convex would refuse the whole save.
  */
 export const dismissedOf = (cv: CVData | null | undefined): DismissedRequirement[] =>
-  (cv?.dismissedRequirements ?? [])
+  storedRequirements(cv?.dismissedRequirements);
+
+/** The entries Convex declares, no more: an entry of another shape fails the whole save */
+const storedRequirements = (stored: DismissedRequirement[] | undefined): DismissedRequirement[] =>
+  (stored ?? [])
     .filter((r): r is DismissedRequirement =>
       typeof r === 'object' && r !== null && typeof r.id === 'string' && typeof r.label === 'string'
       && Array.isArray(r.variants) && r.variants.every(variant => typeof variant === 'string')
@@ -24,6 +28,36 @@ export const dismissedOf = (cv: CVData | null | undefined): DismissedRequirement
 
 /** Ids of the requirements the CV says the user lacks */
 export const dismissedIdsOf = (cv: CVData | null | undefined): string[] => dismissedOf(cv).map(r => r.id);
+
+// ─── What the offer states and asks of nobody (2026-11-06) ───
+// A type of contract, a benefit, the recruiting company's name: measured at 8
+// points of 28 on a real offer, and no CV could ever cover them. Taking one
+// out removes it from the offer's list, so its weight leaves the score's
+// denominator; no text of the CV changes.
+
+/** The entries of the offer the CV says are not requirements */
+export const notRequirementsOf = (cv: CVData | null | undefined): DismissedRequirement[] =>
+  storedRequirements(cv?.notRequirements);
+
+/** Ids of the entries the CV says are not requirements */
+export const notRequirementIdsOf = (cv: CVData | null | undefined): string[] => notRequirementsOf(cv).map(r => r.id);
+
+/** The CV with `requirement` marked as none */
+export function withNotARequirement(cv: CVData, requirement: JobRequirement): CVData {
+  const { id, label, variants, kind } = requirement;
+  return { ...cv, notRequirements: [...notRequirementsOf(cv).filter(r => r.id !== id), { id, label, variants, kind }] };
+}
+
+/** The CV with the entry `id` counted as a requirement again */
+export function withRequirementBack(cv: CVData, id: string): CVData {
+  return { ...cv, notRequirements: notRequirementsOf(cv).filter(r => r.id !== id) };
+}
+
+/** The offer's requirements, less the ones the CV says are not requirements at all */
+export const requirementsOfOffer = (cv: CVData | null | undefined, requirements: JobRequirement[]): JobRequirement[] => {
+  const none = notRequirementIdsOf(cv);
+  return none.length === 0 ? requirements : requirements.filter(r => !none.includes(r.id));
+};
 
 /** The CV with `requirement` dismissed */
 export function withDismissed(cv: CVData, requirement: JobRequirement): CVData {

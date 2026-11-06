@@ -191,3 +191,17 @@ describe('requirements cache', () => {
     });
   });
 });
+
+// An analysis is a paid AI call: a space added in the field is the same offer
+describe('an offer that differs only by whitespace', () => {
+  it('keeps the requirements already extracted', () => {
+    const analyzed = { offer: "Product Designer.\nMaîtrise de Figma.", requirements: [R('Figma')] };
+    expect(requirementsForOffer("  Product Designer. Maîtrise de Figma.  ", analyzed)).toEqual([R('Figma')]);
+    expect(requirementsForOffer("Product Designer.\n\n Maîtrise  de Figma.", analyzed)).toEqual([R('Figma')]);
+  });
+
+  it('still analyzes a different text again', () => {
+    const analyzed = { offer: 'Maîtrise de Figma.', requirements: [R('Figma')] };
+    expect(requirementsForOffer('Maîtrise de Sketch.', analyzed)).toEqual([]);
+  });
+});

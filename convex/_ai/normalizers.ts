@@ -8,7 +8,7 @@ import type {
   ExperienceDisplayMode,
 } from "../../src/shared/types";
 import { omitUserOwnedFields, pickUserOwnedFields } from "../../src/shared/types";
-import { matchPhrase, normalizeForMatch, prepareText } from "../../src/shared/lib/text";
+import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { statesYears } from "./numbers";
 
 // ─── Job requirements ────────────────────────────────────────────
@@ -18,6 +18,48 @@ const MAX_REQUIREMENTS = 25;
 const slugOf = (key: string) => key
   .replace(/\+/g, " plus ").replace(/#/g, " sharp ").replace(/^\./, "dot ")
   .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+
+/**
+ * At most this many words in a label. A longer one is the offer's sentence,
+ * and `matchPhrase` asks for it word for word: "Capacité à travailler en
+ * autonomie dans un environnement international" was a 3-point requirement no
+ * CV could ever write, while its own skills said "autonomie".
+ */
+const MAX_LABEL_WORDS = 5;
+
+/**
+ * What an offer states about itself, and never asks of the candidate: the type
+ * of contract, what the job offers, how to apply. The prompt already forbids
+ * extracting them (prompts/jobDescription.ts), but nothing made it so: these
+ * were requirements worth 1 to 3 points that no CV can ever cover, which
+ * lowered every score by a fixed amount. Measured on a real offer: 8 points of
+ * 28 (2026-11-06).
+ *
+ * Read on the normalized label, accents gone. A name the list cannot know, the
+ * recruiting company's above all, is taken out by the user instead, with
+ * "Ce n'est pas une exigence".
+ */
+const NOT_A_REQUIREMENT: RegExp[] = [
+  // Contract and working time
+  /^(cdi|cdd|vie|interim|stage|stagiaire|alternance|alternant|apprentissage|freelance|independant|portage)$/,
+  /\b(contrat|temps plein|temps partiel|full.?time|part.?time|permanent contract|fixed.?term)\b/,
+  // What the job gives
+  /\b(mutuelle|prevoyance|tickets? restaurant|titres? restaurant|carte swile|rtt|conges|salaire|remuneration|package|avantages?|primes?|bonus|interessement|participation|epargne|ce |cse|comite d'entreprise|benefits?|perks?|compensation|equity|bspce|stock.?options?)\b/,
+  /^(teletravail|remote|hybride|hybrid|flex office|home.?office|work from home)$/,
+  // How to apply
+  /\b(processus de recrutement|entretiens?|candidature|postuler|lettre de motivation|cv |resume screening|hiring process|onboarding)\b/,
+  // The offer talking about itself
+  /\b(notre equipe|nos bureaux|notre mission|qui sommes nous|about us|join us|rejoignez)\b/,
+];
+
+/** Whether the label is something the offer gives or asks of itself, not of the candidate */
+export function isNotARequirement(label: string): boolean {
+  const normalized = normalizeForMatch(label);
+  return NOT_A_REQUIREMENT.some(pattern => pattern.test(normalized));
+}
+
+/** How many words a label is made of */
+const wordCount = (label: string) => normalizeForMatch(label).split(" ").filter(Boolean).length;
 
 /** Trimmed, non-empty, one per normalized spelling, the first spelling kept */
 function uniqueTerms(terms: string[]): string[] {
@@ -44,26 +86,42 @@ function uniqueTerms(terms: string[]): string[] {
 export function normalizeJobRequirements(items: unknown[], jobDescription: string): JobRequirement[] {
   const offer = prepareText(jobDescription);
   const ids = new Set<string>();
+  /** Every spelling already retained: two wordings of one requirement were two requirements, each with its weight */
+  const spellings = new Set<string>();
   const requirements: JobRequirement[] = [];
+  let hasTitle = false;
   for (const item of items) {
     const parsed = JobRequirementSchema.safeParse(withoutNulls(item));
     if (!parsed.success) continue;
     const { variants, kind, importance, quote, minYears } = parsed.data;
+    // One offer describes one job: two titles were 6 points for one post
+    if (kind === "title" && hasTitle) continue;
     const quoted = prepareText(quote);
     if (!quoted.normalized || !matchPhrase(quote, offer)) continue;
     const terms = uniqueTerms([parsed.data.label, ...variants]);
     // A title or a degree may be reworded; any other label is words of the quote
-    // (a composed one, "User research and usability testing", gives way to the
-    // first term the quote writes, and stays a variant)
-    const stated = kind === "title" || kind === "education" || kind === "experience_years"
-      ? terms[0]
-      : terms.find(term => matchPhrase(term, quoted));
-    if (!stated) continue;
+    const reworded = kind === "title" || kind === "education" || kind === "experience_years";
+    // A title still has to be the subject of its quote: "Staff Product Designer"
+    // passed on the quote "Acme est une scale-up", which names no job at all
+    if (kind === "title" && !statesTitle(terms, quoted)) continue;
+    const said = reworded ? terms : terms.filter(term => matchPhrase(term, quoted));
+    // A label of more than five words is the offer's sentence, which no CV
+    // writes word for word: the shortest term the quote states takes its place
+    const stated = said[0] && wordCount(said[0]) <= MAX_LABEL_WORDS
+      ? said[0]
+      : said.filter(term => wordCount(term) <= MAX_LABEL_WORDS).sort((a, b) => a.length - b.length)[0];
+    if (!stated || isNotARequirement(stated)) continue;
     const id = slugOf(normalizeForMatch(stated));
     if (!id || ids.has(id)) continue;
+    // Two wordings of one requirement share a spelling: "user research and
+    // usability testing" and "user research" were 6 points for one requirement
+    const keys = terms.map(normalizeForMatch);
+    if (keys.some(key => spellings.has(key))) continue;
     // Years are measured from the dates, which needs the number the offer gives
     if (kind === "experience_years" && !(typeof minYears === "number" && minYears > 0 && statesYears(quoted, minYears))) continue;
     ids.add(id);
+    keys.forEach(key => spellings.add(key));
+    hasTitle = hasTitle || kind === "title";
     requirements.push({
       id, label: stated, variants: terms.filter(term => term !== stated), kind, importance, quote: quote.trim(),
       ...(kind === "experience_years" && { minYears }),
@@ -71,6 +129,17 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
     if (requirements.length === MAX_REQUIREMENTS) break;
   }
   return requirements;
+}
+
+/**
+ * Whether the quote of a title speaks of that job. A title is reworded
+ * ("Designer produit" for "futur·e Product Designer"), so the whole label is
+ * not asked for: one word of it, of three letters or more, has to be in the
+ * quote.
+ */
+function statesTitle(terms: string[], quoted: PreparedText): boolean {
+  const words = terms.flatMap(term => normalizeForMatch(term).split(" ")).filter(word => word.length >= 3);
+  return words.some(word => matchPhrase(word, quoted));
 }
 
 // ─── User-owned fields: kept away from the model ─────────────────

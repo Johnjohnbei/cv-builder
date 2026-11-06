@@ -165,15 +165,26 @@ export interface CVData {
    * "Remettre" loses nothing.
    */
   dismissedRequirements?: DismissedRequirement[];
+  /**
+   * What the offer states and asks of nobody: a type of contract, a benefit,
+   * the recruiting company's own name. The stop list of normalizeJobRequirements
+   * catches what can be listed; this is how the user takes out the rest. Unlike
+   * a dismissed requirement, it changes no text of the CV: it leaves the
+   * offer's list, so its weight leaves the score's denominator.
+   */
+  notRequirements?: DismissedRequirement[];
 }
 
-/** A requirement the user said they lack: what is needed to find it in a text, and whether a text may drop it */
+/** A requirement the user set aside: what is needed to find it in a text, and to name it when putting it back */
 export type DismissedRequirement = Pick<JobRequirement, 'id' | 'label' | 'variants' | 'kind'>;
 
 /** Every kind of job requirement: the server schema and the client cache check this list, the prompt guide is typed by it. */
 export const REQUIREMENT_KINDS = [
   'title', 'hard_skill', 'tool', 'method', 'certification',
   'domain', 'language', 'education', 'experience_years', 'soft_skill',
+  // Where the job is: a standard screening filter, and a fact of the
+  // candidate's own CV that no rewrite can write
+  'location',
 ] as const;
 export type RequirementKind = typeof REQUIREMENT_KINDS[number];
 
@@ -197,7 +208,7 @@ export interface JobRequirement {
 }
 
 /** Parts of a CV an ATS reads, in the order they are printed */
-export type CVSection = 'title' | 'summary' | 'experience' | 'skills' | 'education' | 'languages';
+export type CVSection = 'title' | 'location' | 'summary' | 'experience' | 'skills' | 'education' | 'languages';
 
 /** Whether one requirement of the offer is in the CV, and where. */
 export interface RequirementCoverage {
@@ -216,6 +227,12 @@ export interface ReadabilityCheck {
   passed: boolean;
 }
 
+/** Requirements of one importance, and how many of them the CV covers */
+export interface RequirementTally {
+  covered: number;
+  total: number;
+}
+
 /** What an ATS makes of a CV against an offer. */
 export interface ATSReport {
   /** Weighted share of the offer's requirements present, 0 to 100; null without requirements */
@@ -223,6 +240,13 @@ export interface ATSReport {
   requirements: RequirementCoverage[];
   /** The points the score is the share of, so it can be recounted from the list */
   points: { covered: number; total: number };
+  /**
+   * The requirements the offer calls required, counted apart from the score.
+   * A percentage hides a cut-off: at Taleo one missing required requirement
+   * takes the application out of the pile, at Workday it is a grade C. Counted
+   * in requirements, not in points: it answers "how many are missing".
+   */
+  required: RequirementTally;
   checks: ReadabilityCheck[];
 }
 

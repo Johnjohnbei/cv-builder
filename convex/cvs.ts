@@ -32,6 +32,7 @@ export const createMyCV = mutation({
     languageOverride: v.optional(v.string()),
     _translations: v.optional(v.any()),
     dismissedRequirements: v.optional(v.array(dismissedRequirementValidator)),
+    notRequirements: v.optional(v.array(dismissedRequirementValidator)),
     // The offer this version was tailored to: reopening it restores that offer
     jobDescription: v.optional(v.string()),
   },

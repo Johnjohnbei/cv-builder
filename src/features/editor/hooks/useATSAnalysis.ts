@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type { ATSReport, CVData, DesignSettings, DismissedRequirement, JobRequirement } from '@/src/shared/types';
 import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
-import { dismissedOf, withDismissed, withRestored } from '@/src/features/editor/lib/dismissed-requirements';
+import { dismissedOf, notRequirementsOf, withDismissed, withNotARequirement, withRequirementBack, withRestored } from '@/src/features/editor/lib/dismissed-requirements';
 
 export interface UseATSAnalysisDeps {
   /** The CV as the user wrote it: dismissing writes on it */
@@ -23,6 +23,14 @@ export interface ATSAnalysis {
   dismissed: DismissedRequirement[];
   dismiss: (requirement: JobRequirement) => void;
   restore: (id: string) => void;
+  /**
+   * What the offer states and asks of nobody, as the CV keeps it. The stop
+   * list of normalizeJobRequirements catches what can be listed; this is the
+   * way out for the rest, the recruiting company's own name above all.
+   */
+  notRequirements: DismissedRequirement[];
+  reject: (requirement: JobRequirement) => void;
+  unreject: (id: string) => void;
 }
 
 /**
@@ -42,5 +50,8 @@ export function useATSAnalysis({ cvData, printedCV, setCvData, designSettings, r
   const dismissed = useMemo(() => dismissedOf(cvData), [cvData]);
   const dismiss = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withDismissed(cv, r) : cv)), [setCvData]);
   const restore = useCallback((id: string) => setCvData(cv => (cv ? withRestored(cv, id) : cv)), [setCvData]);
-  return { report, dismissed, dismiss, restore };
+  const notRequirements = useMemo(() => notRequirementsOf(cvData), [cvData]);
+  const reject = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withNotARequirement(cv, r) : cv)), [setCvData]);
+  const unreject = useCallback((id: string) => setCvData(cv => (cv ? withRequirementBack(cv, id) : cv)), [setCvData]);
+  return { report, dismissed, dismiss, restore, notRequirements, reject, unreject };
 }

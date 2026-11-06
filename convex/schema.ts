@@ -103,6 +103,9 @@ export default defineSchema({
     _translations: v.optional(v.any()),
     // Requirements the user said they lack: left out of the CV as it prints
     dismissedRequirements: v.optional(v.array(dismissedRequirementValidator)),
+    // What the offer states and asks of nobody: out of the offer's list, so
+    // out of the score's denominator. No text of the CV changes.
+    notRequirements: v.optional(v.array(dismissedRequirementValidator)),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 

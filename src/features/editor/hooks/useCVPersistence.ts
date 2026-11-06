@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import { dismissedOf } from '../lib/dismissed-requirements';
+import { dismissedOf, notRequirementsOf } from '../lib/dismissed-requirements';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { readStoredJSON, STORAGE_FAILED_MESSAGE, writeStoredTexts } from '@/src/shared/lib/storage';
 
@@ -90,6 +90,7 @@ export function cvsRecordOf(persisted: CVData, jobDescription: string) {
     languageOverride: persisted.languageOverride,
     _translations: persisted._translations,
     dismissedRequirements: dismissedOf(persisted),
+    notRequirements: notRequirementsOf(persisted),
     // Saved without it, a version reopened from "Mes CV" came back with
     // whatever offer the previous draft carried.
     jobDescription,

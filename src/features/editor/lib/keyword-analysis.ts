@@ -24,14 +24,16 @@ import { hasReadableDates, yearsOfExperience } from './experience-years';
 export type CVTextView = 'rendered' | 'content';
 
 /** The Design toggle (includedSections) each part of the CV belongs to; the header is always printed */
-const SECTION_TOGGLE: Record<Exclude<CVSection, 'title'>, string> = {
+const SECTION_TOGGLE: Record<Exclude<CVSection, 'title' | 'location'>, string> = {
   summary: 'summary', experience: 'experience', skills: 'skills', education: 'education', languages: 'languages',
 };
 
 type IncludedSections = Pick<DesignSettings, 'includedSections'>;
 
+// The header carries the title and the city, and is always printed
 const isShown = (section: CVSection, design?: IncludedSections) =>
-  section === 'title' || !design?.includedSections || design.includedSections.includes(SECTION_TOGGLE[section]);
+  section === 'title' || section === 'location'
+  || !design?.includedSections || design.includedSections.includes(SECTION_TOGGLE[section]);
 
 /**
  * Text of one experience as the templates print it: position, company, its
@@ -65,6 +67,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
   const categoryTitle = (category: string) => getSkillCategoryTitle(category as SkillCategoryKey, language);
   const raw: Record<CVSection, (string | undefined)[]> = {
     title: [cv.personal_info.title],
+    location: [cv.personal_info.location],
     // The templates render markdown in the summary, and print the other sections as typed
     summary: [stripInlineMarkdown(cv.personal_info.summary)],
     experience: cv.experience.flatMap(exp => experienceText(exp, view, language)),
@@ -99,7 +102,7 @@ function weightOf(r: JobRequirement): number {
  * a number of years is a fact of the candidate's past, never a wording.
  */
 export function isWritable(r: Pick<JobRequirement, 'kind'>): boolean {
-  return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years';
+  return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years' && r.kind !== 'location';
 }
 
 /**
@@ -172,6 +175,9 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       case 'language':
         found = where(['languages']);
         break;
+      case 'location':
+        found = where(['location']);
+        break;
       default:
         found = where(['title', 'summary', 'experience', 'skills', 'education', 'languages']);
     }
@@ -185,21 +191,27 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
   const covered = coverage.reduce((sum, c) => sum + (c.found ? c.weight : 0), 0);
 
   const { email = '', phone = '', location = '', title = '' } = cv.personal_info;
+  // A check with nothing to read is not a check passed: `[].every` is true, so
+  // a CV with no experience at all showed its dates and its titles conforming
+  const titles = [title, ...experiences.map(exp => exp.position)].filter((t): t is string => Boolean(t?.trim()));
   const checks: ReadabilityCheck[] = [
     { id: 'email', passed: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) },
     { id: 'phone', passed: phone.replace(/\D/g, '').length >= 7 },
     { id: 'location', passed: location.trim().length > 0 },
     {
       id: 'titles',
-      passed: ![title, ...experiences.map(exp => exp.position)].some(t => ABBREVIATED_TITLE.test(normalizeForMatch(t ?? ''))),
+      passed: titles.length > 0 && !titles.some(t => ABBREVIATED_TITLE.test(normalizeForMatch(t))),
     },
-    { id: 'dates', passed: experiences.every(hasReadableDates) },
+    { id: 'dates', passed: experiences.length > 0 && experiences.every(hasReadableDates) },
   ];
+
+  const required = coverage.filter(c => c.requirement.importance === 'required');
 
   return {
     score: total > 0 ? Math.round((100 * covered) / total) : null,
     requirements: coverage,
     points: { covered, total },
+    required: { covered: required.filter(c => c.found).length, total: required.length },
     checks,
   };
 }

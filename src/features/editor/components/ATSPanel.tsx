@@ -19,7 +19,7 @@ export interface ATSPanelProps {
 }
 
 const SECTION_LABELS: Record<CVSection, string> = {
-  title: 'titre', summary: 'profil', experience: 'expériences',
+  title: 'titre', location: 'ville', summary: 'profil', experience: 'expériences',
   skills: 'compétences', education: 'formation', languages: 'langues',
 };
 
@@ -45,6 +45,8 @@ const yearsHint = ({ years }: RequirementCoverage) =>
 interface GapProps {
   coverage: RequirementCoverage;
   onDismiss: () => void;
+  /** Takes the line out of the offer's requirements: it was never one */
+  onReject: () => void;
 }
 
 /**
@@ -52,7 +54,7 @@ interface GapProps {
  * the generation (arbitrage of 2026-10-07): the user who lacks it takes it out
  * of the reminder, and out of the CV where a sentence still names it.
  */
-function GapItem({ coverage, onDismiss }: GapProps) {
+function GapItem({ coverage, onDismiss, onReject }: GapProps) {
   const { requirement } = coverage;
   return (
     <div className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
@@ -62,6 +64,16 @@ function GapItem({ coverage, onDismiss }: GapProps) {
         {/* The label is in the accessible name: every gap has this button */}
         <Button variant="ghost" size="sm" mono={false} aria-label={`${requirement.label} : je ne l'ai pas`} onClick={onDismiss}>
           Je ne l'ai pas
+        </Button>
+        {/* A contract, a benefit, the name of the company recruiting: the offer
+            states them and asks them of nobody. Out of the list, out of the score. */}
+        <Button
+          variant="ghost" size="sm" mono={false}
+          aria-label={`${requirement.label} : ce n'est pas une exigence`}
+          title="Ce n'est pas une exigence : retirer du score"
+          onClick={onReject}
+        >
+          Pas une exigence
         </Button>
       </span>
     </div>
@@ -76,7 +88,7 @@ export function ATSPanel({
   onRetryAnalysis,
   aiBusy = false,
 }: ATSPanelProps) {
-  const { report, dismissed, dismiss, restore } = analysis;
+  const { report, dismissed, dismiss, restore, notRequirements, reject, unreject } = analysis;
   if (!report) {
     return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
   }
@@ -114,6 +126,14 @@ export function ATSPanel({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className={SECTION_TITLE}>Exigences de l'offre</span>
+            {report.required.total > 0 && (
+              <span
+                className={report.required.covered === report.required.total ? 'text-[11px] text-green-700' : 'text-[11px] text-red-700'}
+                title="Un ATS trie d'abord sur les exigences que l'offre dit requises : chez Taleo une seule manquante sort la candidature de la pile, chez Workday elle fait baisser d'un grade."
+              >
+                {report.required.covered}/{report.required.total} requises
+              </span>
+            )}
             <span className="text-[11px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="Exigence requise ou intitulé : 3 points ; souhaitée ou qualité humaine : 1 point. Une exigence écartée compte encore quand un fait de votre CV (titre, diplôme, langue) l'écrit.">
               {report.points.covered}/{points(report.points.total)}
             </span>
@@ -144,7 +164,7 @@ export function ATSPanel({
             <div className="flex flex-col gap-1.5 mt-2">
               <span className={GAP_TITLE}>Écarts ({gaps.length})</span>
               {gaps.map(c => (
-                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement)} />
+                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement)} onReject={() => reject(c.requirement)} />
               ))}
             </div>
           )}
@@ -161,6 +181,20 @@ export function ATSPanel({
             <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
               <span className="text-gray-600">{r.label}</span>
               <Button variant="ghost" size="sm" mono={false} aria-label={`${r.label} : remettre`} onClick={() => restore(r.id)}>Remettre</Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─── What the offer states and asks of nobody ─── */}
+      {notRequirements.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className={SECTION_TITLE}>Pas des exigences ({notRequirements.length})</span>
+          <p className="text-[11px] text-gray-500">Retirées du score : l'offre les énonce sans rien demander au candidat. Rien ne change dans votre CV.</p>
+          {notRequirements.map(r => (
+            <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
+              <span className="text-gray-600">{r.label}</span>
+              <Button variant="ghost" size="sm" mono={false} aria-label={`${r.label} : recompter dans le score`} onClick={() => unreject(r.id)}>Recompter</Button>
             </div>
           ))}
         </div>

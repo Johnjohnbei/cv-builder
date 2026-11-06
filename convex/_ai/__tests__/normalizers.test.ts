@@ -454,6 +454,68 @@ describe("normalizeJobRequirements", () => {
     expect(new Set(out.map(r => r.id)).size).toBe(3);
   });
 
+  // Measured on a real offer the 2026-11-06: four of these weighed 8 points of
+  // 28, and no CV can ever write them. The prompt forbade them, nothing enforced it.
+  it("drops what the offer gives instead of asking", () => {
+    const offer = "Poste en CDI, 39h. Mutuelle et tickets restaurant. Teletravail 2 jours. Process : 3 entretiens. Maitrise de Figma.";
+    const out = normalizeJobRequirements([
+      req({ label: "CDI", quote: "Poste en CDI", importance: "required" }),
+      req({ label: "mutuelle", quote: "Mutuelle et tickets restaurant" }),
+      req({ label: "teletravail", kind: "domain", quote: "Teletravail 2 jours" }),
+      req({ label: "3 entretiens", kind: "method", quote: "Process : 3 entretiens" }),
+      req({ label: "Figma", quote: "Maitrise de Figma" }),
+    ], offer);
+    expect(out.map(r => r.label)).toEqual(["Figma"]);
+  });
+
+  // matchPhrase asks for the label word for word: a sentence is never written
+  it("replaces a label of more than five words by the shortest term its quote states", () => {
+    const offer = "Capacite a travailler en autonomie dans un environnement international.";
+    const [only] = normalizeJobRequirements([req({
+      label: "Capacite a travailler en autonomie dans un environnement international",
+      kind: "soft_skill",
+      variants: ["autonomie", "travail en autonomie"],
+      quote: "Capacite a travailler en autonomie dans un environnement international",
+    })], offer);
+    expect(only.label).toBe("autonomie");
+    expect(only.variants).toContain("travail en autonomie");
+  });
+
+  it("drops a label of more than five words with no shorter term", () => {
+    const offer = "Capacite a travailler en autonomie dans un environnement international.";
+    expect(normalizeJobRequirements([req({
+      label: "Capacite a travailler en autonomie dans un environnement international",
+      kind: "soft_skill",
+      quote: "Capacite a travailler en autonomie dans un environnement international",
+    })], offer)).toEqual([]);
+  });
+
+  it("keeps one requirement when two items are two wordings of it", () => {
+    const offer = "Vous menerez la user research and usability testing sur nos produits.";
+    const out = normalizeJobRequirements([
+      req({ label: "user research", kind: "method", variants: ["recherche utilisateur"], quote: "la user research and usability testing" }),
+      req({ label: "recherche utilisateur", kind: "method", variants: ["user research"], quote: "la user research and usability testing" }),
+    ], offer);
+    expect(out.map(r => r.label)).toEqual(["user research"]);
+  });
+
+  // One offer describes one job
+  it("keeps at most one title, and asks its quote to speak of the job", () => {
+    const offer = "Product Designer Senior (H/F). Acme est une scale-up du paiement.";
+    const out = normalizeJobRequirements([
+      req({ label: "Product Designer Senior", kind: "title", quote: "Product Designer Senior" }),
+      req({ label: "Staff Product Designer", kind: "title", quote: "Acme est une scale-up" }),
+    ], offer);
+    expect(out.map(r => r.label)).toEqual(["Product Designer Senior"]);
+  });
+
+  it("drops a title whose quote names no job, even when it is the only one", () => {
+    const offer = "Acme est une scale-up du paiement.";
+    expect(normalizeJobRequirements([
+      req({ label: "Staff Product Designer", kind: "title", quote: "Acme est une scale-up" }),
+    ], offer)).toEqual([]);
+  });
+
   it("keeps a label written in a non-Latin script", () => {
     const offer = "Требования: русский язык.";
     expect(normalizeJobRequirements([req({ label: "Русский язык", kind: "language", quote: "русский язык" })], offer)).toHaveLength(1);

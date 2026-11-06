@@ -288,3 +288,50 @@ describe('computeATSReport', () => {
     expect(report.score).toBe(0);
   });
 });
+
+// A percentage hides a cut-off: at Taleo one missing required requirement
+// takes the application out of the pile, at Workday it is a grade C
+describe('the required requirements, counted apart from the score', () => {
+  it('counts them in requirements, not in points', () => {
+    const report = computeATSReport(cv(), [
+      req('Figma'),
+      req('Sketch'),
+      req('Kubernetes'),
+      req('Notion', { importance: 'preferred' }),
+    ]);
+    expect(report.required).toEqual({ covered: 2, total: 3 });
+  });
+
+  it('counts none when the offer requires nothing', () => {
+    expect(computeATSReport(cv(), [req('Figma', { importance: 'preferred' })]).required).toEqual({ covered: 0, total: 0 });
+    expect(computeATSReport(cv(), []).required).toEqual({ covered: 0, total: 0 });
+  });
+});
+
+// Where the job is: a standard screening filter, read on the header's city
+describe('a requirement of location', () => {
+  it('is covered by the city of the CV, and by nothing else', () => {
+    const paris = req('Paris', { kind: 'location' });
+    expect(computeATSReport(cv(), [paris]).requirements[0].found).toBe(true);
+    expect(computeATSReport(cv(), [paris]).requirements[0].sections).toEqual(['location']);
+    const lyon = cv({ personal_info: { ...cv().personal_info, location: 'Lyon' } });
+    expect(computeATSReport(lyon, [paris]).requirements[0].found).toBe(false);
+  });
+});
+
+// `[].every` is true: a CV with nothing in it showed two checks conforming
+describe('a readability check with nothing to read', () => {
+  it('does not pass on a CV without experiences or titles', () => {
+    const empty = cv({ experience: [], personal_info: { ...cv().personal_info, title: '' } });
+    const checks = Object.fromEntries(computeATSReport(empty, []).checks.map(c => [c.id, c.passed]));
+    expect(checks.dates).toBe(false);
+    expect(checks.titles).toBe(false);
+  });
+
+  it('still passes on a CV that has a title but no experience', () => {
+    const noJobs = cv({ experience: [] });
+    const checks = Object.fromEntries(computeATSReport(noJobs, []).checks.map(c => [c.id, c.passed]));
+    expect(checks.titles).toBe(true);
+    expect(checks.dates).toBe(false);
+  });
+});
