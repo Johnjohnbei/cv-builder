@@ -92,7 +92,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
 
         <button
           onClick={() => onDelete(idx)}
-          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
           title="Supprimer cette expérience"
           aria-label="Supprimer cette expérience"
         >

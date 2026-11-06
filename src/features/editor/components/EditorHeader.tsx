@@ -28,6 +28,13 @@ interface Props {
   lastAutoSaveAt?: Date | null;
   /** The last auto-save failed: never let an older "Enregistré à" stand for it */
   autoSaveFailed?: boolean;
+  /**
+   * The fit-to-pages pass is running. Said here because it starts on its own
+   * when the editor opens and takes up to ten seconds: its only indicator was
+   * in the Contenu tab, while the editor had just switched to the ATS tab, so
+   * the CV condensed under the user's eyes with nothing to explain it.
+   */
+  isFitting?: boolean;
 }
 
 export function EditorHeader({
@@ -39,8 +46,13 @@ export function EditorHeader({
   isAutoSaving = false,
   lastAutoSaveAt = null,
   autoSaveFailed = false,
+  isFitting = false,
 }: Props) {
-  const autoSaveLabel = isAutoSaving
+  // The fit comes first: it suspends the auto-save, so the save state behind it
+  // is the one from before and says nothing about what is happening now
+  const autoSaveLabel = isFitting
+    ? 'Mise en page du CV…'
+    : isAutoSaving
     ? 'Enregistrement...'
     : autoSaveFailed
       ? 'Modifications non enregistrées'

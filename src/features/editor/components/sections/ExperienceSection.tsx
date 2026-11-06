@@ -72,7 +72,10 @@ export const ExperienceSection = memo(function ExperienceSection({
             />
           ))}
           <button
-            onClick={() => setCvData(prev => prev ? {...prev, experience: [...prev.experience, { company: 'Nouvelle Entreprise', position: 'Nouveau Poste', start_date: '2024', current: true, description: [] }]} : null)}
+            // Empty fields, never placeholder text: "Nouveau Poste" and a
+            // hardcoded "2024" went straight into the preview, the auto-save
+            // and the exported PDF. The inputs carry their own placeholders.
+            onClick={() => setCvData(prev => prev ? {...prev, experience: [...prev.experience, { company: '', position: '', start_date: '', current: true, description: [] }]} : null)}
             className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une expérience

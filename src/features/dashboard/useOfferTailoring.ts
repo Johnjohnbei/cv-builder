@@ -39,6 +39,22 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
   const runRef = useRef(0);
   useEffect(() => () => { runRef.current += 1; }, []);
 
+  /**
+   * Leaving mid-run drops the answer being paid for (runRef above), and the CV
+   * is stored only at the end: the browser asks first. A reload during the
+   * minute or two the generation takes threw the whole thing away in silence.
+   */
+  useEffect(() => {
+    if (phase === 'idle') return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older browsers need the assignment; the string itself is never shown
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [phase]);
+
   const reset = () => { runRef.current += 1; setPhase('idle'); };
 
   const start = async () => {

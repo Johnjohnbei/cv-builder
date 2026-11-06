@@ -4,7 +4,7 @@ import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { contentSnapshot } from '@/src/lib/bilingual';
-import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
+import { getUserErrorMessage, PERSIST_FAILED_MESSAGE } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
@@ -43,11 +43,20 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
   // ─── Language: single source of truth derived from cvData ───
   const currentLanguage: 'fr' | 'en' = cvData ? getCVLanguage(cvData) : 'fr';
 
-  /** Optimistic persistence of the working draft (account) / mirror (guest). */
+  /**
+   * Optimistic persistence of the working draft (account) / mirror (guest).
+   * A failure is said, for an account too: a translation is paid for, and a
+   * refused write only warned in the console while "CV traduit !" claimed the
+   * opposite. Reloading the editor then lost it. The guest branch already said
+   * it; the account branch is where the work was silently dropped.
+   */
   const persist = (updated: CVData, label: string) => {
     if (user) {
       updateLastCV({ cvData: updated, jobDescription })
-        .catch(e => console.warn(`[${label}] persist failed:`, e));
+        .catch(e => {
+          console.warn(`[${label}] persist failed:`, e);
+          notify({ message: PERSIST_FAILED_MESSAGE, type: 'error' });
+        });
     } else if (isGuest) {
       if (!writeStoredText('guest_last_optimized', JSON.stringify(updated))) {
         notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });

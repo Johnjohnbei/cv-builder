@@ -240,6 +240,15 @@ export const DEFAULT_DESIGN: DesignSettings = {
   includedSections: ['personal', 'summary', 'experience', 'education', 'skills', 'languages'],
 };
 
+/**
+ * Below this, a pasted text is not a job offer: nothing is extracted from it,
+ * no CV is tailored to it and no letter is written for it. The same 50 was
+ * written out in six places, three of them deciding whether a paid call runs,
+ * and the number was never shown to the user, so a disabled button had no
+ * stated reason. The server's upper bound is MAX_OFFER_CHARS.
+ */
+export const MIN_OFFER_CHARS = 50;
+
 export const EMPTY_CV: CVData = {
   personal_info: { name: '', email: '', title: '' },
   experience: [],

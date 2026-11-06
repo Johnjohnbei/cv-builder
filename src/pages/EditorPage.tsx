@@ -302,6 +302,7 @@ export default function EditorPage() {
           isAutoSaving={isAutoSaving}
           lastAutoSaveAt={lastAutoSaveAt}
           autoSaveFailed={saveFailed}
+          isFitting={fit.isFitting}
           isSaving={persistence.isSaving}
           isExporting={exports.isExporting}
           hasCvData={!!cvData}

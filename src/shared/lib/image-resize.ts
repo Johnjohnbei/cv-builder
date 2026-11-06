@@ -5,6 +5,15 @@
  * auto-save payload (Convex documents are capped at ~1 MiB), so it must stay
  * far below that: 512px max side at JPEG q0.85 lands around 30-80 kB.
  */
+/**
+ * Whether a CV photo is a link to another host rather than inline image data.
+ * The PDF is rendered by a server that fetches nothing but fonts, so such a
+ * photo shows in the preview and prints as an empty square.
+ */
+export function isRemotePhoto(photoUrl: string | undefined): boolean {
+  return /^https?:\/\//i.test(photoUrl?.trim() ?? '');
+}
+
 export function downscaleImageToDataURI(file: File, maxSide = 512, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import type { CVData } from '@/src/shared/types';
+import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
 import { detectTextLanguage, getCVLanguage } from '@/src/lib/language-detection';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
@@ -49,7 +49,7 @@ export interface UseCoverLetterResult {
   updateLetterField: (field: keyof CoverLetterData, value: string) => void;
   isGenerating: boolean; isSaving: boolean; isExtractingCompany: boolean;
   generate: () => Promise<void>; save: () => Promise<void>;
-  copy: () => void; download: () => void;
+  copy: () => Promise<void>; download: () => void;
 }
 
 // ─── Pure helpers (exported for tests) ───
@@ -100,11 +100,19 @@ export function canSave(user: unknown, letter: CoverLetterData | null): boolean 
 
 /** True when we should kick off auto-extraction of the company name on drawer open. */
 export function shouldTriggerExtraction(companyName: string, jobDescription: string): boolean {
-  return companyName.trim().length === 0 && jobDescription.trim().length >= 50;
+  return companyName.trim().length === 0 && jobDescription.trim().length >= MIN_OFFER_CHARS;
 }
 
 /** localStorage mirror of the drawer context (survives drawer close, guest or signed in). */
 export const COVER_LETTER_STORAGE_KEY = 'guest_last_cover_letter';
+
+/**
+ * Said when the mirror is refused and the user is signed in. Being signed in is
+ * not a second copy: the letter only reaches Convex once `save()` is called, so
+ * a full storage dropped a paid letter in silence.
+ */
+export const LETTER_MIRROR_FAILED_MESSAGE =
+  "Cette lettre n'est gardée nulle part (stockage du navigateur plein ou bloqué) : utilisez « Sauvegarder » pour la mettre sur votre compte.";
 
 /** Drawer context mirrored to localStorage: the letter plus the company metadata already known. */
 export interface StoredCoverLetterContext {
@@ -230,8 +238,9 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   // ─── Mirror letter + company context to localStorage (guest AND signed in) ───
   // Gated on isOpen: before the first open() the state is still empty and would
   // overwrite the stored context that open() is about to restore.
-  // For a guest this mirror is the only copy of a paid letter: a refused write
-  // is said once (not at every keystroke), instead of being swallowed.
+  // This mirror is the only copy of a paid letter until save() runs, for an
+  // account too: a refused write is said once (not at every keystroke),
+  // instead of being swallowed.
   const mirrorFailedRef = useRef(false);
   useEffect(() => {
     if (!isOpen) return;
@@ -239,7 +248,9 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
       letter, companyName, companyStage, companyBusinessModel,
       jobDescription: localJobDescription,
     }));
-    if (!saved && !user && !mirrorFailedRef.current) notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+    if (!saved && !mirrorFailedRef.current) {
+      notify({ message: user ? LETTER_MIRROR_FAILED_MESSAGE : STORAGE_FAILED_MESSAGE, type: 'error' });
+    }
     mirrorFailedRef.current = !saved;
   }, [isOpen, letter, companyName, companyStage, companyBusinessModel, localJobDescription, user, notify]);
 
@@ -327,7 +338,7 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
   }, []);
 
   const generate = useCallback(async () => {
-    if (!cvData || localJobDescription.length < 50) return;
+    if (!cvData || localJobDescription.length < MIN_OFFER_CHARS) return;
     if (isDirty && letter) {
       const confirmed = window.confirm('Régénérer va remplacer vos modifications manuelles. Continuer ?');
       if (!confirmed) return;
@@ -369,10 +380,18 @@ export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
     } finally { setIsSaving(false); }
   }, [user, letter, cvId, localJobDescription, companyName, saveMutation, notify]);
 
-  const copy = useCallback(() => {
+  const copy = useCallback(async () => {
     if (!letter) return;
-    navigator.clipboard.writeText(buildCoverLetterText(letter, cvData?.personal_info?.name));
-    notify({ message: 'Copié dans le presse-papier !', type: 'success' });
+    try {
+      // Awaited: outside a secure context the write is refused, and a missing
+      // API throws on the property itself. "Copié !" announced a copy that had
+      // not happened, over an empty clipboard.
+      await navigator.clipboard.writeText(buildCoverLetterText(letter, cvData?.personal_info?.name));
+      notify({ message: 'Copié dans le presse-papier !', type: 'success' });
+    } catch (e) {
+      console.error('Error copying cover letter:', e);
+      notify({ message: 'Copie impossible dans ce navigateur : utilisez « Télécharger ».', type: 'error' });
+    }
   }, [letter, cvData, notify]);
 
   const download = useCallback(() => {

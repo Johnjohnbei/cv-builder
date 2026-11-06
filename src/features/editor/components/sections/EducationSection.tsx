@@ -40,7 +40,7 @@ export const EducationSection = memo(function EducationSection({
                   if (!window.confirm(`Supprimer la formation « ${edu.degree || edu.school} » ?`)) return;
                   setCvData(prev => prev ? {...prev, education: prev.education.filter((_, i) => i !== idx)} : null);
                 }}
-                className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                 title="Supprimer cette formation"
                 aria-label="Supprimer cette formation"
               >
@@ -93,7 +93,8 @@ export const EducationSection = memo(function EducationSection({
             </div>
           ))}
           <button
-            onClick={() => setCvData(prev => prev ? {...prev, education: [...prev.education, { school: 'Nouvelle École', degree: 'Nouveau Diplôme', start_date: '2020', end_date: '2024' }]} : null)}
+            // Empty fields, never placeholder text: the inputs carry their own
+            onClick={() => setCvData(prev => prev ? {...prev, education: [...prev.education, { school: '', degree: '', start_date: '', end_date: '' }]} : null)}
             className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une formation

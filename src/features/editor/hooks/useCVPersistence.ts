@@ -96,9 +96,17 @@ export function cvsRecordOf(persisted: CVData, jobDescription: string) {
   };
 }
 
+/**
+ * Versions a guest keeps in this browser. The cap its JSDoc announced was
+ * never applied: the list grew until the quota refused a save, and with a
+ * base64 photo a single version weighs hundreds of kilobytes. The oldest
+ * versions go first, the newest is always kept.
+ */
+export const GUEST_CVS_MAX = 10;
+
 /** Append a CV to the guest list, capped to keep localStorage small. */
 export function appendToGuestList(existing: unknown[], newCv: CVData & { _id: string; createdAt: string }): unknown[] {
-  return [newCv, ...existing];
+  return [newCv, ...existing].slice(0, GUEST_CVS_MAX);
 }
 
 // ─── Hook ───

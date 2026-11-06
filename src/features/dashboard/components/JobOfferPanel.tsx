@@ -1,5 +1,6 @@
 import type { DropzoneState } from 'react-dropzone';
 import { Loader2, Sparkles } from 'lucide-react';
+import { MIN_OFFER_CHARS } from '@/src/shared/types';
 import { cn } from '@/src/shared/lib/cn';
 import { Button } from '@/src/shared/ui/Button';
 import { Input } from '@/src/shared/ui/Input';
@@ -115,16 +116,28 @@ export function JobOfferPanel({
             </span>
           </div>
           <div className="flex flex-col items-end gap-1">
+            {/* loading, not a spinner icon: the Button is what carries aria-busy
+                and the "Chargement en cours" a screen reader needs */}
             <Button
               mono={false}
               onClick={onOptimize}
-              disabled={!hasBaseCV || jobDescription.length < 50 || busyLabel !== null}
-              icon={busyLabel !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              loading={busyLabel !== null}
+              disabled={!hasBaseCV || jobDescription.length < MIN_OFFER_CHARS}
+              icon={<Sparkles className="w-4 h-4" />}
             >
               {busyLabel ?? 'Optimiser mon CV pour cette offre'}
             </Button>
-            {hasBaseCV && busyLabel === null && (
-              <span className="text-[11px] text-gray-500 stitch-mono">~{estimateSeconds}s estimé</span>
+            {/* The estimate used to disappear exactly when it was needed, so the
+                counter in the button ran against nothing. And a button disabled
+                for a too-short offer never said how much was missing. */}
+            {hasBaseCV && (
+              <span className="text-[11px] text-gray-500 stitch-mono">
+                {busyLabel !== null
+                  ? `~${estimateSeconds}s au total, ne quittez pas la page`
+                  : jobDescription.length < MIN_OFFER_CHARS
+                    ? `Encore ${MIN_OFFER_CHARS - jobDescription.length} caractères d'offre`
+                    : `~${estimateSeconds}s estimé`}
+              </span>
             )}
           </div>
         </div>

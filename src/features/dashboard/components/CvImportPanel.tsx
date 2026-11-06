@@ -2,7 +2,7 @@ import type { DropzoneState } from 'react-dropzone';
 import { Loader2, Plus, Upload } from 'lucide-react';
 import { cn } from '@/src/shared/lib/cn';
 import { Button } from '@/src/shared/ui/Button';
-import type { CVData } from '@/src/shared/types';
+import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
 
 interface Props {
   baseCV: CVData | null;
@@ -10,7 +10,7 @@ interface Props {
   dropzone: Pick<DropzoneState, 'getRootProps' | 'getInputProps' | 'isDragActive'>;
   onStartEmpty: () => void;
   onReplace: () => void;
-  /** Length of the offer typed so far: step 2 is done from 50 characters */
+  /** Length of the offer typed so far: step 2 is done from MIN_OFFER_CHARS */
   offerLength: number;
   /** A guest without access code is told one will be asked */
   showAccessHint: boolean;
@@ -74,7 +74,7 @@ export function CvImportPanel({ baseCV, isUploading, dropzone, onStartEmpty, onR
         <div className="p-4 space-y-3">
           {[
             { n: 1, label: 'Importez votre CV (PDF ou LinkedIn)', done: !!baseCV },
-            { n: 2, label: 'Collez l\'offre d\'emploi visée', done: offerLength >= 50 },
+            { n: 2, label: 'Collez l\'offre d\'emploi visée', done: offerLength >= MIN_OFFER_CHARS },
             { n: 3, label: 'Lancez l\'optimisation, puis peaufinez dans l\'éditeur', done: false },
           ].map(step => (
             <div key={step.n} className="flex items-center gap-3">

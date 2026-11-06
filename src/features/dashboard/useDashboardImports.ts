@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDropzone, type FileRejection } from 'react-dropzone';
 import { useAction, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import type { CVData } from '@/src/shared/types';
+import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
 import type { useAccessCode } from '@/src/shared/hooks';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
 import { detectCVLanguage } from '@/src/lib/language-detection';
@@ -128,7 +128,7 @@ export function useDashboardImports(deps: DashboardImportsDeps) {
     setIsCrawling(true);
     try {
       const text = await extractJobDescriptionFromURL({ url: jobUrl, accessCode: getCode() });
-      if (!text || text.length < 50) {
+      if (!text || text.length < MIN_OFFER_CHARS) {
         notify({ message: "Nous n'avons pas pu extraire suffisamment de contenu de cette URL. Les sites comme LinkedIn bloquent souvent l'accès direct : copiez-collez plutôt le texte de l'offre dans la zone prévue.", type: 'error' });
       } else {
         setJobDescription(text);

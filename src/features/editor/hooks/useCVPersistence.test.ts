@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPersistedCV, appendToGuestList, cvsRecordOf, replacesDraft, stripPersistenceArtifacts } from './useCVPersistence';
+import { buildPersistedCV, appendToGuestList, cvsRecordOf, GUEST_CVS_MAX, replacesDraft, stripPersistenceArtifacts } from './useCVPersistence';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
 const SAMPLE_CV: CVData = {
@@ -91,6 +91,17 @@ describe('appendToGuestList', () => {
     const out = appendToGuestList(existing, next);
     expect(out).not.toBe(existing);
     expect(existing).toEqual([]);
+  });
+
+  // The cap the JSDoc announced was never applied: the list grew until the
+  // browser quota refused a save, losing the version being saved
+  it('caps the list, keeping the newest and dropping the oldest', () => {
+    const existing = Array.from({ length: GUEST_CVS_MAX }, (_, i) => ({ _id: `old-${i}`, createdAt: '2026-01-01' }));
+    const next = { ...SAMPLE_CV, _id: 'new', createdAt: '2026-04-11' };
+    const out = appendToGuestList(existing, next);
+    expect(out).toHaveLength(GUEST_CVS_MAX);
+    expect((out[0] as { _id: string })._id).toBe('new');
+    expect(out.map(entry => (entry as { _id: string })._id)).not.toContain(`old-${GUEST_CVS_MAX - 1}`);
   });
 });
 

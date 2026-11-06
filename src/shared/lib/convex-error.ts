@@ -13,6 +13,14 @@ export function getUserErrorMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Shown when a write to the account failed: the work is on screen but not kept,
+ * and reloading the editor loses it. Said whenever a paid result (a tailoring,
+ * a translation, a letter) was only warned about in the console.
+ */
+export const PERSIST_FAILED_MESSAGE =
+  "Enregistrement impossible sur votre compte : ce qui est à l'écran n'est pas gardé. Vérifiez votre connexion, puis réessayez avant de quitter la page.";
+
 /** The stable `code` a backend ConvexError carries (e.g. "ACCESS_CODE_INVALID"), if any. */
 export function getErrorCode(e: unknown): string | undefined {
   if (!(e instanceof ConvexError)) return undefined;

@@ -47,6 +47,7 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
                 mono={false}
                 className="flex-1 focus:border-blue-600"
                 value={bullet}
+                placeholder="Verbe d'action, ce qui a été fait, résultat"
                 onChange={(e) => {
                   const text = e.target.value;
                   updateExperience(idx, x => ({
@@ -67,7 +68,7 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
                   description: x.description.filter((_, i) => i !== bIdx),
                 }))}
                 aria-label="Supprimer ce point"
-                className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 transition-opacity"
+                className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
               >
                 <Trash2 className="w-2 h-2" />
               </button>
@@ -78,7 +79,9 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
       <button
         onClick={() => updateExperience(idx, x => ({
           ...x,
-          description: [...(x.description || []), 'Nouvelle responsabilité...'],
+          // Empty, never placeholder prose: "Nouvelle responsabilité..." went
+          // straight into the preview, the auto-save and the exported PDF
+          description: [...(x.description || []), ''],
         }))}
         className="text-[11px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
       >

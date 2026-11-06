@@ -9,7 +9,7 @@ import { Textarea } from '@/src/shared/ui/Textarea';
 import { Panel, PanelHeader, PanelBody } from '@/src/shared/ui/Panel';
 import { canSave, findLatestSavedForCv, getLetterLanguage, type UseCoverLetterResult, type CoverLetterData } from '../hooks/useCoverLetter';
 import { COMPANY_STAGE_OPTIONS, COMPANY_BUSINESS_MODEL_OPTIONS } from '@/src/shared/constants/company-meta';
-import type { PersonalInfo } from '@/src/shared/types';
+import { MIN_OFFER_CHARS, type PersonalInfo } from '@/src/shared/types';
 
 interface Props {
   controller: UseCoverLetterResult;
@@ -108,7 +108,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
   };
 
   const saveDisabled = !canSave(user, letter);
-  const generateDisabled = controller.localJobDescription.length < 50;
+  const generateDisabled = controller.localJobDescription.length < MIN_OFFER_CHARS;
 
   return (
     <AnimatePresence>
@@ -147,7 +147,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
 
             {/* Body (scrollable) */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {!controller.isTailoredForLocalJD && controller.localJobDescription.length >= 50 && (
+              {!controller.isTailoredForLocalJD && controller.localJobDescription.length >= MIN_OFFER_CHARS && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
                   <span className="shrink-0 mt-0.5">⚠</span>
                   <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base : résultats moins ciblés.</span>

@@ -63,7 +63,7 @@ export const SkillsSection = memo(function SkillsSection({
                     if (!window.confirm(`Supprimer la catégorie « ${cat.category} » et toutes ses compétences ?`)) return;
                     setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null);
                   }}
-                  className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                   title="Supprimer cette catégorie"
                   aria-label="Supprimer cette catégorie"
                 >
@@ -118,7 +118,9 @@ export const SkillsSection = memo(function SkillsSection({
             </div>
           ))}
           <button
-            onClick={() => setCvData(prev => prev ? {...prev, skills: [...prev.skills, { category: 'Nouvelle Catégorie', items: [] }]} : null)}
+            // Empty category, never placeholder text: the input has its own,
+            // and a category with no item is not printed
+            onClick={() => setCvData(prev => prev ? {...prev, skills: [...prev.skills, { category: '', items: [] }]} : null)}
             className="w-full py-2 border border-dashed border-gray-300 text-[11px] stitch-mono text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-3 h-3" /> Ajouter une catégorie

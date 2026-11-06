@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { User, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Input } from '../../../../shared/ui/Input';
-import { downscaleImageToDataURI } from '../../../../shared/lib/image-resize';
+import { downscaleImageToDataURI, isRemotePhoto } from '../../../../shared/lib/image-resize';
 import type { CVData, PersonalInfo } from '../../../../shared/types';
 import { versionOf, withVersionChosen } from '../../lib/cv-versions';
 import { VersionSelect } from './VersionSelect';
@@ -145,6 +145,15 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
                 </button>
               )}
             </div>
+            {/* The PDF is rendered on a server that fetches nothing but fonts
+                (SSRF guard in api/generate-pdf.ts), so a remote photo shows in
+                the preview and leaves an empty square in the exported PDF.
+                UPLOAD stores the image inline, which prints everywhere. */}
+            {isRemotePhoto(personalInfo?.photo_url) && (
+              <p className="mt-1 text-[11px] text-orange-700">
+                Cette photo est un lien : elle s'affiche ici mais restera vide dans le PDF exporté. Importez le fichier avec UPLOAD.
+              </p>
+            )}
           </div>
         </div>
       )}
