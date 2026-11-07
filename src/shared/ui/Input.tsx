@@ -36,7 +36,8 @@ const defaultVariantBase =
 const bareVariantBase =
   'bg-transparent border border-transparent rounded px-1 -mx-1 cursor-text ' +
   'hover:bg-gray-50 hover:border-gray-200 ' +
-  'focus:outline-none focus:bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-200 ' +
+  // blue-200 valait 1,42:1 contre le blanc : un anneau de focus se voit à 3:1
+  'focus:outline-none focus:bg-white focus:border-[var(--google-blue)] focus-visible:ring-2 focus-visible:ring-[var(--google-blue)] ' +
   'placeholder:text-gray-500 placeholder:italic transition-colors';
 
 export const Input = forwardRef<HTMLInputElement, Props>(

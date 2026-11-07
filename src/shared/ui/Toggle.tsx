@@ -28,7 +28,8 @@ export function Toggle({ label, checked, onChange, variant = 'emphasis', classNa
       )}
     >
       <span>{label}</span>
-      <span aria-hidden className={cn('w-8 h-4 rounded-full relative transition-colors', checked ? 'bg-blue-600' : 'bg-gray-300')}>
+      <span aria-hidden className={cn('w-8 h-4 rounded-full relative transition-colors', // gray-300 contre le blanc du curseur valait 1,47:1 : l'état éteint ne se voyait pas
+        checked ? 'bg-blue-600' : 'bg-gray-500')}>
         <span className={cn('absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all', checked ? 'left-4.5' : 'left-0.5')} />
       </span>
     </button>

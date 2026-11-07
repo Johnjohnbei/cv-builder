@@ -100,9 +100,10 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Couleur principale</label>
+            <label htmlFor="primary-color" className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Couleur principale</label>
             <div className="flex items-center gap-3">
               <input
+                id="primary-color"
                 type="color"
                 value={designSettings.primaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
@@ -110,6 +111,7 @@ export const DesignTab = memo(function DesignTab({
               />
               <Input
                 type="text"
+                aria-label="Couleur principale, code hexadécimal"
                 className="py-1"
                 value={designSettings.primaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
@@ -117,9 +119,10 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
           <div>
-            <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Couleur secondaire</label>
+            <label htmlFor="secondary-color" className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Couleur secondaire</label>
             <div className="flex items-center gap-3">
               <input
+                id="secondary-color"
                 type="color"
                 value={designSettings.secondaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
@@ -127,6 +130,7 @@ export const DesignTab = memo(function DesignTab({
               />
               <Input
                 type="text"
+                aria-label="Couleur secondaire, code hexadécimal"
                 className="py-1"
                 value={designSettings.secondaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
@@ -164,7 +168,7 @@ export const DesignTab = memo(function DesignTab({
         <div className="p-4 space-y-3">
           <div>
             <div className="px-3 py-2 rounded border border-gray-200 bg-gray-50 text-[11px] stitch-mono text-gray-600">
-              {actualPageCount} page{actualPageCount > 1 ? 's' : ''} {actualPageCount > 2 && <span className="text-amber-600 ml-1">(les recruteurs préfèrent 1 à 2 pages)</span>}
+              {actualPageCount} page{actualPageCount > 1 ? 's' : ''} {actualPageCount > 2 && <span className="text-amber-700 ml-1">(les recruteurs préfèrent 1 à 2 pages)</span>}
             </div>
             <div className="mt-3">
               <Toggle

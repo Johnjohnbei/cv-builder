@@ -13,7 +13,8 @@ export function Notification({ message, type, onClose }: Props) {
       role={type === 'error' ? 'alert' : 'status'}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
       className={cn(
-      "fixed bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg border animate-in slide-in-from-bottom-4 duration-300",
+      // bottom-20 sous md : la barre de navigation du tableau de bord occupe le bas
+      "fixed bottom-20 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg border animate-in slide-in-from-bottom-4 duration-300",
       type === 'success' ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"
     )}>
       {type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}

@@ -333,7 +333,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
 
             {/* Footer (sticky) */}
             <footer className="border-t border-[var(--border-color)] bg-white px-4 py-3 shrink-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"

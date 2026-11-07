@@ -46,13 +46,13 @@ export function CvImportPanel({ baseCV, isUploading, dropzone, onStartEmpty, onR
           {!baseCV ? (
             <div className="space-y-3">
               <div
-                {...getRootProps()}
+                {...getRootProps({ role: 'button', 'aria-label': 'Importer un CV au format PDF' })}
                 className={cn(
                   "border-2 border-dashed border-[#DADCE0] rounded p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors",
                   isDragActive && "bg-blue-50 border-blue-400"
                 )}
               >
-                <input {...getInputProps()} />
+                <input {...getInputProps({ 'aria-label': 'Fichier CV au format PDF' })} />
                 {isUploading ? (
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-600" />
                 ) : (

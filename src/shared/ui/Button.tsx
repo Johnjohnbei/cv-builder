@@ -22,8 +22,9 @@ const variantStyles: Record<Variant, string> = {
 };
 
 const sizeStyles: Record<Size, string> = {
-  xs: 'px-2 py-1 text-[11px] gap-1',
-  sm: 'px-3 py-1.5 text-[11px] gap-1.5',
+  // min-h : 24px est le plancher d'une cible (WCAG 2.2, 2.5.8), 32 pour sm
+  xs: 'px-2 py-1 text-[11px] gap-1 min-h-[24px]',
+  sm: 'px-3 py-1.5 text-[11px] gap-1.5 min-h-[32px]',
   md: 'px-4 py-2 text-xs gap-2',
   lg: 'px-6 py-3 text-sm gap-2.5',
 };

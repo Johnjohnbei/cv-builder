@@ -31,7 +31,7 @@ const defaultVariantBase =
   'border border-[var(--border-color)] rounded bg-white resize-none focus:outline-none focus:border-[var(--google-blue)] focus:ring-1 focus:ring-[var(--google-blue)] placeholder:text-gray-500';
 
 const bareVariantBase =
-  'bg-transparent border-0 p-0 resize-none focus:outline-none placeholder:text-gray-500';
+  'bg-transparent border-0 p-0 resize-none focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--google-blue)] placeholder:text-gray-500';
 
 export const Textarea = forwardRef<HTMLTextAreaElement, Props>(
   (

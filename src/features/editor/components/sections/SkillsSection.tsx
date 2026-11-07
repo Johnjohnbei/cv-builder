@@ -95,8 +95,9 @@ export const SkillsSection = memo(function SkillsSection({
                     <button
                       aria-label={`Retirer la compétence ${skill}`}
                       onClick={() => updateCategory(catIdx, c => ({ ...c, items: c.items.filter((_, i) => i !== skillIdx) }))}
+                      className="shrink-0 p-1.5 text-gray-600 hover:text-red-500 transition-colors"
                     >
-                      <Trash2 className="w-2 h-2" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 ))}

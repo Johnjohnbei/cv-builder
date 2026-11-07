@@ -248,7 +248,7 @@ export default function DashboardPage() {
   }, [baseCV]);
 
   return (
-    <div className="stitch-container">
+    <div className="stitch-container dashboard-layout">
       <AccessCodeDialog open={showAccessCodePrompt} onClose={closeAccessPrompt} onGranted={onAccessGranted} />
       {isAdmin && <AdminCodesDialog open={showAdminPanel} onClose={() => setShowAdminPanel(false)} />}
       <DashboardSidebar

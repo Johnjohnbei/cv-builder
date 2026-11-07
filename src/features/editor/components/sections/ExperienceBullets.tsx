@@ -45,7 +45,7 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
               <Input
                 inputSize="xs"
                 mono={false}
-                className="flex-1 focus:border-blue-600"
+                className="flex-1 min-w-0 focus:border-blue-600"
                 value={bullet}
                 placeholder="Verbe d'action, ce qui a été fait, résultat"
                 onChange={(e) => {
@@ -68,9 +68,9 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
                   description: x.description.filter((_, i) => i !== bIdx),
                 }))}
                 aria-label="Supprimer ce point"
-                className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                className="shrink-0 p-1.5 text-gray-600 hover:text-red-500 opacity-0 group-hover/bullet:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
               >
-                <Trash2 className="w-2 h-2" />
+                <Trash2 className="w-3 h-3" />
               </button>
             </div>
           </div>

@@ -78,7 +78,11 @@ export function EditorHeader({
         >
           <LayoutIcon className="w-5 h-5 text-gray-500" />
         </button>
-        <div className="flex items-center space-x-4 text-sm text-gray-500">
+        {/* From xl: the editor keeps a 320px sidebar from 768px up, so the
+            header draws in what is left. Measured 2026-11-07: with the crumb and
+            the zoom block, it needs 791px, which 1024 does not give (704). The
+            sidebar carries the same link back to the dashboard. */}
+        <div className="hidden xl:flex items-center space-x-4 text-sm text-gray-500">
           <Link to="/dashboard" className="hover:text-gray-900 transition-colors">Tableau de bord</Link>
           <span className="text-gray-300">/</span>
           <span className="text-gray-900 font-medium">Éditeur</span>
@@ -90,19 +94,24 @@ export function EditorHeader({
         )}
       </div>
 
+      {/* Measured 2026-11-07: shown from sm, this whole group pushed the export
+          button 95px past the right edge at 768px, where the container clipped
+          it. Zoom goes first (the auto-zoom already fits the page by itself);
+          the language and the anonymous toggle stay, because the editor offers
+          them nowhere else. */}
       <div className="hidden sm:flex items-center bg-white border border-[#DADCE0] rounded px-3 py-1 gap-4 shadow-sm">
-        <div className="flex items-center gap-2 border-r border-gray-100 pr-3">
-          <button onClick={onZoomOut} className="p-1 hover:bg-gray-100 rounded transition-colors" title="Zoom arrière">
+        <div className="hidden xl:flex items-center gap-2 border-r border-gray-100 pr-3">
+          <button onClick={onZoomOut} className="p-1.5 hover:bg-gray-100 rounded transition-colors" title="Zoom arrière" aria-label="Zoom arrière">
             <Minus className="w-3 h-3" />
           </button>
           <span className="text-[10px] stitch-mono font-bold w-8 text-center">{zoom}%</span>
-          <button onClick={onZoomIn} className="p-1 hover:bg-gray-100 rounded transition-colors" title="Zoom avant">
+          <button onClick={onZoomIn} className="p-1.5 hover:bg-gray-100 rounded transition-colors" title="Zoom avant" aria-label="Zoom avant">
             <Plus className="w-3 h-3" />
           </button>
           <button
             onClick={onToggleAutoZoom}
             className={cn(
-              "ml-1 p-1 rounded transition-colors",
+              "ml-1 p-1.5 rounded transition-colors",
               isAutoZoom ? "bg-blue-50 text-blue-600" : "hover:bg-gray-100 text-gray-500"
             )}
             title={isAutoZoom ? "Zoom automatique actif : cliquez pour le désactiver" : "Ajuster automatiquement à la fenêtre"}
@@ -117,13 +126,19 @@ export function EditorHeader({
           <button
             onClick={onToggleAnonymous}
             className={cn(
-              "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors",
+              "flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-bold transition-colors",
               isAnonymous ? "bg-orange-100 text-orange-700" : "hover:bg-gray-100 text-gray-500"
             )}
             title={isAnonymous ? "Réafficher vos coordonnées" : "Masquer nom et coordonnées (CV anonyme)"}
+            // Le nom d'un bouton bascule ne change pas avec son état : l'état
+            // est dans aria-pressed, et le titre dit ce que le clic fera
+            aria-label="Mode anonyme"
+            aria-pressed={isAnonymous}
           >
             {isAnonymous ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            Anonyme
+            {/* The word costs 55px of a 448px header at tablet width; the icon
+                and the accessible name carry it there */}
+            <span className="hidden lg:inline">Anonyme</span>
           </button>
         </div>
       </div>
@@ -145,7 +160,7 @@ export function EditorHeader({
           title="Ajouter une copie de ce CV dans Mes CV (vos modifications sont déjà enregistrées automatiquement)"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          <span className="text-[11px] font-bold hidden sm:inline">Sauvegarder une version</span>
+          <span className="text-[11px] font-bold hidden xl:inline">Sauvegarder une version</span>
         </button>
         <button
           onClick={onExport}

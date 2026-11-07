@@ -43,8 +43,16 @@ body {
   }
 }
 
-@media (max-width: 768px) {
-  .stitch-container {
+/* The dashboard stacks its sidebar on top as a nav bar. Scoped to the
+   dashboard: the editor's root carries .stitch-container too, and this rule
+   stacked its 320px sidebar above the preview. Same defect as the one
+   .dashboard-sidebar was created for.
+   767px, not 768: Tailwind's md: starts AT 768, where the editor's aside
+   becomes relative. At exactly 768 both applied, the sidebar took the full
+   width on top and the header's export button was pushed 95px past the right
+   edge, clipped by the container's overflow (measured 2026-11-07). */
+@media (max-width: 767px) {
+  .dashboard-layout {
     flex-direction: column;
   }
 }
@@ -68,8 +76,11 @@ body {
    dashboard and its "Exporter en PDF" CTA under 768px, and overflow:visible
    undid the scroll container it sets in Tailwind. The editor sidebar owns its
    narrow-screen behaviour in its own classes (fixed inset-y-0 plus a backdrop),
-   so it needs nothing here. */
-@media (max-width: 768px) {
+   so it needs nothing here.
+   767, like the two blocks above: Tailwind's md: starts AT 768, so at exactly
+   768 the sidebar was shown AND restyled by this block, which hides its
+   account block, and with it the only way to sign out. */
+@media (max-width: 767px) {
   .dashboard-sidebar {
     height: auto;
     max-height: none;
@@ -96,7 +107,13 @@ body {
   }
 
   /* Hide sidebar header logo on mobile (redundant with main header) */
-  .dashboard-sidebar > .stitch-header {
+  .dashboard-sidebar > /* Utilisée par DashboardMobileNav, et déclarée nulle part jusqu'ici : la barre
+   du bas passait sous la barre gestuelle d'iOS. */
+@utility safe-area-bottom {
+  padding-bottom: calc(0.25rem + env(safe-area-inset-bottom));
+}
+
+.stitch-header {
     display: none;
   }
 
@@ -237,7 +254,9 @@ body {
 
 /* What belongs in an empty slot, shown in the editor only */
 .cv-placeholder {
-  color: #9aa0a6;
+  /* 4,83:1 sur blanc. #9aa0a6 donnait 2,64:1 : c'est du texte informatif
+     (ce qu'attend un champ vide de l'aperçu), pas un placeholder natif. */
+  color: #6b7280;
   font-style: italic;
 }
 

@@ -101,13 +101,17 @@ export function EditorSidebar(props: Props) {
           onClick={onClose}
         />
       )}
-      <aside className={cn(
+      <aside
+        // Replié, le panneau garde sa largeur nulle mais pas son contenu : sans
+        // `inert`, dix contrôles invisibles restaient dans l'ordre de tabulation
+        inert={!isOpen}
+        className={cn(
         "stitch-sidebar h-screen max-h-screen overflow-hidden shrink-0 transition-all duration-300 z-50",
         "fixed md:relative inset-y-0 left-0",
         isOpen ? "w-[320px] max-w-[85vw] translate-x-0" : "w-0 -translate-x-full md:w-0"
       )}>
         <div className="stitch-header shrink-0 justify-between">
-          <Link to="/dashboard">
+          <Link to="/dashboard" className="inline-flex items-center py-1.5" aria-label="Calibre, retour au tableau de bord">
             <Logo size="sm" />
           </Link>
           <button
@@ -120,13 +124,17 @@ export function EditorSidebar(props: Props) {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="flex border-b border-[#DADCE0] shrink-0" role="tablist">
+          <div className="flex border-b border-[#DADCE0] shrink-0">
+            {/* role="tablist" ne porte que les onglets : le bouton « Lettre »,
+                qui ouvre un tiroir, est à côté et non dedans */}
+            <div className="flex" role="tablist">
             {TABS.map(tab => (
               <button
                 key={tab.id}
+                id={`editor-tab-${tab.id}`}
                 onClick={() => onTabChange(tab.id)}
                 role="tab"
-                aria-current={activeTab === tab.id ? 'true' : undefined}
+                aria-controls="editor-tabpanel"
                 aria-selected={activeTab === tab.id}
                 className={cn(
                   TAB_CLASSES,
@@ -136,6 +144,7 @@ export function EditorSidebar(props: Props) {
                 {tab.label}
               </button>
             ))}
+            </div>
             {/* Not a tab: opens the cover letter drawer. Keeping it in activeTab
                 left an empty tabpanel behind once the drawer was closed. */}
             <button
@@ -151,7 +160,12 @@ export function EditorSidebar(props: Props) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 min-h-0 scrollbar-thin" role="tabpanel">
+          <div
+            id="editor-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`editor-tab-${activeTab}`}
+            className="flex-1 overflow-y-auto p-4 min-h-0 scrollbar-thin"
+          >
             {/* Native fieldset: one attribute disables every field and button below */}
             <fieldset disabled={isRewritingCV} className="min-w-0 space-y-4">
             {activeTab === 'content' ? (

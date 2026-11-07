@@ -13,7 +13,9 @@ export function EditorNotification({ message, type, onClose }: Props) {
     <div
       role={type === 'error' ? 'alert' : 'status'}
       className={cn(
-        "fixed top-6 right-6 z-[300] max-w-sm px-5 py-3 rounded-xl shadow-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300",
+        // max-w-sm vaut 384px : posée à droite seulement, la boîte couvrait tout
+        // l'en-tête de l'éditeur sur un écran de 375px, bouton de panneau compris
+        "fixed top-4 right-4 left-4 sm:left-auto sm:top-6 sm:right-6 sm:max-w-sm z-[300] px-5 py-3 rounded-xl shadow-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300",
         type === 'success' ? "bg-green-600 text-white" : "bg-red-600 text-white"
       )}
     >

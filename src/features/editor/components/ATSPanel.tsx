@@ -59,9 +59,9 @@ interface GapProps {
 function GapItem({ coverage, onDismiss, onReject }: GapProps) {
   const { requirement } = coverage;
   return (
-    <div className="flex items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
-      <span className="font-semibold text-red-800">{requirement.label}</span>
-      <span className="flex items-center gap-2 shrink-0">
+    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
+      <span className="min-w-0 break-words font-semibold text-red-800">{requirement.label}</span>
+      <span className="flex flex-wrap items-center gap-2">
         <span className="text-gray-600" title={yearsHint(coverage)}>{points(coverage.weight)}{measuredYears(coverage)}</span>
         {/* The label is in the accessible name: every gap has this button */}
         <Button variant="ghost" size="sm" mono={false} aria-label={`${requirement.label} : je ne l'ai pas`} onClick={onDismiss}>
@@ -101,7 +101,7 @@ export function ATSPanel({
   const gaps = gapsOf(report).filter(r => !dismissedIds.includes(r.requirement.id));
 
   return (
-    <div className="flex flex-col gap-5 p-4 overflow-y-auto">
+    <div className="flex flex-col gap-5 overflow-y-auto">
       {/* ─── Score, or why there is none ─── */}
       <div className="flex flex-col items-center" role="status" aria-live="polite">
         {!hasJobDescription ? (
@@ -126,7 +126,7 @@ export function ATSPanel({
       {/* ─── Requirements, with the points the score is made of ─── */}
       {report.requirements.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className={SECTION_TITLE}>Exigences de l'offre</span>
             {report.required.total > 0 && (
               <span
@@ -144,9 +144,9 @@ export function ATSPanel({
             {covered.map(c => (
               <span
                 key={c.requirement.id}
-                className="inline-flex items-center gap-1 text-[11px] pl-2 rounded border bg-green-100 text-green-800 border-green-300"
+                className="inline-flex flex-wrap items-center gap-1 text-[11px] pl-2 rounded border bg-green-100 text-green-800 border-green-300"
               >
-                {c.requirement.label}
+                <span className="min-w-0 break-words">{c.requirement.label}</span>
                 <span className="text-green-700 text-[10px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
                 {/* The generation writes every skill of the offer: the user takes out the one they lack.
                     A degree, a language, years or a title are facts of their own CV: nothing to take out */}

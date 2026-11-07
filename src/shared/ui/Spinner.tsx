@@ -6,8 +6,9 @@ export function Spinner({ className = '' }: { className?: string }) {
 
 export function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
+    <div role="status" className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
       <Spinner className="w-8 h-8 text-blue-600" />
+      <span className="sr-only">Chargement de la page</span>
     </div>
   );
 }

@@ -219,6 +219,23 @@ test.describe('ATS Panel : actions sur un écart', () => {
   };
   const preview = (page: Page) => page.locator('.cv-page');
 
+  // Le panneau vit dans 320px : un écart demandait 330px à lui seul et
+  // débordait, sur l'onglet que l'éditeur ouvre de lui-même (mesuré 2026-11-07)
+  test("rien ne déborde du panneau, écarts et exigences couvertes compris", async ({ page }) => {
+    await open(page);
+    await expect(page.getByText('Écarts (2)')).toBeVisible({ timeout: 8_000 });
+    const wider = await page.evaluate(() => {
+      const panel = document.getElementById('editor-tabpanel');
+      if (!panel) return ['pas de panneau'];
+      const box = panel.getBoundingClientRect();
+      return [...panel.querySelectorAll('*')]
+        .map(el => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && (r.right > box.right + 1 || r.width > box.width + 1))
+        .map(({ el, r }) => `${el.tagName}.${(el.className || '').toString().split(' ')[0]} ${Math.round(r.width)}px`);
+    });
+    expect(wider).toEqual([]);
+  });
+
   test("« Je ne l'ai pas » range un écart, « Remettre » le ramène", async ({ page }) => {
     await open(page);
     await expect(page.getByText('Écarts (2)')).toBeVisible({ timeout: 8_000 });

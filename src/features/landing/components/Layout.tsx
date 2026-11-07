@@ -20,7 +20,7 @@ export default function Layout({ children }: LayoutProps) {
       </a>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/">
+          <Link to="/" className="inline-flex items-center py-2" aria-label="Calibre, accueil">
             <Logo size="md" />
           </Link>
 
@@ -40,7 +40,7 @@ export default function Layout({ children }: LayoutProps) {
                 </button>
               </>
             ) : (
-              <Link to="/auth" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              <Link to="/auth" className="inline-flex items-center py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700">
                 Connexion
               </Link>
             )}

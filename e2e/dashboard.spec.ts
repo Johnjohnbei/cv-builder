@@ -39,7 +39,8 @@ test.describe('Tableau de bord (mode invité)', () => {
   test('sans code, une action IA ouvre la demande de code au lieu de partir', async ({ page }) => {
     await openGuestDashboard(page);
     await page.getByLabel('Depuis une URL').fill('https://example.com/offre');
-    await page.getByRole('button', { name: 'Importer' }).click();
+    // Exact : la zone de dépôt est elle aussi un bouton nommé « Importer un CV… »
+    await page.getByRole('button', { name: 'Importer', exact: true }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Accès aux fonctionnalités IA' });
     await expect(dialog).toBeVisible();

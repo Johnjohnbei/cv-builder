@@ -32,8 +32,9 @@ const sizeText: Record<SelectSize, string> = {
 const defaultVariantBase =
   'border border-[var(--border-color)] rounded bg-white focus:outline-none focus:border-[var(--google-blue)] focus:ring-1 focus:ring-[var(--google-blue)]';
 
+// Le contour retiré est remplacé : sans ça le champ n'a plus d'indicateur de focus
 const bareVariantBase =
-  'bg-transparent border-0 p-0 focus:outline-none';
+  'bg-transparent border-0 p-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--google-blue)]';
 
 export const Select = forwardRef<HTMLSelectElement, Props>(
   (

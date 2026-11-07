@@ -30,6 +30,7 @@ export function DashboardSidebar({ activeView, onViewChange, isAdmin, onOpenAdmi
       <nav className="flex-1 p-2 space-y-1">
         <button
           onClick={() => onViewChange('console')}
+          aria-current={activeView === 'console' ? 'page' : undefined}
           className={cn(NAV_CLASS, activeView === 'console' ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100")}
         >
           <LayoutDashboard className="w-4 h-4" />
@@ -37,6 +38,7 @@ export function DashboardSidebar({ activeView, onViewChange, isAdmin, onOpenAdmi
         </button>
         <button
           onClick={() => onViewChange('cvs')}
+          aria-current={activeView === 'cvs' ? 'page' : undefined}
           className={cn(NAV_CLASS, activeView === 'cvs' ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100")}
         >
           <FileText className="w-4 h-4" />

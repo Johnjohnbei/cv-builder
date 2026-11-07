@@ -46,7 +46,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
           <button
             disabled={idx === 0}
             onClick={() => moveExperience(idx, idx - 1)}
-            className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
+            className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
             title="Monter"
             aria-label="Monter cette expérience"
           >
@@ -55,7 +55,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
           <button
             disabled={isLast}
             onClick={() => moveExperience(idx, idx + 1)}
-            className="p-0.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
+            className="p-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-20 transition-colors"
             title="Descendre"
             aria-label="Descendre cette expérience"
           >
@@ -82,7 +82,8 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               aria-label={`Niveau de détail : ${option.label}`}
               aria-pressed={mode === option.value}
               className={cn(
-                "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
+                // 24px de haut au moins (WCAG 2.2, 2.5.8) : la cible faisait 24x20
+                "px-2 py-1.5 text-[11px] stitch-mono transition-colors",
                 mode === option.value ? "text-white" : "text-gray-600 hover:bg-gray-100"
               )}
               style={mode === option.value ? { backgroundColor: option.color } : undefined}

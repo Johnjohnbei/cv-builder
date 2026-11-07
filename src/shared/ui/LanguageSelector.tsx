@@ -35,7 +35,8 @@ export function LanguageSelector({ value, onChange, disabled, label = 'Lang:', d
             aria-describedby={describedBy}
             lang={lang}
             className={cn(
-              'text-[11px] stitch-mono font-bold px-1.5 py-0.5 rounded transition-colors disabled:opacity-40',
+              // 24px de haut au moins : la cible mesurait 26x22 (WCAG 2.2, 2.5.8)
+              'text-[11px] stitch-mono font-bold px-2 py-1 rounded transition-colors disabled:opacity-40',
               value === lang
                 ? 'text-blue-600 bg-blue-50'
                 : 'text-gray-600 hover:text-gray-600 hover:bg-gray-50'
