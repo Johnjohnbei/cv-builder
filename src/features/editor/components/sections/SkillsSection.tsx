@@ -51,7 +51,8 @@ export const SkillsSection = memo(function SkillsSection({
                       aria-label={`Compétences affichées : ${mode.label}`}
                       aria-pressed={(cat.displayMode || 'normal') === mode.value}
                       className={cn(
-                        "px-1.5 py-0.5 text-[11px] stitch-mono transition-colors",
+                        // 24px dans les deux sens (WCAG 2.2, 2.5.8)
+                        "px-2.5 py-1.5 text-[11px] stitch-mono transition-colors",
                         (cat.displayMode || 'normal') === mode.value
                           ? "text-white" : "text-gray-600 hover:bg-gray-100"
                       )}
@@ -66,7 +67,7 @@ export const SkillsSection = memo(function SkillsSection({
                     if (!window.confirm(`Supprimer la catégorie « ${cat.category} » et toutes ses compétences ?`)) return;
                     setCvData(prev => prev ? {...prev, skills: prev.skills.filter((_, i) => i !== catIdx)} : null);
                   }}
-                  className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                  className="p-1.5 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                   title="Supprimer cette catégorie"
                   aria-label="Supprimer cette catégorie"
                 >

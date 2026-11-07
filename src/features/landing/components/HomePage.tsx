@@ -12,7 +12,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#202124]">
       {/* Hero */}
-      <section className="pt-32 pb-24 border-b border-[#DADCE0]">
+      <section className="pt-16 pb-16 sm:pt-24 sm:pb-20 lg:pt-32 lg:pb-24 border-b border-[#DADCE0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -20,9 +20,9 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-5xl md:text-6xl font-bold tracking-tight mb-8 leading-[1.1]"
+                className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-8 leading-[1.1]"
               >
-                Adaptez votre CV à chaque offre,<br />
+                Adaptez votre CV à chaque offre,<br className="hidden lg:inline" />
                 <span className="text-[#1A73E8]">sans inventer vos faits.</span>
               </motion.h1>
 
@@ -126,7 +126,7 @@ export default function HomePage() {
               { num: '03', title: 'Score ATS', desc: 'Voyez quelles exigences de l\'offre votre CV couvre, et lesquelles il ne mentionne pas encore.' },
             ].map((f, i) => (
               <div key={i} className={`p-10 ${i < 2 ? 'border-b md:border-b-0 md:border-r border-[#DADCE0]' : ''}`}>
-                <h3 className="text-sm font-bold font-mono uppercase tracking-widest mb-4">{f.num}. {f.title}</h3>
+                <h2 className="text-sm font-bold font-mono uppercase tracking-widest mb-4">{f.num}. {f.title}</h2>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
               </div>
             ))}
@@ -146,7 +146,7 @@ export default function HomePage() {
               <div key={i} className="flex items-start gap-4">
                 <span className="mt-0.5 text-[#1A73E8] shrink-0">{f.icon}</span>
                 <div>
-                  <h4 className="text-sm font-bold mb-1">{f.title}</h4>
+                  <h3 className="text-sm font-bold mb-1">{f.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
                 </div>
               </div>

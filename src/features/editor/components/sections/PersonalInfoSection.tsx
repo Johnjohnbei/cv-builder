@@ -103,7 +103,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
             <div className="flex gap-2">
               <Input
                 type="text"
-                className="flex-1"
+                className="flex-1 min-w-0"
                 placeholder="https://..."
                 value={personalInfo?.photo_url || ''}
                 onChange={(e) => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: e.target.value}} : null)}
@@ -139,7 +139,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
               {personalInfo?.photo_url && (
                 <button
                   onClick={() => setCvData(prev => prev ? {...prev, personal_info: {...prev.personal_info, photo_url: ''}} : null)}
-                  className="p-1 text-gray-600 hover:text-red-500 transition-colors"
+                  className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
                   title="Supprimer la photo"
                 >
                   <X className="w-4 h-4" />

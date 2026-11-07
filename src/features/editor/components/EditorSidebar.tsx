@@ -106,7 +106,8 @@ export function EditorSidebar(props: Props) {
         // `inert`, dix contrôles invisibles restaient dans l'ordre de tabulation
         inert={!isOpen}
         className={cn(
-        "stitch-sidebar h-screen max-h-screen overflow-hidden shrink-0 transition-all duration-300 z-50",
+        // dvh, pas vh : le bas du panneau passait sous la barre d'adresse mobile
+        "stitch-sidebar h-[100dvh] max-h-[100dvh] overflow-hidden shrink-0 transition-all duration-300 z-50",
         "fixed md:relative inset-y-0 left-0",
         isOpen ? "w-[320px] max-w-[85vw] translate-x-0" : "w-0 -translate-x-full md:w-0"
       )}>
@@ -116,7 +117,7 @@ export function EditorSidebar(props: Props) {
           </Link>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
             aria-label="Fermer le panneau latéral"
           >
             <X className="w-4 h-4 text-gray-500" />
@@ -168,6 +169,7 @@ export function EditorSidebar(props: Props) {
           >
             {/* Native fieldset: one attribute disables every field and button below */}
             <fieldset disabled={isRewritingCV} className="min-w-0 space-y-4">
+              <legend className="sr-only">Contenu du CV</legend>
             {activeTab === 'content' ? (
               <div className="space-y-3">
                 <OfferAndPagesPanel
@@ -260,7 +262,7 @@ export function EditorSidebar(props: Props) {
         </div>
 
         {/* Single export CTA: saving lives in the header (auto-save + version) */}
-        <div className="p-4 border-t border-[#DADCE0] bg-white">
+        <div className="shrink-0 p-4 border-t border-[#DADCE0] bg-white">
           <Button
             variant="primary"
             fullWidth

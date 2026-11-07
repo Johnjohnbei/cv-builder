@@ -263,7 +263,11 @@ export default function DashboardPage() {
         onLeave={() => void leaveSession()}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-white">
+      <main id="main-content" className="flex-1 flex flex-col overflow-hidden bg-white">
+        <h1 className="sr-only">Optimiseur de CV</h1>
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[400] focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg">
+          Aller au contenu principal
+        </a>
         <header className="stitch-header justify-between">
           <div className="flex items-center space-x-4 text-sm text-gray-500">
             <span>Calibre</span>

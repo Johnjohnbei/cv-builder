@@ -19,7 +19,7 @@ export function Notification({ message, type, onClose }: Props) {
     )}>
       {type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
       <span className="text-xs font-medium">{message}</span>
-      <button onClick={onClose} className="p-1 hover:bg-black/5 rounded" aria-label="Fermer">
+      <button onClick={onClose} className="p-1.5 hover:bg-black/5 rounded" aria-label="Fermer">
         <X className="w-3 h-3" />
       </button>
     </div>

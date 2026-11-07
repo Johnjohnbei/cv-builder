@@ -302,7 +302,11 @@ export default function EditorPage() {
       />
 
       {/* Main Preview Area (Stitch Style) */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-[#F1F3F4] min-h-0 relative">
+      <main id="main-content" className="flex-1 flex flex-col overflow-hidden bg-[#F1F3F4] min-h-0 relative">
+        <h1 className="sr-only">Éditeur de CV</h1>
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[400] focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg">
+          Aller au contenu principal
+        </a>
         <EditorHeader
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -347,7 +351,7 @@ export default function EditorPage() {
       {/* PDF generation overlay */}
       {exports.isExporting && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[300]">
-          <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
+          <div role="status" aria-live="polite" className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
             <span className="text-sm text-gray-700">Génération du PDF...</span>
           </div>

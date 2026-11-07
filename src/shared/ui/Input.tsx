@@ -34,7 +34,8 @@ const defaultVariantBase =
 // surface a subtle background so users discover it's an input. cursor-text
 // always shows the caret cursor on hover.
 const bareVariantBase =
-  'bg-transparent border border-transparent rounded px-1 -mx-1 cursor-text ' +
+  // min-h : un champ est une cible comme une autre (WCAG 2.2, 2.5.8)
+  'bg-transparent border border-transparent rounded px-1 -mx-1 py-0.5 min-h-[24px] cursor-text ' +
   'hover:bg-gray-50 hover:border-gray-200 ' +
   // blue-200 valait 1,42:1 contre le blanc : un anneau de focus se voit à 3:1
   'focus:outline-none focus:bg-white focus:border-[var(--google-blue)] focus-visible:ring-2 focus-visible:ring-[var(--google-blue)] ' +

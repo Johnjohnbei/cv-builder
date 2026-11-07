@@ -75,15 +75,19 @@ export function JobOfferPanel({
           </div>
           <div className="space-y-2">
             <label className="text-[11px] text-gray-600 uppercase block mb-2">Depuis un PDF</label>
+            {/* Verrouillée, la zone ne reçoit AUCUN gestionnaire : elle garde
+                seulement son nom et son état, sinon un dépôt partirait quand même */}
             <div
-              {...(offerLocked ? { 'aria-disabled': true } : getRootProps())}
+              {...(offerLocked
+                ? { role: 'button' as const, 'aria-disabled': true, 'aria-label': "Déposer le PDF de l'offre" }
+                : getRootProps({ role: 'button', 'aria-label': "Déposer le PDF de l'offre" }))}
               className={cn(
-                "border border-dashed border-[#DADCE0] rounded p-2 text-center h-[34px] flex items-center justify-center",
+                "border border-dashed border-[#DADCE0] rounded p-2 text-center min-h-[44px] flex items-center justify-center",
                 offerLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50 transition-colors",
                 isDragActive && "bg-blue-50 border-blue-400"
               )}
             >
-              <input {...getInputProps()} />
+              <input {...getInputProps({ 'aria-label': "Fichier PDF de l'offre" })} />
               {isExtractingJob ? (
                 <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
               ) : (

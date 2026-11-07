@@ -100,9 +100,10 @@ export function CvImportPanel({ baseCV, isUploading, dropzone, onStartEmpty, onR
             <div key={step.n} className="flex items-center gap-3">
               <span className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
-                step.done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                step.done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
               )}>
-                {step.done ? '✓' : step.n}
+                <span className="sr-only">{step.done ? 'Étape faite : ' : `Étape ${step.n} : `}</span>
+                <span aria-hidden>{step.done ? '✓' : step.n}</span>
               </span>
               <span className={cn("text-[12px]", step.done ? "text-gray-800" : "text-gray-600")}>{step.label}</span>
             </div>

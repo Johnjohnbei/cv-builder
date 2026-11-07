@@ -64,7 +64,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
           <span className="text-[11px] stitch-mono text-gray-600 uppercase ml-1">#{idx + 1}</span>
           {score !== undefined && (
             <span
-              className="text-[10px] stitch-mono ml-1 px-1 py-0.5 rounded"
+              className="text-[11px] stitch-mono ml-1 px-1 py-0.5 rounded"
               style={BAND_PALETTE[relevanceBand(score)]}
               title={`Cette expérience prouve ${score} % des exigences de l'offre qu'un poste peut démontrer (hors diplôme, langue et années). Le tri automatique condense d'abord les expériences les moins pertinentes.`}
             >
@@ -83,7 +83,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               aria-pressed={mode === option.value}
               className={cn(
                 // 24px de haut au moins (WCAG 2.2, 2.5.8) : la cible faisait 24x20
-                "px-2 py-1.5 text-[11px] stitch-mono transition-colors",
+                "px-2.5 py-1.5 text-[11px] stitch-mono transition-colors",
                 mode === option.value ? "text-white" : "text-gray-600 hover:bg-gray-100"
               )}
               style={mode === option.value ? { backgroundColor: option.color } : undefined}
@@ -95,7 +95,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
 
         <button
           onClick={() => onDelete(idx)}
-          className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+          className="p-1.5 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
           title="Supprimer cette expérience"
           aria-label="Supprimer cette expérience"
         >
@@ -210,7 +210,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
                 updateExperience(idx, x => ({ ...x, end_date }));
               }}
             />
-            <label className="flex items-center gap-1 text-[11px] font-mono text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-1 py-1.5 text-[11px] font-mono text-gray-600 cursor-pointer">
               <input
                 type="checkbox"
                 checked={exp.current}
@@ -218,7 +218,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
                   const current = e.target.checked;
                   updateExperience(idx, x => ({ ...x, current, end_date: current ? '' : x.end_date }));
                 }}
-                className="w-3 h-3"
+                className="w-4 h-4 shrink-0"
               />
               Actuel
             </label>
@@ -239,7 +239,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
               }}
             />
             <label
-              className="flex items-center gap-1 text-[11px] font-mono text-gray-600 cursor-pointer shrink-0"
+              className="flex items-center gap-1 py-1.5 text-[11px] font-mono text-gray-600 cursor-pointer shrink-0"
               title="Par défaut le KPI ne s'affiche qu'en mode Étendu. Coche pour forcer l'affichage quel que soit le mode."
             >
               <input
@@ -249,7 +249,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
                   const showKpi = e.target.checked ? true : undefined;
                   updateExperience(idx, x => ({ ...x, showKpi }));
                 }}
-                className="w-3 h-3"
+                className="w-4 h-4 shrink-0"
               />
               Afficher
             </label>

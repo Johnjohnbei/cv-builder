@@ -120,7 +120,8 @@ export const OfferAndPagesPanel = memo(function OfferAndPagesPanel({
               onClick={() => onTargetPagesChange(n)}
               aria-pressed={targetPages === n}
               className={cn(
-                'px-2.5 py-1 text-[11px] stitch-mono font-bold transition-colors',
+                // 24px dans les deux sens : la cible faisait 20 de large
+                'px-3 py-1.5 min-w-[32px] text-[11px] stitch-mono font-bold transition-colors',
                 targetPages === n ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-blue-50',
               )}
             >

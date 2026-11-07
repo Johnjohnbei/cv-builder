@@ -41,7 +41,7 @@ export const EducationSection = memo(function EducationSection({
                   if (!window.confirm(`Supprimer la formation « ${edu.degree || edu.school} » ?`)) return;
                   setCvData(prev => prev ? {...prev, education: prev.education.filter((_, i) => i !== idx)} : null);
                 }}
-                className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 p-1.5 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                 title="Supprimer cette formation"
                 aria-label="Supprimer cette formation"
               >

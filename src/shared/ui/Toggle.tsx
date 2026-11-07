@@ -22,7 +22,7 @@ export function Toggle({ label, checked, onChange, variant = 'emphasis', classNa
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        'w-full px-3 py-2 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between',
+        'w-full min-h-[44px] px-3 py-2.5 rounded border text-[11px] stitch-mono transition-colors flex items-center justify-between gap-2',
         checked ? ROW[variant].on : ROW[variant].off,
         className,
       )}

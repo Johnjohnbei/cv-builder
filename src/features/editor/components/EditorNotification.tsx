@@ -22,7 +22,7 @@ export function EditorNotification({ message, type, onClose }: Props) {
       {type === 'success' ? <Zap className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
       <span className="text-sm leading-snug">{message}</span>
       {onClose && (
-        <button onClick={onClose} className="p-0.5 -mr-1 hover:bg-white/20 rounded shrink-0" aria-label="Fermer la notification">
+        <button onClick={onClose} className="p-1.5 -mr-1 hover:bg-white/20 rounded shrink-0" aria-label="Fermer la notification">
           <X className="w-4 h-4" />
         </button>
       )}

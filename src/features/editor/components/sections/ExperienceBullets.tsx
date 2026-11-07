@@ -83,7 +83,7 @@ export function ExperienceBullets({ exp, idx, weakBullets, updateExperience }: P
           // straight into the preview, the auto-save and the exported PDF
           description: [...(x.description || []), ''],
         }))}
-        className="text-[11px] stitch-mono text-blue-600 hover:underline flex items-center gap-1"
+        className="inline-flex items-center gap-1 py-1 text-[11px] stitch-mono text-blue-600 hover:underline"
       >
         <Plus className="w-2 h-2" /> Ajouter un point
       </button>

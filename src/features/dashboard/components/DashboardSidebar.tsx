@@ -56,7 +56,7 @@ export function DashboardSidebar({ activeView, onViewChange, isAdmin, onOpenAdmi
         )}
       </nav>
 
-      <div className="p-4 border-t border-[#DADCE0] space-y-3">
+      <div className="dashboard-sidebar-account p-4 border-t border-[#DADCE0] space-y-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
             <User className="w-4 h-4 text-gray-600" />

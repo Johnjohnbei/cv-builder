@@ -148,7 +148,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {!controller.isTailoredForLocalJD && controller.localJobDescription.length >= MIN_OFFER_CHARS && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
-                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <span aria-hidden className="shrink-0 mt-0.5">⚠</span>
                   <span>Votre CV n'a pas encore été optimisé pour cette offre. La lettre sera basée sur votre CV de base : résultats moins ciblés.</span>
                 </div>
               )}
@@ -156,7 +156,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                   restaurée d'office : elle argumentait pour un autre poste. */}
               {!letter && controller.staleStoredLetter && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800">
-                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <span aria-hidden className="shrink-0 mt-0.5">⚠</span>
                   <div className="min-w-0 flex-1">
                     <p>Une lettre écrite pour une <strong>autre offre</strong> est encore en mémoire. Elle n'a pas été chargée pour éviter de candidater avec le mauvais texte.</p>
                     <button
@@ -248,8 +248,9 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                   )}
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Ton</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Un label orphelin ne nomme rien : il nomme le groupe */}
+                    <span id="tone-label" className="text-[11px] font-mono text-gray-500 uppercase tracking-wider block">Ton</span>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="tone-label">
                       {TONE_OPTIONS.map((t) => {
                         const active = controller.tone === t.value;
                         return (
@@ -258,6 +259,7 @@ export function CoverLetterDrawer({ controller, user, cvName, personalInfo, noti
                             variant="ghost"
                             size="xs"
                             onClick={() => controller.setTone(t.value)}
+                            aria-pressed={active}
                             className={
                               active
                                 ? 'bg-purple-50 border border-purple-200 text-purple-700'

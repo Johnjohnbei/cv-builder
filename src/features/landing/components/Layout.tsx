@@ -24,19 +24,21 @@ export default function Layout({ children }: LayoutProps) {
             <Logo size="md" />
           </Link>
 
-          <nav className="flex items-center space-x-6">
+          <nav className="flex items-center gap-3 sm:gap-6">
             {isSignedIn ? (
               <>
-                <Link to="/dashboard" className="text-sm font-medium text-gray-600 hover:text-blue-600 flex items-center space-x-1">
+                {/* Le libellé disparaît sous sm : le nom reste porté ici */}
+                <Link to="/dashboard" aria-label="Tableau de bord" className="inline-flex items-center gap-1 py-1.5 text-sm font-medium text-gray-600 hover:text-blue-600">
                   <LayoutDashboard className="w-4 h-4" />
-                  <span>Tableau de bord</span>
+                  <span className="hidden sm:inline">Tableau de bord</span>
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="text-sm font-medium text-gray-600 hover:text-red-600 flex items-center space-x-1"
+                  aria-label="Déconnexion"
+                  className="inline-flex items-center gap-1 py-1.5 text-sm font-medium text-gray-600 hover:text-red-600"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Déconnexion</span>
+                  <span className="hidden sm:inline">Déconnexion</span>
                 </button>
               </>
             ) : (

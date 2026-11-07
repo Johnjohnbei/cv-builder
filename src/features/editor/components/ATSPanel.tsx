@@ -147,7 +147,7 @@ export function ATSPanel({
                 className="inline-flex flex-wrap items-center gap-1 text-[11px] pl-2 rounded border bg-green-100 text-green-800 border-green-300"
               >
                 <span className="min-w-0 break-words">{c.requirement.label}</span>
-                <span className="text-green-700 text-[10px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
+                <span className="text-green-700 text-[11px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
                 {/* The generation writes every skill of the offer: the user takes out the one they lack.
                     A degree, a language, years or a title are facts of their own CV: nothing to take out */}
                 {isWrittenFreely(c.requirement) && <Button

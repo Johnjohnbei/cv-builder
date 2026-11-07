@@ -104,7 +104,7 @@ export function EditorHeader({
           <button onClick={onZoomOut} className="p-1.5 hover:bg-gray-100 rounded transition-colors" title="Zoom arrière" aria-label="Zoom arrière">
             <Minus className="w-3 h-3" />
           </button>
-          <span className="text-[10px] stitch-mono font-bold w-8 text-center">{zoom}%</span>
+          <span className="text-[11px] stitch-mono font-bold w-9 text-center">{zoom}%</span>
           <button onClick={onZoomIn} className="p-1.5 hover:bg-gray-100 rounded transition-colors" title="Zoom avant" aria-label="Zoom avant">
             <Plus className="w-3 h-3" />
           </button>
@@ -126,7 +126,7 @@ export function EditorHeader({
           <button
             onClick={onToggleAnonymous}
             className={cn(
-              "flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-bold transition-colors",
+              "flex items-center gap-1 px-2 py-1.5 rounded text-[11px] font-bold transition-colors",
               isAnonymous ? "bg-orange-100 text-orange-700" : "hover:bg-gray-100 text-gray-500"
             )}
             title={isAnonymous ? "Réafficher vos coordonnées" : "Masquer nom et coordonnées (CV anonyme)"}

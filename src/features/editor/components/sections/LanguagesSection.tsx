@@ -52,7 +52,7 @@ export const LanguagesSection = memo(function LanguagesSection({
                     if (!window.confirm(`Supprimer la langue « ${lang.name} » ?`)) return;
                     setCvData(prev => prev ? {...prev, languages: prev.languages.filter((_, i) => i !== idx)} : null);
                   }}
-                  className="absolute -top-2 -right-2 p-1 bg-white border border-gray-200 rounded-full text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity shadow-sm z-10"
+                  className="absolute -top-2 -right-2 p-1.5 bg-white border border-gray-200 rounded-full text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity shadow-sm z-10"
                   title="Supprimer cette langue"
                   aria-label="Supprimer cette langue"
                 >

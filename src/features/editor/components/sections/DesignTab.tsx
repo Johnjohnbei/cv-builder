@@ -88,7 +88,7 @@ export const DesignTab = memo(function DesignTab({
                 <button
                   key={preset.name}
                   onClick={() => setDesignSettings(prev => ({ ...prev, primaryColor: preset.p, secondaryColor: preset.s }))}
-                  className="w-6 h-6 rounded border border-gray-200 flex overflow-hidden"
+                  className="w-9 h-9 rounded border border-gray-200 flex overflow-hidden"
                   title={preset.name}
                   aria-label={`Couleurs ${preset.name}`}
                   aria-pressed={designSettings.primaryColor === preset.p && designSettings.secondaryColor === preset.s}
@@ -107,7 +107,7 @@ export const DesignTab = memo(function DesignTab({
                 type="color"
                 value={designSettings.primaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
-                className="w-8 h-8 rounded cursor-pointer border-none p-0"
+                className="w-11 h-11 shrink-0 rounded cursor-pointer border-none p-0"
               />
               <Input
                 type="text"
@@ -126,7 +126,7 @@ export const DesignTab = memo(function DesignTab({
                 type="color"
                 value={designSettings.secondaryColor}
                 onChange={(e) => setDesignSettings(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                className="w-8 h-8 rounded cursor-pointer border-none p-0"
+                className="w-11 h-11 shrink-0 rounded cursor-pointer border-none p-0"
               />
               <Input
                 type="text"
@@ -147,6 +147,7 @@ export const DesignTab = memo(function DesignTab({
             <button
               key={font.id}
               onClick={() => setDesignSettings(prev => ({ ...prev, fontFamily: font.id }))}
+              aria-pressed={designSettings.fontFamily === font.id}
               className={cn(
                 "w-full text-left px-3 py-2 rounded border text-[11px] stitch-mono transition-colors",
                 designSettings.fontFamily === font.id
