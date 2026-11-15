@@ -78,7 +78,7 @@ export default function EditorPage() {
       // The score this offer makes available lives in the ATS tab. Only for an
       // offer that arrives: switching on the first character typed unmounted
       // the field being typed in.
-      setActiveTab('ats');
+      setActiveTab(cvData?.generation?.completion ? 'content' : 'ats');
     }
   }, [loadedJobDescription]);
 
@@ -292,6 +292,8 @@ export default function EditorPage() {
       )}
 
         <EditorHeader
+          atsScore={atsAnalysis.report?.score ?? null}
+          onOpenATS={() => { setActiveTab('ats'); setIsSidebarOpen(true); }}
           document={coverLetter.isOpen ? 'letter' : 'cv'}
           onOpenCV={coverLetter.close}
           canOpenLetter={!!cvData}

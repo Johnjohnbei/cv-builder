@@ -1,5 +1,6 @@
 import { omitUserOwnedFields, type CVData } from '../shared/types';
-import { detectCVLanguage, getCVLanguage, type SupportedLanguage } from './language-detection';
+import { detectCVLanguage, detectJobDescriptionLanguage, getCVLanguage, type SupportedLanguage } from './language-detection';
+import { completeSkillCoverage } from '../features/editor/lib/keyword-analysis';
 import { withVersions } from '@/src/features/editor/lib/cv-versions';
 
 /**
@@ -71,7 +72,10 @@ export async function attachBilingualCache(
     _translations: {
       ...cv._translations,
       [langA]: contentSnapshot(cvA),
-      [langB]: contentSnapshot(paired(translated, langB)),
+      [langB]: contentSnapshot(paired(completeSkillCoverage(translated, cv.generation?.requirements ?? [], {
+        language: langB, offerLanguage: cv.generation?.offer ? detectJobDescriptionLanguage(cv.generation.offer) : undefined, source: cv,
+        objectiveIds: cv.generation?.objectiveRequirementIds,
+      }), langB)),
     },
   };
 }

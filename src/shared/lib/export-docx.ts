@@ -67,9 +67,9 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
   // ── Summary ──
   if (shows('summary') && personal_info.summary) {
     children.push(sectionHeading(getSectionTitle('summary', language)));
-    children.push(new Paragraph({
+    for (const paragraph of personal_info.summary.split(/\n\s*\n/)) children.push(new Paragraph({
       // Markdown where the PDF renders it: the asterisks used to reach the document
-      children: [new TextRun({ text: stripInlineMarkdown(personal_info.summary), size: 20, font: 'Calibri' })],
+      children: [new TextRun({ text: stripInlineMarkdown(paragraph), size: 20, font: 'Calibri' })],
       spacing: { after: 200 },
     }));
   }

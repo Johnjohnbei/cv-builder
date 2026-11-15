@@ -12,17 +12,16 @@ import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProfic
 import { getContinuationMarker, getShortSectionTitle, getSkillCategoryTitle } from '../../lib/ats-rules';
 import { EditableText } from '../EditableText';
 import type { SkillCategoryKey } from '../../lib/skill-dictionary';
-import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData } from '@/src/shared/types';
+import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData, DesignSettings } from '@/src/shared/types';
 
 // ─── Helpers ───
 
-function getSectionHeader(title: string, primaryColor: string) {
-  return (
-    <div className="flex items-center gap-4 mb-1.5">
-      <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{title}</h2>
-      <div className="flex-1 h-[2px]" style={{ backgroundColor: `${primaryColor}20` }} />
-    </div>
-  );
+function getSectionHeader(title: string, design: DesignSettings) {
+  const presentation = design.presentation ?? 'timeline';
+  return <div className={cn('mb-1.5', presentation === 'timeline' ? 'flex items-center gap-4' : presentation === 'classic' ? 'pb-1 border-b border-gray-400' : 'pt-1')}>
+    <h2 className={cn('font-bold', presentation === 'timeline' ? 'text-xs uppercase tracking-wider' : 'text-sm')} style={{ color: design.primaryColor }}>{title}</h2>
+    {presentation === 'timeline' && <div className="flex-1 h-[2px]" style={{ backgroundColor: `${design.primaryColor}20` }} />}
+  </div>;
 }
 
 // ─── Block Renderers ───
@@ -34,11 +33,11 @@ function HeaderBlock({ block, designSettings, language, editing }: BlockRenderer
   const cvDataShim = { personal_info: data } as CVData;
 
   return (
-    <div data-cv-section="header" className="flex justify-between items-start mb-3">
+    <div data-cv-section="header" data-presentation={designSettings.presentation ?? 'timeline'} className={cn('flex mb-3', !designSettings.presentation || designSettings.presentation === 'timeline' ? 'justify-between items-start' : 'flex-col gap-3 pb-3 border-b border-gray-300')}>
       <div className="flex gap-4 items-center">
         {renderPhoto(cvDataShim, showPhoto, "w-20 h-20 rounded-xl border-2 border-gray-100")}
         <div className="space-y-0.5">
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: primaryColor }}>{data?.name}</h1>
+          <h1 className={cn('text-2xl tracking-tight', designSettings.presentation === 'plain' ? 'font-semibold' : 'font-extrabold')} style={{ color: primaryColor }}>{data?.name}</h1>
           {/* A colour, never opacity: a transparent box is painted after its
               in-flow siblings, and the PDF then carries its text out of order */}
           <p className="text-sm font-medium tracking-wide uppercase text-gray-700">
@@ -49,7 +48,7 @@ function HeaderBlock({ block, designSettings, language, editing }: BlockRenderer
         </div>
       </div>
       {/* gray-600, not gray-500: 10px text below 4.5:1 is unreadable printed */}
-      <div className="text-[10px] text-right space-y-0.5 text-gray-600 shrink-0">
+      <div className={cn('text-[10px] text-gray-600 shrink-0', !designSettings.presentation || designSettings.presentation === 'timeline' ? 'text-right space-y-0.5' : 'flex flex-wrap gap-x-4 gap-y-1')}>
         {getContactEntries(data, language).map(entry => (
           <p key={entry.key}>
             {renderContactValue(entry, { color: primaryColor })}
@@ -66,8 +65,8 @@ function SummaryBlock({ block, designSettings, language, editing }: BlockRendere
 
   return (
     <section data-cv-section="summary">
-      {getSectionHeader(getShortSectionTitle('summary', language), primaryColor)}
-      <p className="text-sm text-gray-600 leading-snug">
+      {getSectionHeader(getShortSectionTitle('summary', language), designSettings)}
+      <p className="text-sm text-gray-600 leading-snug whitespace-pre-line">
         <EditableText value={summary ?? ''} target={{ kind: 'summary' }} editing={editing} label="profil" block>
           {renderInlineMarkdown(summary)}
         </EditableText>
@@ -79,6 +78,7 @@ function SummaryBlock({ block, designSettings, language, editing }: BlockRendere
 function ExperienceBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const exp = block.block.data as Experience;
   const { primaryColor, secondaryColor } = designSettings;
+  const timeline = !designSettings.presentation || designSettings.presentation === 'timeline';
   const { intro, bullets, bulletOffset } = getSlicedBullets(exp, block);
   const isOverflow = (block.startSubBlock ?? 0) > 0;
   // Without the role's place in cvData there is nothing to write into: the
@@ -89,12 +89,12 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
   return (
     <div data-cv-block="experience" data-measure-id={block.block.id}>
       {!isOverflow && (
-        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">{/* anti-vibe-ok: cv template design (Elegant timeline rule) */}
+        <div className={timeline ? 'pl-6 border-l-2' : ''} style={{ borderColor: `${secondaryColor}30` }} data-sub-id={`${block.block.id}-header`} data-sub-type="exp-header">{/* anti-vibe-ok: cv template design (Elegant timeline rule) */}
           {/* The timeline dot hangs off an empty box of its own: positioning the
               header itself made the PDF carry the position, employer and dates
               after every bullet of the job */}
           <div className="relative">
-            <div className="absolute -left-[29px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+            {timeline && <div className="absolute -left-[29px] top-0 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />}
           </div>
           <div className="flex justify-between items-start gap-4 mb-1">
             <h3 className="font-bold text-gray-900">
@@ -123,7 +123,7 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
         </div>
       )}
       {isOverflow && (
-        <div className="pl-6 border-l-2" style={{ borderColor: `${secondaryColor}30` }} data-sub-type="exp-continued">{/* anti-vibe-ok: cv template design */}
+        <div className={timeline ? 'pl-6 border-l-2' : ''} style={{ borderColor: `${secondaryColor}30` }} data-sub-type="exp-continued">{/* anti-vibe-ok: cv template design */}
           {/* The bullets of a role carried over: without this line they open the
               page with no owner, for the reader and for the parser alike */}
           <p className="text-xs font-bold text-gray-600">
@@ -132,7 +132,7 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
         </div>
       )}
       {bullets.length > 0 && (
-        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>{/* anti-vibe-ok: cv template design */}
+        <ul className={cn("space-y-1.5 mt-1.5", !isOverflow && timeline && "pl-6 border-l-2")} style={!isOverflow ? { borderColor: `${secondaryColor}30` } : undefined}>{/* anti-vibe-ok: cv template design */}
           {bullets.map((bullet, bIdx) => (
             <li key={bIdx} className="text-sm text-gray-600 leading-snug flex gap-3" data-sub-id={`${block.block.id}-bullet-${bulletOffset + bIdx}`} data-sub-type="bullet">
               <span className="mt-1.5 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: secondaryColor }} />
@@ -144,7 +144,7 @@ function ExperienceBlock({ block, designSettings, language, editing }: BlockRend
         </ul>
       )}
       {isKPIInRange(exp, block) && (
-        <p className="text-xs font-bold mt-2 pl-6 flex items-center gap-1.5" data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
+        <p className={cn('text-xs font-bold mt-2 flex items-center gap-1.5', timeline && 'pl-6')} data-sub-id={`${block.block.id}-kpi`} data-sub-type="kpi" style={{ color: primaryColor }}>
           <TrendingUp className="w-3 h-3 shrink-0" aria-hidden />{' '}
           <EditableText value={exp.kpi ?? ''} target={{ kind: 'kpi', experience: experience ?? -1 }} editing={edit} label="résultat clé">
             {renderInlineMarkdown(exp.kpi)}
@@ -189,7 +189,7 @@ function EducationBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="education" data-measure-id={block.block.id}>
-      {getSectionHeader(getShortSectionTitle('education', language), primaryColor)}
+      {getSectionHeader(getShortSectionTitle('education', language), designSettings)}
       <div className="space-y-2">
         {educations.map((edu, idx) => {
           const lines = getEducationLines(edu, language);
@@ -211,7 +211,7 @@ function LanguagesBlock({ block, designSettings, language }: BlockRendererProps)
 
   return (
     <section data-cv-section="languages" data-measure-id={block.block.id}>
-      {getSectionHeader(getShortSectionTitle('languages', language), primaryColor)}
+      {getSectionHeader(getShortSectionTitle('languages', language), designSettings)}
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         {languages.map((lang, idx) => (
           <div key={idx} className="flex flex-col">

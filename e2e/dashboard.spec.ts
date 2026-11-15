@@ -127,7 +127,7 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
 
     await expect(page).toHaveURL(/\/editor/);
-    await expect(page.getByRole('tab', { name: 'À corriger' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'ATS', exact: true })).toHaveAttribute('aria-selected', 'true');
     expect(tailored).toHaveLength(1);
     expect(tailored[0].language).toBe('en');
     // The editor opens in the language chosen, the cache built around it
@@ -191,4 +191,21 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     expect(attempts).toBe(1);
     expect(calls.forwarded).toEqual([]);
   });
+});
+
+test('les qualifications non établies sont annoncées pendant la création, avant de livrer le CV', async ({ page }) => {
+  const requirement = { id: 'doctorat', label: 'Doctorat', variants: ['PhD'], kind: 'education', importance: 'required', quote: 'Doctorat en physique' };
+  let finish: (() => void) | undefined;
+  const calls = await answerAIActions(page, {
+    extractJobRequirements: () => ({ requirements: [requirement] }),
+    tailorCV: () => new Promise(resolve => { finish = () => resolve({ cv: MOCK_CV, language: 'fr', requirements: [requirement], report: {} }); }),
+    translateCV: args => args.cvData,
+  });
+  await openGuestDashboard(page, { baseCv: MOCK_CV });
+  await page.evaluate(() => localStorage.setItem('calibre_access_code', 'CODE-E2E'));
+  await page.getByPlaceholder("Collez l'offre d'emploi ici...").fill('Nous cherchons une personne avec un Doctorat en physique pour notre équipe de recherche.');
+  await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /qualification.*Doctorat/ })).toBeVisible();
+  await expect(page).toHaveURL(/dashboard/); finish!();
+  await expect(page).toHaveURL(/editor/); expect(calls.forwarded).toEqual([]);
 });

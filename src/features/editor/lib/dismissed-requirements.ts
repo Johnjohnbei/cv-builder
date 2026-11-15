@@ -1,6 +1,7 @@
 import { REQUIREMENT_KINDS, type CVData, type DismissedRequirement, type JobRequirement } from '@/src/shared/types';
 import { prepareText, stripInlineMarkdown } from '@/src/shared/lib/text';
-import { isWrittenFreely, writesRequirement } from './keyword-analysis';
+import { completeSkillCoverage, isWrittenFreely, withoutTransferObjectives, writesRequirement } from './keyword-analysis';
+import { detectJobDescriptionLanguage, getCVLanguage } from '../../../lib/language-detection';
 
 // ─── Requirements the user said they lack (arbitrage of 2026-10-07) ───
 // "Je ne l'ai pas" takes the requirement out of the CV, without any AI call.
@@ -86,14 +87,22 @@ export function withoutDismissed(cv: CVData): CVData {
     && dismissed.some(r => writesRequirement([prepareText(stripInlineMarkdown(text!))], r));
   const clean = (text: string | undefined) => (writes(text) ? undefined : text);
 
-  const summary = cv.personal_info.summary;
+  const originalSummary = cv.personal_info.summary;
+  const hasGoals = !!cv.generation?.objectiveRequirementIds?.length && withoutTransferObjectives(originalSummary) !== (originalSummary ?? '').trim();
+  const summary = hasGoals ? withoutTransferObjectives(originalSummary) : originalSummary;
   // A stop followed by a space ends a sentence, never the one inside "Node.js".
   // No lookbehind in client code: a SyntaxError before Safari 16.4 (text.test.ts)
   const sentences = (summary ?? '').replace(/([.!?])\s+/g, '$1\u0000').split('\u0000').filter(sentence => sentence.trim());
   const kept = sentences.filter(sentence => !writes(sentence));
-  const printedSummary = kept.length === sentences.length
+  let printedSummary = kept.length === sentences.length
     ? summary
     : kept.length > 0 ? kept.join(' ') : clean(cv.personal_info.versions?.summary?.original) ?? '';
+  if (hasGoals) {
+    const remaining = cv.generation!.requirements.filter(r => cv.generation!.objectiveRequirementIds!.includes(r.id) && !dismissed.some(d => d.id === r.id));
+    printedSummary = completeSkillCoverage({ ...cv, personal_info: { ...cv.personal_info, summary: printedSummary } }, remaining, {
+      language: getCVLanguage(cv), offerLanguage: detectJobDescriptionLanguage(cv.generation!.offer), source: cv, objectiveIds: remaining.map(r => r.id),
+    }).personal_info.summary;
+  }
 
   return {
     ...cv,

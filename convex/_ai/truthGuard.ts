@@ -117,7 +117,7 @@ export interface GuardContext {
    * client of the candidate. Nor does a free requirement stand in a title, a
    * position, a company tag or a category.
    */
-  free?: { requirements: JobRequirement[]; said: PreparedText };
+  free?: { requirements: JobRequirement[]; said: PreparedText; objectivesOnly?: boolean };
   /**
    * Every reading of every number the source gives: its content, the years of
    * its dates and the years of experience they add up to.
@@ -158,7 +158,7 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     return !namesStated(text).every(name => matchPhrase(name, free!.said) || allowed.some(term => matchPhrase(name, term)));
   };
   const freely = (text?: string) => Boolean(free && text && mentions(text, free.requirements));
-  const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers) || (freely(text) && namesNobodyGave(text!));
+  const invents = (text?: string) => writes(text) || hasUnbackedNumber(text, sourceNumbers) || (freely(text) && (free?.objectivesOnly || namesNobodyGave(text!)));
   /** A title, a position, a tag or a category name is a fact: a requirement written freely never stands there */
   const inventsFact = (text?: string) => invents(text) || freely(text);
   /**

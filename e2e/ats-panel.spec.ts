@@ -39,7 +39,7 @@ test.describe('Corrections guidées et exports regroupés', () => {
     await page.getByRole('button', { name: 'Kubernetes : corriger', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Contenu' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByPlaceholder('Ajouter compétence...').first()).toBeFocused();
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await page.getByRole('button', { name: 'Anglais : corriger', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Niveau en Anglais' })).toBeFocused();
   });
@@ -47,7 +47,7 @@ test.describe('Corrections guidées et exports regroupés', () => {
   test('un ajout non sourcé reste à confirmer après rechargement, sans appel IA', async ({ page }) => {
     const requirement = { id: 'figma', label: 'Figma', variants: [], kind: 'tool' as const, importance: 'required' as const, quote: 'Figma' };
     await seedGuestSession(page, { cv: { ...MOCK_CV, generation: {
-      id: 'test-generation', createdAt: '2026-11-15T10:00:00Z', rulesVersion: '2026-11-15.1', extractionVersion: '2026-11-15.1', promptVersion: '2026-11-15.1',
+      id: 'test-generation', createdAt: '2026-11-15T10:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2',
       model: 'test-model', durationMs: 1000, offer: MOCK_JOB_DESCRIPTION.replace(/\s+/g, ' ').trim(),
       requirements: [requirement], sourceRequirementIds: [], addedRequirementIds: ['figma'], initialScore: 100, extractionAtLimit: false,
     } }, jd: MOCK_JOB_DESCRIPTION, requirements: [requirement] });
@@ -56,7 +56,7 @@ test.describe('Corrections guidées et exports regroupés', () => {
     await expect(page.getByText('Ajouts à confirmer (1)')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') ?? '{}').confirmedRequirements?.length)).toBe(1);
     await page.reload();
-    await expect(page.getByRole('tab', { name: 'À corriger' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'ATS', exact: true })).toBeVisible();
     await expect(page.getByText('Ajouts à confirmer (1)')).toHaveCount(0);
     await page.getByText(/^Exigences couvertes/).click();
     await expect(page.getByText('Confirmé par vous')).toBeVisible();
@@ -111,14 +111,14 @@ test.describe('ATS Panel : mode guest', () => {
   });
 
   test('l\'onglet ATS est cliquable et affiche le panel', async ({ page }) => {
-    const atsTab = page.getByRole('tab', { name: 'À corriger' });
+    const atsTab = page.getByRole('tab', { name: 'ATS', exact: true });
     await expect(atsTab).toBeVisible({ timeout: 8_000 });
     await atsTab.click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
   });
 
   test('le panel ATS affiche un score numérique entre 0 et 100', async ({ page }) => {
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     // Asserted, not guarded by an `if`: the former version passed without a single expect
     await expect(atsScore(page)).toContainText(/\d{1,3}/, { timeout: 8_000 });
     const score = Number((await atsScore(page).textContent())!.match(/(\d{1,3})/)![1]);
@@ -129,7 +129,7 @@ test.describe('ATS Panel : mode guest', () => {
   // Seven now: the two added on 2026-11-06 come from the same Greenhouse page
   // as the five before them
   test('les sept contrôles de lisibilité passent sur le CV type', async ({ page }) => {
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     const checks = page.locator('li', { hasText: /conforme|à corriger/ });
     await expect(checks).toHaveCount(7, { timeout: 8_000 });
     await expect(page.getByText(' : à corriger', { exact: true })).toHaveCount(0);
@@ -138,12 +138,12 @@ test.describe('ATS Panel : mode guest', () => {
   // A percentage hides a cut-off: one missing required requirement sorts the
   // application out at Taleo, and is a grade C at Workday
   test('les exigences requises sont comptées à part du pourcentage', async ({ page }) => {
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(page.getByText(/\d+\/\d+ requises/)).toBeVisible({ timeout: 8_000 });
   });
 
   test('les exigences couvertes sont affichées en vert, les écarts listés', async ({ page }) => {
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await page.getByText(/^Exigences couvertes/).click();
     await expect(page.getByText('Figma', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/^Écarts \(\d+\)$/)).toBeVisible();
@@ -154,7 +154,7 @@ test.describe('ATS Panel : mode guest', () => {
     await expect(page.getByRole('tab', { name: 'Contenu' })).toHaveAttribute('aria-selected', 'true');
     await page.getByRole('tab', { name: 'Mise en page' }).click();
     await expect(page.getByRole('tab', { name: 'Mise en page' })).toHaveAttribute('aria-selected', 'true');
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
     expect(pageErrors.filter(isCritical)).toHaveLength(0);
   });
@@ -164,7 +164,7 @@ test.describe('ATS Panel : régression career-ops integration', () => {
   guardAICalls();
   test.beforeEach(async ({ page }) => {
     await setupGuestEditor(page);
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
   });
 
@@ -199,7 +199,7 @@ test.describe('Offre saisie dans l\'éditeur', () => {
     // Cache warmed for the offer about to be pasted: the analysis is served, no call leaves
     await page.evaluate(
       ({ key, entry }) => localStorage.setItem(key, JSON.stringify([entry])),
-      { key: REQUIREMENTS_CACHE_KEY, entry: { version: '2026-11-15.1', analyzedAt: Date.now(), jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) } },
+      { key: REQUIREMENTS_CACHE_KEY, entry: { version: '2026-11-15.2', analyzedAt: Date.now(), jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) } },
     );
   });
 
@@ -217,13 +217,13 @@ test.describe('Offre saisie dans l\'éditeur', () => {
     await onePage.click();
     await expect(onePage).toHaveAttribute('aria-pressed', 'true');
 
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(page.getByText(AI_ONLY_KEYWORD).first()).toBeVisible({ timeout: 8_000 });
   });
 
   test('une offre saisie par un invité revient au rechargement', async ({ page }) => {
     await offerField(page).fill(MOCK_JOB_DESCRIPTION);
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('guest_last_jd'))).toBe(MOCK_JOB_DESCRIPTION);
 
     await page.reload();
@@ -240,7 +240,7 @@ test.describe('Analyse de l\'offre indisponible', () => {
     await setupGuestEditor(page, MOCK_CV, '');
     await page.getByRole('tab', { name: 'Mise en page' }).click();
     await page.getByPlaceholder(/Collez l'offre d'emploi ici/).fill("Offre jamais analysée : Product Designer, Figma, design system, recherche utilisateur.");
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
 
     await expect(page.getByText("Analyse de l'offre indisponible pour le moment.")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Code d'accès requis/)).toBeVisible();
@@ -259,14 +259,14 @@ test.describe('Edge cases : données CV incomplètes', () => {
       ...MOCK_CV,
       personal_info: { ...MOCK_CV.personal_info, summary: undefined },
     });
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
   });
 
   test('CV sans expériences ne plante pas le panel ATS', async ({ page }) => {
     await setupGuestEditor(page, { ...MOCK_CV, experience: [] });
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(atsScore(page)).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText(/une erreur est survenue/i)).not.toBeVisible();
   });
@@ -274,7 +274,7 @@ test.describe('Edge cases : données CV incomplètes', () => {
   // A ranking by an ATS is always relative to a position: no offer, no score
   test('pas de JD : pas de score, une invitation et la checklist de lisibilité', async ({ page }) => {
     await setupGuestEditor(page, MOCK_CV, '');
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(page.getByText("Ajoutez une offre pour comparer ses exigences à votre CV.")).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText('Lisibilité par les ATS')).toBeVisible();
     await expect(page.getByText('Score ATS')).toHaveCount(0);
@@ -290,7 +290,7 @@ test.describe('ATS Panel : actions sur un écart', () => {
 
   const open = async (page: Page) => {
     await seedGuestSession(page, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION, requirementLabels: LABELS });
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
   };
   const preview = (page: Page) => page.locator('.cv-page');
 
@@ -367,7 +367,7 @@ test.describe('ATS Panel : actions sur un écart', () => {
   test("une exigence écartée que l'offre affichée ne demande pas reste listée, « Remettre » la rend", async ({ page }) => {
     const sketch = { id: 'sketch-pro', label: 'Sketch', variants: [], kind: 'tool' };
     await seedGuestSession(page, { cv: { ...MOCK_CV, dismissedRequirements: [sketch] }, jd: MOCK_JOB_DESCRIPTION, requirementLabels: LABELS });
-    await page.getByRole('tab', { name: 'À corriger' }).click();
+    await page.getByRole('tab', { name: 'ATS', exact: true }).click();
     await expect(page.getByText('Écartées (1)')).toBeVisible({ timeout: 8_000 });
     await expect.poll(async () => (await preview(page).allInnerTexts()).join(' ')).not.toContain('Sketch');
 
@@ -483,4 +483,42 @@ test.describe('Langue : un choix pour les deux langues', () => {
     await page.getByRole('button', { name: 'English', exact: true }).click();
     await expect(page.locator('[data-cv-section="summary"]').first()).toContainText('My own summary, written by hand.');
   });
+});
+
+for (const width of [375, 768, 1440]) test(`le score ATS reste visible et ouvre son bilan à ${width}px`, async ({ page }) => {
+  const calls = watchAICalls(page); await page.setViewportSize({ width, height: 900 }); await setupGuestEditor(page);
+  const header = page.getByRole('banner', { name: 'Barre de l’éditeur' });
+  const score = header.getByRole('button', { name: /^Score ATS :/ });
+  await expect(score).toContainText(/ATS \d+ %/);
+  const box = await score.boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+  await header.getByRole('button', { name: 'Fermer le panneau latéral', exact: true }).click();
+  await score.click(); await expect(page.getByRole('tab', { name: 'ATS', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tabpanel')).toContainText('Couverture de l’offre'.replace('’', "'"));
+  expectNoAICalls(calls);
+});
+
+test('une adaptation finalisée ouvre le CV prêt à éditer, le bilan ATS reste facultatif', async ({ page }) => {
+  const calls = watchAICalls(page); const requirements = requirementsOf(['Figma']);
+  const generation = { id: 'complete-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: MOCK_JOB_DESCRIPTION.replace(/\s+/g, ' ').trim(), requirements, sourceRequirementIds: ['figma'], addedRequirementIds: [], initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 1, skillsTotal: 1, qualificationGapIds: [] } };
+  await seedGuestSession(page, { cv: { ...MOCK_CV, generation }, jd: MOCK_JOB_DESCRIPTION, requirements });
+  await expect(page.getByRole('tab', { name: 'Contenu', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: /^Score ATS : 100/ }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('Exigences de contenu traitées avant livraison : 1/1');
+  expectNoAICalls(calls);
+});
+
+test('retirer un objectif de transfert préserve les autres et reste annulable', async ({ page }) => {
+  const calls = watchAICalls(page), requirements = requirementsOf(['Jira', 'Trello']);
+  const jd = 'Nous recherchons un designer produit connaissant Jira et Trello pour le pilotage des missions.';
+  const summary = MOCK_CV.personal_info.summary + '\n\nObjectifs de transfert vers ce poste: Jira, Trello.';
+  const generation = { id: 'objective-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: jd, requirements, sourceRequirementIds: [], addedRequirementIds: [], objectiveRequirementIds: requirements.map(r => r.id), initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 2, skillsTotal: 2, qualificationGapIds: [] } };
+  await seedGuestSession(page, { cv: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, summary }, generation }, jd, requirements });
+  await page.getByRole('button', { name: /^Score ATS : 100/ }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('objectifs de transfert vers le poste, sans maîtrise revendiquée');
+  await page.getByText('Exigences couvertes (2)', { exact: true }).click();
+  await page.getByRole('button', { name: "Jira : je ne l'ai pas, retirer du CV", exact: true }).click();
+  await expect(page.locator('[data-cv-section="summary"]')).toContainText('Trello');
+  await expect(page.locator('[data-cv-section="summary"]')).not.toContainText('Jira');
+  await page.getByRole('button', { name: 'Jira : remettre', exact: true }).click();
+  await expect(page.locator('[data-cv-section="summary"]')).toContainText('Jira'); expectNoAICalls(calls);
 });

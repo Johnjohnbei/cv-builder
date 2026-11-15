@@ -122,13 +122,15 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     const step = exhausted ? null : condenseOneStep(
       measured.experience, requirementsRef.current, getCVLanguage(cvData),
       writtenOutsideExperience(measured, requirementsRef.current, designSettings),
+      cvData.generation?.scopedYears,
+      cvData.generation?.relatedExperience?.filter(e => requirementsRef.current.some(r => r.id === e.requirementId && r.importance === 'required')).map(e => e.experienceIndex),
     );
     // Only the display modes come back: the printed experiences line up with the user's, by place
     const next = step && cvData.experience.map((exp, i) => (step[i].displayMode === exp.displayMode ? exp : { ...exp, displayMode: step[i].displayMode }));
     if (!next) {
       setIsFitting(false);
       notify({
-        message: `CV sur ${stablePageCount} pages : plus rien à condenser sans supprimer du contenu.`,
+        message: `CV sur ${stablePageCount} pages : réduire davantage retirerait des exigences ou du contenu. Augmentez l’objectif de pages si nécessaire.`,
         type: 'error',
       });
       return;

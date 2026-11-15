@@ -121,3 +121,14 @@ describe('withoutDismissed: the CV as it prints', () => {
     expect(withoutDismissed(odd).experience[0].description).toEqual(ACME.description);
   });
 });
+
+it('removes only the selected transfer objective, preserving the other goals and the original draft', () => {
+  const candidate: CVData = { ...CV, personal_info: { ...CV.personal_info, summary: 'Profil professionnel.\n\nObjectifs de transfert vers ce poste: Node.js, Figma.' }, generation: {
+    id: 'goals', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 1,
+    offer: 'Compétences recherchées : Node.js et Figma', requirements: [NODE, FIGMA], sourceRequirementIds: [], addedRequirementIds: [], objectiveRequirementIds: [NODE.id, FIGMA.id], initialScore: 100, extractionAtLimit: false,
+  } };
+  const printed = withoutDismissed(withDismissed(candidate, NODE));
+  expect(printed.personal_info.summary).toContain('Objectifs de transfert vers ce poste: Figma');
+  expect(printed.personal_info.summary).not.toContain('Node.js');
+  expect(candidate.personal_info.summary).toContain('Node.js, Figma');
+});

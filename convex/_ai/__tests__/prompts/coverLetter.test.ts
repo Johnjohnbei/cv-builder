@@ -211,3 +211,8 @@ describe('versioned Humanizer writing, in each output language', () => {
     expect(() => validateLetter({ subject: 'Design', greeting: 'Bonjour', body: 'J’ai travaillé chez InventedCorp.', closing: 'Merci' }, ctx)).toThrow();
   });
 });
+
+it.each(['fr', 'en'] as const)('keeps transfer objectives prospective in a %s letter', language => {
+  const prompt = buildCoverLetterPrompt({ cvData: SAMPLE_CV, jobDescription: 'Designer', language });
+  expect(prompt).toContain(language === 'fr' ? 'intentions, jamais des compétences acquises' : 'intentions, never acquired expertise');
+});

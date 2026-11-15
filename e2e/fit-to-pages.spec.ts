@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { MOCK_CV } from './fixtures/mock-cv';
 import { LONG_CV, LONG_CV_JOB_DESCRIPTION, VERY_LONG_CV } from './fixtures/long-cv';
 import { seedGuestSession, watchAICalls, expectNoAICalls, requirementsOf, MOCK_REQUIREMENT_LABELS, REQUIREMENTS_CACHE_KEY } from './fixtures/hermetic';
 
@@ -110,7 +111,7 @@ test.describe('Tri auto sur N pages', () => {
       sessionStorage.setItem('guest_access', 'true');
       localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
       localStorage.setItem('guest_last_jd', jd);
-      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements, version: '2026-11-15.1', analyzedAt: Date.now() }]));
+      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements, version: '2026-11-15.2', analyzedAt: Date.now() }]));
     }, { cv: VERY_LONG_CV, jd: LONG_CV_JOB_DESCRIPTION, key: REQUIREMENTS_CACHE_KEY, requirements: requirementsOf(MOCK_REQUIREMENT_LABELS) });
     await page.goto('/editor');
     // Leave in the middle of the fit: it takes a few seconds on 20 roles
@@ -411,4 +412,19 @@ test.describe('Lien portfolio', () => {
     await page.getByRole('button', { name: /Anonyme/i }).click();
     await expect(header.locator('a').first()).toHaveAttribute('href', 'https://example.com/cv/ab12-en');
   });
+});
+
+test('les présentations changent la structure sans modifier le contenu et sont conservées', async ({ page }) => {
+  const calls = watchAICalls(page); await seedGuestSession(page, { cv: MOCK_CV });
+  await page.getByRole('tab', { name: 'Mise en page', exact: true }).click();
+  await page.getByRole('button', { name: /Classique Georgia/ }).click();
+  await expect(page.locator('[data-cv-section="header"]').first()).toHaveAttribute('data-presentation', 'classic');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') || '{}').design?.presentation)).toBe('classic');
+  await page.reload(); await page.getByRole('tab', { name: 'Mise en page', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Classique Georgia/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: /Épuré Sans frise/ }).click();
+  await expect(page.locator('[data-cv-section="header"]').first()).toHaveAttribute('data-presentation', 'plain');
+  const current = await page.evaluate(() => JSON.parse(localStorage.getItem('guest_last_optimized') || '{}'));
+  expect(current.experience[0].description).toEqual(MOCK_CV.experience[0].description);
+  expectNoAICalls(calls);
 });

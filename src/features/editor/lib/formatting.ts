@@ -162,3 +162,18 @@ export function proficiencyLevel(text: string): typeof CEFR_LEVELS[number] | und
   if (/\b(native|natif|bilingue|bilingual)\b/i.test(text)) return 'C2';
   return undefined;
 }
+
+/** Compare the declared wording directly, without assigning "fluent" a CEFR level. */
+export function declaresRequestedFluency(declared: string, requested: string): boolean {
+  const rank = (text: string): number | undefined => {
+    if (/\b(native|natif|bilingue|bilingual)\b/i.test(text)) return 3;
+    if (/\b(fluent|courant|C1|C2)\b/i.test(text)) return 2;
+    if (/\b(professional|professionnel|professionnelle)\b/i.test(text)) return 1;
+    return undefined;
+  };
+  // CEFR C1/C2 explicitly describe fluent professional use (Council of Europe).
+  // A named exam, score or certificate still needs its own evidence.
+  if (/TOEIC|IELTS|TOEFL|certifi|\b\d{3,}\b/i.test(requested)) return false;
+  const required = rank(requested), actual = rank(normalizeProficiency(declared, 'en'));
+  return required !== undefined && actual !== undefined && actual >= required;
+}

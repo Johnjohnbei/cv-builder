@@ -339,6 +339,7 @@ export default function DashboardPage() {
                   hasBaseCV={Boolean(baseCV)}
                   onOptimize={handleOptimize}
                   busyLabel={busyLabel}
+                  generationAssessment={tailoring.assessment}
                   offerLocked={isGenerating}
                   estimateSeconds={estimateSeconds}
                   language={cvLanguage}

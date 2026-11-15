@@ -36,7 +36,7 @@ export const MOCK_REQUIREMENT_LABELS = [
 ];
 
 /** Requirements as extractJobRequirements returns them, one per label */
-export function requirementsOf(labels: string[]) {
+export function requirementsOf(labels: string[]): JobRequirement[] {
   return labels.map(label => ({
     id: label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-'), label, variants: [], kind: 'hard_skill', importance: 'required', quote: label,
   }));

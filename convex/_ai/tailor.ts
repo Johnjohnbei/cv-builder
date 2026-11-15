@@ -5,10 +5,10 @@ import type { ActionCtx } from '../_generated/server';
 import { internal } from '../_generated/api';
 
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
-import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely, scopeEvidenceFor } from "../../src/features/editor/lib/keyword-analysis";
+import { completeSkillCoverage, computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely, scopeEvidenceFor, withoutTransferObjectives, writesRequirement } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
-import { categorizeSkills } from "../../src/features/editor/lib/skill-dictionary";
-import { prepareText, type PreparedText } from "../../src/shared/lib/text";
+import { appendSkill } from "../../src/features/editor/lib/skill-dictionary";
+import { matchPhrase, prepareText, type PreparedText } from "../../src/shared/lib/text";
 import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
@@ -28,8 +28,8 @@ import { AI_MODELS } from './providers';
 // (truthGuard.ts), the same measure as the editor's ATS score, then at most two
 // short repairs. Extracted from ai.ts, which was over its size limit.
 // Since 2026-10-07 (arbitrage of the user) the CV is written in one go, no
-// question asked: every method, tool or skill of the offer is written even when
-// the source does not prove it. A degree, a language, years, a position and any
+// question asked. Since 2026-11-15, unproven skills are explicit transfer
+// objectives, never claimed as mastery or past use at an employer. A degree, a language, years, a position and any
 // number stay the source's. The profile title is the offer's (arbitrage of
 // 2026-10-21): it names the role applied for.
 
@@ -112,6 +112,7 @@ interface Generation {
   cv: CVData;
   /** Requirement id to the quote of the source CV the model gave as its proof */
   evidence: Map<string, string>;
+  relatedExperience: NonNullable<CVData['generation']>['relatedExperience'];
 }
 
 /**
@@ -129,6 +130,18 @@ function readGeneration(raw: unknown, source: CVData, requirements: JobRequireme
     // The source's places: a model reading the offer would move the candidate to its city
     cv: withSourceContacts(cv, source),
     evidence: readQuotes(parsed.data.evidence, requirements),
+    relatedExperience: parsed.data.evidence.flatMap(entry => {
+      const e = (entry ?? {}) as Record<string, unknown>;
+      const index = e.experienceIndex;
+      if (typeof e.id !== 'string' || !requirements.some(r => r.id === e.id)
+        || typeof index !== 'number' || !Number.isInteger(index) || !source.experience[index]
+        || typeof e.quote !== 'string' || typeof e.adaptedQuote !== 'string'
+        || e.quote.trim().split(/\s+/).length < 4 || e.adaptedQuote.trim().split(/\s+/).length < 4
+        || e.quote.length > 1200 || e.adaptedQuote.length > 1200) return [];
+      const field = (exp: CVData['experience'][number]) => prepareText([exp.intro, ...exp.description].join(' | '));
+      if (!matchPhrase(e.quote, field(source.experience[index])) || !matchPhrase(e.adaptedQuote, field(cv.experience[index]))) return [];
+      return [{ requirementId: e.id, experienceIndex: index, sourceQuote: e.quote, adaptedQuote: e.adaptedQuote }];
+    }).slice(0, ATS_POLICY.maxRequirements),
   };
 }
 
@@ -151,25 +164,12 @@ function sourceNumbersOf(source: CVData, contents: string[]): Set<string> {
   return new Set([...contents.flatMap(numbersOf), ...dateYears, String(Math.floor(years)), String(Math.round(years))]);
 }
 
-/** The category a skill belongs to, so a repair does not pile every keyword into the first one */
-function skillCategoryOf(cv: CVData, skill: string): number {
-  const [categorized] = categorizeSkills([skill]);
-  const at = cv.skills.findIndex(cat => cat.category === categorized?.category);
-  return at >= 0 ? at : 0;
-}
-
 /** The repair's edits applied where they point; an edit pointing nowhere is ignored */
 function applyRepair(cv: CVData, edits: RepairEdit[]): CVData {
   return edits.reduce<CVData>((next, edit) => {
     if (edit.target === "summary") return { ...next, personal_info: { ...next.personal_info, summary: edit.text } };
     if (edit.target === "skills") {
-      const known = next.skills.some(cat => cat.items.some(item => item.toLowerCase() === edit.text.toLowerCase()));
-      if (known) return next;
-      if (next.skills.length === 0) return { ...next, skills: [{ category: "other", items: [edit.text] }] };
-      // In its own category: every repaired keyword used to land in skills[0],
-      // whatever it was, which printed tools under "Méthodes"
-      const at = skillCategoryOf(next, edit.text);
-      return { ...next, skills: next.skills.map((cat, i) => (i === at ? { ...cat, items: [...cat.items, edit.text] } : cat)) };
+      return { ...next, skills: appendSkill(next.skills, edit.text) };
     }
     const expIndex = edit.expIndex ?? -1;
     const exp = next.experience[expIndex];
@@ -264,13 +264,16 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const requirements = await requirementsFor(jobDescription, input.requirements, startedAt, input.extractionVersion);
   const scopedYears = scopeEvidenceFor(source);
   const sourceLanguage = sourceLanguageOf(source, input);
-  const fields = preparedFields(source, sourceLanguage);
+  const fields = preparedFields({ ...source, personal_info: { ...source.personal_info, summary: withoutTransferObjectives(source.personal_info.summary) } }, sourceLanguage);
 
   const language = input.language ?? resolveAdaptLanguage(jobDescription, languageOverride, detectedLanguage);
   const prompt = buildAdaptPrompt({ cvData: source, jobDescription, requirements, pageLimit, language });
   const generation = await chatJSONThen(prompt, (raw) => readGeneration(raw, source, requirements), "default", deadlineAt);
   const byCV = provenIds(requirements, fields, generation.evidence);
-  // Written whatever the source says: the user's choice of 2026-10-07
+  for (const r of requirements.filter(r => r.kind === 'certification')) {
+    if (!computeATSReport(source, [r], { view: 'content' }).requirements[0]?.found) byCV.delete(r.id);
+  }
+  // Unsupported terms remain prospective: the user's choice of 2026-11-15
   const free = requirements.filter(r => isWrittenFreely(r) && !byCV.has(r.id));
   const titles = requirements.filter(r => r.kind === "title");
   // The header prints the offer's title (arbitrage of 2026-10-21), so the
@@ -286,6 +289,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     ...guardContext(source, requirements, new Set([...byCV, ...free.map(r => r.id)]), fields, sourceLanguage === language, unprovenKinds),
     free: {
       requirements: free,
+      objectivesOnly: true,
       // The source's own words, and nothing else: with the requirement labels
       // in here, a tool the offer asks for ("Salesforce") stood as a past
       // client of the candidate. The guard allows, text by text, the wordings
@@ -305,7 +309,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   let repairs = 0;
   for (let repair = 0; repair < MAX_REPAIRS && Date.now() - startedAt < REPAIR_CUTOFF_MS; repair++) {
     const missing = best.report.requirements
-      .filter(c => !c.found && isWritable(c.requirement) && (free.some(r => r.id === c.requirement.id) || byCV.has(c.requirement.id)))
+      .filter(c => !c.found && isWritable(c.requirement) && byCV.has(c.requirement.id))
       .map(c => ({
         label: c.requirement.label,
         variants: c.requirement.variants,
@@ -317,7 +321,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     try {
       edits = await repairEdits({ cv: best.cv, missing, language }, deadlineAt);
     } catch (e) {
-      console.warn("[tailorCV] repair failed, the version measured is returned:", e);
+      console.warn("[tailorCV] repair failed; named skills will be finalized before delivery:", e);
       break;
     }
     const candidate = measure(applyRepair(best.cv, edits));
@@ -329,9 +333,20 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
     best = candidate;
     repairs += 1;
   }
+  // A failed rewrite is never silently handed to the user as a correction task.
+  // Named skills have their own section; no invented history, client or metric is needed.
+  const unwritten = (cv: CVData) => {
+    const fields = preparedFields(cv, language);
+    return requirements.filter(r => isWrittenFreely(r) && !writesRequirement(fields, r));
+  };
+  const finalizedSkills = unwritten(best.cv).length;
+  const finalized = completeSkillCoverage(best.cv, requirements, { language, offerLanguage: offerLanguageOf(jobDescription), objectiveIds: free.map(r => r.id) });
+  best = { cv: finalized, report: computeATSReport(finalized, requirements, { view: 'content', scopedYears }) };
+  if (unwritten(best.cv).length) throw userError(
+    "L’adaptation n’a pas pu intégrer toutes les compétences de l’offre. Votre CV source est conservé. Réessayez.", 'TAILOR_INCOMPLETE');
   // One line per tailoring: a low score is explained by the logs, never guessed
   console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} free=${free.length} `
-    + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} `
+    + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} finalizedSkills=${finalizedSkills} `
     + `summary=${best.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
   const cv: CVData = {
     ...best.cv,
@@ -341,9 +356,16 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
       model: AI_MODELS.default, durationMs: Date.now() - startedAt,
       offer: jobDescription.replace(/\s+/g, ' ').trim(), requirements,
       sourceRequirementIds: [...byCV],
-      addedRequirementIds: free.filter(r => best.report.requirements.some(c => c.requirement.id === r.id && c.found)).map(r => r.id),
+      addedRequirementIds: [],
+      objectiveRequirementIds: free.map(r => r.id),
       initialScore: best.report.score, extractionAtLimit: requirements.length >= ATS_POLICY.maxRequirements,
       scopedYears,
+      relatedExperience: generation.relatedExperience?.filter(e => matchPhrase(e.adaptedQuote, prepareText([best.cv.experience[e.experienceIndex].intro, ...best.cv.experience[e.experienceIndex].description].join(' | ')))),
+      completion: {
+        skillsCovered: requirements.filter(isWrittenFreely).length,
+        skillsTotal: requirements.filter(isWrittenFreely).length,
+        qualificationGapIds: best.report.requirements.filter(c => !c.found && !isWrittenFreely(c.requirement)).map(c => c.requirement.id),
+      },
     },
   };
   return { cv, requirements, report: best.report, language };

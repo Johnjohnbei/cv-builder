@@ -123,6 +123,8 @@ export interface DesignSettings {
   primaryColor: string;
   secondaryColor: string;
   fontFamily: 'sans' | 'serif' | 'mono' | 'playfair' | 'outfit';
+  /** Single-column presentations share the same semantic blocks and PDF checks. */
+  presentation?: 'timeline' | 'classic' | 'plain';
   /**
    * Target page count. Pagination never truncates — this is the budget the
    * fit-to-pages pass condenses towards, and the length the AI rewrite is
@@ -190,9 +192,13 @@ export interface GenerationRecord {
   requirements: JobRequirement[];
   sourceRequirementIds: string[];
   addedRequirementIds: string[];
+  objectiveRequirementIds?: string[];
   initialScore: number | null;
   extractionAtLimit: boolean;
   scopedYears?: ScopedYearEvidence[];
+  /** Final writing gate, separate from qualifications a rewrite cannot create. */
+  completion?: { skillsCovered: number; skillsTotal: number; qualificationGapIds: string[] };
+  relatedExperience?: { requirementId: string; experienceIndex: number; sourceQuote: string; adaptedQuote: string }[];
 }
 
 export interface ScopedYearEvidence {

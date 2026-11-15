@@ -17,10 +17,10 @@
 // what the score is good at; absolute calibration is what the page budget is
 // for.
 
-import type { CVData, DesignSettings, Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
+import type { CVData, DesignSettings, Experience, ExperienceDisplayMode, JobRequirement, ScopedYearEvidence } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { prepareText } from '@/src/shared/lib/text';
-import { cvSections, experienceText, isProvable, writesRequirement } from './keyword-analysis';
+import { cvSections, experienceText, isProvable, writesRequirement, yearsForRequirement } from './keyword-analysis';
 import { scoreExperience } from './scoring';
 
 /** Display modes ordered from richest to leanest. Condensing walks it forward. */
@@ -103,12 +103,17 @@ function stageWaves(experiences: Experience[], scored: Candidate[]): Candidate[]
  * requirement. Only what the score counts from an experience: a title is read
  * in the positions, a degree in the education, and neither moves with a rung.
  */
-function lastMentionCheck(experiences: Experience[], requirements: JobRequirement[], language: SupportedLanguage, writtenElsewhere: Set<string>) {
+function lastMentionCheck(experiences: Experience[], requirements: JobRequirement[], language: SupportedLanguage, writtenElsewhere: Set<string>, scopedYears?: ScopedYearEvidence[]) {
   const required = requirements.filter(r =>
     r.importance === 'required' && isProvable(r) && !writtenElsewhere.has(r.id));
   const written = experiences.map(exp => writtenBy(exp, required, language));
   const mentions = new Map(required.map(r => [r.id, written.filter(ids => ids.has(r.id)).length]));
+  const years = requirements.filter(r => r.kind === 'experience_years' && r.importance === 'required');
+  const visible = experiences.filter(exp => exp.displayMode !== 'hidden');
   return (c: Candidate) => {
+    if (LADDER[c.current + 1] === 'hidden' && years.some(r =>
+      yearsForRequirement(visible, r, { language, scopedYears }) >= (r.minYears ?? Infinity)
+      && yearsForRequirement(visible.filter(exp => exp !== experiences[c.index]), r, { language, scopedYears }) < (r.minYears ?? Infinity))) return true;
     const next = writtenBy({ ...experiences[c.index], displayMode: LADDER[c.current + 1] }, required, language);
     return [...written[c.index]].some(id => !next.has(id) && mentions.get(id) === 1);
   };
@@ -125,8 +130,8 @@ function lastMentionCheck(experiences: Experience[], requirements: JobRequiremen
  * One rule outranks the stages: a required requirement does not leave the CV
  * while another experience can come down instead.
  *
- * Returns null when every experience is hidden — the caller stops and reports
- * the real page count rather than looping.
+ * Returns null when no move preserves required coverage; the caller reports
+ * the real page count rather than deleting required evidence.
  */
 export function condenseOneStep(
   experiences: Experience[],
@@ -134,19 +139,22 @@ export function condenseOneStep(
   language: SupportedLanguage = 'fr',
   /** Requirements the rest of the CV writes: condensing an experience cannot take them away */
   writtenElsewhere: Set<string> = new Set(),
+  scopedYears?: ScopedYearEvidence[],
+  protectedExperiences: readonly number[] = [],
 ): Experience[] | null {
   const scored = experiences.map((exp, index) => ({
     index, current: rung(exp.displayMode), score: scoreExperience(exp, requirements, language),
   }));
   const waves = stageWaves(experiences, scored);
-  const dropsTheLastMention = lastMentionCheck(experiences, requirements, language, writtenElsewhere);
+  const dropsTheLastMention = lastMentionCheck(experiences, requirements, language, writtenElsewhere, scopedYears);
   const lowest = (candidates: Candidate[]) => candidates.reduce((best, c) => {
     if (c.score !== best.score) return c.score < best.score ? c : best;
     return c.index > best.index ? c : best;
   });
-  const sparing = waves.map(wave => wave.filter(c => !dropsTheLastMention(c))).find(wave => wave.length > 0);
+  const sparing = waves.map(wave => wave.filter(c => !dropsTheLastMention(c)
+    && !(protectedExperiences.includes(c.index) && LADDER.indexOf('normal') <= c.current))).find(wave => wave.length > 0);
   // Every candidate carries one: the CV cannot fit without losing a requirement
-  const candidates = sparing ?? waves.find(wave => wave.length > 0);
+  const candidates = sparing;
   if (!candidates) return null;
 
   const victim = lowest(candidates);

@@ -89,6 +89,9 @@ ${Object.entries(KIND_GUIDE).map(([kind, guide]) => `- ${kind} : ${guide}`).join
 
 RÈGLES :
 - Toutes les exigences explicites, sans quota minimal, au maximum ${ATS_POLICY.maxRequirements}. Les requises d'abord. Sépare les compétences composées : chacune doit être vérifiable indépendamment.
+- Vérifie chaque phrase de la partie profil, puis les responsabilités : aucun intitulé, diplôme ou compétence explicite ne doit être oublié. Une alternative (architecture OU ingénierie) reste une seule exigence, avec ses variantes acceptées.
+- Une connaissance d’une norme (EN 50600, ISO) est une compétence hard_skill. Réserve certification à la possession explicite d’un certificat. La localisation du poste et les déplacements sont des conditions screening, sauf si une résidence précise du candidat est explicitement exigée.
+- Pour les années spécialisées, conserve le secteur précis dans experienceScope : « design for data centre » n’est pas « design » en général. Ne remplace jamais une spécialisation par son terme générique. Sépare aussi un second minimum, par exemple cinq ans de management.
 - Langue : "minLevel" est le niveau CECR explicitement cité (A1, A2, B1, B2, C1, C2), sinon omets-le. Si un niveau est demandé sans équivalence explicite (courant, professionnel, TOEIC), needsVerification=true.
 - Années : "experienceScope" contient le métier ou la discipline demandée et ses traductions FR/EN (exemple : ["UX", "expérience utilisateur"]). Omet ce champ UNIQUEMENT pour des années d'expérience générale. Ne compte jamais toute une carrière pour une demande spécialisée.
 - Diplôme ou certification : needsVerification=true si l'offre exige une équivalence, une spécialité précise, une validité en cours ou un niveau minimal qui ne peut pas être vérifié par le seul libellé.

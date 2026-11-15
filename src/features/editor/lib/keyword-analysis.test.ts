@@ -284,7 +284,7 @@ describe('computeATSReport', () => {
   it('reads a language name in the language of the CV', () => {
     const english = cv({ detectedLanguage: 'en' });
     expect(found(computeATSReport(english, [req('English', { kind: 'language' })]))).toEqual(['English']);
-    expect(cvSections(english, 'rendered').languages).toEqual(['English']);
+    expect(cvSections(english, 'rendered').languages).toEqual(['English', 'C1']);
   });
 
   it('reads a degree in education and a language in languages only', () => {
@@ -423,4 +423,42 @@ describe('the weight of the exported PDF', () => {
   it('ignores a photo the CV does not print', () => {
     expect(withPhoto(`data:image/jpeg;base64,${'A'.repeat(3_000_000)}`, false)).toBe(true);
   });
+});
+
+describe('declared fluency is read before asking the user to confirm it again', () => {
+  const fluent = req('English', { kind: 'language', variants: ['Anglais'], quote: 'Fluent in French and English', needsVerification: true });
+  for (const proficiency of ['Courant (C1)', 'Native / Bilingual', 'Full professional proficiency']) it(`recognizes ${proficiency} in FR and EN`, () => {
+    for (const detectedLanguage of ['fr', 'en'] as const) {
+      const report = computeATSReport(cv({ detectedLanguage, languages: [{ name: 'Anglais', proficiency }] }), [fluent]);
+      expect(report.score).toBe(100); expect(report.requirements[0].status).toBe('covered');
+    }
+  });
+  it('does not turn A2 or an unspecified proficiency into fluency', () => {
+    for (const proficiency of ['A2', 'Non précisé']) expect(computeATSReport(cv({ languages: [{ name: 'English', proficiency }] }), [fluent]).score).toBe(0);
+  });
+});
+
+it('reads language aliases without relying on AI-supplied variants and respects all declared thresholds', () => {
+  const french = req('French', { kind: 'language', variants: [], quote: 'Native French', needsVerification: true });
+  const english = req('English', { kind: 'language', variants: [], quote: 'Professional English', needsVerification: true });
+  const candidate = cv({ languages: [{ name: 'Français', proficiency: 'Natif / Bilingue' }, { name: 'Anglais', proficiency: 'C1' }] });
+  expect(computeATSReport(candidate, [french, english]).score).toBe(100);
+  expect(computeATSReport({ ...candidate, languages: [{ name: 'Français', proficiency: 'C2' }] }, [french]).score).toBe(0);
+  const exam = { ...english, quote: 'TOEIC 900 required' };
+  expect(computeATSReport(candidate, [exam]).score).toBe(0);
+  expect(computeATSReport(candidate, [english], { design: { includedSections: ['experience'] } }).score).toBe(0);
+});
+
+it('distinguishes experience with a named method from holding its certificate', () => {
+  const pmp = req('PMP', { kind: 'certification', quote: 'PMP certification required' });
+  expect(computeATSReport(cv({ skills: [{ category: 'Methods', items: ['PMP'] }] }), [pmp]).score).toBe(0);
+  expect(computeATSReport(cv({ skills: [{ category: 'Certifications', items: ['Certified PMP'] }] }), [pmp]).score).toBe(100);
+  expect(computeATSReport(cv({ skills: [{ category: 'Methods', items: ['Not certified PMP'] }] }), [pmp]).score).toBe(0);
+  expect(computeATSReport(cv({ education: [{ school: 'Institute', degree: 'PMP', start_date: '2020' }] }), [pmp]).score).toBe(100);
+});
+
+it('does not count a certification listed only as a transfer objective as a credential', () => {
+  const pmp = req('PMP', { kind: 'certification', quote: 'PMP certification required' });
+  const candidate = cv({ personal_info: { ...cv().personal_info, summary: 'Product designer.\n\nTransfer objectives for this role: PMP certification.' }, skills: [] });
+  expect(computeATSReport(candidate, [pmp]).score).toBe(0);
 });

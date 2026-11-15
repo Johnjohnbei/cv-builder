@@ -5,6 +5,7 @@
 
 import type { SkillCategory } from '@/src/shared/types';
 import { normalizeForMatch } from '@/src/shared/lib/text';
+import { getSkillCategoryTitle } from './ats-rules';
 
 export type SkillCategoryKey = 'technical' | 'tools' | 'methodologies' | 'soft_skills' | 'other';
 
@@ -146,4 +147,14 @@ export function categorizeSkills(skills: string[]): SkillCategory[] {
   return SKILL_CATEGORY_ORDER
     .filter(key => groups[key].length > 0)
     .map(key => ({ category: key, items: groups[key] }));
+}
+
+/** Insert a named skill once, retaining the existing categories and visibility. */
+export function appendSkill(skills: SkillCategory[], text: string): SkillCategory[] {
+  if (skills.some(cat => cat.items.some(item => normalizeForMatch(item) === normalizeForMatch(text)))) return skills;
+  const category = (categorizeSkills([text])[0]?.category ?? 'other') as SkillCategoryKey;
+  const names = [category, getSkillCategoryTitle(category, 'fr'), getSkillCategoryTitle(category, 'en')].map(normalizeForMatch);
+  const at = skills.findIndex(cat => names.includes(normalizeForMatch(cat.category)));
+  if (at < 0) return [...skills, { category, items: [text], displayMode: 'normal' }];
+  return skills.map((cat, i) => i === at ? { ...cat, displayMode: 'normal', items: [...cat.items, text] } : cat);
 }

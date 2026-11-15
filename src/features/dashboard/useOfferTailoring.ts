@@ -7,6 +7,7 @@ import { attachBilingualCache } from '@/src/lib/bilingual';
 import { offerTitleOf, withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
 import { ATS_POLICY } from '@/src/features/editor/lib/ats-rules';
+import { computeATSReport, isWrittenFreely, scopeEvidenceFor } from '@/src/features/editor/lib/keyword-analysis';
 
 interface Deps {
   baseCV: CVData | null;
@@ -32,6 +33,7 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
   const tailorCV = useAction(api.ai.tailorCV);
   const translateCV = useAction(api.ai.translateCV);
   const [phase, setPhase] = useState<'idle' | 'analyzing' | 'generating'>('idle');
+  const [assessment, setAssessment] = useState<string | null>(null);
   /**
    * The run each answer belongs to. A run left behind (the offer changed, the
    * page closed) must not store its CV or open the editor: its paid answer is
@@ -56,7 +58,7 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
     return () => window.removeEventListener('beforeunload', warn);
   }, [phase]);
 
-  const reset = () => { runRef.current += 1; setPhase('idle'); };
+  const reset = () => { runRef.current += 1; setPhase('idle'); setAssessment(null); };
 
   const start = async () => {
     if (!baseCV || !offer) return;
@@ -70,6 +72,11 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
       const known = await requestRequirements(offer, accessCode, args => extractAction(args));
       if (!current()) return;
       analyzed = true;
+      const sourceReport = computeATSReport(baseCV, known, { view: 'content', scopedYears: scopeEvidenceFor(baseCV) });
+      const qualifications = sourceReport.requirements.filter(c => !c.found && !isWrittenFreely(c.requirement) && !['title', 'screening'].includes(c.requirement.kind));
+      setAssessment(qualifications.length
+        ? `${qualifications.length} qualification(s) non établie(s) par le CV source : ${qualifications.slice(0, 3).map(c => c.requirement.label).join(', ')}. Les pratiques connexes seront mises en valeur quand elles existent, sans inventer ces qualifications.`
+        : 'Analyse du CV source terminée. Adaptation des compétences et contrôle des niveaux de langue en cours.');
       setPhase('generating');
       const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, extractionVersion: ATS_POLICY.extractionVersion, language, accessCode });
       if (!current()) return;
@@ -94,5 +101,5 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
     }
   };
 
-  return { phase, start, reset };
+  return { phase, assessment, start, reset };
 }

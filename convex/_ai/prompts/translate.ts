@@ -20,6 +20,8 @@ A) STRUCTURE (JSON keys, array lengths, ordering) → PRESERVE EXACTLY. Same key
 
 B) CONTENT (every human-readable text value) → TRANSLATE EVERY ONE to ${targetLang}. This is the whole point of the task. A "preserved structure" with untranslated content is a FAILURE.
 
+TRANSFER OBJECTIVES ARE NOT ACQUIRED SKILLS: keep the prospective meaning. Never turn a transfer objective into mastery, certification or past use at an employer. Translate its prefix exactly as "${ctx.targetLanguage === 'en' ? 'Transfer objectives for this role' : 'Objectifs de transfert vers ce poste'}:" and keep it on its own paragraph in the profile.
+
 ═══ FIELDS THAT MUST BE TRANSLATED (non-exhaustive checklist) ═══
 
 You MUST translate the following text values to ${targetLang}. If you leave any of these in ${sourceLang}, the output is broken:

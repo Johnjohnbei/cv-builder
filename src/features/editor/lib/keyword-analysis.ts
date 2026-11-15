@@ -11,9 +11,10 @@ import { getCVLanguage, type SupportedLanguage } from '../../../lib/language-det
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './display-modes';
 import { getSkillCategoryTitle } from './ats-rules';
 import type { SkillCategoryKey } from './skill-dictionary';
-import { CEFR_LEVELS, localizeLanguageName, proficiencyLevel } from './formatting';
+import { CEFR_LEVELS, declaresRequestedFluency, LANGUAGE_NAMES, localizeLanguageName, normalizeProficiency, proficiencyLevel } from './formatting';
 import { hasHomogeneousDates, hasReadableDates, yearsOfExperience } from './experience-years';
 import { fitsParserSizeLimit } from '../../../shared/lib/image-resize';
+import { appendSkill } from './skill-dictionary';
 
 // ─── What an ATS reads ───
 
@@ -79,7 +80,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
     }),
     education: cv.education.flatMap(edu => [edu.degree, edu.field, edu.school]),
     // Printed in the CV's language, as the templates print them
-    languages: cv.languages.map(lang => localizeLanguageName(lang.name, language)),
+    languages: cv.languages.flatMap(lang => [localizeLanguageName(lang.name, language), normalizeProficiency(lang.proficiency, language)]),
   };
   const sections = {} as Record<CVSection, string[]>;
   for (const section of Object.keys(raw) as CVSection[]) {
@@ -133,6 +134,35 @@ export function isWrittenFreely(r: Pick<JobRequirement, 'kind'>): boolean {
 export const writesRequirement = (fields: PreparedText[], r: Pick<JobRequirement, 'label' | 'variants'>): boolean =>
   [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field)));
 
+/** A previous transfer objective never becomes evidence of acquired expertise. */
+export function withoutTransferObjectives(summary?: string): string {
+  return (summary ?? '').split('\n').filter(line => !/^(Objectifs de transfert vers ce poste|Transfer objectives for this role)\s*:/i.test(line.trim())).join('\n').trim();
+}
+
+/** Finalize authorized named skills; on translation, preserve only what the current source still writes. */
+export function completeSkillCoverage(cv: CVData, requirements: JobRequirement[], options: {
+  language: SupportedLanguage; offerLanguage?: SupportedLanguage; source?: CVData;
+  objectiveIds?: readonly string[];
+}): CVData {
+  const fields = (data: CVData) => Object.values(cvSections(data, 'content')).flat().map(prepareText);
+  const sourceFields = options.source && fields(options.source);
+  const goals: string[] = [];
+  let completed = requirements.filter(isWrittenFreely).reduce((next, r) => {
+    if (sourceFields && !writesRequirement(sourceFields, r)) return next;
+    const text = options.offerLanguage && options.offerLanguage !== options.language && r.variants.length ? r.variants[0] : r.label;
+    if (options.objectiveIds?.includes(r.id)) { goals.push(text); return next; }
+    if (writesRequirement(fields(next), r)) return next;
+    return { ...next, skills: appendSkill(next.skills, text) };
+  }, cv);
+  if (goals.length) {
+    const summary = withoutTransferObjectives(completed.personal_info.summary);
+    const label = options.language === 'en' ? 'Transfer objectives for this role' : 'Objectifs de transfert vers ce poste';
+    completed = { ...completed, personal_info: { ...completed.personal_info, summary: [summary, `${label}: ${[...new Set(goals)].join(', ')}.`].filter(Boolean).join('\n\n') } };
+  }
+  return !options.source || options.source.skills.every(cat => !cat.displayMode || cat.displayMode === 'normal')
+    ? { ...completed, skills: completed.skills.map(cat => ({ ...cat, displayMode: 'normal' })) } : completed;
+}
+
 /** A confirmation never carries over to a different minimum or condition with the same label. */
 export const requirementConfirmationKey = (r: JobRequirement): string =>
   JSON.stringify([r.id, r.kind, normalizeForMatch(r.quote), r.minLevel ?? '', r.minYears ?? null, r.experienceScope ?? []]);
@@ -143,6 +173,19 @@ export function scopeEvidenceFor(source: CVData): ScopedYearEvidence[] {
     company: exp.company, start_date: exp.start_date, ...(exp.end_date && { end_date: exp.end_date }), current: exp.current,
     sourceText: experienceText(exp, 'content', getCVLanguage(source)).join(' | '),
   }));
+}
+
+/** Shared by the score and page fitting, with source-only evidence for specialized years. */
+export function yearsForRequirement(experiences: Experience[], requirement: JobRequirement, options: {
+  view?: CVTextView; language?: SupportedLanguage; scopedYears?: ScopedYearEvidence[]; now?: Date;
+} = {}): number {
+  const scope = requirement.experienceScope;
+  const relevant = !scope?.length ? experiences : experiences.filter(exp => {
+    const evidence = options.scopedYears?.filter(item => item.company === exp.company && item.start_date === exp.start_date && item.end_date === exp.end_date && item.current === exp.current);
+    const fields = evidence?.length ? evidence.map(item => prepareText(item.sourceText)) : experienceText(exp, options.view ?? 'rendered', options.language).map(prepareText);
+    return writesRequirement(fields, { label: scope[0], variants: scope.slice(1) });
+  });
+  return yearsOfExperience(relevant, options.now);
 }
 
 /** The requirements of the offer the CV does not write */
@@ -178,17 +221,11 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
     let unknown = false;
     let reason: string | undefined;
     let years: number | undefined;
+    let directlyVerified = false;
     switch (requirement.kind) {
       case 'experience_years': {
         const scope = requirement.experienceScope;
-        const relevant = scope?.length
-          ? experiences.filter(exp => {
-            const evidence = (options.scopedYears ?? cv.generation?.scopedYears)?.filter(item => item.company === exp.company && item.start_date === exp.start_date && item.end_date === exp.end_date && item.current === exp.current);
-            if (evidence?.length) return evidence.some(item => writesRequirement([prepareText(item.sourceText)], { label: scope[0], variants: scope.slice(1) }));
-            return writesRequirement(experienceText(exp, view, getCVLanguage(cv)).map(prepareText), { label: scope[0], variants: scope.slice(1) });
-          })
-          : experiences;
-        years = yearsOfExperience(relevant, now);
+        years = yearsForRequirement(experiences, requirement, { view, language: getCVLanguage(cv), scopedYears: options.scopedYears ?? cv.generation?.scopedYears, now });
         found = years >= (requirement.minYears ?? Infinity) ? ['experience'] : [];
         reason = scope?.length ? `Postes dont le CV source mentionne : ${scope[0]}. Durée d'utilisation à confirmer.` : undefined;
         break;
@@ -199,12 +236,31 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       case 'education':
         found = where(['education']);
         break;
+      case 'certification': {
+        // A skill named PMP or AWS is not a credential. Structured degree
+        // records or an explicit certification claim in the same field are.
+        found = isShown('education', design) && cv.education.some(edu => has(prepareText(edu.degree))) ? ['education'] : [];
+        for (const section of ['summary', 'experience', 'skills'] as CVSection[]) {
+          if (sections[section].some(text => {
+            const statement = section === 'summary' ? withoutTransferObjectives(text) : text;
+            const normalized = normalizeForMatch(statement);
+            return has(prepareText(statement)) && /\b(certifi\p{L}*|accredit\p{L}*|credential\p{L}*)\b/u.test(normalized)
+              && !/\b(non|not|sans|without)\s+(?:\w+\s+)?(?:certifi|accredit|credential)/u.test(normalized);
+          })) found.push(section);
+        }
+        break;
+      }
       case 'language': {
-        found = where(['languages']);
+        const matching = isShown('languages', design) ? cv.languages.filter(lang => {
+          const aliases = LANGUAGE_NAMES.find(names => names.some(name => normalizeForMatch(name) === normalizeForMatch(lang.name)));
+          return (aliases ?? [lang.name]).some(name => has(prepareText(name)));
+        }) : [];
+        found = matching.length ? ['languages'] : [];
+        directlyVerified = found.length > 0 && !requirement.minLevel && matching.some(lang => declaresRequestedFluency(lang.proficiency, requirement.quote));
         if (found.length && requirement.minLevel) {
-          const matching = cv.languages.filter(lang => has(prepareText(localizeLanguageName(lang.name, getCVLanguage(cv)))));
           const levels = matching.map(lang => proficiencyLevel(lang.proficiency));
           const enough = levels.some(level => level && CEFR_LEVELS.indexOf(level) >= CEFR_LEVELS.indexOf(requirement.minLevel!));
+          directlyVerified = enough && !/TOEIC|IELTS|TOEFL|certifi/i.test(requirement.quote);
           if (!enough) {
             found = [];
             unknown = levels.some(level => !level);
@@ -225,7 +281,7 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
         found = where(['title', 'summary', 'experience', 'skills', 'education', 'languages']);
     }
     const confirmed = cv.confirmedRequirements?.includes(requirementConfirmationKey(requirement));
-    if (requirement.needsVerification && !confirmed) {
+    if (requirement.needsVerification && !confirmed && !directlyVerified) {
       unknown = true;
       found = [];
       reason ??= 'Le libellé ne suffit pas : confirmez ce critère avec vos justificatifs.';

@@ -20,6 +20,7 @@ interface Props {
   onOptimize: () => void;
   /** What the tailoring is doing, null when it is not running */
   busyLabel: string | null;
+  generationAssessment?: string | null;
   /** The offer is being read or written for: changing it now would mix two offers */
   offerLocked: boolean;
   /** Rough duration of the tailoring, from the CV size */
@@ -44,7 +45,7 @@ const LANGUAGE_SOURCE = {
 export function JobOfferPanel({
   jobUrl, onJobUrlChange, onUrlCrawl, isCrawling, jobDropzone, isExtractingJob,
   jobDescription, onJobDescriptionChange, hasBaseCV, onOptimize, busyLabel, offerLocked, estimateSeconds,
-  language, languageSource, onLanguageChange, onLanguageAuto,
+  language, languageSource, onLanguageChange, onLanguageAuto, generationAssessment,
 }: Props) {
   const { getRootProps, getInputProps, isDragActive } = jobDropzone;
   return (
@@ -145,6 +146,7 @@ export function JobOfferPanel({
             )}
           </div>
         </div>
+        {generationAssessment && <p role="status" className="text-sm text-gray-600">{generationAssessment}</p>}
       </div>
     </section>
   );

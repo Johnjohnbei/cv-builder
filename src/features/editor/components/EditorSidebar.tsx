@@ -66,7 +66,7 @@ interface Props {
 const TABS: { id: EditorTab; label: string }[] = [
   { id: 'content', label: 'Contenu' },
   { id: 'design', label: 'Mise en page' },
-  { id: 'ats', label: 'À corriger' },
+  { id: 'ats', label: 'ATS' },
 ];
 
 const TAB_CLASSES = 'flex-1 min-w-0 px-2 py-3 text-xs font-medium transition-colors';

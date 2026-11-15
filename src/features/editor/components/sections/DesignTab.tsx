@@ -15,12 +15,11 @@ const FONT_OPTIONS: ReadonlyArray<{ id: FontFamily; name: string }> = [
   { id: 'outfit', name: 'Outfit (Modern)' }, // anti-vibe-ok: cv document font option
 ];
 
-interface ColorTheme { name: string; p: string; s: string; f: FontFamily }
+interface ColorTheme { name: string; description: string; p: string; s: string; f: FontFamily; presentation: NonNullable<DesignSettings['presentation']> }
 const COLOR_THEMES: ReadonlyArray<ColorTheme> = [
-  { name: 'Corporate', p: '#1e293b', s: '#64748b', f: 'sans' },
-  { name: 'Creative', p: '#f97316', s: '#0f172a', f: 'outfit' },
-  { name: 'Elegant', p: '#111827', s: '#94a3b8', f: 'playfair' },
-  { name: 'Tech', p: '#2563eb', s: '#475569', f: 'mono' },
+  { name: 'Chronologie', description: 'Parcours rythmé, contacts à droite', p: '#1A73E8', s: '#5F6368', f: 'outfit', presentation: 'timeline' },
+  { name: 'Classique', description: 'Georgia, titres soulignés, en-tête regroupé', p: '#202b36', s: '#53606d', f: 'serif', presentation: 'classic' },
+  { name: 'Épuré', description: 'Sans frise, titres sobres, accent discret', p: '#25554f', s: '#475b57', f: 'outfit', presentation: 'plain' },
 ];
 
 /** The colour pairs offered as presets. The names were comments, which no screen reader reads. */
@@ -47,8 +46,8 @@ export const DesignTab = memo(function DesignTab({
   return (
     <div className="space-y-6">
       <section className="stitch-panel">
-        <div className="stitch-panel-header">Thèmes rapides</div>
-        <div className="p-4 grid grid-cols-2 gap-2">
+        <div className="stitch-panel-header">Présentation du CV</div>
+        <div className="p-4 flex flex-col gap-2">
           {COLOR_THEMES.map((theme) => (
             <button
               key={theme.name}
@@ -57,10 +56,13 @@ export const DesignTab = memo(function DesignTab({
                 primaryColor: theme.p,
                 secondaryColor: theme.s,
                 fontFamily: theme.f,
+                presentation: theme.presentation,
               }))}
               className="p-2 border border-gray-200 rounded text-[11px] stitch-mono hover:bg-gray-50 transition-all text-left flex flex-col gap-1"
+              aria-pressed={(designSettings.presentation ?? 'timeline') === theme.presentation}
             >
               <span className="font-bold">{theme.name}</span>
+              <span className="text-gray-600 font-sans">{theme.description}</span>
               <div className="flex gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.p }} />
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.s }} />
@@ -68,6 +70,7 @@ export const DesignTab = memo(function DesignTab({
             </button>
           ))}
         </div>
+        <p className="px-4 pb-4 text-xs text-gray-600">Même contenu, une colonne et un texte PDF contrôlé. La mise en page est recalculée pour chaque présentation.</p>
       </section>
 
       <details className="stitch-panel">

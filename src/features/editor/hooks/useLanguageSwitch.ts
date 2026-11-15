@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { omitUserOwnedFields, pickUserOwnedFields, type CVData } from '@/src/shared/types';
-import { getCVLanguage } from '@/src/lib/language-detection';
+import { detectJobDescriptionLanguage, getCVLanguage } from '@/src/lib/language-detection';
+import { completeSkillCoverage } from '../lib/keyword-analysis';
 import { contentSnapshot } from '@/src/lib/bilingual';
 import { getUserErrorMessage, PERSIST_FAILED_MESSAGE } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, writeStoredText } from '@/src/shared/lib/storage';
@@ -130,7 +131,11 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
       // One call, the CV as it shows (arbitrage of 2026-10-07): this path only
       // runs when the generation's own translation failed, and the new language
       // then offers no choice of version. The server reads no versions.
-      const translatedData = await translateCVAction({ cvData, targetLanguage: pendingLanguage, accessCode });
+      const answer = await translateCVAction({ cvData, targetLanguage: pendingLanguage, accessCode });
+      const translatedData = completeSkillCoverage(answer, cvData.generation?.requirements ?? [], {
+        language: pendingLanguage, offerLanguage: cvData.generation?.offer ? detectJobDescriptionLanguage(cvData.generation.offer) : undefined, source: cvData,
+        objectiveIds: cvData.generation?.objectiveRequirementIds,
+      });
       const translatedSnapshot = contentSnapshot(translatedData);
       // translateCV puts the photo and portfolio back itself: they never reach the model
       const updated = {

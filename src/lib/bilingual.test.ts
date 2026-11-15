@@ -115,3 +115,24 @@ describe('attachBilingualCache with the imported CV', () => {
     expect(result._translations?.fr?.personal_info.versions?.summary?.original).toBe(IMPORTED_FR.personal_info.summary);
   });
 });
+
+it('keeps the target-language skill coverage after translation without restoring a skill removed by the user', async () => {
+  const { completeSkillCoverage } = await import('../features/editor/lib/keyword-analysis');
+  const requirements = [{ id: 'research', label: 'recherche utilisateur', variants: ['user research'], kind: 'hard_skill' as const, importance: 'required' as const, quote: 'recherche utilisateur' }];
+  const source = { ...FR_CV, skills: [{ category: 'methodologies', items: ['recherche utilisateur'] }] };
+  const translated = { ...FR_CV, detectedLanguage: 'en' as const, skills: [] };
+  const kept = completeSkillCoverage(translated, requirements, { language: 'en', offerLanguage: 'fr', source });
+  expect(kept.skills.flatMap(cat => cat.items)).toContain('user research');
+  expect(completeSkillCoverage(translated, requirements, { language: 'en', offerLanguage: 'fr', source: FR_CV }).skills).toEqual([]);
+});
+
+it('keeps transfer objectives prospective in both languages, without mutating the input or adding mastery to skills', async () => {
+  const { completeSkillCoverage } = await import('../features/editor/lib/keyword-analysis');
+  const requirement = { id: 'research', label: 'recherche utilisateur', variants: ['user research'], kind: 'hard_skill' as const, importance: 'required' as const, quote: 'recherche utilisateur' };
+  const original = structuredClone(FR_CV);
+  const french = completeSkillCoverage(FR_CV, [requirement], { language: 'fr', offerLanguage: 'fr', objectiveIds: ['research'] });
+  expect(FR_CV).toEqual(original);
+  expect(french.skills).toEqual(FR_CV.skills); expect(french.personal_info.summary).toContain('Objectifs de transfert');
+  const english = completeSkillCoverage({ ...FR_CV, personal_info: { ...FR_CV.personal_info, summary: 'A professional summary.' } }, [requirement], { language: 'en', offerLanguage: 'fr', objectiveIds: ['research'], source: french });
+  expect(english.skills).toEqual([]); expect(english.personal_info.summary).toContain('Transfer objectives for this role: user research');
+});

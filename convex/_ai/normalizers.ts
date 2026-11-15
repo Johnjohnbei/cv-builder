@@ -13,7 +13,6 @@ import { statesYears } from "./numbers";
 
 // ─── Job requirements ────────────────────────────────────────────
 import { ATS_POLICY } from '../../src/features/editor/lib/ats-rules';
-import { proficiencyLevel } from '../../src/features/editor/lib/formatting';
 const MAX_REQUIREMENTS = ATS_POLICY.maxRequirements;
 
 /** Symbols carry meaning in skill names: C++, C# and C must not share an id. Combining marks are kept (バス is not パス). */
@@ -95,10 +94,22 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
   for (const item of items) {
     const parsed = JobRequirementSchema.safeParse(withoutNulls(item));
     if (!parsed.success) continue;
-    const { variants, kind, importance, quote, minYears, experienceScope, needsVerification } = parsed.data;
+    const { variants, importance, quote, minYears, needsVerification } = parsed.data;
+    let { kind, experienceScope } = parsed.data;
+    // Knowing a standard is a skill; holding a certificate is a different claim.
+    if (kind === 'certification' && /knowledge|understanding|connaissance|ma[iî]trise/i.test(quote)
+      && !/certifi|accr[eé]dit|licensed|titulaire/i.test(quote)) kind = 'hard_skill';
+    // A job's address is a practical condition, not a missing candidate skill.
+    if (kind === 'location' && /(?:role|position|poste|emploi).*?(?:based|located|bas[eé])/i.test(quote)
+      && !/candidate|candidat|you must|vous devez/i.test(quote)) kind = 'screening';
+    if (kind === 'experience_years' && !experienceScope?.length) {
+      const specialized = quote.match(/(?:experience|exp[eé]rience)\s+(?:in|en|dans|with|of)\s+(.+?)(?:[.;]|,?\s+including\b|,?\s+dont\b|$)/i)?.[1];
+      if (specialized) experienceScope = specialized.replace(/^design for\s+/i, '').split(/,|\s+(?:or|ou)\s+/i).map(term => term.trim()).filter(Boolean);
+    }
     const scopeVerified = experienceScope?.length && experienceScope.some(term => matchPhrase(term, prepareText(quote)));
-    const manualCheck = needsVerification || kind === 'screening'
-      || (kind === 'language' && !proficiencyLevel(quote) && /courant|fluent|professionn|professional|TOEIC|IELTS/i.test(quote))
+    const explicitLevel = quote.match(/\b[ABC][12]\b/i)?.[0]?.toUpperCase() as JobRequirement['minLevel'];
+    const manualCheck = (needsVerification && kind === parsed.data.kind) || kind === 'screening'
+      || (kind === 'language' && !explicitLevel && /courant|fluent|professionn|professional|native|natif|biling|TOEIC|IELTS|TOEFL/i.test(quote))
       || (['education', 'certification'].includes(kind) && /[ée]quival|validit|valid |current|expir|renouvel/i.test(quote))
       || (kind === 'experience_years' && !scopeVerified && /(?:exp[ée]rience|experience|years?|ans?)\s+(?:en|dans|in|with|of)\s+(?!exp[ée]rience|experience)/i.test(quote));
     // One offer describes one job: two titles were 6 points for one post
@@ -133,7 +144,7 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
       id, label: stated, variants: terms.filter(term => term !== stated), kind, importance, quote: quote.trim(),
       ...(kind === "experience_years" && { minYears }),
       ...(kind === 'experience_years' && scopeVerified && { experienceScope: uniqueTerms(experienceScope!) }),
-      ...(kind === 'language' && proficiencyLevel(quote) && { minLevel: proficiencyLevel(quote) }),
+      ...(kind === 'language' && explicitLevel && { minLevel: explicitLevel }),
       ...(manualCheck && { needsVerification: true }),
     });
     if (requirements.length === MAX_REQUIREMENTS) break;

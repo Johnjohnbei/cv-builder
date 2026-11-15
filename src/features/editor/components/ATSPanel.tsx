@@ -4,6 +4,7 @@ import { ATS_POLICY, ATS_SOURCES } from '../lib/ats-rules';
 import type { RequirementsStatus } from '../lib/job-requirements-cache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
 import { Button } from '@/src/shared/ui/Button';
+import { Link } from 'react-router-dom';
 
 export interface ATSPanelProps {
   analysis: ATSAnalysis;
@@ -56,6 +57,11 @@ export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requ
       {(generation?.extractionAtLimit || report.requirements.length >= ATS_POLICY.maxRequirements) && <p className="text-amber-800">Offre dense : limite d'extraction atteinte. Vérifiez les critères dans l'offre.</p>}
     </div>
 
+    {hasJobDescription && !generation && <p className="text-gray-600">Ce CV n’a pas de bilan de génération. Le score le compare aux exigences actuelles de l’offre. <Link to="/dashboard" className="text-blue-700 underline">Relancer l’adaptation depuis le CV source</Link>.</p>}
+    {generation && <p className="text-gray-600">Adaptation initiale : {generation.initialScore ?? 'sans score'}{generation.initialScore !== null ? ' % de couverture' : ''}. Les qualifications absentes du parcours restent distinctes des formulations à adapter.</p>}
+    {generation?.completion && <p className="text-gray-600">Exigences de contenu traitées avant livraison : {generation.completion.skillsCovered}/{generation.completion.skillsTotal}. {generation.completion.qualificationGapIds.length > 0 ? `${generation.completion.qualificationGapIds.length} qualification(s) ou condition(s) non établies par le CV source.` : 'Aucun écart de qualification à la génération.'}</p>}
+    {!!generation?.objectiveRequirementIds?.length && <p className="text-gray-600">À la génération, {generation.objectiveRequirementIds.length} terme(s) ont été présentés comme objectifs de transfert vers le poste, sans maîtrise revendiquée. Leur présence dans la couverture ne signifie pas que ces compétences sont déjà acquises.</p>}
+
     {gaps.length > 0 && <section className="space-y-2" aria-label="Exigences à corriger">
       <h2 className="font-semibold text-gray-900">Écarts ({gaps.length})</h2>
       {gaps.map(c => <div key={c.requirement.id} className="border border-gray-200 rounded p-3 space-y-2">
@@ -63,6 +69,11 @@ export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requ
         {c.status === 'unknown' && <p className="text-amber-800">À vérifier</p>}
         {c.reason && <p className="text-gray-600">{c.reason}</p>}
         {c.years !== undefined && <p className="text-gray-600">{c.years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans mesurés</p>}
+        {generation?.relatedExperience?.filter(e => e.requirementId === c.requirement.id).map((e, i) => <details key={i} className="text-gray-600">
+          <summary className="cursor-pointer font-medium">Expérience connexe citée à la génération</summary>
+          <p className="mt-2">{e.adaptedQuote}</p><p className="mt-2">Source : « {e.sourceQuote} »</p>
+          <p className="mt-2">Ce rapprochement met en valeur une pratique réelle ; il ne vaut ni certificat, ni diplôme, ni niveau de langue.</p>
+        </details>)}
         <div className="flex flex-wrap gap-1">
           <Button size="sm" variant="secondary" aria-label={`${c.requirement.label} : corriger`} onClick={() => onCorrect(c.requirement)}>Corriger</Button>
           {c.requirement.needsVerification && <Button size="sm" variant="ghost" onClick={() => confirm(c.requirement)}>Je confirme ce critère</Button>}

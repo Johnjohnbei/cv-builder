@@ -6,7 +6,7 @@ import { normalizeProficiency } from '../../lib/formatting';
 import type { CVData, Language } from '../../../../shared/types';
 
 /** Standard levels, in the labels normalizeProficiency renders on the CV */
-const PROFICIENCY_LEVELS = ['Natif / Bilingue', 'Courant (C1)', 'Professionnel (B2)', 'Intermédiaire (B1)', 'Débutant (A2)'];
+const PROFICIENCY_LEVELS = ['Natif / Bilingue', 'C2', 'Courant (C1)', 'Professionnel (B2)', 'Intermédiaire (B1)', 'Débutant (A2)', 'A1'];
 
 interface Props {
   languages: Language[] | undefined;

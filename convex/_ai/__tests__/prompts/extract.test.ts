@@ -54,3 +54,7 @@ describe("buildExtractPrompt: extracting is not writing", () => {
     expect(prompt).not.toMatch(/Toujours présent/);
   });
 });
+
+it('keeps prospective transfer objectives separate from acquired expertise during import', () => {
+  expect(buildExtractPrompt({ pdfText: 'Transfer objectives for this role: Kubernetes.' })).toContain('intentions, jamais des compétences acquises');
+});

@@ -216,8 +216,8 @@ describe('condenseOneStep: the last mention of a required requirement', () => {
     expect(modes(condenseOneStep(twice, requirements)!)).toEqual(['extended', 'normal']);
   });
 
-  it('condenses it anyway when it is the only candidate of the wave', () => {
-    expect(modes(condenseOneStep(expandToMax([carrier]), requirements)!)).toEqual(['normal']);
+  it('stops when the only move would remove a required mention', () => {
+    expect(condenseOneStep(expandToMax([carrier]), requirements)).toBeNull();
   });
 
   it('protects nothing for a requirement the rest of the CV writes too', () => {
@@ -237,10 +237,22 @@ describe('condenseOneStep: the last mention of a required requirement', () => {
     expect(modes(condenseOneStep(expandToMax([rich, carrier]), preferred)!)).toEqual(['extended', 'normal']);
   });
 
-  it('gives the mention up once every other move would drop a required one too', () => {
+  it('stops rather than trading a required mention for the page target', () => {
     let cur = expandToMax([rich, carrier]);
-    for (let step = 0; step < 3; step++) cur = condenseOneStep(cur, requirements)!;
-    // rich came down while it could without losing Figma; hidden it would lose it
-    expect(modes(cur)).toEqual(['compact', 'normal']);
+    while (true) { const next = condenseOneStep(cur, requirements); if (!next) break; cur = next; }
+    expect(cur.some(e => e.description.includes('Migration Kubernetes') && e.displayMode === 'extended')).toBe(true);
+    expect(condenseOneStep(cur, requirements)).toBeNull();
   });
+
+});
+
+it('keeps an older role whose dates are needed for a covered experience minimum', () => {
+  const years: JobRequirement = { ...req('12 years'), kind: 'experience_years', minYears: 12 };
+  const experiences = [makeExp({ start_date: '2016-01', current: true, displayMode: 'compact' }), makeExp({ company: 'Earlier', start_date: '2010-01', end_date: '2015-12', current: false, displayMode: 'compact' })];
+  expect(condenseOneStep(experiences, [years])).toBeNull();
+});
+
+it('protects the concrete experience used as transferable evidence', () => {
+  const experiences = [makeExp({ description: ['Piloté le périmètre et les risques du projet', 'Coordonné le budget et les parties prenantes'], displayMode: 'normal' })];
+  expect(condenseOneStep(experiences, [], 'fr', new Set(), undefined, [0])).toBeNull();
 });

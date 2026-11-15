@@ -105,7 +105,15 @@ export function generationOf(value: unknown): GenerationRecord | undefined {
   if (!Number.isFinite(g.durationMs) || g.durationMs < 0 || typeof g.extractionAtLimit !== 'boolean') return undefined;
   if (g.initialScore !== null && (!Number.isFinite(g.initialScore) || g.initialScore < 0 || g.initialScore > 100)) return undefined;
   if (!Array.isArray(g.requirements) || g.requirements.length > ATS_POLICY.maxRequirements || !g.requirements.every(isRequirement)) return undefined;
+  if (g.completion !== undefined && (!g.completion || typeof g.completion !== 'object' || !Number.isInteger(g.completion.skillsCovered) || !Number.isInteger(g.completion.skillsTotal)
+    || g.completion.skillsCovered < 0 || g.completion.skillsTotal < g.completion.skillsCovered || g.completion.skillsTotal > ATS_POLICY.maxRequirements
+    || !Array.isArray(g.completion.qualificationGapIds) || g.completion.qualificationGapIds.length > ATS_POLICY.maxRequirements
+    || !g.completion.qualificationGapIds.every(id => typeof id === 'string'))) return undefined;
+  if (g.relatedExperience !== undefined && (!Array.isArray(g.relatedExperience) || g.relatedExperience.length > ATS_POLICY.maxRequirements
+    || !g.relatedExperience.every(e => e && typeof e.requirementId === 'string' && Number.isInteger(e.experienceIndex) && e.experienceIndex >= 0
+      && typeof e.sourceQuote === 'string' && e.sourceQuote.length <= 1200 && typeof e.adaptedQuote === 'string' && e.adaptedQuote.length <= 1200))) return undefined;
   if (![g.sourceRequirementIds, g.addedRequirementIds].every(ids => Array.isArray(ids) && ids.length <= ATS_POLICY.maxRequirements && ids.every(id => typeof id === 'string'))) return undefined;
+  if (g.objectiveRequirementIds !== undefined && (!Array.isArray(g.objectiveRequirementIds) || g.objectiveRequirementIds.length > ATS_POLICY.maxRequirements || !g.objectiveRequirementIds.every(id => typeof id === 'string'))) return undefined;
   if (g.scopedYears !== undefined && (!Array.isArray(g.scopedYears) || !g.scopedYears.every(item => item && typeof item.company === 'string' && typeof item.start_date === 'string' && (item.end_date === undefined || typeof item.end_date === 'string') && typeof item.current === 'boolean' && typeof item.sourceText === 'string' && item.sourceText.length <= 60_000))) return undefined;
   return g;
 }

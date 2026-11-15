@@ -37,11 +37,12 @@ const squash = (text: string) => text.replace(/\s+/gu, '').toLowerCase();
  */
 const GEOMETRIES = [
   { name: 'Elegant', design: {} },
-  { name: 'Elegant en serif', design: { fontFamily: 'playfair' } },
+  { name: 'Classique', design: { presentation: 'classic', fontFamily: 'serif' } },
+  { name: 'Épuré', design: { presentation: 'plain' } },
 ] as const;
 
-for (const geometry of GEOMETRIES) {
-  test.describe(`PDF exporté lisible : ${geometry.name}`, () => {
+for (const geometry of GEOMETRIES) for (const language of ['fr', 'en'] as const) {
+  test.describe(`PDF exporté lisible : ${geometry.name} ${language}`, () => {
     // Headless Chrome renders the PDF server-side: past the 30 s default
     test.setTimeout(180_000);
     let calls: string[] = [];
@@ -50,7 +51,19 @@ for (const geometry of GEOMETRIES) {
 
     test("contacts, postes, dates et puces sont extraits en texte, dans l'ordre du CV", async ({ page }) => {
       const design = { ...(MOCK_CV as Record<string, unknown>).design as object, template: 'TEMPLATE_E', ...geometry.design };
-      await seedGuestSession(page, { cv: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, summary: MOCK_CV.personal_info.summary + ' Je vérifie chaque fichier.' }, design } });
+      const candidate = structuredClone(MOCK_CV);
+      if (language === 'en') {
+        candidate.personal_info.summary = 'Senior UX Designer building digital products, design systems and user research. I verify each file.';
+        candidate.experience[0].intro = 'Lead designer for enterprise products.';
+        candidate.experience[0].description = ['Designed three modules used by fifty thousand users', 'Built the shared design system for four product teams', 'Led user research interviews', 'Improved the onboarding flow'];
+        candidate.experience[0].kpi = 'Product NPS improved from 32 to 67';
+        candidate.experience[1].intro = 'Product designer for a financial technology company.';
+        candidate.experience[1].description = ['Redesigned the mobile application', 'Worked with five React Native developers'];
+        candidate.education[0].degree = 'Master in Interaction Design';
+      } else candidate.personal_info.summary += ' Je vérifie chaque fichier.';
+      candidate.personal_info.summary += language === 'fr' ? '\n\nObjectifs de transfert vers ce poste : Kubernetes.' : '\n\nTransfer objectives for this role: Kubernetes.';
+      await seedGuestSession(page, { cv: { ...candidate, detectedLanguage: language, languageOverride: language, design } });
+      if (process.env.CAPTURE_NAV_DIR) await page.screenshot({ path: `${process.env.CAPTURE_NAV_DIR}/cv-${geometry.name}-${language}.png` });
       const download = page.waitForEvent('download', { timeout: 120_000 });
       await page.getByRole('button', { name: 'Exporter', exact: true }).click();
       await page.getByRole('button', { name: 'Exporter en PDF', exact: true }).click();
@@ -58,7 +71,7 @@ for (const geometry of GEOMETRIES) {
       const items = pages.flat();
       const text = squash(items.join(' '));
 
-      const { personal_info: info, experience, education, skills } = MOCK_CV;
+      const { personal_info: info, experience, education, skills } = candidate;
       const at = (value: string) => {
         const index = text.indexOf(squash(value));
         expect(index, `« ${value} » doit être extractible du PDF`).toBeGreaterThanOrEqual(0);
@@ -71,7 +84,7 @@ for (const geometry of GEOMETRIES) {
       // it hit the costliest word of the CV, the profile title, which is the
       // offer's own job title. Read on the items as they come out, never on
       // squashed text: squashing removes the very spaces that say it is broken.
-      for (const word of ['vérifie', 'fichier']) expect(items.some(item => item.includes(word))).toBe(true);
+      for (const word of language === 'fr' ? ['vérifie', 'fichier'] : ['verify', 'file']) expect(items.some(item => item.includes(word))).toBe(true);
       const spacedOut = items.filter(item => /(?:^|\s)(?:\p{L}\s){2,}\p{L}(?:\s|$)/u.test(item));
       expect(spacedOut, `aucun mot ne doit sortir lettre par lettre : ${spacedOut.join(' | ')}`).toEqual([]);
       // And every word of the title comes out whole, in one item
@@ -99,13 +112,15 @@ for (const geometry of GEOMETRIES) {
       // The dates of a role are announced with it, never after its bullets.
       // (The position is not asserted here: the mock CV gives the first role the
       // very title of the CV, so its index would be the header's, always first.)
-      expect(at('Janv. 2021')).toBeLessThan(at(experience[0].description[0]));
-      expect(at('Mars 2018')).toBeGreaterThan(firstRole);
-      expect(at('Mars 2018')).toBeLessThan(at(experience[1].description[0]));
+      expect(at(language === 'fr' ? 'Janv. 2021' : 'Jan. 2021')).toBeLessThan(at(experience[0].description[0]));
+      expect(at(language === 'fr' ? 'Mars 2018' : 'Mar. 2018')).toBeGreaterThan(firstRole);
+      expect(at(language === 'fr' ? 'Mars 2018' : 'Mar. 2018')).toBeLessThan(at(experience[1].description[0]));
       // Degrees and skills: what a parser fills its remaining fields with.
       // Two skills in a row never come out glued into one word: the separator
       // is in the text, not in a flex gap the PDF does not carry.
+      at(language === 'fr' ? 'Objectifs de transfert vers ce poste' : 'Transfer objectives for this role'); at('Kubernetes');
       at(education[0].degree);
+      at(language === 'fr' ? 'Français' : 'French'); at(language === 'fr' ? 'Anglais' : 'English'); at('C1');
       for (const [index, skill] of skills[0].items.entries()) {
         at(skill);
         const next = skills[0].items[index + 1];

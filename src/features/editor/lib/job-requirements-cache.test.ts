@@ -132,15 +132,15 @@ describe('requirements cache', () => {
   it('skips stored requirements that are not requirements', async () => {
     const badKind = { ...R('Excel'), kind: 'skill' };
     const noQuote = { ...R('Word'), quote: undefined };
-    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', version: '2026-11-15.1', analyzedAt: Date.now(), requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
+    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', version: '2026-11-15.2', analyzedAt: Date.now(), requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('SAP')]);
   });
 
   it('invalidates expired analyses and analyses from another extraction release', async () => {
     for (const entry of [
       { version: 'old', analyzedAt: Date.now() },
-      { version: '2026-11-15.1', analyzedAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
-      { version: '2026-11-15.1', analyzedAt: Date.now() + 60_000 },
+      { version: '2026-11-15.2', analyzedAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
+      { version: '2026-11-15.2', analyzedAt: Date.now() + 60_000 },
     ]) {
       store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: [R('SAP')], ...entry }]));
       expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();

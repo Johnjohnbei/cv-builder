@@ -30,6 +30,7 @@ RÈGLES IMPORTANTES :
    Pas de liste de postes, pas de "Ex-xxx".
 
 4. SUMMARY : Maximum 3 phrases. Résume le profil, les spécialités et la valeur ajoutée.
+   Les objectifs de transfert sont des intentions, jamais des compétences acquises : garde-les dans un paragraphe distinct du summary, avec le préfixe « Objectifs de transfert vers ce poste: » ou « Transfer objectives for this role: » selon la langue du document. Ne les déplace ni dans skills ni dans une expérience passée. Ce paragraphe prospectif est conservé en plus du résumé.
 
 5. COMPÉTENCES : Regroupe en 2-4 catégories max. Chaque catégorie a 3-6 items.
    Catégories typiques : "Métier/Product", "Technique", "Outils", "Soft Skills".

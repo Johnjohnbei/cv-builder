@@ -17,6 +17,7 @@ interface Props {
   isAutoSaving?: boolean; lastAutoSaveAt?: Date | null; autoSaveFailed?: boolean; isFitting?: boolean;
   letterSaveLabel: string; onRetrySave: () => void;
   onUndo: () => void; canUndo: boolean;
+  atsScore: number | null; onOpenATS: () => void;
 }
 
 /** The same mounted header and action slots for both documents, independent of either sidebar. */
@@ -27,7 +28,7 @@ export function EditorHeader({
   isExportingDocx, isSaving, isExporting, hasCvData, canOpenLetter,
   currentLanguage, letterLanguage, onLanguageChange, isLanguageLocked = false, isAnonymous, onToggleAnonymous,
   isAutoSaving = false, lastAutoSaveAt = null, autoSaveFailed = false, isFitting = false,
-  letterSaveLabel, onRetrySave, onUndo, canUndo,
+  letterSaveLabel, onRetrySave, onUndo, canUndo, atsScore, onOpenATS,
 }: Props) {
   const isLetter = activeDocument === 'letter';
   const menu = useRef<HTMLDetailsElement>(null);
@@ -80,7 +81,8 @@ export function EditorHeader({
         <LanguageSelector value={currentLanguage} onChange={onLanguageChange} disabled={isLanguageLocked} />
         <button onClick={onToggleAnonymous} className={cn(iconButton, isAnonymous && 'bg-orange-100 text-orange-700')} title={isAnonymous ? 'Réafficher vos coordonnées' : 'Masquer nom et coordonnées'} aria-label="Mode anonyme" aria-pressed={isAnonymous}>{isAnonymous ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
       </> : <span className="text-xs text-gray-600">Lettre en {letterLanguage === 'en' ? 'anglais' : 'français'}</span>}
-      <span role="status" aria-live="polite" title={autoSaveLabel} className="ml-auto min-w-0 truncate text-[11px] text-gray-500">{autoSaveLabel}</span>
+      {!isLetter && <button onClick={onOpenATS} aria-label={`Score ATS : ${atsScore === null ? 'analyse indisponible' : `${atsScore} % de couverture de l’offre`}`} title="Couverture des exigences de l’offre. Ouvrir le bilan." className="ml-auto shrink-0 px-2 h-8 text-xs font-semibold text-blue-700 rounded hover:bg-blue-50">ATS{atsScore === null ? '' : ` ${atsScore} %`}</button>}
+      <span role="status" aria-live="polite" title={autoSaveLabel} className={cn('min-w-0 truncate text-[11px] text-gray-500', isLetter ? 'ml-auto' : 'hidden md:block')}>{autoSaveLabel}</span>
       {isLetter && autoSaveFailed && <button onClick={onRetrySave} className="text-xs text-blue-700 underline shrink-0">Réessayer</button>}
     </div>
   </header>;

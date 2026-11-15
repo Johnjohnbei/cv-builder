@@ -566,3 +566,23 @@ describe("normalizeExperience: current role", () => {
     expect(normalizeExperience({ company: "A", position: "B", start_date: "2020", end_date: today }).current).toBe(true);
   });
 });
+
+describe('ATS normalization: qualifications are not generic design skills', () => {
+  const item = (label: string, kind: string, quote: string, extra = {}) => ({ label, variants: [], kind, importance: 'required', quote, ...extra });
+  it('reads knowledge of EN 50600 as a skill, while keeping an explicit certificate factual', () => {
+    const offer = 'Strong knowledge of EN 50600 standards. Current AWS certification required.';
+    const r = normalizeJobRequirements([item('EN 50600 standards', 'certification', 'Strong knowledge of EN 50600 standards', { needsVerification: true }), item('AWS', 'certification', 'Current AWS certification required')], offer);
+    expect(r[0]).toMatchObject({ kind: 'hard_skill' }); expect(r[0].needsVerification).toBeUndefined();
+    expect(r[1]).toMatchObject({ kind: 'certification', needsVerification: true });
+  });
+  it('recovers a missing specialized scope without counting a general design career', () => {
+    const offer = "12+ years' experience in design for data centre, mission critical or complex technical buildings, including 5+ years in a design leadership role";
+    const [r] = normalizeJobRequirements([item("12+ years' experience", 'experience_years', offer, { minYears: 12 })], offer);
+    expect(r.experienceScope).toEqual(['data centre', 'mission critical', 'complex technical buildings']);
+    expect(r.needsVerification).toBeUndefined();
+  });
+  it('keeps a job based in France out of qualification points', () => {
+    const quote = 'This is a permanent role based in France';
+    expect(normalizeJobRequirements([item('France', 'location', quote)], quote)[0]).toMatchObject({ kind: 'screening', needsVerification: true });
+  });
+});
