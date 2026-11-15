@@ -1,159 +1,184 @@
-import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { test, expect, type Page } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION, MOCK_COMPANY_NAME } from './fixtures/mock-cv';
-import { answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
-
-// Contexte entreprise pré-seedé : le drawer reste vierge côté contenu, mais
-// l'entreprise est déjà connue donc aucune extraction IA ne part à l'ouverture.
-const setupGuestEditor = (page: import('@playwright/test').Page) =>
-  seedGuestSession(page, {
-    cv: MOCK_CV,
-    jd: MOCK_JOB_DESCRIPTION,
-    coverLetter: { companyName: MOCK_COMPANY_NAME, jobDescription: MOCK_JOB_DESCRIPTION },
-  });
-
-// Ouvre le drawer via le bouton "Lettre" de la barre d'onglets et renvoie son locator
-async function openDrawer(page: import('@playwright/test').Page) {
-  const lettreBtn = page.getByRole('button', { name: 'Lettre de motivation', exact: true });
-  await expect(lettreBtn).toBeVisible({ timeout: 10_000 });
-  await lettreBtn.click();
-  const dialog = page.getByRole('dialog', { name: 'Lettre de motivation' });
-  await expect(dialog).toBeVisible({ timeout: 5_000 });
-  return dialog;
+import { REQUIREMENTS_CACHE_KEY, answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
+const LETTER = { subject: 'Un poste de designer', greeting: 'Madame, Monsieur,', body: 'Je conçois des produits utiles.\n\nMon expérience accompagne votre projet.', closing: 'Au plaisir d’échanger.' };
+async function setup(page: Page, letter = true) {
+  await seedGuestSession(page, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION });
+  await page.evaluate(({ letter, jd, companyName }) => localStorage.setItem('guest_last_cover_letter', JSON.stringify({ letter, companyName, jobDescription: jd })), { letter: letter ? LETTER : null, jd: MOCK_JOB_DESCRIPTION, companyName: MOCK_COMPANY_NAME });
+}
+async function openLetter(page: Page) {
+  await page.getByRole('button', { name: 'Lettre de motivation', exact: true }).click();
+  const workspace = page.getByRole('region', { name: 'Lettre de motivation', exact: true });
+  await expect(workspace).toBeVisible();
+  await expect(workspace.getByLabel('Entreprise', { exact: true })).toHaveValue(MOCK_COMPANY_NAME);
+  return workspace;
 }
 
-// Textarea "Offre d'emploi" du drawer (scopé au dialog : l'éditeur a son propre champ JD)
-const drawerJD = (dialog: ReturnType<import('@playwright/test').Page['locator']>) =>
-  dialog.getByPlaceholder(/Collez l'offre d'emploi/);
-
-test.describe('Lettre de motivation : drawer (mode guest)', () => {
-  // Garde d'hermétisme, élargie le 2026-08-16 de `extractCompanyMeta` seul à
-  // TOUS les appels IA : l'extraction de mots-clés passait à travers.
-  let aiCalls: string[] = [];
-
-  test.beforeEach(async ({ page }) => {
-    aiCalls = watchAICalls(page);
-    await setupGuestEditor(page);
-  });
-
-  test.afterEach(() => { expectNoAICalls(aiCalls); });
-
-  test("le contexte entreprise persisté est restauré à l'ouverture", async ({ page }) => {
-    const dialog = await openDrawer(page);
-    // Non-régression persistance : le nom seedé est relu depuis localStorage,
-    // donc aucune extraction automatique n'est déclenchée.
-    await expect(dialog.getByLabel("Nom de l'entreprise")).toHaveValue(MOCK_COMPANY_NAME);
-    await expect(dialog.getByPlaceholder('Détection automatique...')).toHaveCount(0);
-  });
-
-  test('le bouton Lettre ouvre le drawer (role dialog, aria-modal)', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    await expect(dialog).toHaveAttribute('aria-modal', 'true');
-    // Focus initial déplacé dans le drawer (premier élément focusable = bouton Fermer)
-    await expect(dialog.getByRole('button', { name: 'Fermer' })).toBeFocused();
-  });
-
-  test('fermeture par Escape : pas de panneau vide, un onglet avec du contenu reste actif', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    // Focus initial hors champ (bouton Fermer) → un seul Escape ferme
-    await page.keyboard.press('Escape');
-    await expect(dialog).not.toBeVisible();
+test.describe('Lettre intégrée à la candidature', () => {
+  let calls: string[];
+  test.beforeEach(async ({ page }) => { calls = watchAICalls(page); await setup(page); });
+  test.afterEach(() => expectNoAICalls(calls));
+  test('ouvre un document sans modal ni appel IA et revient au CV', async ({ page }) => {
+    const view = await openLetter(page);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(view.getByRole('article', { name: 'Document lettre' })).toBeVisible();
+    await expect(view.getByRole('button', { name: 'Revenir au CV' })).toBeFocused();
+    await view.getByRole('button', { name: 'Revenir au CV' }).click();
     await expect(page.getByRole('tab', { selected: true })).toBeVisible();
-    const panelText = await page.getByRole('tabpanel').innerText();
-    expect(panelText.trim().length).toBeGreaterThan(0);
-  });
-
-  test('Escape en deux temps depuis un champ : blur d\'abord, fermeture ensuite', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    const jd = drawerJD(dialog);
-    await jd.click();
-    await expect(jd).toBeFocused();
-    // 1er Escape : le champ perd le focus, le drawer reste ouvert
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeVisible();
-    await expect(jd).not.toBeFocused();
-    // 2e Escape : fermeture
-    await page.keyboard.press('Escape');
-    await expect(dialog).not.toBeVisible();
-  });
-
-  test('fermeture par clic sur le backdrop : un onglet reste actif', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    // Le drawer (max-w-xl) est ancré à droite : (20, 300) tombe sur le backdrop
-    await page.mouse.click(20, 300);
-    await expect(dialog).not.toBeVisible();
-    await expect(page.getByRole('tab', { selected: true })).toBeVisible();
-    const panelText = await page.getByRole('tabpanel').innerText();
-    expect(panelText.trim().length).toBeGreaterThan(0);
-  });
-
-  test('fermeture par le bouton X : focus restauré sur le bouton Lettre', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    await dialog.getByRole('button', { name: 'Fermer' }).click();
-    await expect(dialog).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Lettre de motivation', exact: true })).toBeFocused();
-    await expect(page.getByRole('tab', { selected: true })).toBeVisible();
   });
-
-  test('le focus reste piégé dans le drawer (Tab en boucle)', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    // Plus de Tab que d'éléments focusables → au moins un wrap complet
-    for (let i = 0; i < 30; i++) {
-      await page.keyboard.press('Tab');
-    }
-    const inside = await dialog.evaluate((el) => el.contains(document.activeElement));
-    expect(inside).toBe(true);
+  test('sauvegarde automatique, reprise après rechargement et aucune lettre d’une autre offre', async ({ page }) => {
+    let view = await openLetter(page);
+    await view.getByLabel('Texte de la lettre').fill('Mon texte personnel et conservé.');
+    await expect(view.getByRole('status')).toHaveText('Enregistré automatiquement dans ce navigateur');
+    await page.reload();
+    view = await openLetter(page);
+    await expect(view.getByLabel('Texte de la lettre')).toHaveValue('Mon texte personnel et conservé.');
+    await view.getByRole('button', { name: 'Annuler', exact: true }).click();
+    await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+    await view.getByRole('button', { name: 'Modifier l’offre commune' }).click();
+    await page.evaluate(cacheKey => { const entries = JSON.parse(localStorage.getItem(cacheKey) || '[]'); entries.push({ ...entries[0], jobDescription: 'Autre offre' }); localStorage.setItem(cacheKey, JSON.stringify(entries)); }, REQUIREMENTS_CACHE_KEY);
+    await view.getByLabel('Offre d’emploi commune').fill('Autre offre');
+    await view.getByLabel('Offre d’emploi commune').press('Tab');
+    await expect(view.getByRole('article')).toHaveCount(0);
+    await expect(view.getByRole('button', { name: 'Rédiger ma lettre' })).toBeDisabled();
+    await view.getByRole('button', { name: 'Revenir au CV' }).click();
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
+    await expect(page.getByRole('button', { name: /Offre importée/ })).toContainText('Autre offre');
   });
-
-  test('Générer la lettre : désactivé sous 50 caractères, activé sinon', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    const jd = drawerJD(dialog);
-    const generateBtn = dialog.getByRole('button', { name: 'Générer la lettre' });
-
-    await jd.fill('');
-    await expect(generateBtn).toBeDisabled();
-
-    await jd.fill('Texte trop court');
-    await expect(generateBtn).toBeDisabled();
-
-    await jd.fill(MOCK_JOB_DESCRIPTION);
-    await expect(generateBtn).toBeEnabled();
+  test('sauve immédiatement quand on quitte la lettre et permet d’annuler une modification', async ({ page }) => {
+    let view = await openLetter(page);
+    await view.getByLabel('Texte de la lettre').fill('Une nouvelle version.');
+    await view.getByRole('button', { name: 'Raccourcir', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+    await view.getByLabel('Objet', { exact: true }).fill('Objet conservé');
+    await view.getByRole('button', { name: 'Revenir au CV' }).click();
+    await page.reload(); view = await openLetter(page);
+    await expect(view.getByLabel('Objet', { exact: true })).toHaveValue('Objet conservé');
   });
-
-  test('bandeau "pas encore optimisé" : visible avec offre chargée, masqué sans offre', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    // Mode guest : CV jamais tailored côté Convex → bandeau visible avec l'offre chargée
-    const banner = dialog.getByText(/n'a pas encore été optimisé/);
-    await expect(banner).toBeVisible();
-    // Offre vidée (< 50 caractères) → le bandeau disparaît
-    await drawerJD(dialog).fill('');
-    await expect(banner).not.toBeVisible();
+  test('reprend une candidature avec son CV et sa lettre depuis le tableau de bord', async ({ page }) => {
+    const view = await openLetter(page);
+    await view.getByLabel('Objet', { exact: true }).fill('Candidature à reprendre');
+    await view.getByRole('link', { name: 'Tableau de bord' }).click();
+    await page.getByRole('button', { name: 'Mes CV', exact: true }).first().click();
+    await expect(page.getByRole('region', { name: 'Candidatures enregistrées' })).toContainText('Candidature à reprendre');
+    page.on('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Reprendre la candidature' }).click();
+    await expect(page.getByLabel('Objet', { exact: true })).toHaveValue('Candidature à reprendre');
   });
-
-  test('mode guest : Sauvegarder désactivé avec la mention de connexion', async ({ page }) => {
-    const dialog = await openDrawer(page);
-    await expect(dialog.getByRole('button', { name: 'Sauvegarder' })).toBeDisabled();
-    await expect(dialog.getByText('Connectez-vous pour sauvegarder')).toBeVisible();
+  test('les options sont repliées et les exports sont regroupés', async ({ page }) => {
+    const view = await openLetter(page);
+    await expect(view.getByLabel('Ton', { exact: true })).not.toBeVisible();
+    await view.getByText('Options de rédaction', { exact: true }).click();
+    await expect(view.getByLabel('Ton', { exact: true })).toBeVisible();
+    await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+    const download = page.waitForEvent('download');
+    await view.getByRole('button', { name: 'Exporter en texte (.txt)' }).click();
+    expect((await download).suggestedFilename()).toMatch(/lettre-.*\.txt$/);
+    await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+    const word = page.waitForEvent('download');
+    await view.getByRole('button', { name: 'Télécharger en Word (.docx)' }).click();
+    expect((await word).suggestedFilename()).toMatch(/\.docx$/);
+  });
+  for (const width of [375, 768, 1440]) test(`document et exports accessibles à ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    if (width < 768) await page.getByRole('button', { name: 'Fermer le panneau latéral' }).first().click();
+    // Open without assuming the context controls remain expanded on mobile.
+    await page.getByRole('button', { name: 'Lettre de motivation', exact: true }).click();
+    const view = page.getByRole('region', { name: 'Lettre de motivation', exact: true });
+    await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+    await expect(view.getByLabel('Texte de la lettre')).toBeVisible();
+    await expect(view.getByRole('button', { name: 'Exporter la lettre' })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (process.env.CAPTURE_LETTER_DIR) await page.screenshot({ path: `${process.env.CAPTURE_LETTER_DIR}/letter-${width}.png` });
+    const field = view.getByLabel('Texte de la lettre');
+    expect(await field.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   });
 });
 
-// One application, one language (arbitrage of 2026-10-07): the letter follows the CV, not the offer
-test.describe('Lettre de motivation : langue', () => {
-  test('un CV en anglais pour une offre en français donne une lettre en anglais', async ({ page }) => {
-    const asked: string[] = [];
-    const calls = await answerAIActions(page, {
-      generateCoverLetter: (args) => {
-        asked.push(args.language);
-        return { subject: 'Product Designer', greeting: 'Hello,', body: 'Body.', closing: 'Best,' };
-      },
-    });
-    await seedGuestSession(page, {
-      cv: { ...MOCK_CV, detectedLanguage: 'en' },
-      jd: MOCK_JOB_DESCRIPTION,
-      coverLetter: { companyName: MOCK_COMPANY_NAME, jobDescription: MOCK_JOB_DESCRIPTION },
-    });
-    const dialog = await openDrawer(page);
-    await dialog.getByRole('button', { name: /Générer la lettre/ }).click();
-    await expect.poll(() => asked).toEqual(['en']);
-    expect(calls.forwarded).toEqual([]);
-  });
+test('rédaction et révisions utilisent la motivation et conservent une version annulable', async ({ page }) => {
+  const asked: Record<string, any>[] = [];
+  const calls = await answerAIActions(page, { generateCoverLetter: args => {
+    asked.push(args);
+    return { ...LETTER, body: args.operation === 'shorten' ? 'Une lettre courte.' : args.operation === 'rephrase' ? 'Texte reformulé.' : LETTER.body };
+  } });
+  await setup(page, false);
+  const view = await openLetter(page);
+  await view.getByLabel('Pourquoi ce poste vous intéresse-t-il ?').fill('Construire un produit accessible.');
+  await view.getByRole('button', { name: 'Rédiger ma lettre' }).click();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  expect(asked[0].motivation).toBe('Construire un produit accessible.');
+  await view.getByRole('button', { name: 'Raccourcir', exact: true }).click();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue('Une lettre courte.');
+  await view.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  const body = view.getByLabel('Texte de la lettre');
+  await body.focus(); await body.press('Control+Home');
+  for (let i = 0; i < 10; i++) await body.press('Shift+ArrowRight');
+  await view.getByRole('button', { name: 'Reformuler la sélection' }).click();
+  await expect.poll(() => asked.length).toBe(3);
+  expect(asked[2].selection).toEqual({ field: 'body', start: 0, end: 10 });
+  expect(calls.forwarded).toEqual([]);
+});
+
+
+test('le PDF réel de la lettre contient le texte, dans l’ordre', async ({ page }) => {
+  test.setTimeout(120000);
+  const calls = watchAICalls(page);
+  await setup(page);
+  const view = await openLetter(page);
+  await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+  const download = page.waitForEvent('download', { timeout: 90000 });
+  await view.getByRole('button', { name: 'Exporter en PDF' }).click();
+  const path = await (await download).path();
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(readFileSync(path)) }).promise;
+  expect(doc.numPages).toBe(1);
+  const { items } = await (await doc.getPage(1)).getTextContent();
+  const text = items.map(item => 'str' in item ? item.str : '').join(' ').replace(/\s+/gu, ' ');
+  const first = text.indexOf(LETTER.subject);
+  const body = text.indexOf('Je conçois des produits utiles.');
+  const closing = text.indexOf(LETTER.closing);
+  expect(first).toBeGreaterThanOrEqual(0); expect(body).toBeGreaterThan(first); expect(closing).toBeGreaterThan(body);
+  expectNoAICalls(calls);
+});
+
+
+test('une réponse tardive ne remplace pas une candidature modifiée pendant la rédaction', async ({ page }) => {
+  let finish: ((letter: typeof LETTER) => void) | undefined;
+  const calls = await answerAIActions(page, { generateCoverLetter: () => new Promise(resolve => { finish = resolve; }) });
+  await setup(page);
+  const view = await openLetter(page);
+  await view.getByRole('button', { name: 'Réécrire la lettre' }).click();
+  await expect.poll(() => Boolean(finish)).toBe(true);
+  await view.getByLabel('Entreprise', { exact: true }).fill('Nouvelle entreprise');
+  finish!({ ...LETTER, body: 'Une réponse devenue obsolète.' });
+  await expect(view.getByRole('button', { name: 'Réécrire la lettre' })).toBeEnabled();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  expect(calls.forwarded).toEqual([]);
+});
+
+test('un échec IA conserve la lettre et rend les actions disponibles', async ({ page }) => {
+  const calls = await answerAIActions(page, { generateCoverLetter: () => { throw new Error('Service indisponible'); } });
+  await setup(page);
+  const view = await openLetter(page);
+  await view.getByRole('button', { name: 'Réécrire la lettre' }).click();
+  await expect.poll(() => calls.answered.length).toBe(1);
+  await expect(view.getByRole('button', { name: 'Réécrire la lettre' })).toBeEnabled();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  expect(calls.forwarded).toEqual([]);
+});
+
+test('un ancien brouillon sans offre demande un import explicite', async ({ page }) => {
+  const calls = watchAICalls(page);
+  await setup(page);
+  await page.evaluate(letter => localStorage.setItem('guest_last_cover_letter', JSON.stringify(letter)), LETTER);
+  await page.getByRole('button', { name: 'Lettre de motivation', exact: true }).click();
+  const view = page.getByRole('region', { name: 'Lettre de motivation', exact: true });
+  await expect(view.getByRole('article')).toHaveCount(0);
+  await view.getByRole('button', { name: 'Importer l’ancien brouillon' }).click();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  expectNoAICalls(calls);
 });

@@ -1,10 +1,11 @@
+import { buildLetterDateLine } from '@/src/features/editor/lib/cover-letter-drafts';
 import { describe, it, expect } from 'vitest';
 import { Packer } from 'docx';
 import type { Document } from 'docx';
 // ponytail: jszip is a transitive dep of docx (test-only use), avoids adding a dependency
 import JSZip from 'jszip';
 import type { PersonalInfo } from '../types';
-import { buildLetterDocument, buildLetterFilename, buildLetterDateLine, buildLetterHtml } from './export-letter';
+import { buildLetterDocument, buildLetterFilename, buildLetterHtml } from './export-letter';
 
 async function toXml(doc: Document): Promise<string> {
   const buffer = await Packer.toBuffer(doc);

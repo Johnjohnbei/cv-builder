@@ -344,3 +344,24 @@ describe("bounds on every action that puts a CV in a prompt", () => {
     })).rejects.toMatchObject({ data: { code: "CV_INVALID" } });
   });
 });
+
+
+describe('letter revision boundaries', () => {
+  const cvData = { personal_info: { name: 'Alex' }, experience: [], education: [], skills: [], languages: [] };
+  const previous = { subject: 'Objet', greeting: 'Bonjour', body: 'Un début. Un passage. Une fin.', closing: 'Merci' };
+  const run = (extra: Record<string, unknown>) => handlerOf<Record<string, unknown>, any>(generateCoverLetter)({}, { cvData, jobDescription: 'Offre designer', ...extra });
+  it('rejects invalid selections and oversized motivation before paid access', async () => {
+    await expect(run({ motivation: 'x'.repeat(2001) })).rejects.toMatchObject({ data: { code: 'INPUT_TOO_LONG' } });
+    await expect(run({ operation: 'rephrase', previous, selection: { field: 'body', start: 0, end: 999 } })).rejects.toMatchObject({ data: { code: 'LETTER_INVALID_SELECTION' } });
+    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
+  });
+  it('changes only the selected range, regardless of other model fields', async () => {
+    mocks.chatJSONSchema.mockImplementation(async (_prompt, schema) => schema.parse({ subject: '', greeting: '', body: 'Texte', closing: '' }));
+    const result = await run({ operation: 'rephrase', previous, selection: { field: 'body', start: 10, end: 20 } });
+    expect(result).toEqual({ ...previous, body: previous.body.slice(0, 10) + 'Texte' + previous.body.slice(20) });
+  });
+  it('rejects a shortening that is longer instead of overwriting the original', async () => {
+    mocks.chatJSONSchema.mockResolvedValue(previous);
+    await expect(run({ operation: 'shorten', previous })).rejects.toMatchObject({ data: { code: 'LETTER_NOT_SHORTER' } });
+  });
+});

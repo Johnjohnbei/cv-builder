@@ -1,420 +1,176 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
-import { detectTextLanguage, getCVLanguage } from '@/src/lib/language-detection';
+import { getCVLanguage } from '@/src/lib/language-detection';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, readStoredText, writeStoredText } from '@/src/shared/lib/storage';
-import { stripAccents } from '@/src/shared/lib/text';
+import { COVER_LETTER_STORAGE_KEY, isStoredContextForOffer, parseStoredContext, buildCoverLetterText, buildFilename, letterStorageKey, readApplicationDraft, type CoverLetterData, type StoredCoverLetterContext } from '../lib/cover-letter-drafts';
 
-export interface CoverLetterData { subject: string; greeting: string; body: string; closing: string }
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
-
 export interface UseCoverLetterDeps {
-  cvData: CVData | null;
-  jobDescription: string;
-  isTailored: boolean;
-  cvId?: string;
-  user: unknown;
-  notify: Notify;
-  accessCode?: string;
+  cvData: CVData | null; jobDescription: string; cvId?: string;
+  user: unknown; notify: Notify; accessCode?: string;
 }
+export type LetterSelection = { field: keyof CoverLetterData; start: number; end: number };
+export type UseCoverLetterResult = ReturnType<typeof useCoverLetter>;
+const emptyDraft = (): StoredCoverLetterContext => ({ letter: null, companyName: '', motivation: '', tone: 'professionnel et engagé' });
 
-export interface UseCoverLetterResult {
-  isOpen: boolean; open: () => void; close: () => void;
-  isTailored: boolean;
-  /** True only when the CV was tailored AND the drawer's JD is still the JD it was tailored for. */
-  isTailoredForLocalJD: boolean;
-  cvId?: string;
-  companyName: string; setCompanyName: (v: string) => void;
-  companyStage: string; setCompanyStage: (v: string) => void;
-  companyBusinessModel: string; setCompanyBusinessModel: (v: string) => void;
-  tone: string; setTone: (v: string) => void;
-  localJobDescription: string; setLocalJobDescription: (v: string) => void;
-  /** True when the user edited the drawer JD and the editor's JD has since diverged. */
-  jdOutOfSync: boolean;
-  /** Replace the drawer JD with the editor's current JD. */
-  syncJobDescription: () => void;
-  letter: CoverLetterData | null;
-  /**
-   * A mirrored letter that belongs to a DIFFERENT offer than the one open.
-   * Never restored automatically — the drawer offers to load it explicitly, so
-   * the work is not lost and not passed off as current either.
-   */
-  staleStoredLetter: CoverLetterData | null;
-  /** Programmatic load (restore, reload saved). Does NOT mark manual edits. */
-  setLetter: (l: CoverLetterData) => void;
-  /** Manual field edit from the UI. Marks the letter as dirty. */
-  updateLetterField: (field: keyof CoverLetterData, value: string) => void;
-  isGenerating: boolean; isSaving: boolean; isExtractingCompany: boolean;
-  generate: () => Promise<void>; save: () => Promise<void>;
-  copy: () => Promise<void>; download: () => void;
-}
-
-// ─── Pure helpers (exported for tests) ───
-
-/**
- * The language a letter is written in, read from its text: the export's labels
- * follow it. An English letter for a French CV used to be exported with
- * "Objet :" and "Paris, le 15 septembre 2026".
- */
-export function getLetterLanguage(letter: CoverLetterData): 'fr' | 'en' {
-  return detectTextLanguage([letter.subject, letter.greeting, letter.body, letter.closing].join('\n'));
-}
-
-/**
- * Format a cover letter into a plain-text block suitable for copy/download.
- *
- * The subject line leads, as it does in the .docx export: a letter pasted into
- * an email without its "Objet" forces the user back into the drawer to grab it
- * separately, which is the whole point of a one-click copy.
- */
-export function buildCoverLetterText(
-  letter: CoverLetterData,
-  name?: string,
-  language: 'fr' | 'en' = getLetterLanguage(letter),
-): string {
-  const parts: string[] = [];
-  if (letter.subject?.trim()) parts.push(`${language === 'en' ? 'Subject: ' : 'Objet : '}${letter.subject.trim()}`);
-  parts.push(letter.greeting, letter.body, letter.closing);
-  if (name && name.trim().length > 0) parts.push(name.trim());
-  return parts.join('\n\n').replace(/\s+$/, '');
-}
-
-const slug = (s: string): string =>
-  stripAccents(s).toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-/** Build a download filename for the cover letter. */
-export function buildFilename(companyName?: string): string {
-  if (!companyName || companyName.trim().length === 0) return 'lettre-motivation.txt';
-  const slugged = slug(companyName);
-  return slugged.length > 0 ? `lettre-${slugged}.txt` : 'lettre-motivation.txt';
-}
-
-/** User can only save if both signed in and a letter has been generated. */
-export function canSave(user: unknown, letter: CoverLetterData | null): boolean {
-  return Boolean(user) && letter !== null;
-}
-
-/** True when we should kick off auto-extraction of the company name on drawer open. */
-export function shouldTriggerExtraction(companyName: string, jobDescription: string): boolean {
-  return companyName.trim().length === 0 && jobDescription.trim().length >= MIN_OFFER_CHARS;
-}
-
-/** localStorage mirror of the drawer context (survives drawer close, guest or signed in). */
-export const COVER_LETTER_STORAGE_KEY = 'guest_last_cover_letter';
-
-/**
- * Said when the mirror is refused and the user is signed in. Being signed in is
- * not a second copy: the letter only reaches Convex once `save()` is called, so
- * a full storage dropped a paid letter in silence.
- */
-export const LETTER_MIRROR_FAILED_MESSAGE =
-  "Cette lettre n'est gardée nulle part (stockage du navigateur plein ou bloqué) : utilisez « Sauvegarder » pour la mettre sur votre compte.";
-
-/** Drawer context mirrored to localStorage: the letter plus the company metadata already known. */
-export interface StoredCoverLetterContext {
-  letter: CoverLetterData | null;
-  companyName?: string;
-  companyStage?: string;
-  companyBusinessModel?: string;
-  jobDescription?: string;
-}
-
-const asText = (v: unknown): string | undefined =>
-  typeof v === 'string' && v.length > 0 ? v : undefined;
-
-function parseLetterShape(v: unknown): CoverLetterData | null {
-  if (v === null || typeof v !== 'object') return null;
-  const p = v as Record<string, unknown>;
-  if (
-    typeof p.subject === 'string' && typeof p.greeting === 'string' &&
-    typeof p.body === 'string' && typeof p.closing === 'string'
-  ) {
-    return { subject: p.subject, greeting: p.greeting, body: p.body, closing: p.closing };
-  }
-  return null;
-}
-
-/**
- * Parse the mirrored drawer context. Returns null only when nothing usable is stored.
- * Backward compatible: a legacy value holding the bare letter fields at the top level is
- * read as a context whose letter is that value and whose metadata is absent.
- */
-export function parseStoredContext(raw: string | null): StoredCoverLetterContext | null {
-  if (!raw) return null;
-  let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { return null; }
-  if (parsed === null || typeof parsed !== 'object') return null;
-  const p = parsed as Record<string, unknown>;
-  return {
-    letter: parseLetterShape(p) ?? parseLetterShape(p.letter),
-    companyName: asText(p.companyName),
-    companyStage: asText(p.companyStage),
-    companyBusinessModel: asText(p.companyBusinessModel),
-    jobDescription: asText(p.jobDescription),
-  };
-}
-
-/** Parse a mirrored letter from localStorage. Returns null on any invalid shape. */
-export function parseStoredLetter(raw: string | null): CoverLetterData | null {
-  return parseStoredContext(raw)?.letter ?? null;
-}
-
-/** Most recent saved letter for a given cvId (input list is ordered most-recent first). */
-export function findLatestSavedForCv<T extends { cvId?: string }>(
-  letters: readonly T[] | undefined,
-  cvId: string | undefined,
-): T | null {
-  if (!letters || !cvId) return null;
-  return letters.find((l) => l.cvId === cvId) ?? null;
-}
-
-/**
- * Does a mirrored context belong to the offer currently open?
- *
- * A stored context with no jobDescription predates that field: nothing can be
- * compared, so it is treated as belonging rather than silently discarded. It
- * self-heals on the next write, which always records the offer.
- */
-export function isStoredContextForOffer(
-  stored: StoredCoverLetterContext | null,
-  currentJobDescription: string,
-): boolean {
-  if (!stored) return false;
-  if (stored.jobDescription === undefined) return true;
-  return stored.jobDescription.trim() === currentJobDescription.trim();
-}
-
-/**
- * Is a mirrored LETTER still usable for the offer currently open?
- *
- * The mirror exists so closing the drawer never loses work, but a letter is
- * written FOR one job description. Restoring it against another offer showed
- * the user a letter that argued for a different position — the bug reported on
- * 2026-08-17.
- *
- * Deliberately narrower than isStoredContextForOffer: the company metadata is
- * worth restoring even when no letter was ever generated, which is what spares
- * a redundant extraction call. Conflating the two made the company name vanish
- * and fired that call again — caught by the e2e hermeticity guard.
- */
-export function isStoredLetterRelevant(
-  stored: StoredCoverLetterContext | null,
-  currentJobDescription: string,
-): boolean {
-  return Boolean(stored?.letter) && isStoredContextForOffer(stored, currentJobDescription);
-}
-
-const DEFAULT_TONE = 'professionnel et engagé';
-
-/** Owns the inline cover letter drawer state for the editor. */
-export function useCoverLetter(deps: UseCoverLetterDeps): UseCoverLetterResult {
-  const { cvData, jobDescription, isTailored, cvId, user, notify, accessCode } = deps;
+/** One application context, shared with the CV; opening it never calls an AI action. */
+export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, accessCode }: UseCoverLetterDeps) {
   const generateAction = useAction(api.ai.generateCoverLetter);
-  const extractAction = useAction(api.ai.extractCompanyMeta);
   const saveMutation = useMutation(api.coverLetters.save);
-
-  const [isOpen, setIsOpen] = useState(false);
-  const [companyName, setCompanyName] = useState('');
-  const [companyStage, setCompanyStage] = useState('');
-  const [companyBusinessModel, setCompanyBusinessModel] = useState('');
-  const [tone, setTone] = useState(DEFAULT_TONE);
-  const [localJobDescription, setLocalJobDescriptionRaw] = useState('');
-  const [userEditedJD, setUserEditedJD] = useState(false);
-  const [letter, setLetterRaw] = useState<CoverLetterData | null>(null);
-  const [staleStoredLetter, setStaleStoredLetter] = useState<CoverLetterData | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isOpen, setIsOpen] = useState(() => new URLSearchParams(window.location.search).get('document') === 'letter');
+  const owner = (user as { id?: string } | null)?.id ?? 'guest';
+  const key = letterStorageKey(owner, cvId, jobDescription);
+  const [draft, setDraft] = useState<StoredCoverLetterContext>(emptyDraft);
+  const [legacyDraft, setLegacyDraft] = useState<StoredCoverLetterContext | null>(null);
+  const [loadedKey, setLoadedKey] = useState('');
+  const [status, setStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isExtractingCompany, setIsExtractingCompany] = useState(false);
+  const history = draft.revisions ?? [];
+  const inFlight = useRef(false);
+  const saved = useQuery(api.coverLetters.forApplication, isOpen && user ? { cvId: cvId as Id<'cvs'> | undefined, jobDescription } : 'skip');
+  const latest = useRef({ key, draft, cvId, jobDescription, user, cvData, loadedKey });
+  latest.current = { key, draft, cvId, jobDescription, user, cvData, loadedKey };
 
-  // ─── Company extraction guards: remember the JD already extracted + in-flight flag ───
-  const extractedJDRef = useRef<string | null>(null);
-  const extractInFlightRef = useRef(false);
-
-  // ─── Mirror letter + company context to localStorage (guest AND signed in) ───
-  // Gated on isOpen: before the first open() the state is still empty and would
-  // overwrite the stored context that open() is about to restore.
-  // This mirror is the only copy of a paid letter until save() runs, for an
-  // account too: a refused write is said once (not at every keystroke),
-  // instead of being swallowed.
-  const mirrorFailedRef = useRef(false);
   useEffect(() => {
-    if (!isOpen) return;
-    const saved = writeStoredText(COVER_LETTER_STORAGE_KEY, JSON.stringify({
-      letter, companyName, companyStage, companyBusinessModel,
-      jobDescription: localJobDescription,
-    }));
-    if (!saved && !mirrorFailedRef.current) {
-      notify({ message: user ? LETTER_MIRROR_FAILED_MESSAGE : STORAGE_FAILED_MESSAGE, type: 'error' });
-    }
-    mirrorFailedRef.current = !saved;
-  }, [isOpen, letter, companyName, companyStage, companyBusinessModel, localJobDescription, user, notify]);
+    if (!isOpen || loadedKey === key || (user && saved === undefined)) return;
+    const local = readApplicationDraft(key, jobDescription, !user);
+    const remote: StoredCoverLetterContext | null = saved ? {
+      letter: { subject: saved.subject, greeting: saved.greeting, body: saved.body, closing: saved.closing },
+      revisions: saved.revisions, companyName: saved.companyName, companyStage: saved.companyStage, companyBusinessModel: saved.companyBusinessModel,
+      motivation: saved.motivation, tone: saved.tone, updatedAt: Date.parse(saved.createdAt), cvSnapshot: saved.cvSnapshot as CVData | undefined,
+      jobDescription: saved.jobDescription,
+    } : null;
+    const chosen = local && (!remote || (local.updatedAt ?? 0) > (remote.updatedAt ?? 0)) ? local : remote ?? local;
+    const legacy = parseStoredContext(readStoredText(COVER_LETTER_STORAGE_KEY));
+    setLegacyDraft(!chosen?.letter && legacy?.letter && (legacy.jobDescription === undefined || isStoredContextForOffer(legacy, jobDescription)) ? legacy : null);
+    setDraft(chosen ?? emptyDraft());
+    setLoadedKey(key);
+    setStatus(chosen === local && local?.letter && user ? 'pending' : 'saved');
+  }, [isOpen, key, loadedKey, saved, jobDescription, user]);
 
-  // ─── Resync the drawer JD when the editor JD changes and the user hasn't typed in it ───
-  const prevPropJDRef = useRef(jobDescription);
+  type Snapshot = typeof latest.current;
+  const localSave = useCallback((current: Snapshot = latest.current) => {
+    if (current.key !== current.loadedKey) return false;
+    const context = { ...current.draft, jobDescription: current.jobDescription, cvSnapshot: current.cvData ?? undefined };
+    const ok = writeStoredText(current.key, JSON.stringify(context));
+    if (!ok) notify({ message: STORAGE_FAILED_MESSAGE, type: 'error' });
+    return ok;
+  }, [notify]);
+
+  const saveSnapshot = useCallback(async (current: Snapshot) => {
+    if (current.key !== current.loadedKey) return;
+    const localOk = localSave(current);
+    if ((latest.current.user as { id?: string } | null)?.id !== (current.user as { id?: string } | null)?.id) return;
+    if (!current.user || !current.draft.letter) {
+      if (latest.current.key === current.key) setStatus(localOk ? 'saved' : 'error');
+      return;
+    }
+    if (latest.current.key === current.key) setStatus('saving');
+    try {
+      await saveMutation({ cvId: current.cvId as Id<'cvs'> | undefined, jobDescription: current.jobDescription,
+        companyName: current.draft.companyName, companyStage: current.draft.companyStage,
+        companyBusinessModel: current.draft.companyBusinessModel, motivation: current.draft.motivation, tone: current.draft.tone,
+        cvSnapshot: current.cvData ?? undefined, revisions: current.draft.revisions, ...current.draft.letter });
+      if (latest.current.key === current.key && latest.current.draft === current.draft) setStatus('saved');
+    } catch (error) {
+      if (latest.current.key === current.key && latest.current.draft === current.draft) setStatus('error');
+      notify({ message: getUserErrorMessage(error, 'Sauvegarde du compte impossible. Réessayez.'), type: 'error' });
+    }
+  }, [localSave, saveMutation, notify]);
+
+  const save = useCallback(() => saveSnapshot(latest.current), [saveSnapshot]);
+  const lastReady = useRef(latest.current);
+  if (key === loadedKey) lastReady.current = latest.current;
   useEffect(() => {
-    if (jobDescription === prevPropJDRef.current) return;
-    prevPropJDRef.current = jobDescription;
-    if (!userEditedJD) setLocalJobDescriptionRaw(jobDescription);
-  }, [jobDescription, userEditedJD]);
+    const activeKey = key;
+    return () => { if (lastReady.current.key === activeKey) void saveSnapshot(lastReady.current); };
+  }, [key, saveSnapshot]);
 
-  const setLocalJobDescription = useCallback((v: string) => {
-    setUserEditedJD(true);
-    setLocalJobDescriptionRaw(v);
-  }, []);
+  useEffect(() => {
+    if (status !== 'pending' || key !== loadedKey) return;
+    const timer = window.setTimeout(() => { void save(); }, 700);
+    return () => window.clearTimeout(timer);
+  }, [draft, status, key, loadedKey, save]);
+  useEffect(() => {
+    const flush = () => { localSave(); };
+    window.addEventListener('pagehide', flush);
+    return () => { window.removeEventListener('pagehide', flush); flush(); };
+  }, [localSave]);
 
-  const jdOutOfSync =
-    userEditedJD && jobDescription.trim().length > 0 && jobDescription !== localJobDescription;
-
-  const syncJobDescription = useCallback(() => {
-    setLocalJobDescriptionRaw(jobDescription);
-    setUserEditedJD(false);
-  }, [jobDescription]);
-
-  const isTailoredForLocalJD = isTailored && localJobDescription.trim() === jobDescription.trim();
-
-  const open = useCallback(() => {
-    // Restore the whole drawer context so closing never loses work, and so an
-    // already known company never triggers a second extraction.
-    const stored = parseStoredContext(readStoredText(COVER_LETTER_STORAGE_KEY));
-
-    const jd = localJobDescription.length > 0 ? localJobDescription
-      : (jobDescription.length > 0 ? jobDescription : stored?.jobDescription ?? '');
-    setLocalJobDescriptionRaw(prev => (prev.length > 0 ? prev : jd));
-
-    // A mirrored context belongs to the offer it was written for. Reusing its
-    // letter — or its company metadata — against another offer produced a
-    // letter arguing for a different position, and addressed to the wrong
-    // company. Both are gated on the same check.
-    const sameOffer = isStoredContextForOffer(stored, jd);
-    const letterUsable = isStoredLetterRelevant(stored, jd);
-    const company = companyName.trim().length === 0 && sameOffer && stored?.companyName
-      ? stored.companyName : companyName;
-    if (stored) {
-      if (!letter && stored.letter) setStaleStoredLetter(letterUsable ? null : stored.letter);
-      if (letterUsable && !letter) setLetterRaw(stored.letter);
-      if (company !== companyName) setCompanyName(company);
-      if (sameOffer) {
-        const { companyStage: stage, companyBusinessModel: model } = stored;
-        if (stage) setCompanyStage(curr => (curr.trim().length === 0 ? stage : curr));
-        if (model) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? model : curr));
-      }
-    }
-    setIsOpen(true);
-    if (!shouldTriggerExtraction(company, jd)) return;
-    // Skip if the same JD was already extracted, or a call is already running
-    if (extractInFlightRef.current || extractedJDRef.current === jd) return;
-    extractInFlightRef.current = true;
-    setIsExtractingCompany(true);
-    extractAction({ jobDescription: jd, accessCode })
-      .then(r => {
-        extractedJDRef.current = jd;
-        if (r?.companyName) setCompanyName(curr => (curr.trim().length === 0 ? r.companyName! : curr));
-        if (r?.stage) setCompanyStage(curr => (curr.trim().length === 0 ? r.stage! : curr));
-        if (r?.businessModel) setCompanyBusinessModel(curr => (curr.trim().length === 0 ? r.businessModel! : curr));
-      })
-      .catch(e => { console.warn('[useCoverLetter] extract failed:', e); })
-      .finally(() => {
-        extractInFlightRef.current = false;
-        setIsExtractingCompany(false);
-      });
-  }, [jobDescription, localJobDescription, companyName, letter, accessCode, extractAction]);
-  const close = useCallback(() => setIsOpen(false), []);
-
-  const setLetter = useCallback((l: CoverLetterData) => {
-    setLetterRaw(l);
-    setStaleStoredLetter(null);
-  }, []);
-
-  const updateLetterField = useCallback((field: keyof CoverLetterData, value: string) => {
-    setIsDirty(true);
-    setLetterRaw(curr => (curr ? { ...curr, [field]: value } : curr));
-  }, []);
-
-  const generate = useCallback(async () => {
-    if (!cvData || localJobDescription.length < MIN_OFFER_CHARS) return;
-    if (isDirty && letter) {
-      const confirmed = window.confirm('Régénérer va remplacer vos modifications manuelles. Continuer ?');
-      if (!confirmed) return;
-    }
+  const change = (patch: Partial<StoredCoverLetterContext>) => {
+    if (loadedKey !== key) return;
+    setDraft(current => ({ ...current, ...patch, updatedAt: Date.now() }));
+    setStatus('pending');
+  };
+  const lastEdit = useRef({ field: "", at: 0 });
+  const updateLetterField = (field: keyof CoverLetterData, value: string) => {
+    if (!draft.letter) return;
+    const revisions = lastEdit.current.field !== field || Date.now() - lastEdit.current.at > 700 ? [...history.slice(-19), draft.letter] : history;
+    lastEdit.current = { field, at: Date.now() };
+    change({ letter: { ...draft.letter, [field]: value }, revisions });
+  };
+  const undo = () => {
+    const previous = history.at(-1);
+    if (!previous || isGenerating) return;
+    change({ letter: previous, revisions: history.slice(0, -1) });
+    lastEdit.current = { field: "", at: 0 };
+  };
+  const generate = async (operation: 'generate' | 'shorten' | 'rephrase' = 'generate', selection?: LetterSelection) => {
+    if (!cvData || jobDescription.trim().length < MIN_OFFER_CHARS || inFlight.current || loadedKey !== key) return;
+    if (operation !== 'generate' && !draft.letter) return;
+    if (operation === 'rephrase' && (!selection || selection.end <= selection.start)) return;
+    const source = draft;
+    const sourceKey = key;
+    inFlight.current = true;
     setIsGenerating(true);
     try {
-      // The CV's language, chosen before the generation (arbitrage of 2026-10-07): one application, one language
-      const language = getCVLanguage(cvData);
-      const result = await generateAction({
-        cvData, jobDescription: localJobDescription,
-        companyName: companyName || undefined,
-        companyStage: companyStage || undefined,
-        companyBusinessModel: companyBusinessModel || undefined,
-        tone, language, accessCode,
-      });
-      setLetterRaw(result);
-      setIsDirty(false);
-    } catch (e) {
-      console.error('Error generating cover letter:', e);
-      notify({ message: getUserErrorMessage(e, 'Erreur lors de la génération. Réessayez.'), type: 'error' });
-    } finally { setIsGenerating(false); }
-  }, [cvData, localJobDescription, companyName, companyStage, companyBusinessModel, tone, accessCode, generateAction, notify, isDirty, letter]);
-
-  const save = useCallback(async () => {
-    if (!canSave(user, letter) || !letter) return;
-    setIsSaving(true);
+      const result = await generateAction({ cvData, jobDescription, companyName: draft.companyName || undefined,
+        companyStage: draft.companyStage, companyBusinessModel: draft.companyBusinessModel,
+        tone: draft.tone, motivation: draft.motivation, language: getCVLanguage(cvData), accessCode,
+        operation, previous: operation === 'generate' ? undefined : draft.letter, selection });
+      // A late response must never replace a different application or a newer manual edit.
+      if (latest.current.key !== sourceKey || latest.current.draft !== source) {
+        notify({ message: 'Le document a changé pendant la rédaction. Votre texte a été conservé.', type: 'error' });
+        return;
+      }
+      const { subject, greeting, body, closing } = result;
+      change({ letter: { subject, greeting, body, closing }, companyName: source.companyName || result.companyName, revisions: source.letter ? [...history.slice(-19), source.letter] : history });
+      lastEdit.current = { field: "", at: 0 };
+    } catch (error) {
+      notify({ message: getUserErrorMessage(error, 'Rédaction impossible. Votre texte a été conservé.'), type: 'error' });
+    } finally { inFlight.current = false; setIsGenerating(false); }
+  };
+  const copy = async () => {
+    if (!draft.letter) return;
     try {
-      await saveMutation({
-        cvId: cvId ? (cvId as Id<'cvs'>) : undefined,
-        jobDescription: localJobDescription,
-        companyName: companyName || undefined,
-        ...letter,
-      });
-      setIsDirty(false);
-      notify({ message: 'Lettre sauvegardée !', type: 'success' });
-    } catch (e) {
-      console.error('Error saving cover letter:', e);
-      notify({ message: 'Erreur lors de la sauvegarde.', type: 'error' });
-    } finally { setIsSaving(false); }
-  }, [user, letter, cvId, localJobDescription, companyName, saveMutation, notify]);
-
-  const copy = useCallback(async () => {
-    if (!letter) return;
-    try {
-      // Awaited: outside a secure context the write is refused, and a missing
-      // API throws on the property itself. "Copié !" announced a copy that had
-      // not happened, over an empty clipboard.
-      await navigator.clipboard.writeText(buildCoverLetterText(letter, cvData?.personal_info?.name));
-      notify({ message: 'Copié dans le presse-papier !', type: 'success' });
-    } catch (e) {
-      console.error('Error copying cover letter:', e);
-      notify({ message: 'Copie impossible dans ce navigateur : utilisez « Télécharger ».', type: 'error' });
-    }
-  }, [letter, cvData, notify]);
-
-  const download = useCallback(() => {
-    if (!letter) return;
-    const text = buildCoverLetterText(letter, cvData?.personal_info?.name);
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = buildFilename(companyName);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [letter, cvData, companyName]);
-
+      await navigator.clipboard.writeText(buildCoverLetterText(draft.letter, cvData?.personal_info.name));
+      notify({ message: 'Lettre copiée.', type: 'success' });
+    } catch { notify({ message: 'Copie impossible. Utilisez Exporter en texte.', type: 'error' }); }
+  };
+  const download = () => {
+    if (!draft.letter) return;
+    const url = URL.createObjectURL(new Blob([buildCoverLetterText(draft.letter, cvData?.personal_info.name)], { type: 'text/plain;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = buildFilename(draft.companyName); anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   return {
-    isOpen, open, close, isTailored, isTailoredForLocalJD, cvId,
-    companyName, setCompanyName,
-    companyStage, setCompanyStage,
-    companyBusinessModel, setCompanyBusinessModel,
-    tone, setTone,
-    localJobDescription, setLocalJobDescription,
-    jdOutOfSync, syncJobDescription,
-    letter, staleStoredLetter, setLetter, updateLetterField,
-    isGenerating, isSaving, isExtractingCompany, generate, save, copy, download,
+    isOpen, open: () => setIsOpen(true), close: () => {
+      void save(); setIsOpen(false);
+      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Lettre de motivation"]')?.focus());
+    },
+    legacyDraftAvailable: Boolean(legacyDraft?.letter), importLegacyDraft: () => { if (legacyDraft) change(legacyDraft); setLegacyDraft(null); },
+    ready: loadedKey === key, letter: loadedKey === key ? draft.letter : null,
+    companyName: draft.companyName ?? '', setCompanyName: (value: string) => change({ companyName: value }),
+    companyStage: draft.companyStage ?? '', setCompanyStage: (value: string) => change({ companyStage: value }),
+    companyBusinessModel: draft.companyBusinessModel ?? '', setCompanyBusinessModel: (value: string) => change({ companyBusinessModel: value }),
+    motivation: draft.motivation ?? '', setMotivation: (value: string) => change({ motivation: value }),
+    tone: draft.tone ?? 'professionnel et engagé', setTone: (value: string) => change({ tone: value }),
+    storageLabel: user ? 'sur votre compte' : 'dans ce navigateur',
+    jobDescription, isGenerating, status, save, generate, copy, download, updateLetterField, undo, canUndo: history.length > 0,
   };
 }

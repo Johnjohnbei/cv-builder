@@ -1,17 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCoverLetterText,
+  letterStorageKey,
   buildFilename,
-  canSave,
-  shouldTriggerExtraction,
-  parseStoredLetter,
   parseStoredContext,
-  isStoredLetterRelevant,
   isStoredContextForOffer,
-  findLatestSavedForCv,
   COVER_LETTER_STORAGE_KEY,
   type CoverLetterData,
-} from './useCoverLetter';
+} from './cover-letter-drafts';
 
 const SAMPLE: CoverLetterData = {
   subject: 'Candidature — Dev Senior',
@@ -107,83 +103,36 @@ describe('buildFilename', () => {
   });
 });
 
-describe('canSave', () => {
-  it('returns false when user is null/undefined', () => {
-    expect(canSave(null, SAMPLE)).toBe(false);
-    expect(canSave(undefined, SAMPLE)).toBe(false);
-  });
 
-  it('returns false when letter is null (even with user)', () => {
-    expect(canSave({ id: 'user_123' }, null)).toBe(false);
-  });
-
-  it('returns true only when both user and letter are present', () => {
-    expect(canSave({ id: 'user_123' }, SAMPLE)).toBe(true);
-  });
-});
-
-describe('shouldTriggerExtraction', () => {
-  it('returns false when companyName already filled', () => {
-    expect(shouldTriggerExtraction('Google', 'A'.repeat(100))).toBe(false);
-  });
-
-  it('returns false when JD shorter than 50 chars', () => {
-    expect(shouldTriggerExtraction('', 'short JD')).toBe(false);
-  });
-
-  it('returns false when both empty', () => {
-    expect(shouldTriggerExtraction('', '')).toBe(false);
-  });
-
-  it('returns true when companyName empty and JD >= 50 chars', () => {
-    expect(shouldTriggerExtraction('', 'A'.repeat(50))).toBe(true);
-  });
-
-  it('treats whitespace-only companyName as empty', () => {
-    expect(shouldTriggerExtraction('   ', 'A'.repeat(100))).toBe(true);
-  });
-
-  it('treats whitespace-padded JD as trimmed for length check', () => {
-    expect(shouldTriggerExtraction('', '   ' + 'A'.repeat(60) + '   ')).toBe(true);
-  });
-
-  it('returns false when JD is whitespace-only', () => {
-    expect(shouldTriggerExtraction('', '     ')).toBe(false);
-  });
-
-  it('returns false when companyName has content (even with long JD)', () => {
-    expect(shouldTriggerExtraction('Acme', 'A'.repeat(1000))).toBe(false);
-  });
-});
 
 describe('parseStoredLetter', () => {
   it('parses a valid mirrored letter', () => {
-    expect(parseStoredLetter(JSON.stringify(SAMPLE))).toEqual(SAMPLE);
+    expect(parseStoredContext(JSON.stringify(SAMPLE))?.letter).toEqual(SAMPLE);
   });
 
   it('returns null for null/empty input', () => {
-    expect(parseStoredLetter(null)).toBeNull();
-    expect(parseStoredLetter('')).toBeNull();
+    expect(parseStoredContext(null)).toBeNull();
+    expect(parseStoredContext('')).toBeNull();
   });
 
   it('returns null for malformed JSON', () => {
-    expect(parseStoredLetter('{not json')).toBeNull();
+    expect(parseStoredContext('{not json')).toBeNull();
   });
 
   it('returns null for non-object JSON', () => {
-    expect(parseStoredLetter('"a string"')).toBeNull();
-    expect(parseStoredLetter('42')).toBeNull();
-    expect(parseStoredLetter('null')).toBeNull();
+    expect(parseStoredContext('"a string"')).toBeNull();
+    expect(parseStoredContext('42')).toBeNull();
+    expect(parseStoredContext('null')).toBeNull();
   });
 
   it('returns null when a field is missing or not a string', () => {
-    expect(parseStoredLetter(JSON.stringify({ ...SAMPLE, body: undefined }))).toBeNull();
-    expect(parseStoredLetter(JSON.stringify({ ...SAMPLE, subject: 12 }))).toBeNull();
+    expect(parseStoredContext(JSON.stringify({ ...SAMPLE, body: undefined }))?.letter).toBeNull();
+    expect(parseStoredContext(JSON.stringify({ ...SAMPLE, subject: 12 }))?.letter).toBeNull();
   });
 
   it('strips unknown extra fields', () => {
     const stored = JSON.stringify({ ...SAMPLE, extra: 'ignored' });
-    expect(parseStoredLetter(stored)).toEqual(SAMPLE);
+    expect(parseStoredContext(stored)?.letter).toEqual(SAMPLE);
   });
 
   it('uses the expected localStorage key', () => {
@@ -248,77 +197,18 @@ describe('parseStoredContext', () => {
   });
 });
 
-describe('findLatestSavedForCv', () => {
-  const letters = [
-    { cvId: 'cv2', subject: 'newest cv2' },
-    { cvId: 'cv1', subject: 'newest cv1' },
-    { cvId: 'cv1', subject: 'older cv1' },
-    { subject: 'no cvId' },
-  ];
 
-  it('returns the first (most recent) letter matching the cvId', () => {
-    expect(findLatestSavedForCv(letters, 'cv1')?.subject).toBe('newest cv1');
-    expect(findLatestSavedForCv(letters, 'cv2')?.subject).toBe('newest cv2');
-  });
-
-  it('returns null when no letter matches', () => {
-    expect(findLatestSavedForCv(letters, 'cv999')).toBeNull();
-  });
-
-  it('returns null when cvId is undefined (never matches letters without cvId)', () => {
-    expect(findLatestSavedForCv(letters, undefined)).toBeNull();
-  });
-
-  it('returns null when list is undefined or empty', () => {
-    expect(findLatestSavedForCv(undefined, 'cv1')).toBeNull();
-    expect(findLatestSavedForCv([], 'cv1')).toBeNull();
+describe('application identity', () => {
+  it('separates accounts, CVs and offers, and ignores surrounding whitespace only', () => {
+    const key = letterStorageKey('one', 'cv1', 'Offer');
+    expect(letterStorageKey('one', 'cv1', ' Offer ')).toBe(key);
+    expect(letterStorageKey('two', 'cv1', 'Offer')).not.toBe(key);
+    expect(letterStorageKey('one', 'cv2', 'Offer')).not.toBe(key);
+    expect(letterStorageKey('one', 'cv1', 'Other')).not.toBe(key);
   });
 });
 
-describe('isStoredLetterRelevant', () => {
-  const ctx = (over: Partial<{ letter: CoverLetterData | null; jobDescription?: string }>) => ({
-    letter: SAMPLE, ...over,
-  });
-
-  it('keeps a letter written for the offer currently open', () => {
-    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), 'Offre A')).toBe(true);
-  });
-
-  it('ignores surrounding whitespace on both sides', () => {
-    expect(isStoredLetterRelevant(ctx({ jobDescription: '  Offre A\n' }), 'Offre A')).toBe(true);
-  });
-
-  // The reported bug: a letter argued for a different position and was shown
-  // as if it were the current one.
-  it('rejects a letter written for another offer', () => {
-    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), 'Offre B')).toBe(false);
-  });
-
-  it('rejects when the offer is now empty', () => {
-    expect(isStoredLetterRelevant(ctx({ jobDescription: 'Offre A' }), '')).toBe(false);
-  });
-
-  // Legacy value written before jobDescription was mirrored: nothing to compare,
-  // so keep it rather than silently dropping the user's work.
-  it('keeps a legacy context that carries no offer', () => {
-    expect(isStoredLetterRelevant(ctx({ jobDescription: undefined }), 'Offre B')).toBe(true);
-  });
-
-  // La distinction qui compte : les métadonnées entreprise survivent sans lettre.
-  // Les avoir conditionnées à la lettre faisait repartir extractCompanyMeta.
-  it('les métadonnées entreprise restent valables sans lettre, sur la même offre', () => {
-    const ctxSansLettre = { letter: null, companyName: 'Acme', jobDescription: 'Offre A' };
-    expect(isStoredContextForOffer(ctxSansLettre, 'Offre A')).toBe(true);
-    expect(isStoredLetterRelevant(ctxSansLettre, 'Offre A')).toBe(false);
-  });
-
-  it('les métadonnées entreprise tombent aussi sur une autre offre', () => {
-    const ctxSansLettre = { letter: null, companyName: 'Acme', jobDescription: 'Offre A' };
-    expect(isStoredContextForOffer(ctxSansLettre, 'Offre B')).toBe(false);
-  });
-
-  it('is false when there is no stored letter at all', () => {
-    expect(isStoredLetterRelevant(ctx({ letter: null, jobDescription: 'Offre A' }), 'Offre A')).toBe(false);
-    expect(isStoredLetterRelevant(null, 'Offre A')).toBe(false);
-  });
+it('does not attach a letter without an offer to the current application automatically', () => {
+  expect(isStoredContextForOffer({ letter: SAMPLE }, 'New offer')).toBe(false);
+  expect(isStoredContextForOffer({ letter: SAMPLE, jobDescription: 'Offer' }, ' Offer ')).toBe(true);
 });

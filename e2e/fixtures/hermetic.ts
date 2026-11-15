@@ -111,7 +111,7 @@ export function watchAICalls(page: Page): string[] {
 export interface RoutedAICalls {
   /** Actions answered here, in the order the page sent them */
   answered: string[];
-  /** Actions that went through to the deployment: every one of them is billed */
+  /** Unmocked actions attempted: blocked locally, and must stay empty */
   forwarded: string[];
 }
 
@@ -130,19 +130,23 @@ export async function answerAIActions(page: Page, answers: Record<string, (args:
   const calls: RoutedAICalls = { answered: [], forwarded: [] };
   await page.routeWebSocket(/convex\.cloud/, (ws) => {
     const server = ws.connectToServer();
-    ws.onMessage((message) => {
+    ws.onMessage(async (message) => {
       const sent = typeof message === 'string' ? JSON.parse(message) : null;
       const action = sent?.type === 'Action' ? String(sent.udfPath).replace(/^ai:/, '') : undefined;
       const answer = action === undefined ? undefined : answers[action];
       if (!answer) {
-        if (action !== undefined) calls.forwarded.push(action);
+        if (action !== undefined) {
+          calls.forwarded.push(action);
+          ws.send(JSON.stringify({ type: 'ActionResponse', requestId: sent.requestId, logLines: [], success: false, result: `Unmocked AI action blocked in test: ${action}` }));
+          return;
+        }
         server.send(message);
         return;
       }
       calls.answered.push(action!);
       let response;
       try {
-        response = { success: true, result: answer(sent.args[0]) };
+        response = { success: true, result: await answer(sent.args[0]) };
       } catch (error) {
         response = { success: false, result: (error as Error).message };
       }

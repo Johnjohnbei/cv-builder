@@ -1,10 +1,12 @@
+import { guestApplications, letterStorageKey, type StoredCoverLetterContext } from '../features/editor/lib/cover-letter-drafts';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { cn } from '../shared/lib/cn';
 import { getErrorCode, getUserErrorMessage } from '../shared/lib/convex-error';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex, usePaginatedQuery } from "convex/react";
 import { Button } from '../shared/ui/Button';
 import { Dialog } from '../shared/ui/Dialog';
 import { Notification } from '../shared/ui/Notification';
@@ -30,6 +32,7 @@ import { SavedCVsView, type SavedCVEntry } from '../features/dashboard/component
 export default function DashboardPage() {
   useDocumentTitle('Dashboard');
   const navigate = useNavigate();
+  const client = useConvex();
   const { user } = useUser();
   const isGuest = readStoredText('guest_access', 'session') === 'true';
 
@@ -47,6 +50,9 @@ export default function DashboardPage() {
   const cvLanguage = chosenLanguage ?? detectedLanguage;
   const [jobUrl, setJobUrl] = useState('');
   const [activeView, setActiveView] = useState<DashboardView>('console');
+  const { results: applicationRecords, status: applicationStatus, loadMore: loadApplications } = usePaginatedQuery(api.coverLetters.applications, user && activeView === 'cvs' ? {} : 'skip', { initialNumItems: 20 });
+  const guestRecords = useMemo(() => !user && isGuest ? guestApplications() : [], [user, isGuest, activeView]);
+  const applications = user ? (applicationRecords ?? []).map(record => ({ ...record, id: record._id })) : guestRecords.map(({ key, context }) => ({ id: key, companyName: context.companyName, subject: context.letter?.subject ?? '', createdAt: context.updatedAt ?? Date.now() }));
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const isAdmin = user?.primaryEmailAddress?.emailAddress === 'joaudran@gmail.com';
   const [savedCVs, setSavedCVs] = useState<SavedCVEntry[]>([]);
@@ -220,6 +226,28 @@ export default function DashboardPage() {
     'Ouvrir ce CV remplacera votre brouillon en cours. Continuer ?', "Impossible d'ouvrir ce CV. Réessayez.",
   );
 
+  const openApplication = async (id: string) => {
+    try {
+      const record = user ? await client.query(api.coverLetters.get, { id: id as Id<'coverLetters'> }) : null;
+      const context: StoredCoverLetterContext | undefined = record ? {
+        letter: { subject: record.subject, greeting: record.greeting, body: record.body, closing: record.closing },
+        companyName: record.companyName, companyStage: record.companyStage, companyBusinessModel: record.companyBusinessModel,
+        revisions: record.revisions, tone: record.tone, motivation: record.motivation, jobDescription: record.jobDescription,
+        cvSnapshot: record.cvSnapshot as CVData | undefined, updatedAt: Date.parse(record.createdAt),
+      } : guestRecords.find(entry => entry.key === id)?.context;
+      if (!context) return;
+      const originalCV = context.cvSnapshot ?? savedCVs.find(cv => cv._id === record?.cvId) as unknown as CVData | undefined;
+      const cv = originalCV ?? currentDraft() ?? EMPTY_CV;
+      const offer = context.jobDescription ?? '';
+      const confirmation = originalCV ? 'Reprendre cette candidature remplacera le brouillon de travail. Continuer ?' : 'Le CV d’origine de cette ancienne lettre n’est pas disponible. Reprendre avec votre CV actuel ?';
+      if ((!originalCV || replacesDraft(currentDraft(), currentDraftOffer(), cv, offer)) && !window.confirm(confirmation)) return;
+      if (!await saveDraft(cv, offer, 'Impossible de reprendre cette candidature.')) return;
+      const key = letterStorageKey(user?.id ?? 'guest', record?.cvId, offer);
+      if (!writeStoredText(key, JSON.stringify(context))) { setNotification({ message: STORAGE_FAILED_MESSAGE, type: 'error' }); return; }
+      navigate(`/editor${record?.cvId ? '/' + record.cvId : ''}?document=letter`);
+    } catch (error) { setNotification({ message: getUserErrorMessage(error, 'Impossible de reprendre cette candidature.'), type: 'error' }); }
+  };
+
   const deleteSavedCV = async () => {
     if (!cvToDelete) return;
     try {
@@ -323,6 +351,10 @@ export default function DashboardPage() {
           ) : (
             <SavedCVsView
               savedCVs={savedCVs}
+              applications={applications}
+              hasMoreApplications={Boolean(user) && applicationStatus === 'CanLoadMore'}
+              onLoadMoreApplications={() => loadApplications(20)}
+              onOpenApplication={id => void openApplication(id)}
               onNewCV={() => void startEmptyCV()}
               onOpen={(cv) => void openSavedCV(cv)}
               onRequestDelete={setCvToDelete}

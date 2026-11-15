@@ -17,7 +17,7 @@ import { useFitToPages } from '../features/editor/hooks/useFitToPages';
 import { useJobRequirements } from '../features/editor/hooks/useJobRequirements';
 import { getBlockRenderers } from '../features/editor/templates/blockRenderers';
 import { useAutoNotification, useAccessCode, useDocumentTitle } from '../shared/hooks';
-import { EditorNotification, EditorHeader, CoverLetterDrawer, LanguageRegenerateModal } from '../features/editor/components';
+import { EditorNotification, EditorHeader, CoverLetterWorkspace, LanguageRegenerateModal } from '../features/editor/components';
 import { EditorPreview } from '../features/editor/components/EditorPreview';
 import { EditorSidebar } from '../features/editor/components/EditorSidebar';
 import { detectCVLanguage } from '../lib/language-detection';
@@ -58,12 +58,6 @@ export default function EditorPage() {
     loadedJobDescription,
     corrections,
   } = useCVLoader(user, userData, isGuest);
-
-  const isTailored = Boolean(
-    userData?.lastJobDescription &&
-    jobDescription.trim().length > 0 &&
-    userData.lastJobDescription.trim() === jobDescription.trim()
-  );
 
   // Initialize jobDescription from loaded data (dashboard → editor flow)
   // The offer the AI requirements describe: committed on load and when the offer
@@ -136,9 +130,8 @@ export default function EditorPage() {
   });
   const coverLetter = useCoverLetter({
     // The letter speaks of the CV as it prints: never of a requirement the user said they lack
-    cvData: printedCV,
+    cvData: printedCV ? { ...printedCV, design: designSettings } : null,
     jobDescription,
-    isTailored,
     cvId,
     user,
     notify,
@@ -159,7 +152,7 @@ export default function EditorPage() {
   // language the CV is currently showing.
   const exports = useExport({
     cvRef,
-    cvData: printedCV,
+    cvData: printedCV ? { ...printedCV, design: designSettings } : null,
     designSettings,
     notify,
     isAnonymous,
@@ -298,7 +291,7 @@ export default function EditorPage() {
         />
       )}
 
-      <EditorSidebar
+      {!coverLetter.isOpen && <EditorSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         activeTab={activeTab}
@@ -337,7 +330,7 @@ export default function EditorPage() {
         }}
         exports={exports}
         notify={notify}
-      />
+      />}
 
       {/* Main Preview Area (Stitch Style) */}
       <main id="main-content" className="flex-1 flex flex-col overflow-hidden bg-[#F1F3F4] min-h-0 relative">
@@ -345,6 +338,8 @@ export default function EditorPage() {
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[400] focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg">
           Aller au contenu principal
         </a>
+        {coverLetter.isOpen ? <CoverLetterWorkspace controller={coverLetter} personalInfo={cvData?.personal_info}
+          notify={notify} onOfferCommit={value => { setJobDescription(value); commitOffer(value); }} /> : <>
         <EditorHeader
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -388,6 +383,7 @@ export default function EditorPage() {
           zoom={zoom}
           editing={editing}
         />
+        </>}
       </main>
 
       {/* PDF generation overlay */}
@@ -400,14 +396,7 @@ export default function EditorPage() {
         </div>
       )}
 
-      {/* Cover letter drawer */}
-      <CoverLetterDrawer
-        controller={coverLetter}
-        user={user}
-        cvName={cvData?.personal_info?.name}
-        personalInfo={cvData?.personal_info}
-        notify={notify}
-      />
+
     </div>
   );
 }

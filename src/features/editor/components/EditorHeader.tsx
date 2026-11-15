@@ -168,7 +168,7 @@ export function EditorHeader({
           <span className="text-[11px] font-bold hidden xl:inline">Sauvegarder une version</span>
         </button>
         <button onClick={onOpenCoverLetter} disabled={!hasCvData} className="p-2 rounded hover:bg-gray-100 text-gray-600" aria-label="Lettre de motivation">
-          <Mail className="w-4 h-4" />
+          <span className="flex items-center gap-2"><Mail className="w-4 h-4" /><span className="hidden sm:inline text-xs">Lettre</span></span>
         </button>
         <details className="relative" onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
           <summary role="button" aria-label="Exporter" className="list-none cursor-pointer px-3 py-2 bg-blue-600 text-white rounded flex items-center gap-2 text-xs">

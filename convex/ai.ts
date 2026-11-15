@@ -10,7 +10,6 @@ import { coverLetterOf } from "./_ai/coverLetter";
 import { detectCVLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
-import { companyMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, normalizeTitle, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
 import { cachedRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
@@ -143,11 +142,24 @@ export const generateCoverLetter = action({
     tone: v.optional(v.string()),
     language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
+    motivation: v.optional(v.string()),
+    operation: v.optional(v.union(v.literal('generate'), v.literal('shorten'), v.literal('rephrase'))),
+    previous: v.optional(v.object({ subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() })),
+    selection: v.optional(v.object({ field: v.union(v.literal('subject'), v.literal('greeting'), v.literal('body'), v.literal('closing')), start: v.number(), end: v.number() })),
   },
   handler: async (ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     // What the prompt reads is bounded, not the cache and the versions that travel with it
     assertBoundedPrompt(cvArgument(args.cvData).cv);
+    assertMaxLength(args.motivation ?? '', 2000);
+    for (const text of [args.companyName, args.companyStage, args.companyBusinessModel, args.tone]) assertMaxLength(text ?? '', 200);
+    if (args.previous) for (const text of Object.values(args.previous)) assertMaxLength(text, 6000);
+    if (args.operation && args.operation !== 'generate' && !args.previous) throw userError('Aucune lettre à modifier.', 'LETTER_INVALID_REVISION');
+    if (args.operation === 'rephrase') {
+      const s = args.selection;
+      if (!s || !args.previous || !Number.isInteger(s.start) || !Number.isInteger(s.end) || s.start < 0 || s.end <= s.start || s.end > args.previous[s.field].length)
+        throw userError('Sélectionnez le passage à reformuler.', 'LETTER_INVALID_SELECTION');
+    }
     await verifyAccessCode(ctx, args.accessCode);
     // The letter is in the CV's language (arbitrage of 2026-10-07): the client
     // says it; a caller that does not gets the CV's hints, then its text read
@@ -162,29 +174,21 @@ export const generateCoverLetter = action({
       companyStage: args.companyStage,
       companyBusinessModel: args.companyBusinessModel,
       tone: args.tone,
+      motivation: args.motivation,
       language,
-    });
+    }, { operation: args.operation, previous: args.previous, selection: args.selection });
   },
 });
 
+/** Release compatibility for old editor tabs; company detection now shares the letter call. */
 export const extractCompanyMeta = action({
-  args: {
-    jobDescription: v.string(),
-    accessCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
+  args: { jobDescription: v.string(), accessCode: v.optional(v.string()) },
+  handler: async (_ctx, args) => {
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
-    await verifyAccessCode(ctx, args.accessCode, false);
-    return await companyMetaOf(args.jobDescription);
+    return { companyName: null, domainGuess: null, industry: null, stage: null, businessModel: null };
   },
 });
 
-/**
- * Pure 1:1 translation of a CV to a target language. PRESERVES structure
- * exactly — same number of bullets, same KPIs, same order. Distinct from
- * tailorCV which rewrites content. Use this when the user wants
- * "same CV, different language", not "regenerated for this language".
- */
 export const translateCV = action({
   args: {
     cvData: v.any(),

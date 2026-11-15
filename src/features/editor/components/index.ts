@@ -3,4 +3,4 @@ export { OverflowIndicator } from './OverflowIndicator';
 export { EditorHeader } from './EditorHeader';
 export { LanguageRegenerateModal } from './LanguageRegenerateModal';
 export { ATSPanel } from './ATSPanel';
-export { CoverLetterDrawer } from './CoverLetterDrawer';
+export { CoverLetterWorkspace } from './CoverLetterWorkspace';

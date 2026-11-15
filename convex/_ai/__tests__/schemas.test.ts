@@ -4,7 +4,6 @@ import {
   ExperienceSchema,
   JobRequirementSchema,
   CoverLetterSchema,
-  CompanyMetaSchema,
 } from "../schemas";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -96,60 +95,5 @@ describe("Ancillary schemas", () => {
     expect(() =>
       CoverLetterSchema.parse({ subject: "s", greeting: "g", body: "too short", closing: "c" }),
     ).toThrow();
-  });
-});
-
-describe("CompanyMetaSchema", () => {
-  it("parses valid payload with all fields as strings", () => {
-    const result = CompanyMetaSchema.parse({
-      companyName: "Google",
-      domainGuess: "google.com",
-      industry: "Tech",
-    });
-    expect(result.companyName).toBe("Google");
-    expect(result.domainGuess).toBe("google.com");
-    expect(result.industry).toBe("Tech");
-  });
-
-  it("parses valid payload with all fields as null", () => {
-    const result = CompanyMetaSchema.parse({
-      companyName: null,
-      domainGuess: null,
-      industry: null,
-    });
-    expect(result.companyName).toBeNull();
-    expect(result.domainGuess).toBeNull();
-    expect(result.industry).toBeNull();
-  });
-
-  it("parses mixed payload (name string, others null)", () => {
-    const result = CompanyMetaSchema.parse({
-      companyName: "Airbus",
-      domainGuess: null,
-      industry: null,
-    });
-    expect(result.companyName).toBe("Airbus");
-    expect(result.domainGuess).toBeNull();
-    expect(result.industry).toBeNull();
-  });
-
-  it("rejects when companyName is a number", () => {
-    expect(() =>
-      CompanyMetaSchema.parse({
-        companyName: 42,
-        domainGuess: null,
-        industry: null,
-      })
-    ).toThrow();
-  });
-
-  it("preserves unknown fields via passthrough", () => {
-    const result = CompanyMetaSchema.parse({
-      companyName: "Acme",
-      domainGuess: null,
-      industry: null,
-      extraField: "keep me",
-    });
-    expect((result as any).extraField).toBe("keep me");
   });
 });

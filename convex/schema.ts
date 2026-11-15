@@ -124,16 +124,15 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
 
   coverLetters: defineTable({
-    userId: v.string(),
-    cvId: v.optional(v.id("cvs")),
-    jobDescription: v.string(),
-    companyName: v.optional(v.string()),
-    subject: v.string(),
-    greeting: v.string(),
-    body: v.string(),
-    closing: v.string(),
-    createdAt: v.string(),
-  }).index("by_userId", ["userId"]),
+    userId: v.string(), cvId: v.optional(v.id("cvs")), jobDescription: v.string(),
+    offerFingerprint: v.optional(v.string()), companyName: v.optional(v.string()),
+    companyStage: v.optional(v.string()), companyBusinessModel: v.optional(v.string()),
+    motivation: v.optional(v.string()), tone: v.optional(v.string()), cvSnapshot: v.optional(v.any()),
+    subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string(), createdAt: v.string(),
+    revisions: v.optional(v.array(v.object({ subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() }))),
+  }).index("by_userId", ["userId"])
+    .index("by_application", ["userId", "cvId", "offerFingerprint"])
+    .index("by_recent", ["userId", "createdAt"]),
 
   accessCodes: defineTable({
     code: v.string(),

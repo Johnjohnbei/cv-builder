@@ -88,6 +88,7 @@ export const JobRequirementsSchema = z.object({
 }).passthrough();
 
 export const CoverLetterSchema = z.object({
+  companyName: z.string().optional(),
   subject: z.string().min(1),
   greeting: z.string().min(1),
   // A real letter body is several paragraphs — reject near-empty output so the
@@ -96,14 +97,8 @@ export const CoverLetterSchema = z.object({
   closing: z.string().min(1),
 }).passthrough();
 
-export const CompanyMetaSchema = z.object({
-  companyName: z.string().nullable(),
-  domainGuess: z.string().nullable(),
-  industry: z.string().nullable(),
-  stage: z.string().nullable().optional(),
-  businessModel: z.string().nullable().optional(),
-}).passthrough();
-export type CompanyMetaParsed = z.infer<typeof CompanyMetaSchema>;
+/** A selected excerpt may be shorter than a full letter; other fields stay empty. */
+export const CoverLetterExcerptSchema = z.object({ subject: z.string(), greeting: z.string(), body: z.string(), closing: z.string() });
 
 // Company metadata constants live in src/shared/constants/company-meta.ts
 // (zod-free) so UI imports don't pull zod into the editor bundle.

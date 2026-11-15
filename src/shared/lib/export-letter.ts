@@ -2,7 +2,8 @@ import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import type { PersonalInfo } from '../types';
 import type { ExportLanguage } from './export-docx';
-import type { CoverLetterData } from '@/src/features/editor/hooks/useCoverLetter';
+import type { CoverLetterData } from '@/src/features/editor/lib/cover-letter-drafts';
+import { buildCoverLetterText, buildLetterDateLine } from '@/src/features/editor/lib/cover-letter-drafts';
 import { stripAccents } from './text';
 
 export interface ExportLetterOptions {
@@ -24,15 +25,6 @@ export function buildLetterFilename(companyName: string | undefined, language: E
   return slug ? `${prefix}_${slug}.docx` : `${prefix}.docx`;
 }
 
-/** Localized long date, e.g. "7 août 2026" / "August 7, 2026", prefixed with the sender's city when known. */
-export function buildLetterDateLine(language: ExportLanguage, location?: string, now: Date = new Date()): string {
-  const date = now.toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  });
-  const city = location?.trim();
-  if (!city) return date;
-  return language === 'en' ? `${city}, ${date}` : `${city}, le ${date}`;
-}
 
 function bodyParagraph(text: string, spacingAfter = 200): Paragraph {
   return new Paragraph({
@@ -170,5 +162,15 @@ const LETTER_PDF_CSS = `
 export async function exportLetterToPdf(opts: ExportLetterOptions): Promise<void> {
   const { downloadPdfFromHtml } = await import('@/src/features/editor/lib/pdf-export');
   const baseName = buildLetterFilename(opts.companyName, opts.language).replace(/\.docx$/, '');
-  await downloadPdfFromHtml(buildLetterHtml(opts), `<style>${LETTER_PDF_CSS}</style>`, baseName);
+  await downloadPdfFromHtml(buildLetterHtml(opts), `<style>${LETTER_PDF_CSS}</style>`, baseName, async blob => {
+    const [{ extractPDFItems }, { validateExportedPDF, PDFValidationError }] = await Promise.all([
+      import('@/src/lib/pdf-text-extract'), import('@/src/features/editor/lib/pdf-validation'),
+    ]);
+    const result = validateExportedPDF(await extractPDFItems(blob), blob.size, {
+      text: buildCoverLetterText(opts.letter, opts.personalInfo.name),
+      critical: [opts.personalInfo.name, opts.letter.subject].filter(Boolean),
+      ordered: [opts.letter.greeting, ...opts.letter.body.split(/\n{2,}/u), opts.letter.closing].filter(Boolean),
+    });
+    if (!result.valid) throw new PDFValidationError(result.warning);
+  });
 }

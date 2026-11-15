@@ -1,3 +1,5 @@
+import { CoverLetterExcerptSchema } from '../../schemas';
+import { validateLetter } from '../../coverLetter';
 import { describe, it, expect } from "vitest";
 import { buildCoverLetterPrompt } from "../../prompts/coverLetter";
 
@@ -161,4 +163,29 @@ describe("buildCoverLetterPrompt", () => {
     });
     expect(prompt).toContain("professional and engaged");
   });
+});
+
+
+describe('letter output controls and revisions', () => {
+  const ctx = { cvData: { experience: [{ company: 'Acme', description: ['Livré 12 produits avec Figma.'] }] }, jobDescription: 'Designer pour Beta', companyName: 'Beta' };
+  const letter = { subject: 'Designer', greeting: 'Bonjour,', body: 'J’ai livré 12 produits chez Acme.', closing: 'Cordialement,' };
+  it('accepts sourced figures and rejects invented figures, names and excessive length', () => {
+    expect(() => validateLetter(letter, ctx)).not.toThrow();
+    expect(() => validateLetter({ ...letter, body: 'J’ai livré 99 produits.' }, ctx)).toThrow();
+    expect(() => validateLetter({ ...letter, body: 'J’ai travaillé chez InventedCorp.' }, ctx)).toThrow();
+    expect(() => validateLetter({ ...letter, body: 'mot '.repeat(351) }, ctx)).toThrow();
+  });
+  it('does not demand invented metrics when the source contains none, and accepts personal motivation as data', () => {
+    const prompt = buildCoverLetterPrompt({ ...ctx, motivation: 'Je veux améliorer l’accessibilité.' });
+    expect(prompt).toContain('Je veux améliorer l’accessibilité.');
+    expect(prompt).toContain('chiffrées seulement si le CV');
+    expect(prompt).not.toContain('2 ou 3 réalisations');
+  });
+});
+
+it('accepts a short replacement without requiring the three untouched fields to be nonempty', () => {
+  expect(CoverLetterExcerptSchema.parse({ subject: '', greeting: '', body: 'Un passage.', closing: '' }).body).toBe('Un passage.');
+});
+it('does not mistake paragraph-opening words for invented employers', () => {
+  expect(() => validateLetter({ subject: 'Designer', greeting: 'Bonjour', body: 'Mon parcours répond à ce besoin.\n\nVotre projet m’intéresse.', closing: 'Merci' }, { cvData: {}, jobDescription: 'Designer' })).not.toThrow();
 });

@@ -17,13 +17,17 @@ export interface SavedCVEntry {
 
 interface Props {
   savedCVs: SavedCVEntry[];
+  applications?: { id: string; companyName?: string; subject: string; createdAt: string | number }[];
+  hasMoreApplications?: boolean;
+  onLoadMoreApplications?: () => void;
+  onOpenApplication?: (id: string) => void;
   onNewCV: () => void;
   onOpen: (cv: SavedCVEntry) => void;
   onRequestDelete: (id: string) => void;
 }
 
 /** The "Mes CV" view of the dashboard. Extracted from DashboardPage, over its size limit. */
-export function SavedCVsView({ savedCVs, onNewCV, onOpen, onRequestDelete }: Props) {
+export function SavedCVsView({ savedCVs, applications = [], hasMoreApplications, onLoadMoreApplications, onOpenApplication, onNewCV, onOpen, onRequestDelete }: Props) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
@@ -36,6 +40,16 @@ export function SavedCVsView({ savedCVs, onNewCV, onOpen, onRequestDelete }: Pro
         </Button>
       </div>
 
+      {applications.length > 0 && <section aria-label="Candidatures enregistrées">
+        <h3 className="font-semibold mb-3">Mes candidatures</h3>
+        <div className="divide-y divide-gray-200 border-y border-gray-200">
+          {applications.map(entry => <div key={entry.id} className="flex flex-wrap justify-between items-center gap-3 py-4">
+            <div className="min-w-0"><p className="font-medium text-sm">{entry.companyName || 'Entreprise non précisée'}</p><p className="text-sm text-gray-600 break-words">{entry.subject}</p><p className="text-xs text-gray-500 mt-1">{new Date(entry.createdAt).toLocaleDateString('fr-FR')}</p></div>
+            <Button mono={false} variant="secondary" size="sm" onClick={() => onOpenApplication?.(entry.id)}>Reprendre la candidature</Button>
+          </div>)}
+        </div>
+        {hasMoreApplications && <Button mono={false} variant="ghost" onClick={onLoadMoreApplications}>Afficher d’autres candidatures</Button>}
+      </section>}
       {savedCVs.length === 0 ? (
         <div className="stitch-panel p-12 text-center">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
