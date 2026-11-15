@@ -1,3 +1,4 @@
+import { PDF_TEXT_STYLE } from '../lib/pdf-styles';
 import { cn } from '@/src/shared/lib/cn';
 
 interface Props {
@@ -30,6 +31,7 @@ export function CVPage({ pageIndex, accentColor, fontClass, style, children, pad
         overflow: 'visible',
         position: 'relative',
         ...style,
+        ...PDF_TEXT_STYLE,
       }}
     >
       {/* Accent border for pages 2+ */}

@@ -50,7 +50,7 @@ for (const geometry of GEOMETRIES) {
 
     test("contacts, postes, dates et puces sont extraits en texte, dans l'ordre du CV", async ({ page }) => {
       const design = { ...(MOCK_CV as Record<string, unknown>).design as object, template: 'TEMPLATE_E', ...geometry.design };
-      await seedGuestSession(page, { cv: { ...MOCK_CV, design } });
+      await seedGuestSession(page, { cv: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, summary: MOCK_CV.personal_info.summary + ' Je vérifie chaque fichier.' }, design } });
       const download = page.waitForEvent('download', { timeout: 120_000 });
       await page.getByRole('button', { name: 'Exporter', exact: true }).click();
       await page.getByRole('button', { name: 'Exporter en PDF', exact: true }).click();
@@ -71,6 +71,7 @@ for (const geometry of GEOMETRIES) {
       // it hit the costliest word of the CV, the profile title, which is the
       // offer's own job title. Read on the items as they come out, never on
       // squashed text: squashing removes the very spaces that say it is broken.
+      for (const word of ['vérifie', 'fichier']) expect(items.some(item => item.includes(word))).toBe(true);
       const spacedOut = items.filter(item => /(?:^|\s)(?:\p{L}\s){2,}\p{L}(?:\s|$)/u.test(item));
       expect(spacedOut, `aucun mot ne doit sortir lettre par lettre : ${spacedOut.join(' | ')}`).toEqual([]);
       // And every word of the title comes out whole, in one item

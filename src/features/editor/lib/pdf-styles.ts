@@ -3,6 +3,13 @@
  * Single source of truth — used by both serverless (generate-pdf.ts)
  * and browser fallback (pdf-export.ts renderPDF).
  */
+// Linux Chromium splits ligature glyphs into separate PDF text items (véri / fi / e).
+// Share the setting with the measured preview so line widths stay consistent.
+export const PDF_TEXT_STYLE = {
+  fontVariantLigatures: 'none',
+  fontFeatureSettings: '"liga" 0, "clig" 0',
+} as const;
+
 export function getPdfCss(): string {
   return `
     @page {
@@ -17,6 +24,8 @@ export function getPdfCss(): string {
       height: auto;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      font-variant-ligatures: ${PDF_TEXT_STYLE.fontVariantLigatures};
+      font-feature-settings: ${PDF_TEXT_STYLE.fontFeatureSettings};
     }
 
     /* Pre-paginated pages: each .cv-page is exactly one A4 page */

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { MOCK_CV, MOCK_JOB_DESCRIPTION, MOCK_COMPANY_NAME } from './fixtures/mock-cv';
 import { REQUIREMENTS_CACHE_KEY, answerAIActions, seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
-const LETTER = { subject: 'Un poste de designer', greeting: 'Madame, Monsieur,', body: 'Je conçois des produits utiles.\n\nMon expérience accompagne votre projet.', closing: 'Au plaisir d’échanger.' };
+const LETTER = { subject: 'Un poste de designer', greeting: 'Madame, Monsieur,', body: 'Je conçois des produits utiles. Je vérifie chaque fichier.\n\nMon expérience accompagne votre projet.', closing: 'Au plaisir d’échanger.' };
 async function setup(page: Page, letter = true) {
   await seedGuestSession(page, { cv: MOCK_CV, jd: MOCK_JOB_DESCRIPTION });
   await page.evaluate(({ letter, jd, companyName }) => localStorage.setItem('guest_last_cover_letter', JSON.stringify({ letter, companyName, jobDescription: jd })), { letter: letter ? LETTER : null, jd: MOCK_JOB_DESCRIPTION, companyName: MOCK_COMPANY_NAME });
@@ -138,6 +138,7 @@ test('le PDF réel de la lettre contient le texte, dans l’ordre', async ({ pag
   expect(doc.numPages).toBe(1);
   const { items } = await (await doc.getPage(1)).getTextContent();
   const text = items.map(item => 'str' in item ? item.str : '').join(' ').replace(/\s+/gu, ' ');
+  expect(items.some(item => 'str' in item && item.str.includes('vérifie'))).toBe(true);
   const first = text.indexOf(LETTER.subject);
   const body = text.indexOf('Je conçois des produits utiles.');
   const closing = text.indexOf(LETTER.closing);

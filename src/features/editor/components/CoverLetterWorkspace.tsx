@@ -1,3 +1,4 @@
+import { PDF_TEXT_STYLE } from '../lib/pdf-styles';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Download, Undo2, FileText } from 'lucide-react';
@@ -134,7 +135,7 @@ export function CoverLetterWorkspace({ controller: c, personalInfo, notify, onOf
           <FileText className="w-6 h-6 text-gray-400 mb-5" /><h2 className="text-xl font-semibold">Une lettre pour cette offre</h2>
           <p className="text-sm text-gray-600 mt-3 max-w-md">Ajoutez votre motivation si vous le souhaitez, puis lancez la rédaction. Vous pourrez modifier le texte directement ici.</p>
         </div> : <article aria-label="Document lettre" className="max-w-[794px] min-h-[900px] mx-auto bg-white border border-gray-200 p-6 sm:p-14 lg:px-[83px] lg:py-[94px]"
-          style={{ fontFamily: 'Calibri, Carlito, Arial, sans-serif', fontSize: '11pt', lineHeight: 1.55, color: '#1a1a1a' }}>
+          style={{ ...PDF_TEXT_STYLE, fontFamily: 'Calibri, Carlito, Arial, sans-serif', fontSize: '11pt', lineHeight: 1.55, color: '#1a1a1a' }}>
           <p className="font-bold text-base">{personalInfo?.name}</p><p className="text-xs text-gray-600 mb-8">{[personalInfo?.email, personalInfo?.phone, personalInfo?.location].filter(Boolean).join(' · ')}</p>
           <p className="text-right mb-6">{buildLetterDateLine(getLetterLanguage(c.letter), personalInfo?.location)}</p>
           {(Object.keys(labels) as (keyof CoverLetterData)[]).map(field => <div key={field} className={field === 'subject' ? 'mb-6' : 'mb-4'}><LetterField field={field} value={c.letter![field]} disabled={c.isGenerating} onChange={c.updateLetterField} onSelection={setSelection} /></div>)}
