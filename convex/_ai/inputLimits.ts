@@ -1,6 +1,7 @@
 import { userError } from "../_shared/errors";
 import type { CVData } from "../../src/shared/types";
 import { restoreUserOwnedFields, withoutUserOwnedFields } from "./normalizers";
+import { ATS_POLICY } from '../../src/features/editor/lib/ats-rules';
 
 
 // ─── Input size ─────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ export const MAX_CV_CHARS = 60_000; // a CV as the prompt writes it, photo and p
  * What normalizeJobRequirements keeps (MAX_REQUIREMENTS). It read 100: the 75
  * extra were sent, paid for in tokens, and dropped without a word.
  */
-export const MAX_REQUIREMENTS_SENT = 25;
+export const MAX_REQUIREMENTS_SENT = ATS_POLICY.maxRequirements;
 
 /**
  * Bound what a CV action puts in a prompt, the pasted texts aside: the CV
@@ -77,8 +78,8 @@ export function cvArgument(raw: unknown) {
   // The editor's own state stays out of every prompt too: the versions a block
   // was not printed in, and the requirements the user said they lack (their
   // texts would bring them back into a letter or a translation)
-  const { design, detectedLanguage, languageOverride, _translations: _staleCache, dismissedRequirements: _dismissed, notRequirements: _none, ...rest } = (raw || {}) as Record<string, any>;
-  void _staleCache; void _dismissed; void _none;
+  const { design, detectedLanguage, languageOverride, _translations: _staleCache, dismissedRequirements: _dismissed, notRequirements: _none, generation: _generation, confirmedRequirements: _confirmed, ...rest } = (raw || {}) as Record<string, any>;
+  void _staleCache; void _dismissed; void _none; void _generation; void _confirmed;
   const content = rest as { personal_info?: CVData["personal_info"] };
   const hints = { detectedLanguage: detectedLanguage as Language | undefined, languageOverride: languageOverride as Language | undefined };
   return {

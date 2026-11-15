@@ -24,7 +24,7 @@ export const SkillsSection = memo(function SkillsSection({
       : null);
 
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-skills" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

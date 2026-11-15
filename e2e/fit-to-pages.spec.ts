@@ -110,7 +110,7 @@ test.describe('Tri auto sur N pages', () => {
       sessionStorage.setItem('guest_access', 'true');
       localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
       localStorage.setItem('guest_last_jd', jd);
-      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements }]));
+      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements, version: '2026-11-15.1', analyzedAt: Date.now() }]));
     }, { cv: VERY_LONG_CV, jd: LONG_CV_JOB_DESCRIPTION, key: REQUIREMENTS_CACHE_KEY, requirements: requirementsOf(MOCK_REQUIREMENT_LABELS) });
     await page.goto('/editor');
     // Leave in the middle of the fit: it takes a few seconds on 20 roles
@@ -124,7 +124,7 @@ test.describe('Tri auto sur N pages', () => {
     await setupLongCV(page);
     await waitForPageCount(page, 2);
 
-    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
     await page.getByRole('group', { name: /tenir en/i }).getByRole('button', { name: '1' }).click();
     await page.getByRole('button', { name: /Faire tenir en 1 page/i }).click();
 
@@ -133,6 +133,15 @@ test.describe('Tri auto sur N pages', () => {
     expect(modes).toContain('hidden');
     // The most relevant role survives the squeeze.
     expect(modes[0]).not.toBe('hidden');
+  });
+
+  test('une longue offre repliée laisse le budget et l’ajustement immédiatement accessibles', async ({ page }) => {
+    await setupLongCV(page);
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
+    const offer = page.getByRole('button', { name: /Offre importée/ });
+    expect((await offer.boundingBox())!.height).toBeLessThan(120);
+    const fit = page.getByRole('button', { name: /Faire tenir en 2 pages/ });
+    expect((await fit.boundingBox())!.y).toBeLessThan(700);
   });
 
   test('un CV déjà trié à la main n\'est pas ré-ajusté à l\'ouverture', async ({ page }) => {
@@ -174,7 +183,7 @@ test.describe('Rendu du CV', () => {
     await setupLongCV(page, TRIAGED_CV);
     await expect(page.locator('.cv-page').last()).toContainText('Zeroheight', { timeout: 15_000 });
 
-    await page.getByRole('tab', { name: 'Design' }).click();
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
     await page.getByRole('switch', { name: 'Compétences' }).click();
 
     await expect(page.locator('[data-live-title="skills"]')).toHaveCount(0);
@@ -185,7 +194,7 @@ test.describe('Rendu du CV', () => {
   test('un résumé plus haut qu\'une page est signalé avant l\'export', async ({ page }) => {
     const longSummary = Array.from({ length: 80 }, (_, i) => `Phrase ${i} du profil, volontairement longue pour dépasser la hauteur d'une page A4 entière.`).join(' ');
     await setupLongCV(page, { ...TRIAGED_CV, personal_info: { ...TRIAGED_CV.personal_info, summary: longSummary } });
-    await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
     await expect(page.getByText(/plus haut qu'une page et sera coupé/)).toBeVisible({ timeout: 15_000 });
   });
 
@@ -237,7 +246,7 @@ test.describe('Édition du contenu', () => {
     await expect(preview).toContainText('adopte a 95% en 4 mois');
     // The sidebar reads the same source: the preview never edits the rendered text
     await page.getByRole('tab', { name: 'Contenu' }).click();
-    await page.getByRole('button', { name: 'Expériences' }).click();
+    await expect(page.getByRole('button', { name: 'Expériences', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('[data-cv-block="experience"]').first().getByRole('textbox').nth(6)).toHaveValue(edited);
 
     await page.getByRole('button', { name: 'Annuler la dernière modification' }).click();
@@ -247,6 +256,7 @@ test.describe('Édition du contenu', () => {
   test('une modification faite juste avant de quitter l\'éditeur est enregistrée', async ({ page }) => {
     await setupLongCV(page, TRIAGED_CV);
     await page.getByRole('tab', { name: 'Contenu' }).click();
+    await page.getByRole('button', { name: 'Infos personnelles', exact: true }).click();
     await page.getByLabel('Titre pro').fill('Titre changé juste avant de partir');
 
     // Leaves right away, well inside the 1.5 s auto-save debounce
@@ -268,12 +278,17 @@ const DS_OFFER = `Lead Product Designer H/F. Vous piloterez notre système de de
 
 const headerLinks = (page: Page) => page.locator('[data-cv-section="header"] a');
 
+const seedPortfolioSession = async (...args: Parameters<typeof seedGuestSession>) => {
+  await seedGuestSession(...args);
+  await args[0].getByRole('tab', { name: 'Contenu' }).click();
+};
+
 test.describe('Lien portfolio', () => {
   guardAICalls();
 
   test('sans offre : les versions sont listées, aucune n\'est suggérée ni ajoutée', async ({ page }) => {
-    await seedGuestSession(page, { cv: LONG_CV });
-    await page.getByRole('tab', { name: 'ATS' }).click();
+    await seedPortfolioSession(page, { cv: LONG_CV });
+    await page.getByRole('tab', { name: 'Contenu' }).click();
 
     await expect(page.getByLabel('Version à lier')).toBeVisible();
     await expect(page.getByText('Importez une offre pour obtenir une suggestion.')).toBeVisible();
@@ -281,7 +296,7 @@ test.describe('Lien portfolio', () => {
   });
 
   test('une offre accentuée suggère la bonne version, ajoutée en un clic', async ({ page }) => {
-    await seedGuestSession(page, { cv: LONG_CV, jd: DS_OFFER });
+    await seedPortfolioSession(page, { cv: LONG_CV, jd: DS_OFFER });
     // The editor lands on the ATS tab when an offer arrives: the panel is there.
     await expect(page.getByText(/Suggéré pour cette offre/)).toContainText('Portfolio Design System');
 
@@ -293,7 +308,7 @@ test.describe('Lien portfolio', () => {
   });
 
   test('choisir une autre version la remplace, Retirer enlève le lien', async ({ page }) => {
-    await seedGuestSession(page, { cv: LONG_CV, jd: DS_OFFER });
+    await seedPortfolioSession(page, { cv: LONG_CV, jd: DS_OFFER });
     await page.getByRole('button', { name: 'Ajouter au CV' }).click();
 
     await page.getByLabel('Version à lier').selectOption('ia');
@@ -307,7 +322,7 @@ test.describe('Lien portfolio', () => {
 
   // Modern (TEMPLATE_B) was removed on 2026-09-15: a CV saved with it opens in Elegant, contacts intact
   test('un CV enregistré avec le template Modern retiré s’ouvre en Elegant, LinkedIn et portfolio compris', async ({ page }) => {
-    await seedGuestSession(page, {
+    await seedPortfolioSession(page, {
       cv: {
         ...LONG_CV,
         personal_info: {
@@ -325,7 +340,7 @@ test.describe('Lien portfolio', () => {
     const header = page.locator('[data-cv-section="header"]').first();
     await expect(header).toContainText('linkedin.com/in/marie-dupont', { timeout: 15_000 });
     await expect(header.locator('a')).toHaveAttribute('href', 'https://example.com/portfolio/design-system');
-    await page.getByRole('tab', { name: 'Design' }).click();
+    await page.getByRole('tab', { name: 'Mise en page' }).click();
     // One template left since 2026-11-06: nothing to pick, nothing to confirm
     await expect(page.getByText('Templates', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Modern', { exact: true })).toHaveCount(0);

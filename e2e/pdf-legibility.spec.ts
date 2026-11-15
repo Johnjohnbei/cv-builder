@@ -52,7 +52,8 @@ for (const geometry of GEOMETRIES) {
       const design = { ...(MOCK_CV as Record<string, unknown>).design as object, template: 'TEMPLATE_E', ...geometry.design };
       await seedGuestSession(page, { cv: { ...MOCK_CV, design } });
       const download = page.waitForEvent('download', { timeout: 120_000 });
-      await page.getByRole('button', { name: 'Exporter en PDF' }).click();
+      await page.getByRole('button', { name: 'Exporter', exact: true }).click();
+      await page.getByRole('button', { name: 'Exporter en PDF', exact: true }).click();
       const pages = await pdfItems(await (await download).path());
       const items = pages.flat();
       const text = squash(items.join(' '));

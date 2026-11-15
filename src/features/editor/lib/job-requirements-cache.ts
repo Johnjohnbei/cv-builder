@@ -1,5 +1,6 @@
-import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS, type JobRequirement } from '@/src/shared/types';
+import { REQUIREMENT_IMPORTANCES, REQUIREMENT_KINDS, type GenerationRecord, type JobRequirement } from '@/src/shared/types';
 import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
+import { ATS_POLICY } from './ats-rules';
 
 /**
  * Local cache of the AI-extracted job requirements, keyed by the job description.
@@ -16,12 +17,14 @@ import { readStoredJSON, writeStoredText } from '@/src/shared/lib/storage';
  * ('ai_keywords_cache') and the lists analyzed before each requirement named
  * itself in both languages ('job_requirements_cache') are never read.
  */
-export const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache_v2';
+export const REQUIREMENTS_CACHE_KEY = `job_requirements_cache_${ATS_POLICY.extractionVersion}`;
 const MAX_OFFERS = 5;
 
 interface CachedRequirements {
   jobDescription: string;
   requirements: JobRequirement[];
+  version: string;
+  analyzedAt: number;
 }
 
 /**
@@ -86,7 +89,25 @@ function isRequirement(value: unknown): value is JobRequirement {
     && typeof r.quote === 'string'
     && Array.isArray(r.variants) && r.variants.every(v => typeof v === 'string')
     && (REQUIREMENT_KINDS as readonly unknown[]).includes(r.kind)
-    && (REQUIREMENT_IMPORTANCES as readonly unknown[]).includes(r.importance);
+    && (REQUIREMENT_IMPORTANCES as readonly unknown[]).includes(r.importance)
+    && (r.minYears === undefined || (typeof r.minYears === 'number' && Number.isFinite(r.minYears) && r.minYears > 0))
+    && (r.minLevel === undefined || ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(r.minLevel))
+    && (r.experienceScope === undefined || (Array.isArray(r.experienceScope) && r.experienceScope.length <= 8 && r.experienceScope.every(term => typeof term === 'string' && term.length > 0 && term.length <= 100)))
+    && (r.needsVerification === undefined || typeof r.needsVerification === 'boolean');
+}
+
+/** Optional metadata is untrusted storage too. A corrupt snapshot never breaks an older CV. */
+export function generationOf(value: unknown): GenerationRecord | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const g = value as GenerationRecord;
+  const strings = [g.id, g.createdAt, g.rulesVersion, g.extractionVersion, g.promptVersion, g.model, g.offer];
+  if (!strings.every(s => typeof s === 'string') || !Number.isFinite(Date.parse(g.createdAt)) || g.offer.length > 20_000) return undefined;
+  if (!Number.isFinite(g.durationMs) || g.durationMs < 0 || typeof g.extractionAtLimit !== 'boolean') return undefined;
+  if (g.initialScore !== null && (!Number.isFinite(g.initialScore) || g.initialScore < 0 || g.initialScore > 100)) return undefined;
+  if (!Array.isArray(g.requirements) || g.requirements.length > ATS_POLICY.maxRequirements || !g.requirements.every(isRequirement)) return undefined;
+  if (![g.sourceRequirementIds, g.addedRequirementIds].every(ids => Array.isArray(ids) && ids.length <= ATS_POLICY.maxRequirements && ids.every(id => typeof id === 'string'))) return undefined;
+  if (g.scopedYears !== undefined && (!Array.isArray(g.scopedYears) || !g.scopedYears.every(item => item && typeof item.company === 'string' && typeof item.start_date === 'string' && (item.end_date === undefined || typeof item.end_date === 'string') && typeof item.current === 'boolean' && typeof item.sourceText === 'string' && item.sourceText.length <= 60_000))) return undefined;
+  return g;
 }
 
 function readEntries(): CachedRequirements[] {
@@ -123,7 +144,9 @@ export function readCachedRequirements(jobDescription: string): JobRequirement[]
   const jd = normalize(jobDescription);
   if (!jd) return null;
   const hit = [...answeredInTab, ...readEntries()].find(e => normalize(e.jobDescription) === jd);
-  const valid = hit?.requirements.filter(isRequirement) ?? [];
+  const valid = hit?.version === ATS_POLICY.extractionVersion && Number.isFinite(hit.analyzedAt)
+    && hit.analyzedAt <= Date.now() && Date.now() - hit.analyzedAt < ATS_POLICY.cacheMaxAgeMs
+    ? hit.requirements.filter(isRequirement) : [];
   return valid.length > 0 ? valid : null;
 }
 
@@ -174,8 +197,9 @@ export function requestRequirements(offer: string, accessCode: string | undefine
 export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {
   const jd = normalize(jobDescription);
   if (!jd) return;
-  answeredInTab = mostRecentOffers([{ jobDescription: jd, requirements }, ...answeredInTab]);
+  const entry: CachedRequirements = { jobDescription: jd, requirements, version: ATS_POLICY.extractionVersion, analyzedAt: Date.now() };
+  answeredInTab = mostRecentOffers([entry, ...answeredInTab]);
   // Refused by a full quota or by private mode: the in-memory copy still
   // answers for this tab, which is what writeStoredText's false return says
-  writeStoredText(REQUIREMENTS_CACHE_KEY, JSON.stringify(mostRecentOffers([{ jobDescription: jd, requirements }, ...readEntries()])));
+  writeStoredText(REQUIREMENTS_CACHE_KEY, JSON.stringify(mostRecentOffers([entry, ...readEntries()])));
 }

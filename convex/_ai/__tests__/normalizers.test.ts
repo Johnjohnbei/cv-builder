@@ -419,10 +419,10 @@ describe("normalizeJobRequirements", () => {
   });
 
   it("caps the list at 25 requirements", () => {
-    const labels = Array.from({ length: 30 }, (_, i) => `Outil${i}`);
+    const labels = Array.from({ length: 70 }, (_, i) => `Outil${i}`);
     const offer = `Outils : ${labels.join(", ")}.`;
     const many = labels.map(label => req({ label, quote: label }));
-    expect(normalizeJobRequirements(many, offer)).toHaveLength(25);
+    expect(normalizeJobRequirements(many, offer)).toHaveLength(60);
   });
 
   it("finds a quote written with straight marks in an offer with typographic ones", () => {

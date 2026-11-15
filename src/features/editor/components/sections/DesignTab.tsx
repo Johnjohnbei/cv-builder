@@ -1,6 +1,5 @@
 import { memo } from 'react';
-import { Download, Eye, Loader2, Mail } from 'lucide-react';
-import { cn } from '../../../../shared/lib/cn';
+import { Select } from '../../../../shared/ui/Select';
 import { Input } from '../../../../shared/ui/Input';
 import { Button } from '../../../../shared/ui/Button';
 import { Toggle } from '../../../../shared/ui/Toggle';
@@ -39,18 +38,11 @@ interface Props {
   designSettings: DesignSettings;
   setDesignSettings: React.Dispatch<React.SetStateAction<DesignSettings>>;
   actualPageCount: number;
-  onPreviewPDF: () => void;
-  onDownloadPDF: () => void;
-  isExporting: boolean;
-  onExportDocx: () => void;
-  isExportingDocx: boolean;
-  onOpenCoverLetter: () => void;
 }
 
 export const DesignTab = memo(function DesignTab({
   designSettings, setDesignSettings,
-  actualPageCount, onPreviewPDF, onDownloadPDF, isExporting, onExportDocx, isExportingDocx,
-  onOpenCoverLetter,
+  actualPageCount,
 }: Props) {
   return (
     <div className="space-y-6">
@@ -78,8 +70,8 @@ export const DesignTab = memo(function DesignTab({
         </div>
       </section>
 
-      <section className="stitch-panel">
-        <div className="stitch-panel-header">Couleurs</div>
+      <details className="stitch-panel">
+        <summary className="stitch-panel-header cursor-pointer">Couleurs personnalisées</summary>
         <div className="p-4 space-y-4">
           <div>
             <label className="text-[11px] stitch-mono text-gray-500 uppercase block mb-2">Préréglages</label>
@@ -138,26 +130,14 @@ export const DesignTab = memo(function DesignTab({
             </div>
           </div>
         </div>
-      </section>
+      </details>
 
       <section className="stitch-panel">
         <div className="stitch-panel-header">Typographie</div>
-        <div className="p-4 space-y-3">
-          {FONT_OPTIONS.map((font) => (
-            <button
-              key={font.id}
-              onClick={() => setDesignSettings(prev => ({ ...prev, fontFamily: font.id }))}
-              aria-pressed={designSettings.fontFamily === font.id}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded border text-[11px] stitch-mono transition-colors",
-                designSettings.fontFamily === font.id
-                  ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
-                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-              )}
-            >
-              {font.name}
-            </button>
-          ))}
+        <div className="p-3">
+          <Select label="Police du CV" value={designSettings.fontFamily}
+            options={FONT_OPTIONS.map(font => ({ value: font.id, label: font.name }))}
+            onChange={event => setDesignSettings(prev => ({ ...prev, fontFamily: event.target.value as FontFamily }))} />
         </div>
       </section>
 
@@ -220,52 +200,7 @@ export const DesignTab = memo(function DesignTab({
         </div>
       </section>
 
-      <section className="stitch-panel">
-        <div className="stitch-panel-header">Export</div>
-        <div className="p-4 space-y-3">
-          <Button
-            variant="secondary"
-            fullWidth
-            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-            icon={<Eye className="w-4 h-4" />}
-            onClick={onPreviewPDF}
-          >
-            Prévisualiser le PDF
-          </Button>
 
-          <Button
-            variant="primary"
-            fullWidth
-            className="rounded-lg py-3 px-4 text-[11px] tracking-widest shadow-md"
-            icon={isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            disabled={isExporting}
-            onClick={onDownloadPDF}
-          >
-            {isExporting ? 'Export en cours...' : 'Télécharger le PDF'}
-          </Button>
-
-          <Button
-            variant="secondary"
-            fullWidth
-            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-            icon={isExportingDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            disabled={isExportingDocx}
-            onClick={onExportDocx}
-          >
-            {isExportingDocx ? 'Export en cours...' : 'Télécharger en Word (.docx)'}
-          </Button>
-
-          <Button
-            variant="secondary"
-            fullWidth
-            className="rounded-lg py-3 px-4 text-[11px] tracking-widest border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
-            icon={<Mail className="w-4 h-4" />}
-            onClick={onOpenCoverLetter}
-          >
-            Lettre de motivation
-          </Button>
-        </div>
-      </section>
     </div>
   );
 });

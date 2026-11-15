@@ -3,6 +3,7 @@
 
 import type { RequirementImportance, RequirementKind } from "../../../src/shared/types";
 import { fencedOffer } from "./fragments";
+import { ATS_POLICY } from '../../../src/features/editor/lib/ats-rules';
 
 export interface JobDescriptionFromURLContext {
   url: string;
@@ -59,6 +60,7 @@ const KIND_GUIDE: Record<RequirementKind, string> = {
   domain: "un secteur ou un domaine (SaaS B2B, e-commerce, santé)",
   soft_skill: "une qualité humaine, UNIQUEMENT si l'offre la demande explicitement",
   location: "la ville ou la région où le poste est basé, UNIQUEMENT si l'offre exige d'y être (présence sur site), jamais un simple siège social",
+  screening: "une condition à vérifier par le candidat : droit au travail, habilitation, disponibilité, permis, mobilité ; needsVerification=true",
 };
 
 /** Typed by the importance list, like KIND_GUIDE */
@@ -86,7 +88,10 @@ TYPES D'EXIGENCES ("kind") :
 ${Object.entries(KIND_GUIDE).map(([kind, guide]) => `- ${kind} : ${guide}`).join("\n")}
 
 RÈGLES :
-- Entre 8 et 25 exigences, les plus déterminantes d'abord ; moins si l'offre en énonce moins.
+- Toutes les exigences explicites, sans quota minimal, au maximum ${ATS_POLICY.maxRequirements}. Les requises d'abord. Sépare les compétences composées : chacune doit être vérifiable indépendamment.
+- Langue : "minLevel" est le niveau CECR explicitement cité (A1, A2, B1, B2, C1, C2), sinon omets-le. Si un niveau est demandé sans équivalence explicite (courant, professionnel, TOEIC), needsVerification=true.
+- Années : "experienceScope" contient le métier ou la discipline demandée et ses traductions FR/EN (exemple : ["UX", "expérience utilisateur"]). Omet ce champ UNIQUEMENT pour des années d'expérience générale. Ne compte jamais toute une carrière pour une demande spécialisée.
+- Diplôme ou certification : needsVerification=true si l'offre exige une équivalence, une spécialité précise, une validité en cours ou un niveau minimal qui ne peut pas être vérifié par le seul libellé.
 - "importance" :
 ${Object.entries(IMPORTANCE_GUIDE).map(([importance, guide]) => `  - "${importance}" : ${guide}`).join("\n")}
 - "minYears" : le nombre d'années écrit dans "quote", en chiffres ou en lettres ; uniquement pour experience_years.

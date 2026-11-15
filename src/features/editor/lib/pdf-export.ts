@@ -1,5 +1,5 @@
 import type { DesignSettings } from '@/src/shared/types';
-import { validateCVTextExtractability, type ValidationResult } from './pdf-validation';
+import { PDFValidationError, validateExportedPDF, validateCVTextExtractability, type PDFExpectations, type ValidationResult } from './pdf-validation';
 import { getPdfCss } from './pdf-styles';
 
 // ─── Types ───
@@ -10,6 +10,7 @@ export interface RenderPDFOptions {
 }
 
 export interface ServerlessPDFOptions {
+  expectations?: PDFExpectations;
   expectedText?: string;
   onValidation?: (result: ValidationResult) => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -83,7 +84,7 @@ export function serializeCV(cvElement: HTMLElement): { html: string; styles: str
  * cover letter built as standalone markup — so the response checks and the
  * blob plumbing exist once.
  */
-export async function downloadPdfFromHtml(html: string, styles: string, fileBaseName: string): Promise<void> {
+export async function downloadPdfFromHtml(html: string, styles: string, fileBaseName: string, validate?: (blob: Blob) => Promise<void>): Promise<void> {
   const response = await fetch('/api/generate-pdf', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -103,6 +104,7 @@ export async function downloadPdfFromHtml(html: string, styles: string, fileBase
   }
 
   const blob = await response.blob();
+  await validate?.(blob);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -134,8 +136,20 @@ export async function serverlessPDF(
 
   try {
     const { html, styles } = serializeCV(cvElement);
-    await downloadPdfFromHtml(html, styles, options?.fileBaseName || 'CV');
+    await downloadPdfFromHtml(html, styles, options?.fileBaseName || 'CV', options?.expectations ? async blob => {
+      const { extractPDFItems } = await import('../../../lib/pdf-text-extract');
+      let result: ValidationResult;
+      try {
+        result = validateExportedPDF(await extractPDFItems(blob), blob.size, options.expectations!);
+      } catch {
+        result = { valid: false, ratio: 0, checkedFile: false, warning: 'Le fichier PDF ne peut pas être contrôlé. Réessayez ou utilisez l’impression, dont le fichier devra être vérifié.' };
+      }
+      options.onValidation?.(result);
+      if (!result.valid) throw new PDFValidationError(result.warning);
+    } : undefined);
   } catch (error) {
+    // A detected defect must not silently download the same document through an unchecked path.
+    if (error instanceof PDFValidationError) return;
     // 6. Fallback to window.print() (D-13)
     console.error('Serverless PDF generation failed:', error);
     options?.onFallback?.('La generation serveur a echoue. Utilisation de l\'impression navigateur.');

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ats": "vitest run src/features/editor/lib/keyword-analysis.test.ts src/features/editor/lib/pdf-validation.test.ts src/features/editor/lib/job-requirements-cache.test.ts src/features/editor/lib/fit-to-pages.test.ts convex/_ai/__tests__/tailor.test.ts convex/_ai/__tests__/normalizers.test.ts convex/__tests__/ats.test.ts convex/_ai/__tests__/atsWatch.test.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit && tsc --noEmit -p api && npm run check:anti-vibe && npm run check:file-naming",
     "check:anti-vibe": "node scripts/anti-vibe-scan.mjs",

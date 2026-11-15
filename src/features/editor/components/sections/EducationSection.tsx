@@ -20,7 +20,7 @@ export const EducationSection = memo(function EducationSection({
       : null);
 
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-education" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

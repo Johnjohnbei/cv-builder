@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractExpectedText, validateCVTextExtractability } from './pdf-validation';
+import { extractExpectedText, validateCVTextExtractability, validateExportedPDF } from './pdf-validation';
 import type { CVData } from '@/src/shared/types';
 
 const fullCV: CVData = {
@@ -108,9 +108,23 @@ describe('extractExpectedText', () => {
 // ─── validateCVTextExtractability ───
 
 describe('validateCVTextExtractability', () => {
-  it('returns valid when ratio >= 0.6', () => {
+  const expected = { text: 'Alex Acme Designer Concevoir Beta Tester', critical: ['Alex', 'Designer'], ordered: ['Acme', 'Concevoir', 'Beta', 'Tester'] };
+  it('rejects the actual bytes over the parser limit', () => {
+    expect(validateExportedPDF([expected.text], 2_500_001, expected)).toMatchObject({ valid: false, bytes: 2_500_001, checkedFile: true });
+  });
+  it('rejects reordered roles even with every expected word present', () => {
+    expect(validateExportedPDF(['Alex Designer Acme Beta Concevoir Tester'], 1000, expected).valid).toBe(false);
+  });
+  it('rejects a missing critical title despite high global coverage', () => {
+    const many = { ...expected, text: Array.from({ length: 100 }, (_, i) => `word${i}`).join(' ') };
+    expect(validateExportedPDF([many.text], 1000, many).valid).toBe(false);
+  });
+  it('accepts readable words, complete contacts and roles in order', () => {
+    expect(validateExportedPDF([expected.text], 1000, expected)).toMatchObject({ valid: true, ratio: 1, checkedFile: true });
+  });
+  it('requires essentially all expected text', () => {
     const expected = 'one two three four five six seven eight nine ten';
-    const rendered = 'one two three four five six seven eight'; // 8/10 = 0.8
+    const rendered = expected;
     const result = validateCVTextExtractability(rendered, expected);
     expect(result.valid).toBe(true);
     expect(result.ratio).toBeGreaterThanOrEqual(0.6);
@@ -164,11 +178,11 @@ describe('validateCVTextExtractability', () => {
     expect(validateCVTextExtractability(rendered, expected).ratio).toBe(1);
   });
 
-  it('returns valid at exactly 0.6 ratio', () => {
+  it('rejects the former 60 percent threshold', () => {
     const expected = 'a b c d e f g h i j'; // 10 tokens
     const rendered = 'a b c d e f'; // 6 tokens => 0.6
     const result = validateCVTextExtractability(rendered, expected);
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
     expect(result.ratio).toBeCloseTo(0.6);
   });
 });

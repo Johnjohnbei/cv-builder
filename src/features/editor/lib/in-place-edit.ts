@@ -27,6 +27,7 @@ export type EditTarget =
 
 /** Passed down to the block renderers: without it, nothing in the preview is editable */
 export interface InPlaceEditing {
+  onSelect?: (target: EditTarget) => void;
   /** Writes `text` where `target` points */
   onEdit: (target: EditTarget, text: string) => void;
 }

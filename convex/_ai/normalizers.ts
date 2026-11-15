@@ -12,7 +12,9 @@ import { matchPhrase, normalizeForMatch, prepareText, type PreparedText } from "
 import { statesYears } from "./numbers";
 
 // ─── Job requirements ────────────────────────────────────────────
-const MAX_REQUIREMENTS = 25;
+import { ATS_POLICY } from '../../src/features/editor/lib/ats-rules';
+import { proficiencyLevel } from '../../src/features/editor/lib/formatting';
+const MAX_REQUIREMENTS = ATS_POLICY.maxRequirements;
 
 /** Symbols carry meaning in skill names: C++, C# and C must not share an id. Combining marks are kept (バス is not パス). */
 const slugOf = (key: string) => key
@@ -93,7 +95,12 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
   for (const item of items) {
     const parsed = JobRequirementSchema.safeParse(withoutNulls(item));
     if (!parsed.success) continue;
-    const { variants, kind, importance, quote, minYears } = parsed.data;
+    const { variants, kind, importance, quote, minYears, experienceScope, needsVerification } = parsed.data;
+    const scopeVerified = experienceScope?.length && experienceScope.some(term => matchPhrase(term, prepareText(quote)));
+    const manualCheck = needsVerification || kind === 'screening'
+      || (kind === 'language' && !proficiencyLevel(quote) && /courant|fluent|professionn|professional|TOEIC|IELTS/i.test(quote))
+      || (['education', 'certification'].includes(kind) && /[ée]quival|validit|valid |current|expir|renouvel/i.test(quote))
+      || (kind === 'experience_years' && !scopeVerified && /(?:exp[ée]rience|experience|years?|ans?)\s+(?:en|dans|in|with|of)\s+(?!exp[ée]rience|experience)/i.test(quote));
     // One offer describes one job: two titles were 6 points for one post
     if (kind === "title" && hasTitle) continue;
     const quoted = prepareText(quote);
@@ -125,6 +132,9 @@ export function normalizeJobRequirements(items: unknown[], jobDescription: strin
     requirements.push({
       id, label: stated, variants: terms.filter(term => term !== stated), kind, importance, quote: quote.trim(),
       ...(kind === "experience_years" && { minYears }),
+      ...(kind === 'experience_years' && scopeVerified && { experienceScope: uniqueTerms(experienceScope!) }),
+      ...(kind === 'language' && proficiencyLevel(quote) && { minLevel: proficiencyLevel(quote) }),
+      ...(manualCheck && { needsVerification: true }),
     });
     if (requirements.length === MAX_REQUIREMENTS) break;
   }

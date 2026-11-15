@@ -6,6 +6,7 @@ import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { attachBilingualCache } from '@/src/lib/bilingual';
 import { offerTitleOf, withSuggestedPortfolio } from '@/src/features/editor/lib/portfolio-variants';
 import { requestRequirements, writeCachedRequirements } from '@/src/features/editor/lib/job-requirements-cache';
+import { ATS_POLICY } from '@/src/features/editor/lib/ats-rules';
 
 interface Deps {
   baseCV: CVData | null;
@@ -70,7 +71,7 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
       if (!current()) return;
       analyzed = true;
       setPhase('generating');
-      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, language, accessCode });
+      const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, extractionVersion: ATS_POLICY.extractionVersion, language, accessCode });
       if (!current()) return;
       writeCachedRequirements(offer, result.requirements);
       // A CV proposed for an offer comes with the portfolio version that offer calls for.

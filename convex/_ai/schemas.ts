@@ -77,6 +77,9 @@ export const JobRequirementSchema = z.object({
   importance: z.enum(REQUIREMENT_IMPORTANCES),
   quote: z.string(),
   minYears: z.number().optional(),
+  minLevel: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']).optional(),
+  experienceScope: z.array(z.string().min(1).max(100)).max(8).optional(),
+  needsVerification: z.boolean().optional(),
 }).passthrough();
 
 /** Items are checked one by one: a single malformed requirement must not reject the list */

@@ -111,13 +111,7 @@ body {
   }
 
   /* Hide sidebar header logo on mobile (redundant with main header) */
-  .dashboard-sidebar > /* Utilisée par DashboardMobileNav, et déclarée nulle part jusqu'ici : la barre
-   du bas passait sous la barre gestuelle d'iOS. */
-@utility safe-area-bottom {
-  padding-bottom: calc(0.25rem + env(safe-area-inset-bottom));
-}
-
-.stitch-header {
+  .dashboard-sidebar > .stitch-header {
     display: none;
   }
 
@@ -126,6 +120,11 @@ body {
   .dashboard-sidebar > .dashboard-sidebar-account {
     display: none;
   }
+}
+
+/* The mobile bottom bar clears the iOS gesture area. Tailwind utilities must be top-level. */
+@utility safe-area-bottom {
+  padding-bottom: calc(0.25rem + env(safe-area-inset-bottom));
 }
 
 .stitch-header {

@@ -13,7 +13,8 @@ import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } fr
 import { companyMetaOf } from "./_ai/companyMeta";
 import { normalizeCVData, normalizeTitle, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
 import { fetchOfferText, isPublicUrl, parseHttpUrl } from "./_ai/publicUrl";
-import { EXTRACTION_DEADLINE_MS, extractRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
+import { cachedRequirements, readSourceCV, tailorPipeline } from "./_ai/tailor";
+import { ATS_POLICY } from '../src/features/editor/lib/ats-rules';
 import { assertBoundedPrompt, assertMaxLength, cvArgument, MAX_DOCUMENT_CHARS, MAX_OFFER_CHARS } from "./_ai/inputLimits";
 
 // ─── Actions ────────────────────────────────────────────────────────
@@ -44,8 +45,9 @@ export const tailorCV = action({
   args: {
     baseData: v.any(),
     jobDescription: v.string(),
-    /** Requirements the client already has for this offer: checked again, extracted when none is valid */
+    /** Compatibility with older tabs; the server cache now owns the extraction. */
     requirements: v.optional(v.array(v.any())),
+    extractionVersion: v.optional(v.string()),
     pageLimit: v.optional(v.number()),
     /** The language the user chose before the generation: it comes before the offer's */
     language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
@@ -57,8 +59,10 @@ export const tailorCV = action({
     const { detectedLanguage, languageOverride, cv, respond } = cvArgument(args.baseData);
     assertBoundedPrompt(cv, args.requirements);
     await verifyAccessCode(ctx, args.accessCode);
-    const { jobDescription, requirements, pageLimit, language } = args;
-    const result = await tailorPipeline({ cv, jobDescription, requirements, pageLimit, detectedLanguage, languageOverride, language }, startedAt);
+    const { jobDescription, pageLimit, language } = args;
+    // A supplied subset must not replace the server-owned extraction.
+    const requirements = await cachedRequirements(ctx, jobDescription, args.accessCode);
+    const result = await tailorPipeline({ cv, jobDescription, requirements, extractionVersion: ATS_POLICY.extractionVersion, pageLimit, detectedLanguage, languageOverride, language }, startedAt);
     return {
       // The language actually written, so the toggle and the section titles match the content
       cv: respond(result.cv, result.language),
@@ -125,7 +129,7 @@ export const extractJobRequirements = action({
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode, false);
     // Bounded like in tailorCV
-    return { requirements: await extractRequirements(args.jobDescription, Date.now() + EXTRACTION_DEADLINE_MS) };
+    return { requirements: await cachedRequirements(ctx, args.jobDescription, args.accessCode), version: ATS_POLICY.extractionVersion };
   },
 });
 

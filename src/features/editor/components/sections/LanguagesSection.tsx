@@ -25,7 +25,7 @@ export const LanguagesSection = memo(function LanguagesSection({
       : null);
 
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-languages" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

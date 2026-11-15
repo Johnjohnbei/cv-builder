@@ -152,3 +152,13 @@ export function normalizeProficiency(proficiency: string, language: DateLanguage
   const entry = PROFICIENCY_MAP[proficiency.toLowerCase().trim()];
   return entry ? entry[language] : proficiency;
 }
+
+export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+
+/** No guessed equivalence for words such as "fluent". Explicit levels and native proficiency only. */
+export function proficiencyLevel(text: string): typeof CEFR_LEVELS[number] | undefined {
+  const explicit = text.match(/\b([ABC][12])\b/i)?.[1]?.toUpperCase();
+  if (explicit) return explicit as typeof CEFR_LEVELS[number];
+  if (/\b(native|natif|bilingue|bilingual)\b/i.test(text)) return 'C2';
+  return undefined;
+}

@@ -13,7 +13,7 @@ const setupGuestEditor = (page: import('@playwright/test').Page) =>
 
 // Ouvre le drawer via le bouton "Lettre" de la barre d'onglets et renvoie son locator
 async function openDrawer(page: import('@playwright/test').Page) {
-  const lettreBtn = page.getByRole('button', { name: 'Lettre', exact: true });
+  const lettreBtn = page.getByRole('button', { name: 'Lettre de motivation', exact: true });
   await expect(lettreBtn).toBeVisible({ timeout: 10_000 });
   await lettreBtn.click();
   const dialog = page.getByRole('dialog', { name: 'Lettre de motivation' });
@@ -90,7 +90,7 @@ test.describe('Lettre de motivation : drawer (mode guest)', () => {
     const dialog = await openDrawer(page);
     await dialog.getByRole('button', { name: 'Fermer' }).click();
     await expect(dialog).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lettre', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Lettre de motivation', exact: true })).toBeFocused();
     await expect(page.getByRole('tab', { selected: true })).toBeVisible();
   });
 

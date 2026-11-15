@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CVData, JobRequirement } from '@/src/shared/types';
+import type { CVData, DesignSettings, JobRequirement } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { condenseOneStep, expandToMax, maxCondenseSteps, writtenOutsideExperience } from '../lib/fit-to-pages';
 
@@ -29,6 +29,7 @@ export interface UseFitToPagesDeps {
    */
   stablePageCount: number | null;
   targetPages: number;
+  designSettings: DesignSettings;
   /** Job description stored with the CV, '' when there is none */
   loadedJobDescription: string;
   /** Job description currently in state — lags loadedJobDescription by a render */
@@ -58,7 +59,7 @@ export interface UseFitToPagesResult {
 export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
   const {
     cvData, printedCV, setCvData, requirements, requirementsReady, stablePageCount, targetPages,
-    loadedJobDescription, jobDescription, notify,
+    loadedJobDescription, jobDescription, notify, designSettings,
   } = deps;
 
   const [isFitting, setIsFitting] = useState(false);
@@ -120,7 +121,7 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
     const measured = printedCV ?? cvData;
     const step = exhausted ? null : condenseOneStep(
       measured.experience, requirementsRef.current, getCVLanguage(cvData),
-      writtenOutsideExperience(measured, requirementsRef.current),
+      writtenOutsideExperience(measured, requirementsRef.current, designSettings),
     );
     // Only the display modes come back: the printed experiences line up with the user's, by place
     const next = step && cvData.experience.map((exp, i) => (step[i].displayMode === exp.displayMode ? exp : { ...exp, displayMode: step[i].displayMode }));
@@ -135,7 +136,7 @@ export function useFitToPages(deps: UseFitToPagesDeps): UseFitToPagesResult {
 
     stepsRef.current += 1;
     setCvData(prev => (prev ? { ...prev, experience: next } : prev));
-  }, [isFitting, stablePageCount, targetPages, cvData, printedCV, setCvData, notify]);
+  }, [isFitting, stablePageCount, targetPages, cvData, printedCV, designSettings, setCvData, notify]);
 
   return { isFitting, runFit };
 }

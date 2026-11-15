@@ -5,7 +5,7 @@ import type { SkillCategoryKey } from "../../src/features/editor/lib/skill-dicti
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from "../../src/shared/lib/text";
 import { getLocalizedStage } from "../../src/shared/constants/company-meta";
 import { LANGUAGE_NAMES } from "../../src/features/editor/lib/formatting";
-import { hasUnbackedNumber } from "./numbers";
+import { hasUnbackedNumber, numbersOf } from "./numbers";
 
 // ─── Truth guard of the tailoring (plan § 4.1, step 3) ──────────────
 // Extracted from tailor.ts, over its size limit. Code, never AI: what the
@@ -171,8 +171,8 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
   // A text left empty by the filter is a text the CV no longer carries: the
   // source's comes back, as it does for a title or a position. Only in the
   // source's language: a French summary in an English CV is worse than none.
-  const sentencesKept = (text: string | undefined, fallback: string | undefined) => {
-    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invents(s)).join(" ");
+  const sentencesKept = (text: string | undefined, fallback: string | undefined, invalid = invents) => {
+    const kept = text?.split(/(?<=[.!?])\s+/).filter(s => !invalid(s)).join(" ");
     return kept?.trim() || !text?.trim() ? kept : sameLanguage ? fallback : kept;
   };
   const localized = (write: (language: "fr" | "en") => string) => writes(write("fr")) || writes(write("en"));
@@ -196,15 +196,21 @@ export function guard(cv: CVData, { source, unproven, sourceNumbers, sameLanguag
     },
     experience: cv.experience.map((exp, i) => {
       const src = source.experience[i];
+      // A number from another employer is not evidence for this role's result.
+      const roleNumbers = new Set([
+        ...[src.position, src.company, src.intro, ...src.description, src.kpi].flatMap(text => numbersOf(text ?? '')),
+        ...(`${src.start_date} ${src.end_date ?? ''}`.match(/\d{4}/g) ?? []),
+      ]);
+      const inventsHere = (text?: string) => invents(text) || hasUnbackedNumber(text, roleNumbers);
       const lineUp = sameLanguage && exp.description.length === src.description.length;
-      const bullets = exp.description.map((bullet, b) => (!invents(bullet) ? bullet : lineUp ? src.description[b] : undefined));
+      const bullets = exp.description.map((bullet, b) => (!inventsHere(bullet) ? bullet : lineUp ? src.description[b] : undefined));
       return {
         ...exp,
         position: factKept(exp.position, src.position),
         companyStage: localized(lang => getLocalizedStage(exp.companyStage, lang)) ? src.companyStage : exp.companyStage,
         companyBusinessModel: factKept(exp.companyBusinessModel, src.companyBusinessModel),
-        intro: sentencesKept(exp.intro, src.intro),
-        kpi: invents(exp.kpi) ? "" : exp.kpi,
+        intro: sentencesKept(exp.intro, src.intro, inventsHere),
+        kpi: inventsHere(exp.kpi) ? "" : exp.kpi,
         description: bullets.filter((b, at): b is string => b !== undefined && bullets.indexOf(b) === at),
       };
     }),

@@ -18,7 +18,7 @@ export const SummarySection = memo(function SummarySection({
   summary, versions, setCvData, expanded, onToggle,
 }: Props) {
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-summary" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

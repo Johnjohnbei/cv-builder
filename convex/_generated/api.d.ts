@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _ai_atsWatch from "../_ai/atsWatch.js";
 import type * as _ai_auth from "../_ai/auth.js";
 import type * as _ai_chat from "../_ai/chat.js";
 import type * as _ai_companyMeta from "../_ai/companyMeta.js";
@@ -33,7 +34,9 @@ import type * as _ai_truthGuard from "../_ai/truthGuard.js";
 import type * as _shared_errors from "../_shared/errors.js";
 import type * as accessCodes from "../accessCodes.js";
 import type * as ai from "../ai.js";
+import type * as ats from "../ats.js";
 import type * as coverLetters from "../coverLetters.js";
+import type * as crons from "../crons.js";
 import type * as cvs from "../cvs.js";
 import type * as users from "../users.js";
 
@@ -44,6 +47,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "_ai/atsWatch": typeof _ai_atsWatch;
   "_ai/auth": typeof _ai_auth;
   "_ai/chat": typeof _ai_chat;
   "_ai/companyMeta": typeof _ai_companyMeta;
@@ -69,7 +73,9 @@ declare const fullApi: ApiFromModules<{
   "_shared/errors": typeof _shared_errors;
   accessCodes: typeof accessCodes;
   ai: typeof ai;
+  ats: typeof ats;
   coverLetters: typeof coverLetters;
+  crons: typeof crons;
   cvs: typeof cvs;
   users: typeof users;
 }>;

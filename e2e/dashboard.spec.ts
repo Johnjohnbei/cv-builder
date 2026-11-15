@@ -127,7 +127,7 @@ test.describe("Tableau de bord : le CV s'écrit d'un trait", () => {
     await page.getByRole('button', { name: 'Optimiser mon CV pour cette offre' }).click();
 
     await expect(page).toHaveURL(/\/editor/);
-    await expect(page.getByRole('tab', { name: 'ATS' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'À corriger' })).toHaveAttribute('aria-selected', 'true');
     expect(tailored).toHaveLength(1);
     expect(tailored[0].language).toBe('en');
     // The editor opens in the language chosen, the cache built around it

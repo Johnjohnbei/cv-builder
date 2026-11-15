@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import type { ATSReport, CVData, DesignSettings, DismissedRequirement, JobRequirement } from '@/src/shared/types';
-import { computeATSReport } from '@/src/features/editor/lib/keyword-analysis';
+import type { ATSReport, CVData, DesignSettings, DismissedRequirement, GenerationRecord, JobRequirement } from '@/src/shared/types';
+import { computeATSReport, requirementConfirmationKey } from '@/src/features/editor/lib/keyword-analysis';
 import { dismissedOf, notRequirementsOf, withDismissed, withNotARequirement, withRequirementBack, withRestored } from '@/src/features/editor/lib/dismissed-requirements';
 
 export interface UseATSAnalysisDeps {
@@ -14,6 +14,10 @@ export interface UseATSAnalysisDeps {
 }
 
 export interface ATSAnalysis {
+  generation?: GenerationRecord;
+  confirmed: string[];
+  confirm: (requirement: JobRequirement) => void;
+  unconfirm: (requirement: JobRequirement) => void;
   /** The CV as it prints, measured against the offer's requirements */
   report: ATSReport | null;
   /**
@@ -53,5 +57,7 @@ export function useATSAnalysis({ cvData, printedCV, setCvData, designSettings, r
   const notRequirements = useMemo(() => notRequirementsOf(cvData), [cvData]);
   const reject = useCallback((r: JobRequirement) => setCvData(cv => (cv ? withNotARequirement(cv, r) : cv)), [setCvData]);
   const unreject = useCallback((id: string) => setCvData(cv => (cv ? withRequirementBack(cv, id) : cv)), [setCvData]);
-  return { report, dismissed, dismiss, restore, notRequirements, reject, unreject };
+  const confirm = useCallback((r: JobRequirement) => setCvData(cv => cv ? { ...cv, confirmedRequirements: [...new Set([...(cv.confirmedRequirements ?? []), requirementConfirmationKey(r)])] } : cv), [setCvData]);
+  const unconfirm = useCallback((r: JobRequirement) => setCvData(cv => cv ? { ...cv, confirmedRequirements: cv.confirmedRequirements?.filter(value => value !== requirementConfirmationKey(r)) } : cv), [setCvData]);
+  return { report, dismissed, dismiss, restore, notRequirements, reject, unreject, generation: cvData?.generation, confirmed: cvData?.confirmedRequirements ?? [], confirm, unconfirm };
 }

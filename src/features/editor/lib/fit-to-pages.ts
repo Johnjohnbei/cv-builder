@@ -17,7 +17,7 @@
 // what the score is good at; absolute calibration is what the page budget is
 // for.
 
-import type { CVData, Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
+import type { CVData, DesignSettings, Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
 import type { SupportedLanguage } from '@/src/lib/language-detection';
 import { prepareText } from '@/src/shared/lib/text';
 import { cvSections, experienceText, isProvable, writesRequirement } from './keyword-analysis';
@@ -53,8 +53,8 @@ function writtenBy(exp: Experience, requirements: JobRequirement[], language: Su
  * the skills, the title. Protecting their last mention in an experience would
  * spare a role for a mention the CV keeps anyway.
  */
-export function writtenOutsideExperience(cv: CVData, requirements: JobRequirement[]): Set<string> {
-  const sections = cvSections(cv, 'rendered');
+export function writtenOutsideExperience(cv: CVData, requirements: JobRequirement[], design?: Pick<DesignSettings, 'includedSections' | 'showPhoto'>): Set<string> {
+  const sections = cvSections(cv, 'rendered', design);
   const fields = (Object.keys(sections) as (keyof typeof sections)[])
     .filter(section => section !== 'experience')
     .flatMap(section => sections[section])

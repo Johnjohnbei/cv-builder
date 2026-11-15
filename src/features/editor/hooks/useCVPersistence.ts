@@ -91,6 +91,8 @@ export function cvsRecordOf(persisted: CVData, jobDescription: string) {
     _translations: persisted._translations,
     dismissedRequirements: dismissedOf(persisted),
     notRequirements: notRequirementsOf(persisted),
+    generation: persisted.generation,
+    confirmedRequirements: persisted.confirmedRequirements,
     // Saved without it, a version reopened from "Mes CV" came back with
     // whatever offer the previous draft carried.
     jobDescription,

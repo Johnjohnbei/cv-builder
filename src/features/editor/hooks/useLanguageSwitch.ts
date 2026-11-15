@@ -137,6 +137,8 @@ export function useLanguageSwitch(deps: UseLanguageSwitchDeps): UseLanguageSwitc
         ...translatedData,
         // The server reads a CV without it: what the user said they lack stays out in every language
         dismissedRequirements: cvData.dismissedRequirements,
+        generation: cvData.generation,
+        confirmedRequirements: cvData.confirmedRequirements,
         notRequirements: cvData.notRequirements,
         _translations: {
           ...cvData._translations,

@@ -1,3 +1,4 @@
+import { cvArgument } from '../inputLimits';
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { CVData } from "../../../src/shared/types";
 
@@ -54,7 +55,7 @@ const answers = (...raws: unknown[]) =>
   });
 
 const run = (requirements: unknown[] | undefined, startedAt = Date.now(), source: CVData = SOURCE, offer = OFFER) =>
-  tailorPipeline({ cv: source, jobDescription: offer, requirements }, startedAt);
+  tailorPipeline({ extractionVersion: '2026-11-15.1', cv: source, jobDescription: offer, requirements }, startedAt);
 
 const covered = (result: Awaited<ReturnType<typeof run>>, id: string) =>
   result.report.requirements.find(c => c.requirement.id === id)?.found;
@@ -65,6 +66,20 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("tailorPipeline: requirements", () => {
+  it('reextracts an obsolete client list and records provenance without sending it to the model', async () => {
+    answers({ requirements: [FIGMA] }, generated(() => {}));
+    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER, requirements: [SKETCH], extractionVersion: 'old' });
+    expect(result.requirements.map(r => r.id)).toEqual(['figma']);
+    expect(result.cv.generation).toMatchObject({ rulesVersion: '2026-11-15.1', initialScore: 100, sourceRequirementIds: ['figma'] });
+    expect(cvArgument(result.cv).cv).not.toHaveProperty('generation');
+  });
+
+  it('records freely added skills separately from source-backed mentions', async () => {
+    answers(generated(cv => { cv.skills[0].items.push('Kubernetes'); }));
+    const result = await run([FIGMA, requirement('Kubernetes', 'tool')]);
+    expect(result.cv.generation?.addedRequirementIds).toEqual(['kubernetes']);
+    expect(result.cv.generation?.sourceRequirementIds).toContain('figma');
+  });
   it("reuses the client's requirements, checked again against the offer, without extracting", async () => {
     answers(generated(() => {}));
     const result = await run([FIGMA, requirement("Rust")]);
@@ -82,6 +97,12 @@ describe("tailorPipeline: requirements", () => {
 });
 
 describe("tailorPipeline: truth guard", () => {
+  it('does not transfer a metric from one employer to another', async () => {
+    answers(generated(cv => { cv.experience[1].kpi = 'Mené 30 entretiens utilisateurs'; }));
+    const result = await run([FIGMA]);
+    expect(result.cv.experience[1].kpi).toBe('');
+    expect(result.cv.experience[0].description).toContain('Mené 30 entretiens utilisateurs');
+  });
   it("rejects a generation that drops an experience, so the call is retried", async () => {
     answers(generated(cv => { cv.experience.pop(); }));
     await expect(run([FIGMA])).rejects.toMatchObject({ data: { code: "AI_INVALID_OUTPUT" } });
@@ -100,7 +121,7 @@ describe("tailorPipeline: truth guard", () => {
       cv.personal_info.summary = `${SUMMARY} Expert Kubernetes.`;
     }, [{ id: "kubernetes", quote: "Expert Kubernetes" }]));
     const result = await run([FIGMA, KUBERNETES]);
-    expect(JSON.stringify(result.cv)).not.toContain("Kubernetes");
+    expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("Kubernetes");
     expect(result.cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
     expect(result.cv.personal_info.summary).toBe(SUMMARY);
     expect(covered(result, "kubernetes")).toBe(false);
@@ -170,7 +191,7 @@ describe("tailorPipeline: truth guard", () => {
   it("finds a requirement split by markdown", async () => {
     answers(generated(cv => { cv.experience[0].description.push("Déployé **Kuber**netes en production"); }));
     const result = await run([FIGMA, KUBERNETES]);
-    expect(JSON.stringify(result.cv)).not.toContain("netes");
+    expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("netes");
   });
 
   it("drops an invented bullet rather than putting back a source bullet in another language", async () => {
@@ -312,7 +333,7 @@ describe("tailorPipeline: truth guard", () => {
     };
     const offerEn = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
     answers(generated(cv => { cv.experience[0].description[1] = "Designed mockups for 17 brands"; }, [], sourceEn));
-    const { cv } = await tailorPipeline({ cv: sourceEn, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "en" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: sourceEn, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "en" });
     expect(cv.experience[0].description).toEqual(["Led 30 user interviews", "Designed the mockups"]);
   });
 
@@ -341,7 +362,7 @@ describe("tailorPipeline: truth guard", () => {
   it("leaves the summary empty rather than putting a French one back in an English CV", async () => {
     const offerEn = "Product Designer. Required: Figma, Kubernetes, user research for our design team.";
     answers(generated(cv => { cv.personal_info.summary = "Certified Kubernetes expert."; }));
-    const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: offerEn, requirements: [KUBERNETES], detectedLanguage: "fr" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: offerEn, requirements: [KUBERNETES], detectedLanguage: "fr" });
     expect(cv.personal_info.summary).toBe("");
   });
 
@@ -396,7 +417,7 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
   it("removes a freely written requirement that names a client nobody gave", async () => {
     answers(generated(cv => { cv.experience[0].description.push("Développé en Node.js pour Google"); }), { edits: [] });
     const result = await run([FIGMA, NODE]);
-    expect(JSON.stringify(result.cv)).not.toContain("Google");
+    expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("Google");
   });
 
   it("keeps a freely written requirement that names only what the source or the offer names", async () => {
@@ -454,14 +475,14 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
       const french = { ...requirement("Concepteur produit principal", "title"), variants: ["Lead Product Designer"] };
       const english = "Concepteur produit principal. Requis : Figma, maquettes, recherche utilisateur.";
       answers(generated(cv => { cv.personal_info.title = "Product Designer Lead"; }), { edits: [] });
-      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, french], language: "en" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: english, requirements: [FIGMA, french], language: "en" });
       expect(cv.personal_info.title).toBe("Product Designer Lead");
     });
 
     it("puts the source's title back on a title the model emptied, the offer in another language", async () => {
       const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
       answers(generated(cv => { cv.personal_info.title = ""; }), { edits: [] });
-      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
       expect(cv.personal_info.title).toBe("Designer produit");
     });
 
@@ -475,7 +496,7 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     it("keeps the source's title when the offer, in another language, names none the model wrote", async () => {
       const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
       answers(generated(() => {}), { edits: [] });
-      const { cv } = await tailorPipeline({ cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
       expect(cv.personal_info.title).toBe("Designer produit");
     });
   });
@@ -485,7 +506,7 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     const offer = `${OFFER} Doctolib recrute pour ses clients de l'AP-HP.`;
     answers(generated(cv => { cv.experience[0].description.push("Développé en Node.js les parcours de l'AP-HP"); }), { edits: [] });
     const result = await run([FIGMA, NODE], Date.now(), SOURCE, offer);
-    expect(JSON.stringify(result.cv)).not.toContain("AP-HP");
+    expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("AP-HP");
   });
 
   it("names a category it adds with a key the CV's language prints, never a French word", async () => {
@@ -505,7 +526,7 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
   it("removes a freely written requirement that gives a number the source never gives", async () => {
     answers(generated(cv => { cv.experience[0].description.push("Développé en Node.js sur 40 serveurs"); }), { edits: [] });
     const result = await run([FIGMA, NODE]);
-    expect(JSON.stringify(result.cv)).not.toContain("40 serveurs");
+    expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("40 serveurs");
   });
 });
 
@@ -514,7 +535,7 @@ describe("tailorPipeline: language", () => {
 
   it("writes in the offer's language when the user chose none", async () => {
     answers(generated(() => {}));
-    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
+    const result = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
     expect(result.language).toBe("en");
     expect(mocks.chat.mock.calls[0][0]).toContain("LANGUAGE LOCK");
   });
@@ -522,7 +543,7 @@ describe("tailorPipeline: language", () => {
   // Chosen on the dashboard before the generation: it comes before the offer's
   it("writes in the language the user chose, whatever the offer's", async () => {
     answers(generated(() => {}));
-    const result = await tailorPipeline({ cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr", language: "fr" });
+    const result = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr", language: "fr" });
     expect(result.language).toBe("fr");
     expect(mocks.chat.mock.calls[0][0]).toContain("VERROU DE LANGUE");
   });
@@ -534,7 +555,7 @@ describe("tailorPipeline: places", () => {
     const offerEn = "Product Designer in London. Required: Figma, user research for our design team.";
     const withPlace: CVData = { ...SOURCE, experience: [{ ...SOURCE.experience[0], location: "Londres" }, SOURCE.experience[1]] };
     answers(generated(cv => { cv.personal_info.location = "London, UK"; cv.experience[1].location = "London"; }, [], withPlace));
-    const { cv } = await tailorPipeline({ cv: withPlace, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "fr" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.1', cv: withPlace, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "fr" });
     expect(cv.personal_info.location).toBe("Paris");
     expect(cv.experience.map(e => e.location)).toEqual(["Londres", undefined]);
   });

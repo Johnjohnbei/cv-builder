@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData, Experience, JobRequirement } from '@/src/shared/types';
 import { EMPTY_CV } from '@/src/shared/types';
-import { computeATSReport, cvSections } from './keyword-analysis';
+import { computeATSReport, cvSections, requirementConfirmationKey, scopeEvidenceFor } from './keyword-analysis';
 import { yearsOfExperience } from './experience-years';
 
 // ─── Fixtures ───
@@ -34,6 +34,53 @@ const req = (label: string, over: Partial<JobRequirement> = {}): JobRequirement 
 
 const found = (report: ReturnType<typeof computeATSReport>) =>
   report.requirements.filter(r => r.found).map(r => r.requirement.label);
+
+// Annotated counterexamples, independent of the generator: release corpus for the active policy.
+describe('ATS release corpus: FR/EN facts and unknowns', () => {
+  it('does not gain specialized years by freely inserting a domain into an unrelated source role', () => {
+    const source = cv({ experience: [exp({ position: 'Comptable', description: ['Saisie comptable'], start_date: '2010-01', end_date: '2020-12' })] });
+    const requirement = req('5 ans en UX', { kind: 'experience_years', minYears: 5, experienceScope: ['UX'] });
+    const generated = { ...source, experience: source.experience.map(role => ({ ...role, description: ['Missions UX'] })) };
+    expect(computeATSReport(generated, [requirement], { scopedYears: scopeEvidenceFor(source) }).requirements[0]).toMatchObject({ found: false, years: 0 });
+  });
+  it.each([
+    ['A1', 'C2', false, 'missing'], ['C1', 'B2', true, 'covered'],
+    ['C2', 'C2', true, 'covered'], ['Natif', 'C2', true, 'covered'],
+    ['Courant', 'C1', false, 'unknown'], ['', 'B2', false, 'unknown'],
+  ] as const)('declared %s, required %s', (proficiency, minLevel, expected, status) => {
+    const requirement = req('English', { kind: 'language', variants: ['Anglais'], minLevel });
+    const result = computeATSReport(cv({ languages: [{ name: 'Anglais', proficiency }] }), [requirement]);
+    expect(result.requirements[0]).toMatchObject({ found: expected, status });
+  });
+
+  it('does not count accounting years for UX and unions overlapping relevant roles', () => {
+    const requirement = req('5 ans en UX', { kind: 'experience_years', minYears: 5, experienceScope: ['UX', 'user experience'] });
+    const experience = [
+      exp({ position: 'Comptable', description: ['Saisie comptable'], start_date: '2010-01', end_date: '2019-12' }),
+      exp({ position: 'UX Designer', start_date: '2020-01', end_date: '2022-12' }),
+      exp({ position: 'User Experience Designer', start_date: '2021-01', end_date: '2023-12' }),
+    ];
+    expect(computeATSReport(cv({ experience }), [requirement]).requirements[0]).toMatchObject({ found: false, years: 4 });
+    expect(computeATSReport(cv({ experience: [experience[0]] }), [requirement]).requirements[0]).toMatchObject({ found: false, years: 0 });
+  });
+
+  it('does not claim an equivalence before it is confirmed, or reuse confirmation on another minimum', () => {
+    const requirement = req('Master', { kind: 'education', needsVerification: true, quote: 'Master ou équivalent' });
+    expect(computeATSReport(cv(), [requirement]).requirements[0]).toMatchObject({ found: false, status: 'unknown' });
+    const candidate = cv({ confirmedRequirements: [requirementConfirmationKey(requirement)] });
+    expect(computeATSReport(candidate, [requirement]).requirements[0].found).toBe(true);
+    expect(computeATSReport(candidate, [{ ...requirement, quote: 'Master informatique obligatoire' }]).requirements[0].found).toBe(false);
+  });
+
+  it('keeps screening outside CV points and never invents a printed section for a confirmation', () => {
+    const requirement = req('Droit au travail', { kind: 'screening', needsVerification: true });
+    const candidate = cv({ confirmedRequirements: [requirementConfirmationKey(requirement)] });
+    const report = computeATSReport(candidate, [requirement]);
+    expect(report.score).toBeNull();
+    expect(report.requirements[0]).toMatchObject({ found: true, sections: [], weight: 0 });
+    expect(report.required).toEqual({ covered: 0, total: 0 });
+  });
+});
 
 // ─── What a recruiter's ATS reads ───
 

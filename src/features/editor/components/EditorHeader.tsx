@@ -1,4 +1,4 @@
-import { Layout as LayoutIcon, Save, Download, Loader2, Minus, Plus, Maximize2, EyeOff, Eye, Undo2 } from 'lucide-react';
+import { Layout as LayoutIcon, Save, Download, Loader2, Minus, Plus, Maximize2, EyeOff, Eye, Undo2, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
 import { LanguageSelector } from '@/src/shared/ui/LanguageSelector';
@@ -13,6 +13,10 @@ interface Props {
   onToggleAutoZoom: () => void;
   onSave: () => void;
   onExport: () => void;
+  onExportDocx: () => void;
+  onPreviewPDF: () => void;
+  onOpenCoverLetter: () => void;
+  isExportingDocx: boolean;
   isSaving: boolean;
   isExporting: boolean;
   hasCvData: boolean;
@@ -45,6 +49,7 @@ export function EditorHeader({
   isSidebarOpen, onToggleSidebar,
   zoom, isAutoZoom, onZoomIn, onZoomOut, onToggleAutoZoom,
   onSave, onExport, isSaving, isExporting, hasCvData,
+  onExportDocx, onPreviewPDF, onOpenCoverLetter, isExportingDocx,
   currentLanguage, onLanguageChange, isLanguageLocked = false,
   isAnonymous, onToggleAnonymous,
   isAutoSaving = false,
@@ -162,15 +167,20 @@ export function EditorHeader({
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           <span className="text-[11px] font-bold hidden xl:inline">Sauvegarder une version</span>
         </button>
-        <button
-          onClick={onExport}
-          disabled={isExporting || !hasCvData}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm"
-          title="Télécharger le CV en PDF"
-        >
-          {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          <span className="text-[11px] font-bold hidden sm:inline">Exporter</span>
+        <button onClick={onOpenCoverLetter} disabled={!hasCvData} className="p-2 rounded hover:bg-gray-100 text-gray-600" aria-label="Lettre de motivation">
+          <Mail className="w-4 h-4" />
         </button>
+        <details className="relative" onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+          <summary role="button" aria-label="Exporter" className="list-none cursor-pointer px-3 py-2 bg-blue-600 text-white rounded flex items-center gap-2 text-xs">
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span>Exporter</span>
+          </summary>
+          <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded shadow-sm p-1 z-[60] flex flex-col text-xs" onClick={event => { if ((event.target as HTMLElement).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+            <button className="p-3 text-left hover:bg-gray-100 rounded" disabled={!hasCvData || isExporting} onClick={onExport}>Exporter en PDF</button>
+            <button className="p-3 text-left hover:bg-gray-100 rounded" disabled={!hasCvData || isExportingDocx} onClick={onExportDocx}>Télécharger en Word (.docx)</button>
+            <button className="p-3 text-left hover:bg-gray-100 rounded" disabled={!hasCvData} onClick={onPreviewPDF}>Imprimer / prévisualiser</button>
+          </div>
+        </details>
       </div>
     </header>
   );

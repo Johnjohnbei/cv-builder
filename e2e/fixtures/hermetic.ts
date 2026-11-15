@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import type { JobRequirement } from '../../src/shared/types';
 
 /**
  * Keeping the e2e suite off the AI providers.
@@ -18,7 +19,8 @@ import { expect, type Page } from '@playwright/test';
  */
 
 /** localStorage key owned by src/features/editor/lib/job-requirements-cache.ts */
-export const REQUIREMENTS_CACHE_KEY = 'job_requirements_cache_v2';
+import { ATS_POLICY } from '../../src/features/editor/lib/ats-rules';
+export const REQUIREMENTS_CACHE_KEY = `job_requirements_cache_${ATS_POLICY.extractionVersion}`;
 
 /**
  * Requirement labels a real extraction would plausibly return for the mock
@@ -46,6 +48,7 @@ export interface SeedOptions {
   jd?: string;
   /** Requirement labels to serve from cache instead of calling the LLM */
   requirementLabels?: string[];
+  requirements?: JobRequirement[];
   /** Pre-seeded cover letter context, so no company extraction fires */
   coverLetter?: { companyName: string; jobDescription: string };
 }
@@ -57,14 +60,14 @@ export interface SeedOptions {
 export async function seedGuestSession(page: Page, opts: SeedOptions): Promise<void> {
   await page.goto('/');
   await page.evaluate(
-    ({ cv, jd, requirements, coverLetter, cacheKey }) => {
+    ({ cv, jd, requirements, coverLetter, cacheKey, version }) => {
       sessionStorage.setItem('guest_access', 'true');
       localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
       if (jd) {
         localStorage.setItem('guest_last_jd', jd);
         // Warm the requirements cache for THIS exact offer: the cache compares
         // the trimmed job description, so it must match byte for byte.
-        localStorage.setItem(cacheKey, JSON.stringify([{ jobDescription: jd, requirements }]));
+        localStorage.setItem(cacheKey, JSON.stringify([{ jobDescription: jd, requirements, version, analyzedAt: Date.now() }]));
       } else {
         localStorage.removeItem('guest_last_jd');
       }
@@ -75,9 +78,10 @@ export async function seedGuestSession(page: Page, opts: SeedOptions): Promise<v
     {
       cv: opts.cv,
       jd: opts.jd,
-      requirements: requirementsOf(opts.requirementLabels ?? MOCK_REQUIREMENT_LABELS),
+      requirements: opts.requirements ?? requirementsOf(opts.requirementLabels ?? MOCK_REQUIREMENT_LABELS),
       coverLetter: opts.coverLetter,
       cacheKey: REQUIREMENTS_CACHE_KEY,
+      version: ATS_POLICY.extractionVersion,
     },
   );
   await page.goto('/editor');

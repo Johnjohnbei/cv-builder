@@ -7,6 +7,9 @@
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import { normalizeForMatch } from '@/src/shared/lib/text';
 import { cvSections } from './keyword-analysis';
+import { ATS_POLICY } from './ats-rules';
+import { getActionBullets, getIntro, isHidden, shouldShowKPI } from './display-modes';
+import { stripInlineMarkdown } from '../../../shared/lib/text';
 
 // ─── Types ───
 
@@ -14,11 +17,57 @@ export interface ValidationResult {
   valid: boolean;
   ratio: number;
   warning?: string;
+  bytes?: number;
+  checkedFile?: boolean;
 }
 
 // ─── Constants ───
 
-const EXTRACTABILITY_THRESHOLD = 0.6;
+const EXTRACTABILITY_THRESHOLD = 0.98;
+
+export interface PDFExpectations {
+  text: string;
+  critical: string[];
+  ordered: string[];
+}
+
+export function pdfExpectations(cv: CVData, design: DesignSettings): PDFExpectations {
+  const info = cv.personal_info;
+  const experienceShown = !design.includedSections || design.includedSections.includes('experience');
+  return {
+    text: extractExpectedText(cv, design),
+    critical: [info.name, info.email, info.phone, info.title].filter((s): s is string => Boolean(s?.trim())),
+    ordered: experienceShown ? cv.experience.filter(exp => !isHidden(exp)).flatMap(exp =>
+      [exp.position, exp.company, getIntro(exp), ...getActionBullets(exp), shouldShowKPI(exp) ? exp.kpi : '']
+        .filter((s): s is string => Boolean(s?.trim())).map(stripInlineMarkdown)) : [],
+  };
+}
+
+export class PDFValidationError extends Error {}
+
+/** The bytes about to be downloaded, not their HTML preview. */
+export function validateExportedPDF(items: string[], bytes: number, expected: PDFExpectations): ValidationResult {
+  const text = items.join(' ');
+  const result = { ...validateCVTextExtractability(text, expected.text), bytes, checkedFile: true };
+  const reject = (warning: string): ValidationResult => ({ ...result, valid: false, warning });
+  if (bytes > ATS_POLICY.maxPdfBytes) return reject('Le PDF dépasse 2,5 Mo. Réduisez la photo avant de réexporter.');
+  if (!result.valid) return result;
+  if (items.some(item => /(?:^|\s)(?:\p{L}\s){3,}\p{L}(?:\s|$)/u.test(item))) {
+    return reject('Des mots du PDF sont séparés lettre par lettre. Choisissez une autre police.');
+  }
+  const normalized = tokenize(text).join(' ');
+  if (expected.critical.some(field => !normalized.includes(tokenize(field).join(' ')))) {
+    return reject('Un champ essentiel manque dans le PDF (nom, titre ou coordonnées).');
+  }
+  let cursor = 0;
+  for (const part of expected.ordered) {
+    const value = tokenize(part).join(' ');
+    const at = normalized.indexOf(value, cursor);
+    if (at < 0) return reject("Le texte du PDF ne suit pas l'ordre des postes et de leurs réalisations.");
+    cursor = at + value.length;
+  }
+  return result;
+}
 
 // ─── Public API ───
 

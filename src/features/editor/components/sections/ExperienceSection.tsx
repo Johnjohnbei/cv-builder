@@ -44,7 +44,7 @@ export const ExperienceSection = memo(function ExperienceSection({
   };
 
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-experience" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

@@ -18,7 +18,7 @@ export const PersonalInfoSection = memo(function PersonalInfoSection({
   personalInfo, setCvData, expanded, onToggle, notify,
 }: Props) {
   return (
-    <section className="stitch-panel overflow-hidden">
+    <section id="editor-section-personal" className="stitch-panel overflow-hidden">
       <button
         onClick={onToggle}
         aria-expanded={expanded}

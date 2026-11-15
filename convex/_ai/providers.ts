@@ -29,6 +29,8 @@ export interface AIProvider {
   fastModel: string;
 }
 
+export const AI_MODELS = { default: 'claude-sonnet-4-5', fast: 'claude-haiku-4-5-20251001' } as const;
+
 export function getProviders(): AIProvider[] {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
@@ -39,8 +41,8 @@ export function getProviders(): AIProvider[] {
 
   return [{
     apiKey: anthropicKey,
-    defaultModel: "claude-sonnet-4-5",
-    fastModel: "claude-haiku-4-5-20251001",
+    defaultModel: AI_MODELS.default,
+    fastModel: AI_MODELS.fast,
   }];
 }
 

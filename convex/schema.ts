@@ -74,6 +74,18 @@ export const dismissedRequirementValidator = v.object({
 // Strict validation on those would break on AI output variations.
 
 export default defineSchema({
+  // Private requirements and their quotes, keyed by fingerprints; no complete offer or CV.
+  atsAnalyses: defineTable({
+    key: v.string(), token: v.string(), expiresAt: v.number(),
+    requirements: v.optional(v.array(v.any())),
+  }).index('by_key', ['key']).index('by_expiry', ['expiresAt']),
+
+  atsSources: defineTable({
+    sourceId: v.string(), hash: v.optional(v.string()), reviewedHash: v.optional(v.string()),
+    text: v.optional(v.string()), reviewedText: v.optional(v.string()),
+    checkedAt: v.number(), changedAt: v.optional(v.number()), error: v.optional(v.string()),
+  }).index('by_source', ['sourceId']),
+
   users: defineTable({
     userId: v.string(),
     email: v.string(),
@@ -106,6 +118,8 @@ export default defineSchema({
     // What the offer states and asks of nobody: out of the offer's list, so
     // out of the score's denominator. No text of the CV changes.
     notRequirements: v.optional(v.array(dismissedRequirementValidator)),
+    generation: v.optional(v.any()),
+    confirmedRequirements: v.optional(v.array(v.string())),
     createdAt: v.string(),
   }).index("by_userId", ["userId"]),
 

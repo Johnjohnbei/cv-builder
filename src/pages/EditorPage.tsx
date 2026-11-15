@@ -3,11 +3,12 @@ import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { maskHeaderBlocks } from '../shared/lib/anonymize';
 import { readStoredText } from '../shared/lib/storage';
+import { prepareText } from '../shared/lib/text';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
-import { isWritable } from '../features/editor/lib/keyword-analysis';
+import { experienceText, isWritable, writesRequirement } from '../features/editor/lib/keyword-analysis';
 import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
 import { dismissedIdsOf, requirementsOfOffer, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
@@ -37,7 +38,7 @@ export default function EditorPage() {
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ats'>('content');
   // Several sections open at once: experiences and skills were exclusive, so
   // comparing them meant closing one to read the other
-  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(() => new Set(['personal']));
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [jobDescription, setJobDescription] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -87,7 +88,7 @@ export default function EditorPage() {
     }
   }, [loadedJobDescription]);
 
-  const { requirements: analyzed, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id);
+  const { requirements: analyzed, status: requirementsStatus, error: requirementsError } = useJobRequirements(analyzedOffer, jobDescription, getCode(), committed.id, cvData?.generation);
   // What the offer really asks: an entry the user says is none (a contract, a
   // benefit, the recruiting company's name) leaves the list, so it leaves the
   // score's denominator, the badges and the fit pass at once
@@ -185,7 +186,7 @@ export default function EditorPage() {
   const fit = useFitToPages({
     cvData, printedCV, setCvData, requirements: claimedRequirements,
     requirementsReady: isRequirementsSettled(requirementsStatus),
-    stablePageCount, targetPages, loadedJobDescription, jobDescription, notify,
+    stablePageCount, targetPages, loadedJobDescription, jobDescription, notify, designSettings,
   });
   const { isAutoSaving, lastAutoSaveAt, saveFailed } = useAutoSaveDraft({
     cvData, designSettings, selectedTemplate, jobDescription,
@@ -200,7 +201,42 @@ export default function EditorPage() {
     [printedCV?.experience, claimedRequirements, currentLanguage],
   );
 
-  const { editing, undo, canUndo } = useInPlaceEditing({ cvData, setCvData });
+  const { editing: previewEditing, undo, canUndo } = useInPlaceEditing({ cvData, setCvData });
+
+  const [correction, setCorrection] = useState<{ section: string; focus?: boolean; label?: string; experience?: number; terms?: string[]; select?: boolean } | null>(null);
+  const openSection = useCallback((section: string, options: { focus?: boolean; label?: string; experience?: number; terms?: string[]; select?: boolean } = {}) => {
+    setActiveTab('content');
+    setIsSidebarOpen(true);
+    setExpandedSections(new Set([section]));
+    setCorrection({ section, focus: true, ...options });
+  }, []);
+  useEffect(() => {
+    if (!correction || activeTab !== 'content') return;
+    const frame = requestAnimationFrame(() => {
+      const section = document.getElementById(`editor-section-${correction.section}`);
+      const scope = correction.experience === undefined ? section : section?.querySelector(`[data-experience-index="${correction.experience}"]`);
+      const fields = Array.from(scope?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select') ?? []);
+      const field = (correction.select ? fields.find(el => el.tagName === 'SELECT' && correction.terms?.length && writesRequirement([prepareText(el.getAttribute('aria-label') ?? '')], { label: correction.terms[0], variants: correction.terms.slice(1) })) : undefined)
+        ?? fields.find(el => correction.terms?.length && writesRequirement([prepareText(el.value)], { label: correction.terms[0], variants: correction.terms.slice(1) }))
+        ?? fields.find(el => correction.label && el.labels && Array.from(el.labels).some(label => label.textContent?.includes(correction.label!))) ?? fields.find(el => el.getAttribute('placeholder') === 'Ajouter compétence...') ?? fields[0];
+      (scope ?? section)?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      if (correction.focus) field?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [correction, activeTab]);
+  const editing = useMemo(() => ({ ...previewEditing, onSelect: (target: import('../features/editor/lib/in-place-edit').EditTarget) => {
+    const section = target.kind === 'title' ? 'personal' : target.kind === 'summary' ? 'summary' : target.kind === 'skill' ? 'skills' : 'experience';
+    openSection(section, { focus: false, experience: 'experience' in target ? target.experience : undefined });
+  } }), [previewEditing, openSection]);
+  const correctRequirement = (requirement: import('../shared/types').JobRequirement) => {
+    if (requirement.kind === 'screening') { notify({ message: 'Vérifiez cette condition dans votre situation et dans le formulaire de candidature, puis confirmez-la ici.', type: 'success' }); return; }
+    const experience = cvData?.experience.findIndex(exp => writesRequirement(experienceText(exp, 'content', currentLanguage).map(prepareText), requirement)) ?? -1;
+    const inSummary = writesRequirement([prepareText(cvData?.personal_info.summary ?? '')], requirement);
+    const section = requirement.kind === 'language' ? 'languages' : ['education', 'certification'].includes(requirement.kind) ? 'education'
+      : requirement.kind === 'title' || requirement.kind === 'location' ? 'personal' : requirement.kind === 'experience_years' || experience >= 0 ? 'experience' : inSummary ? 'summary' : 'skills';
+    openSection(section, { label: requirement.kind === 'title' ? 'Titre pro' : requirement.kind === 'location' ? 'Localisation' : undefined, experience: experience >= 0 ? experience : undefined, terms: [requirement.label, ...requirement.variants], select: requirement.kind === 'language' && Boolean(requirement.minLevel) });
+  };
+  const openLayout = () => { setActiveTab('design'); setIsSidebarOpen(true); };
 
   // What the code corrected by itself when the CV was loaded, said once
   const correctionsTold = useRef(false);
@@ -295,9 +331,11 @@ export default function EditorPage() {
           requirementsError,
           onRetryAnalysis: commitJobDescription,
           aiBusy,
+          onCorrect: correctRequirement,
+          onOpenOffer: openLayout,
+          onCorrectCheck: id => id === 'size' ? openLayout() : openSection(['dates', 'dateFormat'].includes(id) ? 'experience' : 'personal', { label: id === 'email' ? 'Email' : id === 'phone' ? 'Téléphone' : id === 'location' ? 'Localisation' : 'Titre pro' }),
         }}
         exports={exports}
-        coverLetter={coverLetter}
         notify={notify}
       />
 
@@ -317,6 +355,10 @@ export default function EditorPage() {
           onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
           onSave={persistence.saveDraft}
           onExport={exports.downloadPDF}
+          onExportDocx={exports.downloadDocx}
+          onPreviewPDF={exports.previewPDF}
+          onOpenCoverLetter={coverLetter.open}
+          isExportingDocx={exports.isExportingDocx}
           isAutoSaving={isAutoSaving}
           lastAutoSaveAt={lastAutoSaveAt}
           autoSaveFailed={saveFailed}

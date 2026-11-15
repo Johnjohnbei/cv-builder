@@ -3,7 +3,7 @@
 // Convex bundler does not resolve the "@/" alias), types imported as types.
 
 import type {
-  ATSReport, CVData, CVSection, DesignSettings, Experience, JobRequirement, ReadabilityCheck, RequirementCoverage,
+  ATSReport, CVData, CVSection, DesignSettings, Experience, JobRequirement, ReadabilityCheck, RequirementCoverage, ScopedYearEvidence,
 } from '../../../shared/types';
 import { matchPhrase, normalizeForMatch, prepareText, stripInlineMarkdown, type PreparedText } from '../../../shared/lib/text';
 import { getLocalizedStage } from '../../../shared/constants/company-meta';
@@ -11,7 +11,7 @@ import { getCVLanguage, type SupportedLanguage } from '../../../lib/language-det
 import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, shouldShowKPI } from './display-modes';
 import { getSkillCategoryTitle } from './ats-rules';
 import type { SkillCategoryKey } from './skill-dictionary';
-import { localizeLanguageName } from './formatting';
+import { CEFR_LEVELS, localizeLanguageName, proficiencyLevel } from './formatting';
 import { hasHomogeneousDates, hasReadableDates, yearsOfExperience } from './experience-years';
 import { fitsParserSizeLimit } from '../../../shared/lib/image-resize';
 
@@ -94,6 +94,7 @@ export function cvSections(cv: CVData, view: CVTextView, design?: IncludedSectio
 
 /** A title filters candidates first; a soft skill is never what decides */
 function weightOf(r: JobRequirement): number {
+  if (r.kind === 'screening') return 0;
   if (r.kind === 'soft_skill') return 1;
   return r.kind === 'title' || r.importance === 'required' ? 3 : 1;
 }
@@ -103,7 +104,7 @@ function weightOf(r: JobRequirement): number {
  * a number of years is a fact of the candidate's past, never a wording.
  */
 export function isWritable(r: Pick<JobRequirement, 'kind'>): boolean {
-  return r.kind !== 'education' && r.kind !== 'language' && r.kind !== 'experience_years' && r.kind !== 'location';
+  return !['education', 'language', 'experience_years', 'location', 'screening'].includes(r.kind);
 }
 
 /**
@@ -132,6 +133,18 @@ export function isWrittenFreely(r: Pick<JobRequirement, 'kind'>): boolean {
 export const writesRequirement = (fields: PreparedText[], r: Pick<JobRequirement, 'label' | 'variants'>): boolean =>
   [r.label, ...r.variants].some(term => fields.some(field => matchPhrase(term, field)));
 
+/** A confirmation never carries over to a different minimum or condition with the same label. */
+export const requirementConfirmationKey = (r: JobRequirement): string =>
+  JSON.stringify([r.id, r.kind, normalizeForMatch(r.quote), r.minLevel ?? '', r.minYears ?? null, r.experienceScope ?? []]);
+
+/** A freely added domain cannot turn an unrelated source career into specialized years. */
+export function scopeEvidenceFor(source: CVData): ScopedYearEvidence[] {
+  return source.experience.map(exp => ({
+    company: exp.company, start_date: exp.start_date, ...(exp.end_date && { end_date: exp.end_date }), current: exp.current,
+    sourceText: experienceText(exp, 'content', getCVLanguage(source)).join(' | '),
+  }));
+}
+
 /** The requirements of the offer the CV does not write */
 export const gapsOf = (report: ATSReport): RequirementCoverage[] => report.requirements.filter(c => !c.found);
 
@@ -142,6 +155,7 @@ export interface ATSReportOptions {
   view?: CVTextView;
   design?: IncludedSections;
   now?: Date;
+  scopedYears?: ScopedYearEvidence[];
 }
 
 /**
@@ -157,24 +171,52 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
     (Object.keys(sections) as CVSection[]).map(section => [section, prepareText(sections[section].join(' | '))]),
   ) as Record<CVSection, PreparedText>;
   const positions = prepareText(experiences.map(exp => exp.position).join(' | '));
-  const years = yearsOfExperience(experiences, now);
-
   const coverage = requirements.map((requirement): RequirementCoverage => {
     const has = (text: PreparedText) => writesRequirement([text], requirement);
     const where = (candidates: CVSection[]) => candidates.filter(section => has(prepared[section]));
     let found: CVSection[];
+    let unknown = false;
+    let reason: string | undefined;
+    let years: number | undefined;
     switch (requirement.kind) {
-      case 'experience_years':
+      case 'experience_years': {
+        const scope = requirement.experienceScope;
+        const relevant = scope?.length
+          ? experiences.filter(exp => {
+            const evidence = (options.scopedYears ?? cv.generation?.scopedYears)?.filter(item => item.company === exp.company && item.start_date === exp.start_date && item.end_date === exp.end_date && item.current === exp.current);
+            if (evidence?.length) return evidence.some(item => writesRequirement([prepareText(item.sourceText)], { label: scope[0], variants: scope.slice(1) }));
+            return writesRequirement(experienceText(exp, view, getCVLanguage(cv)).map(prepareText), { label: scope[0], variants: scope.slice(1) });
+          })
+          : experiences;
+        years = yearsOfExperience(relevant, now);
         found = years >= (requirement.minYears ?? Infinity) ? ['experience'] : [];
+        reason = scope?.length ? `Postes dont le CV source mentionne : ${scope[0]}. Durée d'utilisation à confirmer.` : undefined;
         break;
+      }
       case 'title':
         found = [...where(['title']), ...(has(positions) ? ['experience' as const] : [])];
         break;
       case 'education':
         found = where(['education']);
         break;
-      case 'language':
+      case 'language': {
         found = where(['languages']);
+        if (found.length && requirement.minLevel) {
+          const matching = cv.languages.filter(lang => has(prepareText(localizeLanguageName(lang.name, getCVLanguage(cv)))));
+          const levels = matching.map(lang => proficiencyLevel(lang.proficiency));
+          const enough = levels.some(level => level && CEFR_LEVELS.indexOf(level) >= CEFR_LEVELS.indexOf(requirement.minLevel!));
+          if (!enough) {
+            found = [];
+            unknown = levels.some(level => !level);
+            reason = unknown ? `Niveau ${requirement.minLevel} demandé, niveau du CV à préciser.` : `Niveau ${requirement.minLevel} demandé, niveau déclaré insuffisant.`;
+          }
+        }
+        break;
+      }
+      case 'screening':
+        found = [];
+        unknown = true;
+        reason = 'Condition à vérifier dans le formulaire de candidature.';
         break;
       case 'location':
         found = where(['location']);
@@ -182,8 +224,19 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
       default:
         found = where(['title', 'summary', 'experience', 'skills', 'education', 'languages']);
     }
+    const confirmed = cv.confirmedRequirements?.includes(requirementConfirmationKey(requirement));
+    if (requirement.needsVerification && !confirmed) {
+      unknown = true;
+      found = [];
+      reason ??= 'Le libellé ne suffit pas : confirmez ce critère avec vos justificatifs.';
+    } else if (requirement.needsVerification && confirmed) {
+      unknown = false;
+    }
+    const isCovered = found.length > 0 || (requirement.kind === 'screening' && Boolean(confirmed));
     return {
-      requirement, found: found.length > 0, sections: found, weight: weightOf(requirement),
+      requirement, found: isCovered, sections: found, weight: weightOf(requirement),
+      status: unknown ? 'unknown' : isCovered ? 'covered' : 'missing',
+      ...(reason && { reason }),
       ...(requirement.kind === 'experience_years' && { years }),
     };
   });
@@ -206,10 +259,10 @@ export function computeATSReport(cv: CVData, requirements: JobRequirement[], opt
     { id: 'dates', passed: experiences.length > 0 && experiences.every(hasReadableDates) },
     // Both documented by Greenhouse among the resumes it cannot parse
     { id: 'dateFormat', passed: hasHomogeneousDates(experiences) },
-    { id: 'size', passed: fitsParserSizeLimit(cv.personal_info.photo_url, design?.showPhoto) },
+    { id: 'size', passed: fitsParserSizeLimit(cv.personal_info.photo_url, design?.showPhoto), estimated: true },
   ];
 
-  const required = coverage.filter(c => c.requirement.importance === 'required');
+  const required = coverage.filter(c => c.requirement.importance === 'required' && c.requirement.kind !== 'screening');
 
   return {
     score: total > 0 ? Math.round((100 * covered) / total) : null,

@@ -157,6 +157,6 @@ function decodeEntities(text: string): string {
 }
 
 /** Readable text of an HTML page, whitespace collapsed after decoding */
-export function htmlToText(html: string): string {
-  return decodeEntities(stripMarkup(html)).replace(/\s+/g, " ").trim().substring(0, MAX_PAGE_TEXT_CHARS);
+export function htmlToText(html: string, maxChars = MAX_PAGE_TEXT_CHARS): string {
+  return decodeEntities(stripMarkup(html)).replace(/\s+/g, " ").trim().substring(0, maxChars);
 }

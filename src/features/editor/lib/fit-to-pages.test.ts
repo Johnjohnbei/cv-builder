@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { expandToMax, condenseOneStep, maxCondenseSteps } from './fit-to-pages';
+import { expandToMax, condenseOneStep, maxCondenseSteps, writtenOutsideExperience } from './fit-to-pages';
 import type { Experience, ExperienceDisplayMode, JobRequirement } from '@/src/shared/types';
+import { EMPTY_CV } from '@/src/shared/types';
+
+it('does not rely on a mention in a section hidden by the design settings', () => {
+  const requirement = { id: 'figma', label: 'Figma', variants: [], kind: 'tool' as const, importance: 'required' as const, quote: 'Figma' };
+  const cv = { ...EMPTY_CV, personal_info: { ...EMPTY_CV.personal_info, summary: 'Figma' } };
+  expect(writtenOutsideExperience(cv, [requirement]).has('figma')).toBe(true);
+  expect(writtenOutsideExperience(cv, [requirement], { includedSections: ['experience'] }).has('figma')).toBe(false);
+});
 
 const req = (label: string): JobRequirement => ({
   id: label, label, variants: [], kind: 'hard_skill', importance: 'required', quote: label,

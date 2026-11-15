@@ -1,7 +1,11 @@
 "use node";
 
+import { createHash, randomUUID } from 'node:crypto';
+import type { ActionCtx } from '../_generated/server';
+import { internal } from '../_generated/api';
+
 import type { ATSReport, CVData, JobRequirement } from "../../src/shared/types";
-import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely } from "../../src/features/editor/lib/keyword-analysis";
+import { computeATSReport, cvSections, gapsOf, isWritable, isWrittenFreely, scopeEvidenceFor } from "../../src/features/editor/lib/keyword-analysis";
 import { yearsOfExperience } from "../../src/features/editor/lib/experience-years";
 import { categorizeSkills } from "../../src/features/editor/lib/skill-dictionary";
 import { prepareText, type PreparedText } from "../../src/shared/lib/text";
@@ -16,6 +20,8 @@ import { buildRepairPrompt } from "./prompts/distribute";
 import { buildJobRequirementsPrompt } from "./prompts/jobDescription";
 import { GenerationSchema, JobRequirementsSchema, RepairSchema, type RepairEdit } from "./schemas";
 import { guard, provenIds, type GuardContext } from "./truthGuard";
+import { ATS_POLICY } from '../../src/features/editor/lib/ats-rules';
+import { AI_MODELS } from './providers';
 
 // ─── Tailoring a CV to an offer (plan § 4) ──────────────────────────
 // The offer's requirements, one generation, a truth guard in code
@@ -47,6 +53,29 @@ export async function extractRequirements(jobDescription: string, deadlineAt?: n
   }, "fast", deadlineAt);
 }
 
+/** Same account/code and offer share one extraction across tabs, with a bounded wait. */
+export async function cachedRequirements(ctx: ActionCtx, offer: string, code?: string): Promise<JobRequirement[]> {
+  const identity = await ctx.auth.getUserIdentity();
+  const scope = identity ? [identity.issuer, identity.subject] : ['guest', code?.trim()];
+  const key = createHash('sha256').update(JSON.stringify([scope, ATS_POLICY.extractionVersion, offer.replace(/\s+/g, ' ').trim()])).digest('hex');
+  const token = randomUUID();
+  const deadline = Date.now() + EXTRACTION_DEADLINE_MS;
+  while (Date.now() < deadline) {
+    const lease = await ctx.runMutation(internal.ats.acquire, { key, token });
+    if (lease.state === 'ready') return normalizeJobRequirements(lease.requirements, offer);
+    if (lease.state === 'busy') { await new Promise(resolve => setTimeout(resolve, 1_000)); continue; }
+    try {
+      const requirements = await extractRequirements(offer, deadline);
+      await ctx.runMutation(internal.ats.finish, { key, token, requirements });
+      return requirements;
+    } catch (error) {
+      await ctx.runMutation(internal.ats.finish, { key, token });
+      throw error;
+    }
+  }
+  throw userError("L'analyse de cette offre est déjà en cours. Réessayez dans un instant.", 'ANALYSIS_BUSY');
+}
+
 export interface TailorInput {
   /** The CV to tailor, without the fields the user owns */
   cv: unknown;
@@ -58,6 +87,7 @@ export interface TailorInput {
   languageOverride?: "fr" | "en";
   /** The language the user chose before the generation: written in it, whatever the offer's */
   language?: "fr" | "en";
+  extractionVersion?: string;
 }
 
 export interface TailorResult {
@@ -212,8 +242,8 @@ function withSubstantialSummary(cv: CVData, source: CVData, sameLanguage: boolea
 }
 
 /** The client's requirements checked again against the offer, or the offer analyzed when none holds */
-async function requirementsFor(jobDescription: string, given: unknown[] | undefined, startedAt: number): Promise<JobRequirement[]> {
-  const checked = normalizeJobRequirements(given ?? [], jobDescription);
+async function requirementsFor(jobDescription: string, given: unknown[] | undefined, startedAt: number, extractionVersion?: string): Promise<JobRequirement[]> {
+  const checked = extractionVersion === ATS_POLICY.extractionVersion ? normalizeJobRequirements(given ?? [], jobDescription) : [];
   return checked.length > 0 ? checked : extractRequirements(jobDescription, startedAt + EXTRACTION_DEADLINE_MS);
 }
 
@@ -231,7 +261,8 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const source = readSourceCV(input.cv);
   const { jobDescription, pageLimit, detectedLanguage, languageOverride } = input;
   const deadlineAt = startedAt + PIPELINE_DEADLINE_MS;
-  const requirements = await requirementsFor(jobDescription, input.requirements, startedAt);
+  const requirements = await requirementsFor(jobDescription, input.requirements, startedAt, input.extractionVersion);
+  const scopedYears = scopeEvidenceFor(source);
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields(source, sourceLanguage);
 
@@ -266,7 +297,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   // measure: a repair writing a thin summary is never kept on a score it then loses
   const measure = (cv: CVData) => {
     const kept = withSubstantialSummary(guard(cv, context), source, sourceLanguage === language);
-    return { cv: kept, report: computeATSReport(kept, requirements, { view: "content" }) };
+    return { cv: kept, report: computeATSReport(kept, requirements, { view: "content", scopedYears }) };
   };
 
   let best = measure(generation.cv);
@@ -302,5 +333,18 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   console.info(`[tailorCV] requirements=${requirements.length} provenByCV=${byCV.size} free=${free.length} `
     + `generated=${generatedScore} final=${best.report.score} gaps=${gapsOf(best.report).length} repairs=${repairs} `
     + `summary=${best.cv.personal_info.summary ? "kept" : "hidden"} language=${sourceLanguage}->${language}`);
-  return { cv: best.cv, requirements, report: best.report, language };
+  const cv: CVData = {
+    ...best.cv,
+    generation: {
+      id: crypto.randomUUID(), createdAt: new Date().toISOString(),
+      rulesVersion: ATS_POLICY.version, extractionVersion: ATS_POLICY.extractionVersion, promptVersion: ATS_POLICY.promptVersion,
+      model: AI_MODELS.default, durationMs: Date.now() - startedAt,
+      offer: jobDescription.replace(/\s+/g, ' ').trim(), requirements,
+      sourceRequirementIds: [...byCV],
+      addedRequirementIds: free.filter(r => best.report.requirements.some(c => c.requirement.id === r.id && c.found)).map(r => r.id),
+      initialScore: best.report.score, extractionAtLimit: requirements.length >= ATS_POLICY.maxRequirements,
+      scopedYears,
+    },
+  };
+  return { cv, requirements, report: best.report, language };
 }

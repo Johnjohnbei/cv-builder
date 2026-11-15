@@ -39,7 +39,7 @@ export function ExperienceCard({ exp, idx, isLast, score, weakBullets, updateExp
   const currentMode = DISPLAY_MODES.find(m => m.value === mode)!;
 
   return (
-    <div data-cv-block="experience" className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
+    <div data-experience-index={idx} data-cv-block="experience" className="p-3 bg-gray-50 border border-[#DADCE0] rounded relative group">
       {/* ─── Top bar: move + badge + mode selector + delete ─── */}
       <div className="flex items-center justify-between mb-2 gap-2">
         <div className="flex items-center gap-1">

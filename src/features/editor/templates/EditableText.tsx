@@ -50,10 +50,11 @@ export function EditableText({ value, target, editing, label, block, children }:
         className="cv-editable"
         title={`Modifier : ${label}`}
         aria-label={`Modifier : ${label}`}
-        onClick={() => setDraft(value)}
+        onClick={() => { editing.onSelect?.(target); setDraft(value); }}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
+          editing.onSelect?.(target);
           setDraft(value);
         }}
       >

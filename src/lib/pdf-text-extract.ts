@@ -49,6 +49,21 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   return fullText;
 }
 
+/** Raw PDF words in paint order, shared by imports and the final export check. */
+export async function extractPDFItems(file: Blob): Promise<string[]> {
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const items: string[] = [];
+  try {
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const content = await (await pdf.getPage(n)).getTextContent();
+      items.push(...content.items.flatMap(item => 'str' in item ? [item.str] : []));
+    }
+    return items;
+  } finally {
+    await pdf.destroy();
+  }
+}
+
 /** The text items of every page, with the font size and position the LinkedIn parser reads */
 async function extractTokens(file: File): Promise<Token[]> {
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;

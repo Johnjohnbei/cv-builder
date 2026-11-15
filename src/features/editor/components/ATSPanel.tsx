@@ -1,20 +1,19 @@
-import type { CVSection, ReadabilityCheck, RequirementCoverage } from '@/src/shared/types';
-import { gapsOf, isWrittenFreely } from '../lib/keyword-analysis';
+import type { CVSection, JobRequirement, ReadabilityCheck } from '@/src/shared/types';
+import { gapsOf, isWrittenFreely, requirementConfirmationKey } from '../lib/keyword-analysis';
+import { ATS_POLICY, ATS_SOURCES } from '../lib/ats-rules';
 import type { RequirementsStatus } from '../lib/job-requirements-cache';
 import type { ATSAnalysis } from '../hooks/useATSAnalysis';
-import { formatPoints as points, GAP_TITLE, ScoreSummary } from '@/src/shared/ui/ScoreSummary';
 import { Button } from '@/src/shared/ui/Button';
 
 export interface ATSPanelProps {
-  /** The report and the actions on its gaps */
   analysis: ATSAnalysis;
   hasJobDescription: boolean;
   requirementsStatus: RequirementsStatus;
-  /** Why the analysis of the offer failed, shown with the retry button */
   requirementsError?: string;
-  /** Analyze the offer again after a failure */
   onRetryAnalysis: () => void;
-  /** True while an AI action runs: the retry is disabled */
+  onCorrect: (requirement: JobRequirement) => void;
+  onCorrectCheck: (id: ReadabilityCheck['id']) => void;
+  onOpenOffer: () => void;
   aiBusy?: boolean;
 }
 
@@ -22,201 +21,101 @@ const SECTION_LABELS: Record<CVSection, string> = {
   title: 'titre', location: 'ville', summary: 'profil', experience: 'expériences',
   skills: 'compétences', education: 'formation', languages: 'langues',
 };
-
 const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
-  email: 'Adresse e-mail valide',
-  phone: 'Numéro de téléphone',
-  location: 'Ville',
+  email: 'Adresse e-mail valide', phone: 'Numéro de téléphone', location: 'Ville',
   titles: 'Intitulés de poste écrits en entier (pas « Sr. », « Resp. »)',
   dates: 'Dates de poste lisibles (par exemple « mars 2021 »)',
   dateFormat: 'Dates écrites au même format partout (toutes avec le mois, ou toutes sans)',
-  size: 'PDF sous 2,5 Mo, la taille au delà de laquelle Greenhouse ne le lit plus',
+  size: 'Taille PDF estimée sous 2,5 Mo ; fichier réel contrôlé à l’export',
 };
 
-const SECTION_TITLE = 'text-[11px] font-mono uppercase tracking-wider text-gray-500';
-
-
-/** The years the dates add up to, so a verdict on years of experience can be checked */
-const measuredYears = ({ years }: RequirementCoverage) =>
-  years === undefined ? '' : ` · ${years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ${years < 2 ? 'an mesuré' : 'ans mesurés'}`;
-
-/** The counting convention, shown where measured years are */
-const yearsHint = ({ years }: RequirementCoverage) =>
-  years === undefined ? undefined : "Mois de début et de fin compris. Une année écrite sans mois compte à partir de son milieu : précisez les mois pour un calcul exact.";
-
-interface GapProps {
-  coverage: RequirementCoverage;
-  onDismiss: () => void;
-  /** Takes the line out of the offer's requirements: it was never one */
-  onReject: () => void;
-}
-
-/**
- * A requirement of the offer the CV does not cover. Nothing writes it after
- * the generation (arbitrage of 2026-10-07): the user who lacks it takes it out
- * of the reminder, and out of the CV where a sentence still names it.
- */
-function GapItem({ coverage, onDismiss, onReject }: GapProps) {
-  const { requirement } = coverage;
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] bg-red-50 border border-red-200 rounded px-2 py-1.5">
-      <span className="min-w-0 break-words font-semibold text-red-800">{requirement.label}</span>
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="text-gray-600" title={yearsHint(coverage)}>{points(coverage.weight)}{measuredYears(coverage)}</span>
-        {/* The label is in the accessible name: every gap has this button */}
-        <Button variant="ghost" size="sm" mono={false} aria-label={`${requirement.label} : je ne l'ai pas`} onClick={onDismiss}>
-          Je ne l'ai pas
-        </Button>
-        {/* A contract, a benefit, the name of the company recruiting: the offer
-            states them and asks them of nobody. Out of the list, out of the score. */}
-        <Button
-          variant="ghost" size="sm" mono={false}
-          aria-label={`${requirement.label} : ce n'est pas une exigence`}
-          title="Ce n'est pas une exigence : retirer du score"
-          onClick={onReject}
-        >
-          Pas une exigence
-        </Button>
-      </span>
-    </div>
-  );
-}
-
-export function ATSPanel({
-  analysis,
-  hasJobDescription,
-  requirementsStatus,
-  requirementsError,
-  onRetryAnalysis,
-  aiBusy = false,
-}: ATSPanelProps) {
-  const { report, dismissed, dismiss, restore, notRequirements, reject, unreject } = analysis;
-  if (!report) {
-    return <div className="p-4 text-center text-gray-600 text-xs font-mono">Chargement de l'analyse ATS...</div>;
-  }
-  // Every dismissal the CV keeps is listed with "Remettre", whatever offer is on screen:
-  // one left out of the list would keep taking text out with no way back
+export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis, onCorrect, onCorrectCheck, onOpenOffer, aiBusy = false }: ATSPanelProps) {
+  const { report, dismissed, dismiss, restore, notRequirements, reject, unreject, generation, confirmed, confirm, unconfirm } = analysis;
+  if (!report) return <p className="text-xs text-gray-600">Chargement de l'analyse ATS...</p>;
   const dismissedIds = dismissed.map(r => r.id);
-  const covered = report.requirements.filter(r => r.found && !dismissedIds.includes(r.requirement.id));
-  const gaps = gapsOf(report).filter(r => !dismissedIds.includes(r.requirement.id));
+  const covered = report.requirements.filter(c => c.found && !dismissedIds.includes(c.requirement.id));
+  const gaps = gapsOf(report).filter(c => !dismissedIds.includes(c.requirement.id))
+    .sort((a, b) => Number(b.requirement.importance === 'required') - Number(a.requirement.importance === 'required'));
+  const additions = covered.filter(c => generation?.addedRequirementIds.includes(c.requirement.id) && !confirmed.includes(requirementConfirmationKey(c.requirement)));
+  const checks = [...report.checks].sort((a, b) => Number(a.passed) - Number(b.passed));
+  const sameRequirements = generation && JSON.stringify(generation.requirements) === JSON.stringify(report.requirements.map(c => c.requirement));
+  const lost = sameRequirements && generation.initialScore !== null && report.score !== null && generation.initialScore > report.score;
 
-  return (
-    <div className="flex flex-col gap-5 overflow-y-auto">
-      {/* ─── Score, or why there is none ─── */}
-      <div className="flex flex-col items-center" role="status" aria-live="polite">
-        {!hasJobDescription ? (
-          <p className="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 leading-relaxed">
-            Importez une offre d'emploi pour mesurer la part de ses exigences présentes dans votre CV.
-          </p>
-        ) : report.score !== null ? (
-          <ScoreSummary score={report.score} />
-        ) : requirementsStatus === 'failed' ? (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-xs text-gray-700">Analyse de l'offre indisponible pour le moment.</p>
-            {requirementsError && <p className="text-[11px] text-gray-600">{requirementsError}</p>}
-            <Button variant="secondary" size="sm" disabled={aiBusy} onClick={onRetryAnalysis}>Réessayer</Button>
-          </div>
-        ) : requirementsStatus === 'pending' ? (
-          <p className="text-xs text-gray-600 text-center">L'offre sera analysée quand vous quitterez son champ de saisie.</p>
-        ) : (
-          <p className="text-xs text-gray-600 font-mono">Analyse de l'offre en cours...</p>
-        )}
-      </div>
-
-      {/* ─── Requirements, with the points the score is made of ─── */}
-      {report.requirements.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <span className={SECTION_TITLE}>Exigences de l'offre</span>
-            {report.required.total > 0 && (
-              <span
-                className={report.required.covered === report.required.total ? 'text-[11px] text-green-700' : 'text-[11px] text-red-700'}
-                title="Un ATS trie d'abord sur les exigences que l'offre dit requises : chez Taleo une seule manquante sort la candidature de la pile, chez Workday elle fait baisser d'un grade."
-              >
-                {report.required.covered}/{report.required.total} requises
-              </span>
-            )}
-            <span className="text-[11px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded" title="Exigence requise ou intitulé : 3 points ; souhaitée ou qualité humaine : 1 point. Une exigence écartée compte encore quand un fait de votre CV (titre, diplôme, langue) l'écrit.">
-              {report.points.covered}/{points(report.points.total)}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {covered.map(c => (
-              <span
-                key={c.requirement.id}
-                className="inline-flex flex-wrap items-center gap-1 text-[11px] pl-2 rounded border bg-green-100 text-green-800 border-green-300"
-              >
-                <span className="min-w-0 break-words">{c.requirement.label}</span>
-                <span className="text-green-700 text-[11px]" title={yearsHint(c)}>({c.sections.map(s => SECTION_LABELS[s]).join(', ')} · {points(c.weight)}{measuredYears(c)})</span>
-                {/* The generation writes every skill of the offer: the user takes out the one they lack.
-                    A degree, a language, years or a title are facts of their own CV: nothing to take out */}
-                {isWrittenFreely(c.requirement) && <Button
-                  variant="ghost" size="sm" mono={false} className="text-green-800"
-                  aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`}
-                  title="Je ne l'ai pas : retirer du CV"
-                  onClick={() => dismiss(c.requirement)}
-                >
-                  Retirer
-                </Button>}
-              </span>
-            ))}
-          </div>
-
-          {gaps.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-2">
-              <span className={GAP_TITLE}>Écarts ({gaps.length})</span>
-              {gaps.map(c => (
-                <GapItem key={c.requirement.id} coverage={c} onDismiss={() => dismiss(c.requirement)} onReject={() => reject(c.requirement)} />
-              ))}
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* ─── What the user said they lack: always listed, so it can always be put back ─── */}
-      {dismissed.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className={SECTION_TITLE}>Écartées ({dismissed.length})</span>
-          <p className="text-[11px] text-gray-500">Ce qui les écrit est retiré du CV imprimé ; vos textes restent dans l'onglet Contenu. Toujours comptées dans le score de l'offre qui les demande : un ATS les cherche quand même.</p>
-          {dismissed.map(r => (
-            <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
-              <span className="text-gray-600">{r.label}</span>
-              <Button variant="ghost" size="sm" mono={false} aria-label={`${r.label} : remettre`} onClick={() => restore(r.id)}>Remettre</Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── What the offer states and asks of nobody ─── */}
-      {notRequirements.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className={SECTION_TITLE}>Pas des exigences ({notRequirements.length})</span>
-          <p className="text-[11px] text-gray-500">Retirées du score : l'offre les énonce sans rien demander au candidat. Rien ne change dans votre CV.</p>
-          {notRequirements.map(r => (
-            <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1">
-              <span className="text-gray-600">{r.label}</span>
-              <Button variant="ghost" size="sm" mono={false} aria-label={`${r.label} : recompter dans le score`} onClick={() => unreject(r.id)}>Recompter</Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── Readability ─── */}
-      <div className="flex flex-col gap-2">
-        <span className={SECTION_TITLE}>Lisibilité par les ATS</span>
-        <ul className="flex flex-col gap-1.5">
-          {report.checks.map(check => (
-            <li key={check.id} className="text-xs flex items-start gap-2">
-              <span className={check.passed ? 'text-green-700' : 'text-red-600'} aria-hidden="true">{check.passed ? '✓' : '✗'}</span>
-              <span className={check.passed ? 'text-gray-700' : 'text-red-800'}>
-                {CHECK_LABELS[check.id]}
-                <span className="sr-only">{check.passed ? ' : conforme' : ' : à corriger'}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+  return <div className="flex flex-col gap-5 text-xs">
+    <div role="status" aria-live="polite" className="space-y-2">
+      {!hasJobDescription ? <><p>Ajoutez une offre pour comparer ses exigences à votre CV.</p><Button size="sm" onClick={onOpenOffer}>Ajouter une offre</Button></>
+        : report.score !== null ? <>
+          <p className="font-semibold text-gray-900">Couverture de l'offre : {report.score} %</p>
+          <p className="text-gray-600">{report.required.covered}/{report.required.total} requises · {report.points.covered}/{report.points.total} points</p>
+          <p className="text-gray-600">Présence des exigences extraites, sans garantie de classement ni d’entretien.</p>
+        </> : report.requirements.length > 0 ? <p>Cette offre contient des conditions à vérifier, sans score de contenu.</p> : requirementsStatus === 'failed' ? <>
+          <p>Analyse de l'offre indisponible pour le moment.</p><p>{requirementsError}</p>
+          <Button size="sm" disabled={aiBusy} onClick={onRetryAnalysis}>Réessayer</Button>
+        </> : <p>{requirementsStatus === 'pending' ? "L'offre sera analysée quand vous quitterez son champ de saisie." : "Analyse de l'offre en cours..."}</p>}
+      {lost && <p className="text-amber-800">Le contenu complet couvrait {generation!.initialScore} %. Vérifiez les éléments masqués ou modifiés.<br /><Button size="sm" variant="ghost" onClick={onOpenOffer}>Voir la mise en page</Button></p>}
+      {(generation?.extractionAtLimit || report.requirements.length >= ATS_POLICY.maxRequirements) && <p className="text-amber-800">Offre dense : limite d'extraction atteinte. Vérifiez les critères dans l'offre.</p>}
     </div>
-  );
+
+    {gaps.length > 0 && <section className="space-y-2" aria-label="Exigences à corriger">
+      <h2 className="font-semibold text-gray-900">Écarts ({gaps.length})</h2>
+      {gaps.map(c => <div key={c.requirement.id} className="border border-gray-200 rounded p-3 space-y-2">
+        <p className="font-medium">{c.requirement.label} <span className="text-gray-600 font-normal">{c.requirement.importance === 'required' ? '(requis)' : '(souhaité)'}</span></p>
+        {c.status === 'unknown' && <p className="text-amber-800">À vérifier</p>}
+        {c.reason && <p className="text-gray-600">{c.reason}</p>}
+        {c.years !== undefined && <p className="text-gray-600">{c.years.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans mesurés</p>}
+        <div className="flex flex-wrap gap-1">
+          <Button size="sm" variant="secondary" aria-label={`${c.requirement.label} : corriger`} onClick={() => onCorrect(c.requirement)}>Corriger</Button>
+          {c.requirement.needsVerification && <Button size="sm" variant="ghost" onClick={() => confirm(c.requirement)}>Je confirme ce critère</Button>}
+          <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : je ne l'ai pas`} onClick={() => dismiss(c.requirement)}>Je ne l'ai pas</Button>
+          <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : ce n'est pas une exigence`} onClick={() => reject(c.requirement)}>Pas une exigence</Button>
+        </div>
+        <details className="text-gray-600"><summary className="cursor-pointer">Extrait de l'offre</summary><p className="mt-1">{c.requirement.quote}</p></details>
+      </div>)}
+    </section>}
+
+    {additions.length > 0 && <section className="space-y-2" aria-label="Ajouts à confirmer">
+      <h2 className="font-semibold">Ajouts à confirmer ({additions.length})</h2>
+      <p className="text-gray-600">Ces mentions ont été ajoutées sans être retrouvées dans le CV source. Confirmez-les ou retirez-les.</p>
+      {additions.map(c => <div key={c.requirement.id} className="flex flex-wrap items-center gap-1 border-b border-gray-200 pb-2">
+        <span className="w-full font-medium">{c.requirement.label}</span>
+        <Button size="sm" variant="secondary" aria-label={`${c.requirement.label} : confirmer`} onClick={() => confirm(c.requirement)}>Je confirme</Button>
+        <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : vérifier le texte`} onClick={() => onCorrect(c.requirement)}>Voir le texte</Button>
+        <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`} onClick={() => dismiss(c.requirement)}>Retirer</Button>
+      </div>)}
+    </section>}
+
+    <section className="space-y-2">
+      <h2 className="font-semibold">Lisibilité par les ATS</h2>
+      <ul className="space-y-2">{checks.map(check => <li key={check.id} className="flex gap-2 items-start">
+        <span aria-hidden="true" className={check.passed ? 'text-green-700' : 'text-red-700'}>{check.passed ? '✓' : '✗'}</span>
+        <span className="flex-1">{CHECK_LABELS[check.id]}<span className="sr-only">{check.passed ? ' : conforme' : ' : à corriger'}</span></span>
+        {!check.passed && <Button size="sm" variant="ghost" aria-label={`Corriger : ${CHECK_LABELS[check.id]}`} onClick={() => onCorrectCheck(check.id)}>Corriger</Button>}
+      </li>)}</ul>
+    </section>
+
+    {covered.length > 0 && <details className="space-y-2">
+      <summary className="cursor-pointer font-semibold">Exigences couvertes ({covered.length})</summary>
+      <ul className="space-y-3 mt-3">{covered.map(c => <li key={c.requirement.id}>
+        <p>{c.requirement.label} <span className="text-gray-600">({c.sections.map(s => SECTION_LABELS[s]).join(', ') || 'déclaration du candidat'})</span></p>
+        <p className="text-gray-600">{generation?.sourceRequirementIds.includes(c.requirement.id) ? 'Mention retrouvée dans la source' : confirmed.includes(requirementConfirmationKey(c.requirement)) ? 'Confirmé par vous' : 'Mention présente, provenance non vérifiée'}</p>
+        {confirmed.includes(requirementConfirmationKey(c.requirement)) && <Button size="sm" variant="ghost" onClick={() => unconfirm(c.requirement)}>Annuler la confirmation</Button>}
+        {isWrittenFreely(c.requirement) && !additions.some(a => a.requirement.id === c.requirement.id) && <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`} onClick={() => dismiss(c.requirement)}>Retirer</Button>}
+      </li>)}</ul>
+    </details>}
+
+    {dismissed.length > 0 && <section className="space-y-2"><h2 className="font-semibold">Écartées ({dismissed.length})</h2>
+      <p className="text-gray-600">Retirées du CV imprimé, mais toujours comptées si l'offre les demande. Vos textes restent dans Contenu.</p>
+      {dismissed.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2"><span>{r.label}</span><Button size="sm" variant="ghost" aria-label={`${r.label} : remettre`} onClick={() => restore(r.id)}>Remettre</Button></div>)}
+    </section>}
+    {notRequirements.length > 0 && <section className="space-y-2"><h2 className="font-semibold">Pas des exigences ({notRequirements.length})</h2>
+      <p className="text-gray-600">Retirées du score ; aucun texte du CV n'est changé.</p>
+      {notRequirements.map(r => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2"><span>{r.label}</span><Button size="sm" variant="ghost" aria-label={`${r.label} : recompter dans le score`} onClick={() => unreject(r.id)}>Recompter</Button></div>)}
+    </section>}
+
+    <details><summary className="cursor-pointer font-medium">Méthode et sources</summary>
+      <p className="my-2 text-gray-600">Règles {ATS_POLICY.version}. Pondération Calibre : 3 points par exigence requise ou titre, 1 par souhait ou qualité humaine. Les conditions du formulaire restent à vérifier séparément.</p>
+      {generation && <p className="mb-2 text-gray-600">Génération du {new Date(generation.createdAt).toLocaleDateString('fr-FR')} · {generation.model} · règles {generation.rulesVersion}. Les versions sont conservées avec ce CV.</p>}
+      <ul className="space-y-2">{ATS_SOURCES.map(source => <li key={source.id}><a className="text-blue-700 underline" href={source.url} target="_blank" rel="noopener noreferrer">{source.vendor} : {source.summary}</a><p className="text-gray-600">Vérifiée le {source.checkedAt}</p></li>)}</ul>
+    </details>
+  </div>;
 }

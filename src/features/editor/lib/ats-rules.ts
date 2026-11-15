@@ -1,5 +1,22 @@
 // --- ATS Section Names ---
 
+/** Release together with the corpus: web changes never mutate these active rules. */
+export const ATS_POLICY = {
+  version: '2026-11-15.1',
+  extractionVersion: '2026-11-15.1',
+  promptVersion: '2026-11-15.1',
+  maxRequirements: 60,
+  cacheMaxAgeMs: 30 * 24 * 60 * 60 * 1000,
+  maxPdfBytes: 2_500_000,
+} as const;
+
+/** Primary sources only. Checked changes are proposals, never executable prompt content. */
+export const ATS_SOURCES = [
+  { id: 'greenhouse-parsing', vendor: 'Greenhouse', url: 'https://support.greenhouse.io/hc/en-us/articles/200989175-Unsuccessful-resume-parse', checkedAt: '2026-11-15', rule: 'pdf-text-and-size', test: 'e2e/pdf-legibility.spec.ts', summary: 'Texte extractible, ordre lisible, fichier sous 2,5 Mo.' },
+  { id: 'greenhouse-matching', vendor: 'Greenhouse', url: 'https://support.greenhouse.io/hc/en-us/articles/41131616864283-Talent-Matching-Data-Processing-FAQ', checkedAt: '2026-11-15', rule: 'coverage-is-not-a-ranking', test: 'src/features/editor/lib/keyword-analysis.test.ts', summary: 'Critères calibrés et rapprochement sémantique ; aucune garantie de classement.' },
+  { id: 'oracle-screening', vendor: 'Oracle', url: 'https://docs.oracle.com/en/cloud/saas/talent-management/faush/disqualification-question.html', checkedAt: '2026-11-15', rule: 'screening-needs-confirmation', test: 'src/features/editor/lib/keyword-analysis.test.ts', summary: 'Des réponses au formulaire peuvent éliminer indépendamment du CV.' },
+] as const;
+
 export const SECTION_NAMES = {
   fr: {
     // Printed as-is in the CV and the .docx: a French title without its

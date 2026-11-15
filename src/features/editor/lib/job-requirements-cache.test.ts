@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { JobRequirement } from '@/src/shared/types';
-import { isRequirementsSettled, requirementsForOffer, requirementsStatus, REQUIREMENTS_CACHE_KEY } from './job-requirements-cache';
+import { generationOf, isRequirementsSettled, requirementsForOffer, requirementsStatus, REQUIREMENTS_CACHE_KEY } from './job-requirements-cache';
 
 const R = (label: string): JobRequirement => ({
   id: label.toLowerCase(), label, variants: [], kind: 'tool', importance: 'required', quote: label,
@@ -9,6 +9,11 @@ const R = (label: string): JobRequirement => ({
 const ANALYZED = { offer: 'Product Designer, Figma, design system', requirements: [R('Figma'), R('Design System')] };
 
 describe('requirementsForOffer', () => {
+  it('ignores malformed optional generation metadata without breaking a saved CV', () => {
+    expect(generationOf({ id: 'broken', addedRequirementIds: null })).toBeUndefined();
+    expect(generationOf(null)).toBeUndefined();
+    expect(generationOf({ id: 'broken', createdAt: 'not a date' })).toBeUndefined();
+  });
   it('applies the requirements to the offer they were extracted from, whitespace aside', () => {
     expect(requirementsForOffer('  Product Designer, Figma, design system\n', ANALYZED)).toEqual([R('Figma'), R('Design System')]);
   });
@@ -127,8 +132,19 @@ describe('requirements cache', () => {
   it('skips stored requirements that are not requirements', async () => {
     const badKind = { ...R('Excel'), kind: 'skill' };
     const noQuote = { ...R('Word'), quote: undefined };
-    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
+    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', version: '2026-11-15.1', analyzedAt: Date.now(), requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('SAP')]);
+  });
+
+  it('invalidates expired analyses and analyses from another extraction release', async () => {
+    for (const entry of [
+      { version: 'old', analyzedAt: Date.now() },
+      { version: '2026-11-15.1', analyzedAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
+      { version: '2026-11-15.1', analyzedAt: Date.now() + 60_000 },
+    ]) {
+      store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: [R('SAP')], ...entry }]));
+      expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();
+    }
   });
 
   // An empty answer would pin the offer to "no requirements" until evicted

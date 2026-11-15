@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { serverlessPDF, renderPDF, buildPdfFileName } from '@/src/features/editor/lib/pdf-export';
-import { extractExpectedText } from '@/src/features/editor/lib/pdf-validation';
+import { extractExpectedText, pdfExpectations, type ValidationResult } from '@/src/features/editor/lib/pdf-validation';
 import { maskPersonalInfo } from '@/src/shared/lib/anonymize';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 
@@ -16,6 +16,7 @@ export interface UseExportDeps {
 }
 
 export interface UseExportResult {
+  validation: ValidationResult | null;
   isExporting: boolean;
   isExportingDocx: boolean;
   downloadPDF: () => Promise<void>;
@@ -41,6 +42,7 @@ export function useExport(deps: UseExportDeps): UseExportResult {
   const { cvRef, cvData, designSettings, notify, isAnonymous = false, language } = deps;
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
 
   /** "Marie Dupont - Product Design Leader", identity stripped when anonymized */
   const fileBaseName = isAnonymous
@@ -49,21 +51,26 @@ export function useExport(deps: UseExportDeps): UseExportResult {
 
   // The anonymized render prints no identity: expecting it lowered the ratio
   const printedCV = useMemo(() => (cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData), [cvData, isAnonymous]);
+  useEffect(() => setValidation(null), [printedCV, designSettings]);
 
   const downloadPDF = useCallback(async () => {
     if (!cvRef.current || isExporting) return;
     const expectedText = printedCV ? extractExpectedText(printedCV, designSettings) : '';
+    setValidation(null);
     await serverlessPDF(cvRef.current, designSettings, {
+      expectations: printedCV ? pdfExpectations(printedCV, designSettings) : undefined,
       expectedText,
       fileBaseName,
       onValidation: (result) => {
+        if (result.checkedFile !== undefined) setValidation(result);
         if (!result.valid && result.warning) {
           notify({ message: result.warning, type: 'error' });
         }
       },
       onLoadingChange: setIsExporting,
       onFallback: (reason) => {
-        notify({ message: reason, type: 'error' });
+        setValidation({ valid: false, checkedFile: false, ratio: 0 });
+        notify({ message: `${reason} Le fichier enregistré par l’impression n’est pas contrôlé.`, type: 'error' });
       },
     });
   }, [cvRef, printedCV, designSettings, notify, isExporting, fileBaseName]);
@@ -91,6 +98,8 @@ export function useExport(deps: UseExportDeps): UseExportResult {
 
   const previewPDF = useCallback(() => {
     if (!cvRef.current) return;
+    setValidation(null);
+    notify({ message: "L’impression utilise le navigateur. Le fichier enregistré par ce chemin n’est pas contrôlé automatiquement.", type: 'success' });
     const expectedText = printedCV ? extractExpectedText(printedCV, designSettings) : '';
     renderPDF(cvRef.current, designSettings, {
       expectedText,
@@ -102,5 +111,5 @@ export function useExport(deps: UseExportDeps): UseExportResult {
     });
   }, [cvRef, printedCV, designSettings, notify]);
 
-  return { isExporting, isExportingDocx, downloadPDF, downloadDocx, previewPDF };
+  return { isExporting, isExportingDocx, downloadPDF, downloadDocx, previewPDF, validation };
 }

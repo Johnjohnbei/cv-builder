@@ -20,7 +20,7 @@ export function isRemotePhoto(photoUrl: string | undefined): boolean {
  * text and a subset of its fonts, a few hundred kB; the only thing that can
  * cross the limit is the photo, carried inline as base64 on the CV.
  */
-const PARSER_SIZE_LIMIT_BYTES = 2.5 * 1024 * 1024;
+const PARSER_SIZE_LIMIT_BYTES = 2_500_000;
 
 /** What the exported PDF weighs beside the photo: the fonts it embeds, around 500 kB */
 const PDF_BASE_BYTES = 500 * 1024;

@@ -6,6 +6,7 @@ import { readStoredJSON, readStoredText } from '@/src/shared/lib/storage';
 import { migratedDesign } from '../lib/pagination/template-layouts';
 import { autoCorrect } from '../lib/auto-corrections';
 import { detectCVLanguage } from '@/src/lib/language-detection';
+import { generationOf } from '../lib/job-requirements-cache';
 
 interface CVLoaderResult {
   cvData: CVData | null;
@@ -62,6 +63,7 @@ export function useCVLoader(
    * "Mode ATS" flag back before the auto-save replaced it.
    */
   const applyLoaded = (source: CVData) => {
+    source = { ...source, generation: generationOf(source.generation), confirmedRequirements: Array.isArray(source.confirmedRequirements) ? source.confirmedRequirements.filter(value => typeof value === 'string').slice(0, 120) : [] };
     // Form defects the code can fix without inventing anything are fixed here,
     // once, on the CV the editor opens on (arbitrage of 2026-11-06). The
     // auto-save then persists the corrected CV like any other change.

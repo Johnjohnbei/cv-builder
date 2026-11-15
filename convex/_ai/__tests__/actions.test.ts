@@ -29,6 +29,11 @@ import {
   extractCVDataFromPDF, extractJobDescriptionFromURL, extractJobRequirements, generateCoverLetter, tailorCV, translateCV,
 } from "../../ai";
 
+const actionContext = (requirements?: unknown[]) => ({
+  auth: { getUserIdentity: async () => ({ issuer: 'test', subject: 'alex' }) },
+  runMutation: vi.fn(async () => requirements ? { state: 'ready', requirements } : { state: 'acquired' }),
+});
+
 const handlerOf = <A, R>(action: unknown) => (action as { _handler: (ctx: unknown, args: A) => Promise<R> })._handler;
 
 beforeEach(() => {
@@ -132,7 +137,7 @@ describe("extractCVDataFromPDF", () => {
 describe("extractJobRequirements", () => {
   const OFFER = "Product Designer Senior. Requis : maîtrise de Figma.";
   const run = (jobDescription: string) =>
-    handlerOf<{ jobDescription: string }, { requirements: { id: string }[] }>(extractJobRequirements)({}, { jobDescription });
+    handlerOf<{ jobDescription: string }, { requirements: { id: string }[] }>(extractJobRequirements)(actionContext(), { jobDescription });
   const requirement = (label: string, quote: string) => ({ label, kind: "tool", importance: "required", quote });
 
   it("returns the requirements the offer states, from the fast model", async () => {
@@ -178,7 +183,7 @@ describe("tailorCV", () => {
   const FIGMA = { label: "Figma", kind: "tool", importance: "required", quote: "Figma" };
   type Result = { cv: Record<string, any>; requirements: { id: string }[]; report: { score: number | null } };
   const run = (args: Record<string, unknown> = {}) =>
-    handlerOf<Record<string, unknown>, Result>(tailorCV)({}, { baseData: BASE, jobDescription: OFFER, requirements: [FIGMA], ...args });
+    handlerOf<Record<string, unknown>, Result>(tailorCV)(actionContext([FIGMA]), { baseData: BASE, jobDescription: OFFER, requirements: [FIGMA], ...args });
 
   it("checks the access code before any paid call", async () => {
     mocks.verifyAccessCode.mockRejectedValue(new Error("ACCESS_CODE_REQUIRED"));

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-import type { JobRequirement } from '@/src/shared/types';
+import type { GenerationRecord, JobRequirement } from '@/src/shared/types';
+import { ATS_POLICY } from '../lib/ats-rules';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import {
   requestRequirements, requirementsForOffer, requirementsStatus, readCachedRequirements,
@@ -40,6 +41,7 @@ export function useJobRequirements(
   liveOffer: string,
   accessCode: string | undefined,
   commitId: number,
+  generation?: GenerationRecord,
 ): JobRequirementsState {
   const extractAction = useAction(api.ai.extractJobRequirements);
   // Read through a ref so a new function identity never re-triggers a paid call
@@ -50,6 +52,10 @@ export function useJobRequirements(
 
   useEffect(() => {
     if (!committedOffer.trim()) return;
+    if (generation?.extractionVersion === ATS_POLICY.extractionVersion && generation.offer === committedOffer.replace(/\s+/g, ' ').trim()) {
+      setAnalyzed({ offer: committedOffer, requirements: generation.requirements });
+      return;
+    }
     const cached = readCachedRequirements(committedOffer);
     if (cached) {
       setAnalyzed({ offer: committedOffer, requirements: cached });
@@ -68,7 +74,7 @@ export function useJobRequirements(
     return () => {
       cancelled = true;
     };
-  }, [committedOffer, accessCode, commitId]);
+  }, [committedOffer, accessCode, commitId, generation?.id]);
 
   return useMemo(() => {
     const requirements = requirementsForOffer(liveOffer, analyzed);

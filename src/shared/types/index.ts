@@ -173,6 +173,34 @@ export interface CVData {
    * offer's list, so its weight leaves the score's denominator.
    */
   notRequirements?: DismissedRequirement[];
+  /** Immutable generation snapshot; user confirmations are kept separately. Never sent to a prompt. */
+  generation?: GenerationRecord;
+  confirmedRequirements?: string[];
+}
+
+export interface GenerationRecord {
+  id: string;
+  createdAt: string;
+  rulesVersion: string;
+  extractionVersion: string;
+  promptVersion: string;
+  model: string;
+  durationMs: number;
+  offer: string;
+  requirements: JobRequirement[];
+  sourceRequirementIds: string[];
+  addedRequirementIds: string[];
+  initialScore: number | null;
+  extractionAtLimit: boolean;
+  scopedYears?: ScopedYearEvidence[];
+}
+
+export interface ScopedYearEvidence {
+  company: string;
+  start_date: string;
+  end_date?: string;
+  current: boolean;
+  sourceText: string;
 }
 
 /** A requirement the user set aside: what is needed to find it in a text, and to name it when putting it back */
@@ -185,6 +213,7 @@ export const REQUIREMENT_KINDS = [
   // Where the job is: a standard screening filter, and a fact of the
   // candidate's own CV that no rewrite can write
   'location',
+  'screening',
 ] as const;
 export type RequirementKind = typeof REQUIREMENT_KINDS[number];
 
@@ -205,6 +234,12 @@ export interface JobRequirement {
   quote: string;
   /** For experience_years only */
   minYears?: number;
+  /** CEFR level explicitly required by the offer. */
+  minLevel?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  /** Alternative names of the discipline in which the years must have been spent. */
+  experienceScope?: string[];
+  /** A named qualification needing a human check (equivalence, expiry, etc.). */
+  needsVerification?: boolean;
 }
 
 /** Parts of a CV an ATS reads, in the order they are printed */
@@ -219,12 +254,15 @@ export interface RequirementCoverage {
   weight: number;
   /** Years measured from the dates, for a requirement of years of experience */
   years?: number;
+  status?: 'covered' | 'missing' | 'unknown';
+  reason?: string;
 }
 
 /** A property a CV parser needs, passed or failed: not a score. */
 export interface ReadabilityCheck {
   id: 'email' | 'phone' | 'location' | 'titles' | 'dates' | 'dateFormat' | 'size';
   passed: boolean;
+  estimated?: boolean;
 }
 
 /** Requirements of one importance, and how many of them the CV covers */
@@ -242,9 +280,8 @@ export interface ATSReport {
   points: { covered: number; total: number };
   /**
    * The requirements the offer calls required, counted apart from the score.
-   * A percentage hides a cut-off: at Taleo one missing required requirement
-   * takes the application out of the pile, at Workday it is a grade C. Counted
-   * in requirements, not in points: it answers "how many are missing".
+   * Counted separately from points so missing requirements stay visible.
+   * Screening conditions are excluded: this tally does not predict rejection.
    */
   required: RequirementTally;
   checks: ReadabilityCheck[];
