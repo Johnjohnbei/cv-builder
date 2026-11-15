@@ -58,7 +58,7 @@ export const DesignTab = memo(function DesignTab({
                 fontFamily: theme.f,
                 presentation: theme.presentation,
               }))}
-              className="p-2 border border-gray-200 rounded text-[11px] stitch-mono hover:bg-gray-50 transition-all text-left flex flex-col gap-1"
+              className={`p-2 border rounded text-[11px] stitch-mono transition-colors text-left flex flex-col gap-1 ${(designSettings.presentation ?? 'timeline') === theme.presentation ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
               aria-pressed={(designSettings.presentation ?? 'timeline') === theme.presentation}
             >
               <span className="font-bold">{theme.name}</span>
