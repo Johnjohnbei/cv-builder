@@ -365,3 +365,21 @@ describe('letter revision boundaries', () => {
     await expect(run({ operation: 'shorten', previous })).rejects.toMatchObject({ data: { code: 'LETTER_NOT_SHORTER' } });
   });
 });
+
+
+describe('letter voice input and revision language', () => {
+  const cvData = { personal_info: { name: 'Alex', title: 'Designer' }, experience: [], education: [], skills: [], languages: [], detectedLanguage: 'fr' };
+  const run = (extra: Record<string, unknown>) => handlerOf<Record<string, unknown>, any>(generateCoverLetter)({}, { cvData, jobDescription: 'Designer', ...extra });
+  it('bounds the writing sample before access is consumed', async () => {
+    await expect(run({ writingSample: 'x'.repeat(2001) })).rejects.toMatchObject({ data: { code: 'INPUT_TOO_LONG' } });
+    expect(mocks.verifyAccessCode).not.toHaveBeenCalled();
+  });
+  it('keeps an English letter English during a revision even if the CV or client says French', async () => {
+    const previous = { subject: 'Product Designer', greeting: 'Dear hiring team,', body: 'I build digital products. My work connects what users need with the decisions that teams make. I would like to continue this work with your product team.', closing: 'Kind regards,' };
+    mocks.chatJSONSchema.mockReset().mockImplementation(async (_prompt, schema) => schema.parse({ subject: '', greeting: '', body: 'I design', closing: '' }));
+    const result = await run({ operation: 'rephrase', language: 'fr', previous, selection: { field: 'body', start: 0, end: 7 }, writingSample: 'Je préfère les phrases simples.' });
+    expect(result.body).toBe('I design' + previous.body.slice(7));
+    expect(mocks.chatJSONSchema.mock.calls.at(-1)?.[0]).toContain('ENGLISH OUTPUT ONLY');
+    expect(mocks.chatJSONSchema).toHaveBeenCalledTimes(1);
+  });
+});

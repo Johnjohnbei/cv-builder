@@ -6,6 +6,7 @@ import { applyEdit, type EditTarget, type InPlaceEditing } from '../lib/in-place
 const UNDO_DEPTH = 20;
 
 interface Options {
+  enabled?: boolean;
   cvData: CVData | null;
   setCvData: React.Dispatch<React.SetStateAction<CVData | null>>;
 }
@@ -30,7 +31,7 @@ export interface InPlaceEditingResult {
  * is not: the browser already undoes the field being typed in, and stacking a
  * whole CV per letter would keep hundreds of copies in memory.
  */
-export function useInPlaceEditing({ cvData, setCvData }: Options): InPlaceEditingResult {
+export function useInPlaceEditing({ cvData, setCvData, enabled = true }: Options): InPlaceEditingResult {
   const history = useRef<CVData[]>([]);
   const [depth, setDepth] = useState(0);
 
@@ -56,6 +57,7 @@ export function useInPlaceEditing({ cvData, setCvData }: Options): InPlaceEditin
 
   // Ctrl+Z / Cmd+Z, except inside a field, where the browser's own undo wins
   useEffect(() => {
+    if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
       const target = event.target as HTMLElement | null;
@@ -65,7 +67,7 @@ export function useInPlaceEditing({ cvData, setCvData }: Options): InPlaceEditin
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo]);
+  }, [undo, enabled]);
 
   // A CV that leaves (another one loaded, a translation that replaces it) takes its history with it
   useEffect(() => {

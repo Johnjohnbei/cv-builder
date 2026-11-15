@@ -202,3 +202,21 @@ Les écritures sont temporisées de 700 ms, avec copie locale à la fermeture et
 Les exports PDF, Word et texte sont regroupés. Le PDF téléchargé est contrôlé avec le même validateur que le CV : texte conservé, champs essentiels et ordre des paragraphes. `e2e/cover-letter.spec.ts` lit aussi le fichier réellement produit. Les actions simulées des E2E refusent localement tout appel IA non prévu.
 
 Owners : `useCoverLetter.ts` (cycle de vie), `cover-letter-drafts.ts` (contenu et compatibilité locale, extrait du hook qui dépassait 400 lignes), `CoverLetterWorkspace.tsx` (remplace le tiroir), `convex/coverLetters.ts` (droits, recherche par empreinte SHA-256 de l’offre et pagination), `convex/_ai/coverLetter.ts` (contrôles et révisions), `export-letter.ts` (exports). Limites de persistance : 6 000 caractères par champ de lettre, 20 révisions, 500 000 caractères pour la copie du CV ; les refus sont signalés, sans effacement du texte. Les anciens contrats `coverLetters.list` et `extractCompanyMeta` restent acceptés pour les onglets déjà ouverts : le second renvoie des valeurs nulles sans IA. La nouvelle interface ne les appelle plus.
+
+### Rédaction FR/EN et navigation commune (2026-11-15)
+
+L’en-tête reste monté au même endroit pour le CV et la lettre : navigation, annulation, action secondaire et export occupent les mêmes emplacements, indépendamment du panneau latéral. `?document=letter` conserve le document ouvert au rechargement et dans l’historique du navigateur. Les exports se trouvent dans le même menu pour les deux documents.
+
+La rédaction suit la langue du CV au lancement ; raccourcir ou reformuler conserve la langue de la lettre existante. Un exemple d’écriture facultatif (2 000 caractères maximum), conservé avec la candidature, guide le rythme et le vocabulaire sans devenir une source de faits. Les règles demandent une motivation réelle et une ou deux réalisations du CV, une structure adaptée au contenu et une relecture silencieuse des répétitions et formules creuses. Les formulations françaises et anglaises ont leurs propres consignes. Un seul appel au modèle rapide reste utilisé ; aucun dépôt externe n’est chargé pendant la génération.
+
+`LETTER_WRITING_POLICY` dans `convex/_ai/prompts/coverLetter.ts` référence [blader/humanizer 4.0.0](https://github.com/blader/humanizer/tree/b48c832f0f809c1b5658edbb838c2521b72f2413), choisi pour son activité du 17 août au 15 novembre 2026 : 79 commits contre 7 pour humanizer-fr sur cette même période. Les principes éditoriaux sont adaptés, sans installer ni exécuter le skill. Pour les faire évoluer : relire une révision amont précise, modifier le prompt existant et sa version, vérifier les cas FR/EN et les gardes factuelles, puis comparer des lettres avec des lecteurs humains. Les tests automatiques vérifient les contrats, pas une préférence stylistique humaine ni une capacité à contourner un détecteur.
+
+Attribution des principes adaptés de Humanizer, licence MIT :
+
+> Copyright (c) 2025 Siqi Chen
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

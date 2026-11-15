@@ -50,6 +50,7 @@ export interface StoredCoverLetterContext {
   companyBusinessModel?: string;
   jobDescription?: string;
   motivation?: string;
+  writingSample?: string;
   tone?: string;
   updatedAt?: number;
   cvSnapshot?: CVData;
@@ -89,7 +90,7 @@ export function parseStoredContext(raw: string | null): StoredCoverLetterContext
     companyBusinessModel: asText(p.companyBusinessModel),
     jobDescription: asText(p.jobDescription),
     revisions: Array.isArray(p.revisions) ? p.revisions.map(parseLetterShape).filter((entry): entry is CoverLetterData => entry !== null).slice(-20) : undefined,
-    motivation: asText(p.motivation), tone: asText(p.tone),
+    writingSample: asText(p.writingSample), motivation: asText(p.motivation), tone: asText(p.tone),
     updatedAt: typeof p.updatedAt === "number" ? p.updatedAt : undefined,
     cvSnapshot: p.cvSnapshot && typeof p.cvSnapshot === "object" ? p.cvSnapshot as CVData : undefined,
   };

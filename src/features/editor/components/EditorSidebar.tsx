@@ -1,7 +1,5 @@
 import { X } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { cn } from '@/src/shared/lib/cn';
-import { Logo } from '@/src/shared/ui/Logo';
 import type { CVData, DesignSettings } from '@/src/shared/types';
 import type { WeakBulletResult } from '../lib/weak-bullet-detection';
 import { ATSPanel, type ATSPanelProps } from './ATSPanel';
@@ -95,7 +93,7 @@ export function EditorSidebar(props: Props) {
       {/* Mobile overlay backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="absolute inset-0 bg-black/40 z-40 md:hidden"
           onClick={onClose}
         />
       )}
@@ -105,14 +103,12 @@ export function EditorSidebar(props: Props) {
         inert={!isOpen}
         className={cn(
         // dvh, pas vh : le bas du panneau passait sous la barre d'adresse mobile
-        "stitch-sidebar h-[100dvh] max-h-[100dvh] overflow-hidden shrink-0 transition-all duration-300 z-50",
-        "fixed md:relative inset-y-0 left-0",
+        "stitch-sidebar h-full max-h-full overflow-hidden shrink-0 transition-all duration-300 z-50",
+        "absolute md:relative inset-y-0 left-0",
         isOpen ? "w-[320px] max-w-[85vw] translate-x-0" : "w-0 -translate-x-full md:w-0"
       )}>
         <div className="stitch-header shrink-0 justify-between">
-          <Link to="/dashboard" className="inline-flex items-center py-1.5" aria-label="Calibre, retour au tableau de bord">
-            <Logo size="sm" />
-          </Link>
+          <span className="text-sm font-semibold">Réglages du CV</span>
           <button
             onClick={onClose}
             className="p-1.5 hover:bg-gray-100 rounded transition-colors"

@@ -232,7 +232,7 @@ export default function DashboardPage() {
       const context: StoredCoverLetterContext | undefined = record ? {
         letter: { subject: record.subject, greeting: record.greeting, body: record.body, closing: record.closing },
         companyName: record.companyName, companyStage: record.companyStage, companyBusinessModel: record.companyBusinessModel,
-        revisions: record.revisions, tone: record.tone, motivation: record.motivation, jobDescription: record.jobDescription,
+        writingSample: record.writingSample, revisions: record.revisions, tone: record.tone, motivation: record.motivation, jobDescription: record.jobDescription,
         cvSnapshot: record.cvSnapshot as CVData | undefined, updatedAt: Date.parse(record.createdAt),
       } : guestRecords.find(entry => entry.key === id)?.context;
       if (!context) return;

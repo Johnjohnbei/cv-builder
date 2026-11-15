@@ -267,3 +267,5 @@ Application web de création et d'optimisation de CV propulsée par l'IA (Claude
 - Anonymization toggle (`isAnonymous` state in EditorPage): `usePaginationFit` always receives real `cvData` for layout stability; `pageAssignments` are post-processed to replace header block data with masked `PersonalInfo`: keeps title and location, hides name/email/phone/linkedin/github/website/photo
 <!-- GSD:architecture-end -->
 
+
+Rédaction lettre : `LETTER_WRITING_POLICY` dans `convex/_ai/prompts/coverLetter.ts` versionne les principes Humanizer adaptés FR/EN, amont épinglé et attribution MIT dans README. Aucun chargement distant ni appel supplémentaire. `writingSample` facultatif (2 000 caractères) guide le style uniquement ; les révisions conservent la langue de la lettre existante. En-tête partagé monté dans EditorPage avant panneau/document ; mode CV/Lettre dans `?document=letter`, historique et rechargement conservés. Les CTA ont des emplacements stables testés à 375/768/1440 px.

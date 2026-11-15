@@ -59,7 +59,7 @@ export const get = query({
 });
 export const save = mutation({
   args: { ...applicationArgs, companyName: v.optional(v.string()), companyStage: v.optional(v.string()),
-    companyBusinessModel: v.optional(v.string()), motivation: v.optional(v.string()), tone: v.optional(v.string()),
+    companyBusinessModel: v.optional(v.string()), motivation: v.optional(v.string()), writingSample: v.optional(v.string()), tone: v.optional(v.string()),
     cvSnapshot: v.optional(v.any()), revisions: v.optional(v.array(v.object({ subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() }))), subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -67,6 +67,7 @@ export const save = mutation({
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     for (const text of [args.subject, args.greeting, args.body, args.closing, args.motivation ?? '']) assertMaxLength(text, 6000);
     for (const text of [args.companyName, args.companyStage, args.companyBusinessModel, args.tone]) assertMaxLength(text ?? '', 200);
+    assertMaxLength(args.writingSample ?? '', 2000);
     if (args.revisions && args.revisions.length > 20) throw userError('Trop de versions de lettre.', 'INPUT_TOO_LONG');
     for (const revision of args.revisions ?? []) for (const text of Object.values(revision)) assertMaxLength(text, 6000);
     if (args.cvSnapshot) { assertBoundedPrompt(cvArgument(args.cvSnapshot).cv); assertMaxLength(JSON.stringify(args.cvSnapshot), 500000); }

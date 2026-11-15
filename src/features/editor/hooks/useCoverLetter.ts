@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -6,7 +7,7 @@ import { MIN_OFFER_CHARS, type CVData } from '@/src/shared/types';
 import { getCVLanguage } from '@/src/lib/language-detection';
 import { getUserErrorMessage } from '@/src/shared/lib/convex-error';
 import { STORAGE_FAILED_MESSAGE, readStoredText, writeStoredText } from '@/src/shared/lib/storage';
-import { COVER_LETTER_STORAGE_KEY, isStoredContextForOffer, parseStoredContext, buildCoverLetterText, buildFilename, letterStorageKey, readApplicationDraft, type CoverLetterData, type StoredCoverLetterContext } from '../lib/cover-letter-drafts';
+import { COVER_LETTER_STORAGE_KEY, isStoredContextForOffer, parseStoredContext, getLetterLanguage, buildCoverLetterText, buildFilename, letterStorageKey, readApplicationDraft, type CoverLetterData, type StoredCoverLetterContext } from '../lib/cover-letter-drafts';
 
 type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
 export interface UseCoverLetterDeps {
@@ -21,7 +22,9 @@ const emptyDraft = (): StoredCoverLetterContext => ({ letter: null, companyName:
 export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, accessCode }: UseCoverLetterDeps) {
   const generateAction = useAction(api.ai.generateCoverLetter);
   const saveMutation = useMutation(api.coverLetters.save);
-  const [isOpen, setIsOpen] = useState(() => new URLSearchParams(window.location.search).get('document') === 'letter');
+  const [search, setSearch] = useSearchParams();
+  const isOpen = search.get('document') === 'letter';
+  const setDocument = (letter: boolean) => { if (letter === isOpen) return; setSearch(previous => { const next = new URLSearchParams(previous); if (letter) next.set('document', 'letter'); else next.delete('document'); return next; }); };
   const owner = (user as { id?: string } | null)?.id ?? 'guest';
   const key = letterStorageKey(owner, cvId, jobDescription);
   const [draft, setDraft] = useState<StoredCoverLetterContext>(emptyDraft);
@@ -29,6 +32,7 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
   const [loadedKey, setLoadedKey] = useState('');
   const [status, setStatus] = useState<'saved' | 'pending' | 'saving' | 'error'>('saved');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const history = draft.revisions ?? [];
   const inFlight = useRef(false);
   const saved = useQuery(api.coverLetters.forApplication, isOpen && user ? { cvId: cvId as Id<'cvs'> | undefined, jobDescription } : 'skip');
@@ -41,7 +45,7 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     const remote: StoredCoverLetterContext | null = saved ? {
       letter: { subject: saved.subject, greeting: saved.greeting, body: saved.body, closing: saved.closing },
       revisions: saved.revisions, companyName: saved.companyName, companyStage: saved.companyStage, companyBusinessModel: saved.companyBusinessModel,
-      motivation: saved.motivation, tone: saved.tone, updatedAt: Date.parse(saved.createdAt), cvSnapshot: saved.cvSnapshot as CVData | undefined,
+      writingSample: saved.writingSample, motivation: saved.motivation, tone: saved.tone, updatedAt: Date.parse(saved.createdAt), cvSnapshot: saved.cvSnapshot as CVData | undefined,
       jobDescription: saved.jobDescription,
     } : null;
     const chosen = local && (!remote || (local.updatedAt ?? 0) > (remote.updatedAt ?? 0)) ? local : remote ?? local;
@@ -73,7 +77,7 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     try {
       await saveMutation({ cvId: current.cvId as Id<'cvs'> | undefined, jobDescription: current.jobDescription,
         companyName: current.draft.companyName, companyStage: current.draft.companyStage,
-        companyBusinessModel: current.draft.companyBusinessModel, motivation: current.draft.motivation, tone: current.draft.tone,
+        companyBusinessModel: current.draft.companyBusinessModel, writingSample: current.draft.writingSample, motivation: current.draft.motivation, tone: current.draft.tone,
         cvSnapshot: current.cvData ?? undefined, revisions: current.draft.revisions, ...current.draft.letter });
       if (latest.current.key === current.key && latest.current.draft === current.draft) setStatus('saved');
     } catch (error) {
@@ -119,6 +123,17 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     change({ letter: previous, revisions: history.slice(0, -1) });
     lastEdit.current = { field: "", at: 0 };
   };
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
+      event.preventDefault(); undo();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, undo]);
   const generate = async (operation: 'generate' | 'shorten' | 'rephrase' = 'generate', selection?: LetterSelection) => {
     if (!cvData || jobDescription.trim().length < MIN_OFFER_CHARS || inFlight.current || loadedKey !== key) return;
     if (operation !== 'generate' && !draft.letter) return;
@@ -130,7 +145,8 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     try {
       const result = await generateAction({ cvData, jobDescription, companyName: draft.companyName || undefined,
         companyStage: draft.companyStage, companyBusinessModel: draft.companyBusinessModel,
-        tone: draft.tone, motivation: draft.motivation, language: getCVLanguage(cvData), accessCode,
+        tone: draft.tone, motivation: draft.motivation, writingSample: draft.writingSample,
+        language: operation !== 'generate' && draft.letter ? getLetterLanguage(draft.letter) : getCVLanguage(cvData), accessCode,
         operation, previous: operation === 'generate' ? undefined : draft.letter, selection });
       // A late response must never replace a different application or a newer manual edit.
       if (latest.current.key !== sourceKey || latest.current.draft !== source) {
@@ -158,16 +174,28 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     anchor.href = url; anchor.download = buildFilename(draft.companyName); anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const exportDocument = async (format: 'pdf' | 'docx') => {
+    if (!draft.letter || !cvData || isExporting) return;
+    setIsExporting(true);
+    try {
+      const { exportLetterToPdf, exportLetterToDocx } = await import('@/src/shared/lib/export-letter');
+      const options = { letter: draft.letter, personalInfo: cvData.personal_info, companyName: draft.companyName, language: getLetterLanguage(draft.letter) };
+      await (format === 'pdf' ? exportLetterToPdf(options) : exportLetterToDocx(options));
+    } catch {
+      notify({ message: 'Export impossible. Votre lettre reste disponible : réessayez ou utilisez Copier.', type: 'error' });
+    } finally { setIsExporting(false); }
+  };
   return {
-    isOpen, open: () => setIsOpen(true), close: () => {
-      void save(); setIsOpen(false);
-      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Lettre de motivation"]')?.focus());
-    },
+    isOpen, open: () => setDocument(true), close: () => { void save(); setDocument(false); },
+    isExporting, exportDocument,
+    letterLanguage: draft.letter ? getLetterLanguage(draft.letter) : cvData ? getCVLanguage(cvData) : 'fr' as const,
+    saveLabel: status === 'error' ? 'Sauvegarde à réessayer' : status === 'pending' || status === 'saving' ? 'Enregistrement…' : `Enregistré automatiquement ${user ? 'sur votre compte' : 'dans ce navigateur'}`,
     legacyDraftAvailable: Boolean(legacyDraft?.letter), importLegacyDraft: () => { if (legacyDraft) change(legacyDraft); setLegacyDraft(null); },
     ready: loadedKey === key, letter: loadedKey === key ? draft.letter : null,
     companyName: draft.companyName ?? '', setCompanyName: (value: string) => change({ companyName: value }),
     companyStage: draft.companyStage ?? '', setCompanyStage: (value: string) => change({ companyStage: value }),
     companyBusinessModel: draft.companyBusinessModel ?? '', setCompanyBusinessModel: (value: string) => change({ companyBusinessModel: value }),
+    writingSample: draft.writingSample ?? '', setWritingSample: (value: string) => change({ writingSample: value }),
     motivation: draft.motivation ?? '', setMotivation: (value: string) => change({ motivation: value }),
     tone: draft.tone ?? 'professionnel et engagé', setTone: (value: string) => change({ tone: value }),
     storageLabel: user ? 'sur votre compte' : 'dans ce navigateur',

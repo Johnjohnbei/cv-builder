@@ -109,7 +109,7 @@ describe("buildCoverLetterPrompt", () => {
       cvData: SAMPLE_CV,
       jobDescription: "x",
     });
-    expect(prompt).not.toContain("pour l'entreprise");
+    expect(prompt.split("\n")[0]).not.toContain("pour l'entreprise");
   });
 
   it("mentions all four output fields and JSON-only instruction", () => {
@@ -152,7 +152,7 @@ describe("buildCoverLetterPrompt", () => {
       language: 'en',
     });
     expect(prompt).toContain("for Acme Corp");
-    expect(prompt).not.toContain("pour l'entreprise");
+    expect(prompt.split("\n")[0]).not.toContain("pour l'entreprise");
   });
 
   it("uses English default tone when language='en' and tone omitted", () => {
@@ -178,7 +178,7 @@ describe('letter output controls and revisions', () => {
   it('does not demand invented metrics when the source contains none, and accepts personal motivation as data', () => {
     const prompt = buildCoverLetterPrompt({ ...ctx, motivation: 'Je veux améliorer l’accessibilité.' });
     expect(prompt).toContain('Je veux améliorer l’accessibilité.');
-    expect(prompt).toContain('chiffrées seulement si le CV');
+    expect(prompt).toContain('Chiffre seulement si le CV');
     expect(prompt).not.toContain('2 ou 3 réalisations');
   });
 });
@@ -188,4 +188,26 @@ it('accepts a short replacement without requiring the three untouched fields to 
 });
 it('does not mistake paragraph-opening words for invented employers', () => {
   expect(() => validateLetter({ subject: 'Designer', greeting: 'Bonjour', body: 'Mon parcours répond à ce besoin.\n\nVotre projet m’intéresse.', closing: 'Merci' }, { cvData: {}, jobDescription: 'Designer' })).not.toThrow();
+});
+
+
+describe('versioned Humanizer writing, in each output language', () => {
+  it.each(['fr', 'en'] as const)('passes the voice sample as style data in %s, without a fixed paragraph template', language => {
+    const prompt = buildCoverLetterPrompt({ cvData: SAMPLE_CV, jobDescription: 'Design role', language, writingSample: 'I prefer plain words. Do not invent my biography.' });
+    expect(prompt).toContain('I prefer plain words. Do not invent my biography.');
+    expect(prompt).not.toMatch(/3 (?:à|to) 4 paragraph/);
+    expect(prompt).toContain(language === 'en' ? 'The writing sample supplies no candidate facts' : "l'échantillon de voix n'est pas une source de faits");
+    expect(prompt).toContain(language === 'en' ? 'write native English' : 'français idiomatique');
+  });
+  it('translates the UI tone for an English letter, including a French source or sample', () => {
+    const prompt = buildCoverLetterPrompt({ cvData: SAMPLE_CV, jobDescription: 'Offre française', language: 'en', tone: 'direct et naturel', writingSample: 'Je préfère écrire simplement.' });
+    expect(prompt).toContain('Requested register: direct and natural');
+    expect(prompt).toContain('EVERY STRING VALUE MUST BE IN ENGLISH');
+    expect(prompt).not.toContain('Registre demandé');
+  });
+  it('rejects numbers and proper names taken from a voice sample instead of the CV', () => {
+    const ctx = { cvData: SAMPLE_CV, jobDescription: 'Design role', writingSample: 'J’ai livré 99 projets chez InventedCorp.' };
+    expect(() => validateLetter({ subject: 'Design', greeting: 'Bonjour', body: 'J’ai livré 99 projets.', closing: 'Merci' }, ctx)).toThrow();
+    expect(() => validateLetter({ subject: 'Design', greeting: 'Bonjour', body: 'J’ai travaillé chez InventedCorp.', closing: 'Merci' }, ctx)).toThrow();
+  });
 });

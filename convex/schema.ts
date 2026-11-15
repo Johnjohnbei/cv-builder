@@ -127,7 +127,7 @@ export default defineSchema({
     userId: v.string(), cvId: v.optional(v.id("cvs")), jobDescription: v.string(),
     offerFingerprint: v.optional(v.string()), companyName: v.optional(v.string()),
     companyStage: v.optional(v.string()), companyBusinessModel: v.optional(v.string()),
-    motivation: v.optional(v.string()), tone: v.optional(v.string()), cvSnapshot: v.optional(v.any()),
+    motivation: v.optional(v.string()), writingSample: v.optional(v.string()), tone: v.optional(v.string()), cvSnapshot: v.optional(v.any()),
     subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string(), createdAt: v.string(),
     revisions: v.optional(v.array(v.object({ subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() }))),
   }).index("by_userId", ["userId"])

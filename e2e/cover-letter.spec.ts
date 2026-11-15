@@ -23,27 +23,27 @@ test.describe('Lettre intégrée à la candidature', () => {
     const view = await openLetter(page);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(view.getByRole('article', { name: 'Document lettre' })).toBeVisible();
-    await expect(view.getByRole('button', { name: 'Revenir au CV' })).toBeFocused();
-    await view.getByRole('button', { name: 'Revenir au CV' }).click();
-    await expect(page.getByRole('tab', { selected: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lettre de motivation', exact: true })).toBeFocused();
+    await page.getByRole('button', { name: 'CV', exact: true }).click();
+    await expect(page.getByRole('tab', { selected: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'CV', exact: true })).toBeFocused();
   });
   test('sauvegarde automatique, reprise après rechargement et aucune lettre d’une autre offre', async ({ page }) => {
     let view = await openLetter(page);
     await view.getByLabel('Texte de la lettre').fill('Mon texte personnel et conservé.');
-    await expect(view.getByRole('status')).toHaveText('Enregistré automatiquement dans ce navigateur');
+    await expect(page.getByRole('banner', { name: 'Barre de l’éditeur' }).getByRole('status')).toHaveText('Enregistré automatiquement dans ce navigateur');
     await page.reload();
     view = await openLetter(page);
     await expect(view.getByLabel('Texte de la lettre')).toHaveValue('Mon texte personnel et conservé.');
-    await view.getByRole('button', { name: 'Annuler', exact: true }).click();
+    await page.getByRole('button', { name: 'Annuler la dernière modification', exact: true }).click();
     await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
-    await view.getByRole('button', { name: 'Modifier l’offre commune' }).click();
+    if (!await view.getByLabel('Offre d’emploi commune').count()) await view.getByRole('button', { name: 'Modifier l’offre commune' }).click();
     await page.evaluate(cacheKey => { const entries = JSON.parse(localStorage.getItem(cacheKey) || '[]'); entries.push({ ...entries[0], jobDescription: 'Autre offre' }); localStorage.setItem(cacheKey, JSON.stringify(entries)); }, REQUIREMENTS_CACHE_KEY);
     await view.getByLabel('Offre d’emploi commune').fill('Autre offre');
     await view.getByLabel('Offre d’emploi commune').press('Tab');
     await expect(view.getByRole('article')).toHaveCount(0);
     await expect(view.getByRole('button', { name: 'Rédiger ma lettre' })).toBeDisabled();
-    await view.getByRole('button', { name: 'Revenir au CV' }).click();
+    await page.getByRole('button', { name: 'CV', exact: true }).click();
     await page.getByRole('tab', { name: 'Mise en page' }).click();
     await expect(page.getByRole('button', { name: /Offre importée/ })).toContainText('Autre offre');
   });
@@ -54,14 +54,14 @@ test.describe('Lettre intégrée à la candidature', () => {
     await page.keyboard.press('Control+z');
     await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
     await view.getByLabel('Objet', { exact: true }).fill('Objet conservé');
-    await view.getByRole('button', { name: 'Revenir au CV' }).click();
+    await page.getByRole('button', { name: 'CV', exact: true }).click();
     await page.reload(); view = await openLetter(page);
     await expect(view.getByLabel('Objet', { exact: true })).toHaveValue('Objet conservé');
   });
   test('reprend une candidature avec son CV et sa lettre depuis le tableau de bord', async ({ page }) => {
     const view = await openLetter(page);
     await view.getByLabel('Objet', { exact: true }).fill('Candidature à reprendre');
-    await view.getByRole('link', { name: 'Tableau de bord' }).click();
+    await page.getByRole('link', { name: 'Tableau de bord' }).click();
     await page.getByRole('button', { name: 'Mes CV', exact: true }).first().click();
     await expect(page.getByRole('region', { name: 'Candidatures enregistrées' })).toContainText('Candidature à reprendre');
     page.on('dialog', dialog => dialog.accept());
@@ -73,13 +73,13 @@ test.describe('Lettre intégrée à la candidature', () => {
     await expect(view.getByLabel('Ton', { exact: true })).not.toBeVisible();
     await view.getByText('Options de rédaction', { exact: true }).click();
     await expect(view.getByLabel('Ton', { exact: true })).toBeVisible();
-    await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+    await page.getByRole('button', { name: 'Exporter', exact: true }).click();
     const download = page.waitForEvent('download');
-    await view.getByRole('button', { name: 'Exporter en texte (.txt)' }).click();
+    await page.getByRole('button', { name: 'Exporter en texte (.txt)' }).click();
     expect((await download).suggestedFilename()).toMatch(/lettre-.*\.txt$/);
-    await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+    await page.getByRole('button', { name: 'Exporter', exact: true }).click();
     const word = page.waitForEvent('download');
-    await view.getByRole('button', { name: 'Télécharger en Word (.docx)' }).click();
+    await page.getByRole('button', { name: 'Télécharger en Word (.docx)' }).click();
     expect((await word).suggestedFilename()).toMatch(/\.docx$/);
   });
   for (const width of [375, 768, 1440]) test(`document et exports accessibles à ${width}px`, async ({ page }) => {
@@ -90,7 +90,7 @@ test.describe('Lettre intégrée à la candidature', () => {
     const view = page.getByRole('region', { name: 'Lettre de motivation', exact: true });
     await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
     await expect(view.getByLabel('Texte de la lettre')).toBeVisible();
-    await expect(view.getByRole('button', { name: 'Exporter la lettre' })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Exporter', exact: true })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.CAPTURE_LETTER_DIR) await page.screenshot({ path: `${process.env.CAPTURE_LETTER_DIR}/letter-${width}.png` });
     const field = view.getByLabel('Texte de la lettre');
@@ -112,7 +112,7 @@ test('rédaction et révisions utilisent la motivation et conservent une version
   expect(asked[0].motivation).toBe('Construire un produit accessible.');
   await view.getByRole('button', { name: 'Raccourcir', exact: true }).click();
   await expect(view.getByLabel('Texte de la lettre')).toHaveValue('Une lettre courte.');
-  await view.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await page.getByRole('button', { name: 'Annuler la dernière modification', exact: true }).click();
   await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
   const body = view.getByLabel('Texte de la lettre');
   await body.focus(); await body.press('Control+Home');
@@ -129,9 +129,9 @@ test('le PDF réel de la lettre contient le texte, dans l’ordre', async ({ pag
   const calls = watchAICalls(page);
   await setup(page);
   const view = await openLetter(page);
-  await view.getByRole('button', { name: 'Exporter la lettre' }).click();
+  await page.getByRole('button', { name: 'Exporter', exact: true }).click();
   const download = page.waitForEvent('download', { timeout: 90000 });
-  await view.getByRole('button', { name: 'Exporter en PDF' }).click();
+  await page.getByRole('button', { name: 'Exporter en PDF' }).click();
   const path = await (await download).path();
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const doc = await pdfjs.getDocument({ data: new Uint8Array(readFileSync(path)) }).promise;
@@ -182,4 +182,50 @@ test('un ancien brouillon sans offre demande un import explicite', async ({ page
   await view.getByRole('button', { name: 'Importer l’ancien brouillon' }).click();
   await expect(view.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
   expectNoAICalls(calls);
+});
+
+
+for (const width of [375, 768, 1440]) test(`navigation et positions des CTA identiques entre CV et lettre à ${width}px`, async ({ page }) => {
+  const calls = watchAICalls(page);
+  await page.setViewportSize({ width, height: 900 }); await setup(page);
+  const header = page.getByRole('banner', { name: 'Barre de l’éditeur' });
+  const cvButton = header.getByRole('button', { name: 'CV', exact: true });
+  const letterButton = header.getByRole('button', { name: 'Lettre de motivation', exact: true });
+  const exporter = header.getByRole('button', { name: 'Exporter', exact: true });
+  const initial = await Promise.all([cvButton.boundingBox(), letterButton.boundingBox(), exporter.boundingBox(), header.getByRole('button', { name: 'Sauvegarder une version' }).boundingBox()]);
+  await header.evaluate(element => { (window as any).__editorHeader = element; });
+  if (process.env.CAPTURE_NAV_DIR && width === 1440) await page.screenshot({ path: `${process.env.CAPTURE_NAV_DIR}/nav-cv-desktop.png` });
+  await letterButton.click();
+  await expect(page).toHaveURL(/document=letter/);
+  await expect(letterButton).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByLabel('Texte de la lettre')).toHaveValue(LETTER.body);
+  expect(await header.evaluate(element => (window as any).__editorHeader === element)).toBe(true);
+  const after = await Promise.all([cvButton.boundingBox(), letterButton.boundingBox(), exporter.boundingBox(), header.getByRole('button', { name: 'Copier la lettre' }).boundingBox()]);
+  for (let i = 0; i < initial.length; i++) for (const axis of ['x', 'y', 'width', 'height'] as const) expect(Math.abs(initial[i]![axis] - after[i]![axis])).toBeLessThanOrEqual(0.5);
+  await header.getByRole('button', { name: 'Fermer le panneau latéral', exact: true }).click();
+  await expect(page.getByLabel('Texte de la lettre')).toBeVisible();
+  expect(await exporter.boundingBox()).toEqual(initial[2]);
+  if (process.env.CAPTURE_NAV_DIR && [375, 1440].includes(width)) await page.screenshot({ path: `${process.env.CAPTURE_NAV_DIR}/nav-letter-${width === 375 ? 'mobile' : 'desktop'}.png` });
+  await page.goBack(); await expect(cvButton).toHaveAttribute('aria-current', 'page');
+  await page.goForward(); await expect(letterButton).toHaveAttribute('aria-current', 'page');
+  await page.reload(); await expect(letterButton).toHaveAttribute('aria-current', 'page');
+  await cvButton.click(); await page.reload(); await expect(cvButton).toHaveAttribute('aria-current', 'page');
+  expectNoAICalls(calls);
+});
+
+for (const language of ['fr', 'en'] as const) test(`rédaction ${language} avec voix facultative conservée au rechargement`, async ({ page }) => {
+  const asked: any[] = [];
+  const english = { subject: 'Product Designer', greeting: 'Dear hiring team,', body: 'I build digital products that help people do their work. My experience connects what users need with what teams can deliver. I would like to continue this work with your product team.', closing: 'Kind regards,' };
+  const calls = await answerAIActions(page, { generateCoverLetter: args => { asked.push(args); return language === 'en' ? english : LETTER; } });
+  await seedGuestSession(page, { cv: { ...MOCK_CV, detectedLanguage: language, languageOverride: language }, jd: MOCK_JOB_DESCRIPTION, coverLetter: { companyName: MOCK_COMPANY_NAME, jobDescription: MOCK_JOB_DESCRIPTION } });
+  let view = await openLetter(page);
+  await view.getByText('Options de rédaction', { exact: true }).click();
+  await view.getByLabel('Un exemple de votre écriture').fill('I prefer short, direct sentences. Je préfère les mots simples.');
+  await view.getByRole('button', { name: 'Rédiger ma lettre' }).click();
+  await expect(view.getByLabel('Texte de la lettre')).toHaveValue(language === 'en' ? english.body : LETTER.body);
+  expect(asked[0].language).toBe(language); expect(asked[0].writingSample).toContain('mots simples');
+  await page.getByRole('button', { name: 'CV', exact: true }).click(); await page.reload();
+  view = await openLetter(page); await view.getByText('Options de rédaction', { exact: true }).click();
+  await expect(view.getByLabel('Un exemple de votre écriture')).toHaveValue('I prefer short, direct sentences. Je préfère les mots simples.');
+  expect(calls.forwarded).toEqual([]);
 });

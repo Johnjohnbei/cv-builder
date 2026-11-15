@@ -194,7 +194,7 @@ export default function EditorPage() {
     [printedCV?.experience, claimedRequirements, currentLanguage],
   );
 
-  const { editing: previewEditing, undo, canUndo } = useInPlaceEditing({ cvData, setCvData });
+  const { editing: previewEditing, undo, canUndo } = useInPlaceEditing({ cvData, setCvData, enabled: !coverLetter.isOpen });
 
   const [correction, setCorrection] = useState<{ section: string; focus?: boolean; label?: string; experience?: number; terms?: string[]; select?: boolean } | null>(null);
   const openSection = useCallback((section: string, options: { focus?: boolean; label?: string; experience?: number; terms?: string[]; select?: boolean } = {}) => {
@@ -275,7 +275,7 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="stitch-container relative">
+    <div className="stitch-container flex-col relative">
       {/* Notifications */}
       {notification && <EditorNotification message={notification.message} type={notification.type} onClose={clearNotification} />}
 
@@ -291,6 +291,43 @@ export default function EditorPage() {
         />
       )}
 
+        <EditorHeader
+          document={coverLetter.isOpen ? 'letter' : 'cv'}
+          onOpenCV={coverLetter.close}
+          canOpenLetter={!!cvData}
+          letterLanguage={coverLetter.letterLanguage}
+          letterSaveLabel={coverLetter.saveLabel}
+          onRetrySave={coverLetter.save}
+          onExportText={coverLetter.download}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          zoom={zoom}
+          isAutoZoom={isAutoZoom}
+          onZoomIn={() => { setZoom(prev => Math.min(150, prev + 10)); setIsAutoZoom(false); }}
+          onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
+          onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
+          onSave={coverLetter.isOpen ? coverLetter.copy : persistence.saveDraft}
+          onExport={coverLetter.isOpen ? () => void coverLetter.exportDocument('pdf') : exports.downloadPDF}
+          onExportDocx={coverLetter.isOpen ? () => void coverLetter.exportDocument('docx') : exports.downloadDocx}
+          onPreviewPDF={exports.previewPDF}
+          onOpenCoverLetter={coverLetter.open}
+          isExportingDocx={coverLetter.isOpen ? coverLetter.isExporting : exports.isExportingDocx}
+          isAutoSaving={isAutoSaving}
+          lastAutoSaveAt={lastAutoSaveAt}
+          autoSaveFailed={coverLetter.isOpen ? coverLetter.status === 'error' : saveFailed}
+          isFitting={!coverLetter.isOpen && fit.isFitting}
+          isSaving={!coverLetter.isOpen && persistence.isSaving}
+          isExporting={coverLetter.isOpen ? coverLetter.isExporting : exports.isExporting}
+          hasCvData={coverLetter.isOpen ? !!coverLetter.letter : !!cvData}
+          currentLanguage={currentLanguage}
+          onLanguageChange={language.handleLanguageChange}
+          isLanguageLocked={isRewritingCV}
+          isAnonymous={isAnonymous}
+          onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
+          onUndo={coverLetter.isOpen ? coverLetter.undo : undo}
+          canUndo={coverLetter.isOpen ? coverLetter.canUndo && !coverLetter.isGenerating : canUndo}
+        />
+      <div className="flex flex-1 min-h-0 relative">
       {!coverLetter.isOpen && <EditorSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -339,38 +376,7 @@ export default function EditorPage() {
           Aller au contenu principal
         </a>
         {coverLetter.isOpen ? <CoverLetterWorkspace controller={coverLetter} personalInfo={cvData?.personal_info}
-          notify={notify} onOfferCommit={value => { setJobDescription(value); commitOffer(value); }} /> : <>
-        <EditorHeader
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          zoom={zoom}
-          isAutoZoom={isAutoZoom}
-          onZoomIn={() => { setZoom(prev => Math.min(150, prev + 10)); setIsAutoZoom(false); }}
-          onZoomOut={() => { setZoom(prev => Math.max(30, prev - 10)); setIsAutoZoom(false); }}
-          onToggleAutoZoom={() => setIsAutoZoom(prev => !prev)}
-          onSave={persistence.saveDraft}
-          onExport={exports.downloadPDF}
-          onExportDocx={exports.downloadDocx}
-          onPreviewPDF={exports.previewPDF}
-          onOpenCoverLetter={coverLetter.open}
-          isExportingDocx={exports.isExportingDocx}
-          isAutoSaving={isAutoSaving}
-          lastAutoSaveAt={lastAutoSaveAt}
-          autoSaveFailed={saveFailed}
-          isFitting={fit.isFitting}
-          isSaving={persistence.isSaving}
-          isExporting={exports.isExporting}
-          hasCvData={!!cvData}
-          currentLanguage={currentLanguage}
-          onLanguageChange={language.handleLanguageChange}
-          isLanguageLocked={isRewritingCV}
-          isAnonymous={isAnonymous}
-          onToggleAnonymous={() => setIsAnonymous(prev => !prev)}
-          onUndo={undo}
-          canUndo={canUndo}
-        />
-
-        <EditorPreview
+          isSidebarOpen={isSidebarOpen} onCloseSidebar={() => setIsSidebarOpen(false)} onOfferCommit={value => { setJobDescription(value); commitOffer(value); }} /> : <EditorPreview
           ref={previewContainerRef}
           cvRootRef={cvRef}
           hasCvData={!!cvData}
@@ -382,9 +388,9 @@ export default function EditorPage() {
           firstExperiencePage={firstExperiencePage}
           zoom={zoom}
           editing={editing}
-        />
-        </>}
+        />}
       </main>
+      </div>
 
       {/* PDF generation overlay */}
       {exports.isExporting && (

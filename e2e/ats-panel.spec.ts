@@ -13,7 +13,7 @@ function guardAICalls() {
 }
 
 /** The score gauge container of the ATS panel */
-const atsScore = (page: Page) => page.locator('[role="status"]').first();
+const atsScore = (page: Page) => page.getByRole('tabpanel').getByRole('status').first();
 
 const isCritical = (message: string) =>
   !message.includes('ResizeObserver') && !message.includes('Non-Error') && !message.includes('ChunkLoadError');

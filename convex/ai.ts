@@ -7,7 +7,7 @@ import { verifyAccessCode } from "./_ai/auth";
 import { userError } from "./_shared/errors";
 import { buildExtractPrompt } from "./_ai/prompts/extract";
 import { coverLetterOf } from "./_ai/coverLetter";
-import { detectCVLanguage } from "./_ai/languageDetection";
+import { detectCVLanguage, detectTextLanguage } from "./_ai/languageDetection";
 import { buildTranslatePrompt } from "./_ai/prompts/translate";
 import { buildJobDescriptionFromURLPrompt, buildJobDescriptionFromPDFPrompt } from "./_ai/prompts/jobDescription";
 import { normalizeCVData, normalizeTitle, restoreUserOwnedFields, withSourceContacts } from "./_ai/normalizers";
@@ -143,6 +143,7 @@ export const generateCoverLetter = action({
     language: v.optional(v.union(v.literal('fr'), v.literal('en'))),
     accessCode: v.optional(v.string()),
     motivation: v.optional(v.string()),
+    writingSample: v.optional(v.string()),
     operation: v.optional(v.union(v.literal('generate'), v.literal('shorten'), v.literal('rephrase'))),
     previous: v.optional(v.object({ subject: v.string(), greeting: v.string(), body: v.string(), closing: v.string() })),
     selection: v.optional(v.object({ field: v.union(v.literal('subject'), v.literal('greeting'), v.literal('body'), v.literal('closing')), start: v.number(), end: v.number() })),
@@ -152,6 +153,7 @@ export const generateCoverLetter = action({
     // What the prompt reads is bounded, not the cache and the versions that travel with it
     assertBoundedPrompt(cvArgument(args.cvData).cv);
     assertMaxLength(args.motivation ?? '', 2000);
+    assertMaxLength(args.writingSample ?? '', 2000);
     for (const text of [args.companyName, args.companyStage, args.companyBusinessModel, args.tone]) assertMaxLength(text ?? '', 200);
     if (args.previous) for (const text of Object.values(args.previous)) assertMaxLength(text, 6000);
     if (args.operation && args.operation !== 'generate' && !args.previous) throw userError('Aucune lettre à modifier.', 'LETTER_INVALID_REVISION');
@@ -164,7 +166,9 @@ export const generateCoverLetter = action({
     // The letter is in the CV's language (arbitrage of 2026-10-07): the client
     // says it; a caller that does not gets the CV's hints, then its text read
     const hints = cvArgument(args.cvData);
-    const language = args.language ?? hints.languageOverride ?? hints.detectedLanguage ?? detectCVLanguage(readSourceCV(hints.cv));
+    const language = args.previous && args.operation && args.operation !== 'generate'
+      ? detectTextLanguage(Object.values(args.previous).join(' '))
+      : args.language ?? hints.languageOverride ?? hints.detectedLanguage ?? detectCVLanguage(readSourceCV(hints.cv));
     console.info(`[generateCoverLetter] language=${language} (client=${args.language ?? 'none'})`);
     // Same as tailorCV: the prompt reads the content only (the language is decided above)
     return await coverLetterOf({
@@ -175,6 +179,7 @@ export const generateCoverLetter = action({
       companyBusinessModel: args.companyBusinessModel,
       tone: args.tone,
       motivation: args.motivation,
+      writingSample: args.writingSample,
       language,
     }, { operation: args.operation, previous: args.previous, selection: args.selection });
   },
