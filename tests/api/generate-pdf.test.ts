@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isAllowedOrigin, isRateLimited, validatePayload } from './generate-pdf';
+import { isAllowedOrigin, isRateLimited, validatePayload } from '../../api/generate-pdf';
 
 const request = (headers: Record<string, string>) => new Request('https://calibre.app/api/generate-pdf', { headers });
 
