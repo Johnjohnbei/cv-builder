@@ -108,7 +108,7 @@ export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requ
       <summary className="cursor-pointer font-semibold">Exigences couvertes ({covered.length})</summary>
       <ul className="space-y-3 mt-3">{covered.map(c => <li key={c.requirement.id}>
         <p>{c.requirement.label} <span className="text-gray-600">({c.sections.map(s => SECTION_LABELS[s]).join(', ') || 'déclaration du candidat'})</span></p>
-        <p className="text-gray-600">{generation?.sourceRequirementIds.includes(c.requirement.id) ? 'Mention retrouvée dans la source' : confirmed.includes(requirementConfirmationKey(c.requirement)) ? 'Confirmé par vous' : 'Mention présente, provenance non vérifiée'}</p>
+        <p className="text-gray-600">{generation?.objectiveRequirementIds?.includes(c.requirement.id) ? 'Objectif de transfert à la génération' : generation?.sourceRequirementIds.includes(c.requirement.id) ? 'Mention retrouvée dans la source' : confirmed.includes(requirementConfirmationKey(c.requirement)) ? 'Confirmé par vous' : 'Mention présente, provenance non vérifiée'}</p>
         {confirmed.includes(requirementConfirmationKey(c.requirement)) && <Button size="sm" variant="ghost" onClick={() => unconfirm(c.requirement)}>Annuler la confirmation</Button>}
         {isWrittenFreely(c.requirement) && !additions.some(a => a.requirement.id === c.requirement.id) && <Button size="sm" variant="ghost" aria-label={`${c.requirement.label} : je ne l'ai pas, retirer du CV`} onClick={() => dismiss(c.requirement)}>Retirer</Button>}
       </li>)}</ul>

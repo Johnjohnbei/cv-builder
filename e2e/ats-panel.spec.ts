@@ -516,6 +516,7 @@ test('retirer un objectif de transfert préserve les autres et reste annulable',
   await page.getByRole('button', { name: /^Score ATS : 100/ }).click();
   await expect(page.getByRole('tabpanel')).toContainText('objectifs de transfert vers le poste, sans maîtrise revendiquée');
   await page.getByText('Exigences couvertes (2)', { exact: true }).click();
+  await expect(page.getByText('Objectif de transfert à la génération', { exact: true })).toHaveCount(2);
   await page.getByRole('button', { name: "Jira : je ne l'ai pas, retirer du CV", exact: true }).click();
   await expect(page.locator('[data-cv-section="summary"]')).toContainText('Trello');
   await expect(page.locator('[data-cv-section="summary"]')).not.toContainText('Jira');
