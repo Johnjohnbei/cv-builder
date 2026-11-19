@@ -227,6 +227,8 @@ L’analyse de l’offre renvoie, dans le même appel que les exigences, le nom 
 
 Les années d’expérience sont comptées depuis les dates du CV et arrondies à l’entier inférieur (`experience-years.ts`, propriétaire unique du libellé). Elles s’écrivent sous l’intitulé du profil dans l’aperçu, le PDF et le Word, et en première phrase du résumé à la génération comme aux traductions : un ATS qui filtre sur « 10 ans d’expérience » ne lit pas des dates. Jamais deux fois : un résumé qui énonce déjà des années reste intact, un résumé vide le reste. Sous deux ans, ou sans date lisible, rien n’est écrit. L’onglet ATS affiche la durée mesurée, que l’offre demande des années ou non ; `e2e/pdf-legibility.spec.ts` vérifie la mention dans les six PDF réels.
 
+La ligne d’années se modifie dans l’aperçu comme les autres textes (`personal_info.experience_years`, champ possédé par l’utilisateur, jamais soumis au modèle). Tant qu’elle n’est pas écrite, elle suit les dates ; vidée, elle quitte le CV, le PDF et le Word, et ne laisse qu’un repère gris dans l’aperçu. Un texte écrit à la main reste tel quel dans les deux langues, comme un titre tapé à la main.
+
 La garde de noms des lettres (`namesStated`) lit un possessif anglais comme le nom seul et une contraction comme aucun nom : « Adyen’s » nomme Adyen, « I’m » ne nomme personne, « O’Brien » reste entier. Sans cela, toute lettre en anglais était refusée.
 
 ### Preuves, langues et présentations (règles 2026-11-15.2)

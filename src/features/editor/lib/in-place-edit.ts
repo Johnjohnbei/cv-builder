@@ -18,6 +18,7 @@ import type { CVData, Experience } from '@/src/shared/types';
 export type EditTarget =
   | { kind: 'title' }
   | { kind: 'summary' }
+  | { kind: 'experienceYears' }
   | { kind: 'position'; experience: number }
   | { kind: 'company'; experience: number }
   | { kind: 'intro'; experience: number }
@@ -65,6 +66,16 @@ export function applyEdit(cv: CVData, target: EditTarget, text: string): CVData 
     case 'summary': {
       if ((cv.personal_info[target.kind] ?? '') === value) return cv;
       return { ...cv, personal_info: { ...cv.personal_info, [target.kind]: value } };
+    }
+    /**
+     * Compared with the STORED value, not with the line on screen: a CV that
+     * never carried the field shows the years its dates add up to, and
+     * clearing that line writes an empty string, which is how the user takes
+     * the mention off the CV.
+     */
+    case 'experienceYears': {
+      if (cv.personal_info.experience_years === value) return cv;
+      return { ...cv, personal_info: { ...cv.personal_info, experience_years: value } };
     }
     case 'position':
     case 'company':

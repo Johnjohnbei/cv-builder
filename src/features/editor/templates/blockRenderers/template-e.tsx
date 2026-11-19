@@ -14,7 +14,7 @@ import { EditableText } from '../EditableText';
 import type { SkillCategoryKey } from '../../lib/skill-dictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData, DesignSettings } from '@/src/shared/types';
 import type { HeaderData } from '../../lib/pagination/types';
-import { experienceYearsText } from '../../lib/experience-years';
+import { experienceYearsHeadline } from '../../lib/experience-years';
 
 // ─── Helpers ───
 
@@ -30,6 +30,7 @@ function getSectionHeader(title: string, design: DesignSettings) {
 
 function HeaderBlock({ block, designSettings, language, editing }: BlockRendererProps) {
   const data = block.block.data as HeaderData;
+  const yearsLine = experienceYearsHeadline(data ?? {}, language);
   const { primaryColor } = designSettings;
   const showPhoto = designSettings.showPhoto;
   const cvDataShim = { personal_info: data } as CVData;
@@ -48,8 +49,14 @@ function HeaderBlock({ block, designSettings, language, editing }: BlockRenderer
             </EditableText>
           </p>
           {/* The years an ATS filters on, in plain words under the title: a
-              parser reading dates alone finds no "10 years of experience" */}
-          {data?.experienceYears ? <p className="text-xs font-medium text-gray-700">{experienceYearsText(data.experienceYears, language)}</p> : null}
+              parser reading dates alone finds no "10 years of experience".
+              Editable like any other text: emptied, it leaves the printed CV
+              and only its placeholder stays in the preview. */}
+          {yearsLine || editing ? <p className="text-xs font-medium text-gray-700">
+            <EditableText value={yearsLine} target={{ kind: 'experienceYears' }} editing={editing} label="années d'expérience">
+              {yearsLine}
+            </EditableText>
+          </p> : null}
         </div>
       </div>
       {/* gray-600, not gray-500: 10px text below 4.5:1 is unreadable printed */}

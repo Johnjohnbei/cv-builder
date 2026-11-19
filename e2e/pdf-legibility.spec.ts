@@ -137,3 +137,33 @@ for (const geometry of GEOMETRIES) for (const language of ['fr', 'en'] as const)
     });
   });
 }
+
+/**
+ * The line under the title is the user's to write or to remove. Cleared, the
+ * preview keeps a grey placeholder to click again; the PDF must carry neither
+ * the mention nor that placeholder.
+ */
+test.describe('la mention d’années retirée par l’utilisateur', () => {
+  test.setTimeout(180_000);
+  let calls: string[] = [];
+  test.beforeEach(({ page }) => { calls = watchAICalls(page); });
+  test.afterEach(() => { expectNoAICalls(calls); });
+
+  test("ne laisse ni la mention ni son repère dans le PDF", async ({ page }) => {
+    const design = { ...(MOCK_CV as Record<string, unknown>).design as object, template: 'TEMPLATE_E' };
+    const candidate = structuredClone(MOCK_CV);
+    const cleared = { ...candidate, design, personal_info: { ...candidate.personal_info, experience_years: '' } };
+    await seedGuestSession(page, { cv: cleared });
+    const download = page.waitForEvent('download', { timeout: 120_000 });
+    await page.getByRole('button', { name: 'Exporter', exact: true }).click();
+    await page.getByRole('button', { name: 'Exporter en PDF', exact: true }).click();
+    const items = (await pdfItems(await (await download).path())).flat();
+    // The mention stands alone in its own line; the profile of this CV writes
+    // "10 ans d'expérience" inside a sentence, which is the user's text and stays
+    const headline = items.find(item => /^\s*\d+\s+(?:ans d'expérience|years of experience)\s*$/iu.test(item));
+    expect(headline, `la mention retirée ne doit pas être imprimée : ${headline}`).toBeUndefined();
+    // And the grey placeholder of the preview never reaches the file
+    expect(items.join(' ').toLowerCase()).not.toContain('années d’expérience');
+    expect(items.join(' ').toLowerCase()).toContain(MOCK_CV.personal_info.title.toLowerCase());
+  });
+});

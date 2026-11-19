@@ -109,6 +109,29 @@ export function experienceYearsLabel(experiences: Experience[], language: 'fr' |
 /** Whether these roles state enough years for the mention to be printed */
 export const statesEnoughYears = (years: number): boolean => years >= MIN_STATED_YEARS;
 
+/**
+ * The line a CV prints under its title: what the user wrote there, else the
+ * years its own dates add up to, and an empty string when the user cleared it
+ * or the dates say too little. The one owner, read by the preview, the PDF
+ * header, the Word export and the summary.
+ */
+export function experienceYearsIn(
+  cv: { personal_info: { experience_years?: string }; experience: Experience[] },
+  language: 'fr' | 'en',
+  now?: Date,
+): string {
+  return experienceYearsHeadline({ ...cv.personal_info, years: statedExperienceYears(cv.experience, now) }, language);
+}
+
+/**
+ * The same line from what a header block carries: the user's own text when the
+ * CV holds one, else the whole years counted from its dates.
+ */
+export function experienceYearsHeadline(header: { experience_years?: string; years?: number }, language: 'fr' | 'en'): string {
+  if (header.experience_years !== undefined) return header.experience_years.trim();
+  return header.years !== undefined && statesEnoughYears(header.years) ? experienceYearsText(header.years, language) : '';
+}
+
 /** Whether a text already states a number of years, in either language: the mention is never written twice */
 export function statesExperienceYears(text: string | undefined): boolean {
   return /\b\d{1,2}\s*(?:\+\s*)?(?:ans?|années?|years?|yrs?)\b/iu.test(text ?? '');

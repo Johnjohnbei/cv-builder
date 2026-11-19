@@ -20,6 +20,9 @@ const personalInfoValidator = v.object({
   portfolio_anon_url: v.optional(v.string()),
   // The summary and the title as adapted and as imported (src/shared/types TextVersions)
   versions: v.optional(v.any()),
+  // The years of experience the user wrote under the title: absent, the line
+  // follows the CV's dates; empty, the user took it off the CV
+  experience_years: v.optional(v.string()),
 });
 
 const educationValidator = v.object({

@@ -40,15 +40,24 @@ export interface PersonalInfo {
   portfolio_anon_url?: string;
   /** The summary and the title as adapted and as imported, when a generation wrote them */
   versions?: { summary?: TextVersions; title?: TextVersions };
+  /**
+   * The years of experience as the user wrote them under the title. Absent,
+   * the line follows the CV's own dates; empty, the user took it off the CV.
+   * Their words, so the model never rewrites it and no language changes it.
+   */
+  experience_years?: string;
 }
 
 /**
  * Personal fields the user owns outright: never handed to the AI to rewrite,
- * and identical in every language. The photo is a base64 payload worth tens of
- * thousands of tokens; the portfolio link is a deliberate choice. Sent to the
- * model, both came back dropped, so a rewrite silently removed the portfolio.
+ * and carried as they are from one language to the other. The photo is a
+ * base64 payload worth tens of thousands of tokens; the portfolio link is a
+ * deliberate choice. Sent to the model, both came back dropped, so a rewrite
+ * silently removed the portfolio. The years of experience joined them on
+ * 2026-11-19: edited by hand, they are a claim the user made, and a
+ * generation that rewrote or dropped them would undo that edit.
  */
-export const USER_OWNED_PERSONAL_FIELDS = ['photo_url', 'portfolio_url', 'portfolio_label', 'portfolio_anon_url'] as const;
+export const USER_OWNED_PERSONAL_FIELDS = ['photo_url', 'portfolio_url', 'portfolio_label', 'portfolio_anon_url', 'experience_years'] as const;
 type UserOwnedField = typeof USER_OWNED_PERSONAL_FIELDS[number];
 
 const isUserOwned = (key: string) => (USER_OWNED_PERSONAL_FIELDS as readonly string[]).includes(key);

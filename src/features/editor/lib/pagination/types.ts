@@ -95,9 +95,10 @@ export const SECTION_TITLE_HEIGHT_PX = 29;
 /**
  * What a header block paints: the CV's own contact fields, plus the whole
  * years its dates add up to. Counted at build time (never stored), so the
- * printed line and the ATS text follow the dates the user edits.
+ * printed line follows the dates the user edits, unless the user wrote the
+ * line themselves (`experience_years`, which comes with the contact fields).
  */
-export type HeaderData = import('@/src/shared/types').PersonalInfo & { experienceYears?: number };
+export type HeaderData = import('@/src/shared/types').PersonalInfo & { years?: number };
 
 export interface BlockRendererProps {
   block: PlacedBlock;

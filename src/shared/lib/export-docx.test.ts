@@ -200,6 +200,18 @@ describe('the years of experience an ATS reads in the .docx', () => {
     expect(await toXml(dated, 'en')).toContain('12 years of experience');
   });
 
+  it('prints what the user wrote under the title, and nothing once they cleared it', async () => {
+    const dated: CVData = {
+      ...mockCV,
+      experience: mockCV.experience.map((exp, index) => index === 0
+        ? { ...exp, start_date: '2014-01', end_date: '2026-01', current: false } : { ...exp, start_date: '', end_date: '' }),
+    };
+    const written = { ...dated, personal_info: { ...dated.personal_info, experience_years: 'Plus de 10 ans en paiement' } };
+    expect(await toXml(written)).toContain('Plus de 10 ans en paiement');
+    const cleared = { ...dated, personal_info: { ...dated.personal_info, experience_years: '' } };
+    expect(await toXml(cleared)).not.toContain('ans d&apos;expérience');
+  });
+
   it('says nothing when the roles carry no readable date', async () => {
     const undated: CVData = { ...mockCV, experience: mockCV.experience.map(exp => ({ ...exp, start_date: '', end_date: '', current: false })) };
     expect(await toXml(undated)).not.toContain('ans d&apos;expérience');

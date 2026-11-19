@@ -59,3 +59,23 @@ describe('applyEdit: the preview writes in the CV, never in the rendered text', 
     expect(applyEdit(CV, { kind: 'position', experience: 9 }, 'Fantôme')).toBe(CV);
   });
 });
+
+describe('the years of experience under the title', () => {
+  it('writes what the user types, trimmed', () => {
+    expect(applyEdit(CV, { kind: 'experienceYears' }, ' 10+ ans de design ').personal_info.experience_years)
+      .toBe('10+ ans de design');
+  });
+
+  it('writes an empty string when the line is cleared, even though the CV stored nothing', () => {
+    // The line shown came from the dates; clearing it is how the user takes the
+    // mention off the CV, so it must be stored and not read as "no change"
+    const cleared = applyEdit(CV, { kind: 'experienceYears' }, '');
+    expect(cleared).not.toBe(CV);
+    expect(cleared.personal_info.experience_years).toBe('');
+  });
+
+  it('changes nothing when the stored text comes back unchanged', () => {
+    const written = applyEdit(CV, { kind: 'experienceYears' }, '12 ans d’expérience');
+    expect(applyEdit(written, { kind: 'experienceYears' }, '12 ans d’expérience')).toBe(written);
+  });
+});

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CVData, Experience, JobRequirement } from '@/src/shared/types';
 import { EMPTY_CV } from '@/src/shared/types';
 import { completeSkillCoverage, computeATSReport, cvSections, requirementConfirmationKey, scopeEvidenceFor } from './keyword-analysis';
-import { yearsOfExperience } from './experience-years';
+import { experienceYearsIn, yearsOfExperience } from './experience-years';
 
 // ─── Fixtures ───
 
@@ -495,5 +495,31 @@ describe('the years of experience written for an ATS', () => {
   it('leaves an empty summary empty: the header line carries the mention', () => {
     const noSummary = cv({ experience: twelveYears, personal_info: { ...cv().personal_info, summary: '' } });
     expect(completeSkillCoverage(noSummary, [], { language: 'fr' }).personal_info.summary).toBe('');
+  });
+});
+
+describe('the line the CV prints under its title', () => {
+  const twelveYears = [
+    exp({ company: 'Acme', start_date: '2014-01', end_date: '2019-12' }),
+    exp({ company: 'Beta', start_date: '2020-01', end_date: '2026-01' }),
+  ];
+  const withYears = (over: Partial<CVData['personal_info']>) =>
+    cv({ experience: twelveYears, personal_info: { ...cv().personal_info, ...over } });
+
+  it('follows the dates while the user has written nothing', () => {
+    expect(experienceYearsIn(withYears({}), 'fr')).toBe("12 ans d'expérience");
+    expect(experienceYearsIn(withYears({}), 'en')).toBe('12 years of experience');
+  });
+
+  it('prints what the user wrote instead, in either language', () => {
+    const written = withYears({ experience_years: 'Plus de 10 ans en paiement' });
+    expect(experienceYearsIn(written, 'fr')).toBe('Plus de 10 ans en paiement');
+    expect(experienceYearsIn(written, 'en')).toBe('Plus de 10 ans en paiement');
+  });
+
+  it('prints nothing once the user cleared it, and the summary says nothing either', () => {
+    const cleared = withYears({ experience_years: '' });
+    expect(experienceYearsIn(cleared, 'fr')).toBe('');
+    expect(completeSkillCoverage(cleared, [], { language: 'fr' }).personal_info.summary).toBe('Designer produit en SaaS B2B.');
   });
 });

@@ -12,7 +12,7 @@ import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, 
 import { getSkillCategoryTitle } from './ats-rules';
 import type { SkillCategoryKey } from './skill-dictionary';
 import { CEFR_LEVELS, declaresRequestedFluency, LANGUAGE_NAMES, localizeLanguageName, normalizeProficiency, proficiencyLevel } from './formatting';
-import { experienceYearsLabel, hasHomogeneousDates, hasReadableDates, statesExperienceYears, yearsOfExperience } from './experience-years';
+import { experienceYearsIn, hasHomogeneousDates, hasReadableDates, statesExperienceYears, yearsOfExperience } from './experience-years';
 import { fitsParserSizeLimit } from '../../../shared/lib/image-resize';
 import { appendSkill } from './skill-dictionary';
 
@@ -162,7 +162,7 @@ export function completeSkillCoverage(cv: CVData, requirements: JobRequirement[]
   // The years the CV's dates add up to, written where an ATS parses words and
   // not dates. Only in front of a summary that exists: a lone sentence prints
   // worse than no summary at all, and the header line carries the mention anyway.
-  const years = experienceYearsLabel(completed.experience, options.language);
+  const years = experienceYearsIn(completed, options.language);
   const summary = completed.personal_info.summary?.trim();
   if (years && summary && !statesExperienceYears(summary)) {
     completed = { ...completed, personal_info: { ...completed.personal_info, summary: `${years}. ${summary}` } };

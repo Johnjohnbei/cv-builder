@@ -14,7 +14,7 @@ import type { SkillCategoryKey } from '@/src/features/editor/lib/skill-dictionar
 import { buildPdfFileName } from '@/src/features/editor/lib/pdf-export';
 import { formatDateShort, getCurrentLabel, localizeLanguageName, normalizeProficiency } from '@/src/features/editor/lib/formatting';
 import { stripInlineMarkdown } from './text';
-import { experienceYearsLabel } from '@/src/features/editor/lib/experience-years';
+import { experienceYearsIn } from '@/src/features/editor/lib/experience-years';
 
 export type ExportLanguage = 'fr' | 'en';
 
@@ -48,7 +48,7 @@ export function buildCvDocument(cvData: CVData, language: ExportLanguage = 'fr',
   // ── Years of experience ──
   // The same line the PDF header prints, so a parser reading the .docx finds
   // the years in words too, not only in the dates.
-  const yearsLine = experienceYearsLabel(experience ?? [], language);
+  const yearsLine = experienceYearsIn({ personal_info, experience: experience ?? [] }, language);
   if (yearsLine) {
     children.push(new Paragraph({
       children: [new TextRun({ text: yearsLine, size: 20, color: '5F6368', font: 'Calibri' })],
