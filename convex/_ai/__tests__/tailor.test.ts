@@ -14,6 +14,13 @@ import { prepareText } from "../../../src/shared/lib/text";
 const SUMMARY = "Designer produit en SaaS B2B. Des parcours web et mobiles conçus avec les équipes produit, "
   + "de la recherche auprès des utilisateurs jusqu'aux écrans livrés aux développeurs, dans des startups puis des scale-ups.";
 
+/**
+ * The summary as the pipeline delivers it: the years the source's dates add up
+ * to are written in front of it, so an ATS reading words finds them (the two
+ * roles below span 70 months, five whole years).
+ */
+const withYears = (summary: string) => `5 ans d'expérience. ${summary}`;
+
 const OFFER = "Product Designer. Requis : Figma, Sketch, recherche utilisateur, maquettes, Kubernetes, Node.js, Master, anglais.";
 
 const SOURCE: CVData = {
@@ -56,7 +63,7 @@ const answers = (...raws: unknown[]) =>
   });
 
 const run = (requirements: unknown[] | undefined, startedAt = Date.now(), source: CVData = SOURCE, offer = OFFER) =>
-  tailorPipeline({ extractionVersion: '2026-11-15.2', cv: source, jobDescription: offer, requirements }, startedAt);
+  tailorPipeline({ extractionVersion: '2026-11-19', cv: source, jobDescription: offer, requirements }, startedAt);
 
 const covered = (result: Awaited<ReturnType<typeof run>>, id: string) =>
   result.report.requirements.find(c => c.requirement.id === id)?.found;
@@ -125,7 +132,7 @@ describe("tailorPipeline: truth guard", () => {
     const result = await run([FIGMA, KUBERNETES]);
     expect(JSON.stringify(cvArgument(result.cv).cv)).not.toContain("Kubernetes");
     expect(result.cv.experience[0].description).toEqual(["Mené 30 entretiens utilisateurs", "Conçu les maquettes"]);
-    expect(result.cv.personal_info.summary).toBe(SUMMARY);
+    expect(result.cv.personal_info.summary).toBe(withYears(SUMMARY));
     expect(covered(result, "kubernetes")).toBe(false);
   });
 
@@ -172,7 +179,7 @@ describe("tailorPipeline: truth guard", () => {
   it("removes the whole sentence writing a name with a dot", async () => {
     answers(generated(cv => { cv.personal_info.summary = `${SUMMARY} Expert Node.js et React.`; }));
     const result = await run([FIGMA, requirement("Node.js", "certification")]);
-    expect(result.cv.personal_info.summary).toBe(SUMMARY);
+    expect(result.cv.personal_info.summary).toBe(withYears(SUMMARY));
     expect(covered(result, "node-js")).toBe(false);
   });
 
@@ -305,7 +312,7 @@ describe("tailorPipeline: truth guard", () => {
       cv.personal_info.summary = `${SUMMARY} Designer produit pour le SaaS B2B. Passion pour la data.`;
     }, [{ id: "passion-pour-la-data", quote: "Designer produit pour le SaaS B2B" }], source));
     const result = await run([FIGMA, requirement("Passion pour la data", "certification")], Date.now(), source, offer);
-    expect(result.cv.personal_info.summary).toBe(`${SUMMARY} Designer produit pour le SaaS B2B.`);
+    expect(result.cv.personal_info.summary).toBe(withYears(`${SUMMARY} Designer produit pour le SaaS B2B.`));
   });
 
   it("reads a quote as proof only when the quote itself shares a word with the requirement", async () => {
@@ -333,7 +340,7 @@ describe("tailorPipeline: truth guard", () => {
     };
     const offerEn = "Product Designer. Required: Figma, user research and a strong portfolio for our design team.";
     answers(generated(cv => { cv.experience[0].description[1] = "Designed mockups for 17 brands"; }, [], sourceEn));
-    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: sourceEn, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "en" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: sourceEn, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "en" });
     expect(cv.experience[0].description).toEqual(["Led 30 user interviews", "Designed the mockups"]);
   });
 
@@ -354,7 +361,7 @@ describe("tailorPipeline: truth guard", () => {
       cv.experience[0].intro = "Dirigé la plateforme Kubernetes.";
     }));
     const { cv } = await run([KUBERNETES]);
-    expect(cv.personal_info.summary).toBe(SOURCE.personal_info.summary);
+    expect(cv.personal_info.summary).toBe(withYears(SOURCE.personal_info.summary!));
     expect(cv.experience[0].intro).toBe(SOURCE.experience[0].intro);
   });
 
@@ -362,7 +369,7 @@ describe("tailorPipeline: truth guard", () => {
   it("leaves the summary empty rather than putting a French one back in an English CV", async () => {
     const offerEn = "Product Designer. Required: Figma, Kubernetes, user research for our design team.";
     answers(generated(cv => { cv.personal_info.summary = "Certified Kubernetes expert."; }));
-    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: offerEn, requirements: [KUBERNETES], detectedLanguage: "fr" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: offerEn, requirements: [KUBERNETES], detectedLanguage: "fr" });
     expect(cv.personal_info.summary).toBe("");
   });
 
@@ -477,14 +484,14 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
       const french = { ...requirement("Concepteur produit principal", "title"), variants: ["Lead Product Designer"] };
       const english = "Concepteur produit principal. Requis : Figma, maquettes, recherche utilisateur.";
       answers(generated(cv => { cv.personal_info.title = "Product Designer Lead"; }), { edits: [] });
-      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: english, requirements: [FIGMA, french], language: "en" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: english, requirements: [FIGMA, french], language: "en" });
       expect(cv.personal_info.title).toBe("Product Designer Lead");
     });
 
     it("puts the source's title back on a title the model emptied, the offer in another language", async () => {
       const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
       answers(generated(cv => { cv.personal_info.title = ""; }), { edits: [] });
-      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
       expect(cv.personal_info.title).toBe("Designer produit");
     });
 
@@ -498,7 +505,7 @@ describe("tailorPipeline: written in one go, no question asked (2026-10-07)", ()
     it("keeps the source's title when the offer, in another language, names none the model wrote", async () => {
       const english = "Lead Product Designer. Required: Figma, Sketch, user research, mockups, Kubernetes, Node.js.";
       answers(generated(() => {}), { edits: [] });
-      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
+      const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: english, requirements: [FIGMA, LEAD], language: "fr" });
       expect(cv.personal_info.title).toBe("Designer produit");
     });
   });
@@ -538,7 +545,7 @@ describe("tailorPipeline: language", () => {
 
   it("writes in the offer's language when the user chose none", async () => {
     answers(generated(() => {}));
-    const result = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
+    const result = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr" });
     expect(result.language).toBe("en");
     expect(mocks.chat.mock.calls[0][0]).toContain("LANGUAGE LOCK");
   });
@@ -546,7 +553,7 @@ describe("tailorPipeline: language", () => {
   // Chosen on the dashboard before the generation: it comes before the offer's
   it("writes in the language the user chose, whatever the offer's", async () => {
     answers(generated(() => {}));
-    const result = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr", language: "fr" });
+    const result = await tailorPipeline({ extractionVersion: '2026-11-19', cv: SOURCE, jobDescription: OFFER_EN, requirements: [FIGMA], detectedLanguage: "fr", language: "fr" });
     expect(result.language).toBe("fr");
     expect(mocks.chat.mock.calls[0][0]).toContain("VERROU DE LANGUE");
   });
@@ -558,7 +565,7 @@ describe("tailorPipeline: places", () => {
     const offerEn = "Product Designer in London. Required: Figma, user research for our design team.";
     const withPlace: CVData = { ...SOURCE, experience: [{ ...SOURCE.experience[0], location: "Londres" }, SOURCE.experience[1]] };
     answers(generated(cv => { cv.personal_info.location = "London, UK"; cv.experience[1].location = "London"; }, [], withPlace));
-    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-15.2', cv: withPlace, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "fr" });
+    const { cv } = await tailorPipeline({ extractionVersion: '2026-11-19', cv: withPlace, jobDescription: offerEn, requirements: [FIGMA], detectedLanguage: "fr" });
     expect(cv.personal_info.location).toBe("Paris");
     expect(cv.experience.map(e => e.location)).toEqual(["Londres", undefined]);
   });
@@ -567,12 +574,12 @@ describe("tailorPipeline: places", () => {
 describe("tailorPipeline: a summary that says something, or none", () => {
   it("keeps a summary of two sentences and more", async () => {
     answers(generated(() => {}));
-    expect((await run([FIGMA])).cv.personal_info.summary).toBe(SUMMARY);
+    expect((await run([FIGMA])).cv.personal_info.summary).toBe(withYears(SUMMARY));
   });
 
   it("puts the source's summary back when the model writes one plain sentence", async () => {
     answers(generated(cv => { cv.personal_info.summary = "Designer produit expérimenté."; }));
-    expect((await run([FIGMA])).cv.personal_info.summary).toBe(SUMMARY);
+    expect((await run([FIGMA])).cv.personal_info.summary).toBe(withYears(SUMMARY));
   });
 
   it("hides the summary when neither the model nor the source says more than a sentence", async () => {
@@ -597,6 +604,15 @@ describe("namesStated", () => {
     expect(namesStated("Déployé les outils Figma")).toEqual(["figma"]);
     // A name ending a sentence is the name, not the name and its full stop
     expect(namesStated("Déployé les clusters pour Acme.")).toEqual(["acme"]);
+  });
+
+  it("reads an English possessive as the name, and a contraction as nobody", () => {
+    // An English letter writes both in every paragraph: counted as names, they
+    // were never in the CV or the offer and the letter was refused every time.
+    expect(namesStated("I know Adyen's payment work")).toEqual(["adyen"]);
+    expect(namesStated("Today I'm applying and I've shipped payments")).toEqual([]);
+    // A name whose apostrophe belongs to it stays whole
+    expect(namesStated("worked with O'Brien and L'Oreal")).toEqual(["o'brien", "l'oreal"]);
   });
 });
 

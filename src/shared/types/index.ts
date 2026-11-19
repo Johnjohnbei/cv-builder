@@ -189,6 +189,8 @@ export interface GenerationRecord {
   model: string;
   durationMs: number;
   offer: string;
+  /** The recruiting company the offer names: it labels the CV and the application, never the CV's text */
+  company?: string;
   requirements: JobRequirement[];
   sourceRequirementIds: string[];
   addedRequirementIds: string[];

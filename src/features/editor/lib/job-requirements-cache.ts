@@ -23,6 +23,8 @@ const MAX_OFFERS = 5;
 interface CachedRequirements {
   jobDescription: string;
   requirements: JobRequirement[];
+  /** The recruiting company the same analysis read, when the offer names it */
+  company?: string;
   version: string;
   analyzedAt: number;
 }
@@ -102,6 +104,7 @@ export function generationOf(value: unknown): GenerationRecord | undefined {
   const g = value as GenerationRecord;
   const strings = [g.id, g.createdAt, g.rulesVersion, g.extractionVersion, g.promptVersion, g.model, g.offer];
   if (!strings.every(s => typeof s === 'string') || !Number.isFinite(Date.parse(g.createdAt)) || g.offer.length > 20_000) return undefined;
+  if (g.company !== undefined && (typeof g.company !== 'string' || g.company.length > 80)) return undefined;
   if (!Number.isFinite(g.durationMs) || g.durationMs < 0 || typeof g.extractionAtLimit !== 'boolean') return undefined;
   if (g.initialScore !== null && (!Number.isFinite(g.initialScore) || g.initialScore < 0 || g.initialScore > 100)) return undefined;
   if (!Array.isArray(g.requirements) || g.requirements.length > ATS_POLICY.maxRequirements || !g.requirements.every(isRequirement)) return undefined;
@@ -116,6 +119,16 @@ export function generationOf(value: unknown): GenerationRecord | undefined {
   if (g.objectiveRequirementIds !== undefined && (!Array.isArray(g.objectiveRequirementIds) || g.objectiveRequirementIds.length > ATS_POLICY.maxRequirements || !g.objectiveRequirementIds.every(id => typeof id === 'string'))) return undefined;
   if (g.scopedYears !== undefined && (!Array.isArray(g.scopedYears) || !g.scopedYears.every(item => item && typeof item.company === 'string' && typeof item.start_date === 'string' && (item.end_date === undefined || typeof item.end_date === 'string') && typeof item.current === 'boolean' && typeof item.sourceText === 'string' && item.sourceText.length <= 60_000))) return undefined;
   return g;
+}
+
+/**
+ * The company an offer is for: the one its generation recorded, else the one
+ * the analysis cached in this browser. A generation written for another offer
+ * never labels the one on screen.
+ */
+export function companyOfOffer(generation: GenerationRecord | undefined, jobDescription: string): string | undefined {
+  const recorded = generation && normalize(generation.offer) === normalize(jobDescription) ? companyNameOf(generation.company) : undefined;
+  return recorded ?? readCachedCompany(jobDescription);
 }
 
 function readEntries(): CachedRequirements[] {
@@ -148,14 +161,36 @@ function mostRecentOffers(entries: CachedRequirements[]): CachedRequirements[] {
  * no valid requirement left answers null too, so the offer is analyzed again
  * instead of staying pinned to an empty list.
  */
-export function readCachedRequirements(jobDescription: string): JobRequirement[] | null {
+function readCachedEntry(jobDescription: string): CachedRequirements | null {
   const jd = normalize(jobDescription);
   if (!jd) return null;
   const hit = [...answeredInTab, ...readEntries()].find(e => normalize(e.jobDescription) === jd);
-  const valid = hit?.version === ATS_POLICY.extractionVersion && Number.isFinite(hit.analyzedAt)
-    && hit.analyzedAt <= Date.now() && Date.now() - hit.analyzedAt < ATS_POLICY.cacheMaxAgeMs
-    ? hit.requirements.filter(isRequirement) : [];
+  return hit?.version === ATS_POLICY.extractionVersion && Number.isFinite(hit.analyzedAt)
+    && hit.analyzedAt <= Date.now() && Date.now() - hit.analyzedAt < ATS_POLICY.cacheMaxAgeMs ? hit : null;
+}
+
+export function readCachedRequirements(jobDescription: string): JobRequirement[] | null {
+  const valid = readCachedEntry(jobDescription)?.requirements.filter(isRequirement) ?? [];
   return valid.length > 0 ? valid : null;
+}
+
+/**
+ * The company this offer was analyzed with, when it named one. Read apart from
+ * the requirements: the dashboard, the editor header and the letter label a
+ * version with it, and none of them pays a second analysis for a name.
+ */
+export function readCachedCompany(jobDescription: string): string | undefined {
+  return companyNameOf(readCachedEntry(jobDescription)?.company);
+}
+
+/**
+ * A company name as the app may print it. Storage and old records are outside
+ * the app's control, so the one reader of the field checks it: a trimmed name,
+ * never longer than the server keeps.
+ */
+export function companyNameOf(value: unknown): string | undefined {
+  const name = typeof value === 'string' ? value.trim() : '';
+  return name && name.length <= 80 ? name : undefined;
 }
 
 // ─── One analysis per offer ───
@@ -164,7 +199,7 @@ export function readCachedRequirements(jobDescription: string): JobRequirement[]
 // StrictMode remount and a return to an offer still being analyzed each sent a
 // second request.
 
-type RequirementsAnswer = Promise<{ requirements: unknown }>;
+type RequirementsAnswer = Promise<{ requirements: unknown; company?: unknown }>;
 type ExtractRequirements = (args: { jobDescription: string; accessCode?: string }) => RequirementsAnswer;
 
 /** Module-wide: the editor's and the dashboard's hooks share the analyses running */
@@ -183,7 +218,7 @@ function track(offer: string, accessCode: string | undefined, answer: Requiremen
     const requirements = Array.isArray(data.requirements) ? data.requirements.filter(isRequirement) : [];
     if (requirements.length === 0) throw new Error('No requirement in the answer');
     // Cached even when superseded or unmounted: the call is paid, and the offer may come back
-    writeCachedRequirements(offer, requirements);
+    writeCachedRequirements(offer, requirements, typeof data.company === 'string' ? data.company : undefined);
     return requirements;
   });
   const key = inflightKey(offer, accessCode);
@@ -202,10 +237,14 @@ export function requestRequirements(offer: string, accessCode: string | undefine
   return pendingRequirements(offer, accessCode) ?? track(offer, accessCode, extract({ jobDescription: offer, accessCode }));
 }
 
-export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[]): void {
+export function writeCachedRequirements(jobDescription: string, requirements: JobRequirement[], company?: string): void {
   const jd = normalize(jobDescription);
   if (!jd) return;
-  const entry: CachedRequirements = { jobDescription: jd, requirements, version: ATS_POLICY.extractionVersion, analyzedAt: Date.now() };
+  const named = company?.trim();
+  const entry: CachedRequirements = {
+    jobDescription: jd, requirements, ...(named && named.length <= 80 && { company: named }),
+    version: ATS_POLICY.extractionVersion, analyzedAt: Date.now(),
+  };
   answeredInTab = mostRecentOffers([entry, ...answeredInTab]);
   // Refused by a full quota or by private mode: the in-memory copy still
   // answers for this tab, which is what writeStoredText's false return says

@@ -78,6 +78,8 @@ export default defineSchema({
   atsAnalyses: defineTable({
     key: v.string(), token: v.string(), expiresAt: v.number(),
     requirements: v.optional(v.array(v.any())),
+    // The recruiting company the same analysis read, checked against the offer when read back
+    company: v.optional(v.string()),
   }).index('by_key', ['key']).index('by_expiry', ['expiresAt']),
 
   atsSources: defineTable({

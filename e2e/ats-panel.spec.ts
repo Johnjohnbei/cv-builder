@@ -47,7 +47,7 @@ test.describe('Corrections guidées et exports regroupés', () => {
   test('un ajout non sourcé reste à confirmer après rechargement, sans appel IA', async ({ page }) => {
     const requirement = { id: 'figma', label: 'Figma', variants: [], kind: 'tool' as const, importance: 'required' as const, quote: 'Figma' };
     await seedGuestSession(page, { cv: { ...MOCK_CV, generation: {
-      id: 'test-generation', createdAt: '2026-11-15T10:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2',
+      id: 'test-generation', createdAt: '2026-11-15T10:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-19', promptVersion: '2026-11-15.2',
       model: 'test-model', durationMs: 1000, offer: MOCK_JOB_DESCRIPTION.replace(/\s+/g, ' ').trim(),
       requirements: [requirement], sourceRequirementIds: [], addedRequirementIds: ['figma'], initialScore: 100, extractionAtLimit: false,
     } }, jd: MOCK_JOB_DESCRIPTION, requirements: [requirement] });
@@ -199,7 +199,7 @@ test.describe('Offre saisie dans l\'éditeur', () => {
     // Cache warmed for the offer about to be pasted: the analysis is served, no call leaves
     await page.evaluate(
       ({ key, entry }) => localStorage.setItem(key, JSON.stringify([entry])),
-      { key: REQUIREMENTS_CACHE_KEY, entry: { version: '2026-11-15.2', analyzedAt: Date.now(), jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) } },
+      { key: REQUIREMENTS_CACHE_KEY, entry: { version: '2026-11-19', analyzedAt: Date.now(), jobDescription: MOCK_JOB_DESCRIPTION.trim(), requirements: requirementsOf([AI_ONLY_KEYWORD]) } },
     );
   });
 
@@ -499,7 +499,7 @@ for (const width of [375, 768, 1440]) test(`le score ATS reste visible et ouvre 
 
 test('une adaptation finalisée ouvre le CV prêt à éditer, le bilan ATS reste facultatif', async ({ page }) => {
   const calls = watchAICalls(page); const requirements = requirementsOf(['Figma']);
-  const generation = { id: 'complete-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: MOCK_JOB_DESCRIPTION.replace(/\s+/g, ' ').trim(), requirements, sourceRequirementIds: ['figma'], addedRequirementIds: [], initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 1, skillsTotal: 1, qualificationGapIds: [] } };
+  const generation = { id: 'complete-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-19', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: MOCK_JOB_DESCRIPTION.replace(/\s+/g, ' ').trim(), requirements, sourceRequirementIds: ['figma'], addedRequirementIds: [], initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 1, skillsTotal: 1, qualificationGapIds: [] } };
   await seedGuestSession(page, { cv: { ...MOCK_CV, generation }, jd: MOCK_JOB_DESCRIPTION, requirements });
   await expect(page.getByRole('tab', { name: 'Contenu', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: /^Score ATS : 100/ }).click();
@@ -511,7 +511,7 @@ test('retirer un objectif de transfert préserve les autres et reste annulable',
   const calls = watchAICalls(page), requirements = requirementsOf(['Jira', 'Trello']);
   const jd = 'Nous recherchons un designer produit connaissant Jira et Trello pour le pilotage des missions.';
   const summary = MOCK_CV.personal_info.summary + '\n\nObjectifs de transfert vers ce poste: Jira, Trello.';
-  const generation = { id: 'objective-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-15.2', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: jd, requirements, sourceRequirementIds: [], addedRequirementIds: [], objectiveRequirementIds: requirements.map(r => r.id), initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 2, skillsTotal: 2, qualificationGapIds: [] } };
+  const generation = { id: 'objective-generation', createdAt: '2026-11-15T12:00:00Z', rulesVersion: '2026-11-15.2', extractionVersion: '2026-11-19', promptVersion: '2026-11-15.2', model: 'mock', durationMs: 100, offer: jd, requirements, sourceRequirementIds: [], addedRequirementIds: [], objectiveRequirementIds: requirements.map(r => r.id), initialScore: 100, extractionAtLimit: false, completion: { skillsCovered: 2, skillsTotal: 2, qualificationGapIds: [] } };
   await seedGuestSession(page, { cv: { ...MOCK_CV, personal_info: { ...MOCK_CV.personal_info, summary }, generation }, jd, requirements });
   await page.getByRole('button', { name: /^Score ATS : 100/ }).click();
   await expect(page.getByRole('tabpanel')).toContainText('objectifs de transfert vers le poste, sans maîtrise revendiquée');

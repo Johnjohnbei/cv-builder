@@ -39,9 +39,11 @@ export function maskPersonalInfo(cv: CVData): CVData {
  */
 export function maskHeaderBlocks(pages: PageAssignment[], cv: CVData): PageAssignment[] {
   const masked = maskPersonalInfo(cv).personal_info;
-  const swap = (pb: { block: { type: string } }) =>
+  // Spread over the block's own data: what the header carries besides the
+  // identity (the years its dates add up to) is not an identity and stays
+  const swap = (pb: { block: { type: string; data?: unknown } }) =>
     pb.block.type === 'header'
-      ? { ...pb, block: { ...pb.block, data: masked } }
+      ? { ...pb, block: { ...pb.block, data: { ...(pb.block.data as object | undefined), ...masked } } }
       : pb;
 
   return pages.map(page => ({

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { JobRequirement } from '@/src/shared/types';
 import { generationOf, isRequirementsSettled, requirementsForOffer, requirementsStatus, REQUIREMENTS_CACHE_KEY } from './job-requirements-cache';
+import { ATS_POLICY } from './ats-rules';
 
 const R = (label: string): JobRequirement => ({
   id: label.toLowerCase(), label, variants: [], kind: 'tool', importance: 'required', quote: label,
@@ -106,6 +107,27 @@ describe('requirements cache', () => {
     expect(reloaded.readCachedRequirements('Offre B')).toEqual([R('SAP')]);
   });
 
+  it('answers the company the same analysis read, for this offer only', async () => {
+    const tab = await loadModule();
+    tab.writeCachedRequirements('Offre A', [R('Figma')], 'Wero');
+    tab.writeCachedRequirements('Offre B', [R('SAP')]);
+
+    const reloaded = await loadModule();
+    expect(reloaded.readCachedCompany(' Offre A ')).toBe('Wero');
+    expect(reloaded.readCachedCompany('Offre B')).toBeUndefined();
+    expect(reloaded.readCachedCompany('Offre inconnue')).toBeUndefined();
+  });
+
+  it('labels an offer with its generation first, and with the analysis otherwise', async () => {
+    const tab = await loadModule();
+    tab.writeCachedRequirements('Offre A', [R('Figma')], 'Wero');
+    const generation = { offer: 'Offre A', company: 'European Payments Initiative' } as Parameters<typeof tab.companyOfOffer>[0];
+    expect(tab.companyOfOffer(generation, 'Offre A')).toBe('European Payments Initiative');
+    // A generation written for another offer never labels the one on screen
+    expect(tab.companyOfOffer(generation, 'Offre A bis')).toBeUndefined();
+    expect(tab.companyOfOffer(undefined, 'Offre A')).toBe('Wero');
+  });
+
   it('keeps the five most recent offers', async () => {
     const tab = await loadModule();
     for (const n of [1, 2, 3, 4, 5, 6]) tab.writeCachedRequirements(`Offre ${n}`, [R(`k${n}`)]);
@@ -132,15 +154,15 @@ describe('requirements cache', () => {
   it('skips stored requirements that are not requirements', async () => {
     const badKind = { ...R('Excel'), kind: 'skill' };
     const noQuote = { ...R('Word'), quote: undefined };
-    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', version: '2026-11-15.2', analyzedAt: Date.now(), requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
+    store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', version: ATS_POLICY.extractionVersion, analyzedAt: Date.now(), requirements: ['Figma', badKind, noQuote, R('SAP')] }]));
     expect((await loadModule()).readCachedRequirements('Offre A')).toEqual([R('SAP')]);
   });
 
   it('invalidates expired analyses and analyses from another extraction release', async () => {
     for (const entry of [
       { version: 'old', analyzedAt: Date.now() },
-      { version: '2026-11-15.2', analyzedAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
-      { version: '2026-11-15.2', analyzedAt: Date.now() + 60_000 },
+      { version: ATS_POLICY.extractionVersion, analyzedAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
+      { version: ATS_POLICY.extractionVersion, analyzedAt: Date.now() + 60_000 },
     ]) {
       store.set(REQUIREMENTS_CACHE_KEY, JSON.stringify([{ jobDescription: 'Offre A', requirements: [R('SAP')], ...entry }]));
       expect((await loadModule()).readCachedRequirements('Offre A')).toBeNull();

@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { MOCK_CV } from './fixtures/mock-cv';
 import { seedGuestSession, watchAICalls, expectNoAICalls } from './fixtures/hermetic';
+import { experienceYearsLabel } from '../src/features/editor/lib/experience-years';
+import type { Experience } from '../src/shared/types';
 
 /**
  * What an ATS reads in the PDF the app exports: the text items of the real
@@ -100,6 +102,12 @@ for (const geometry of GEOMETRIES) for (const language of ['fr', 'en'] as const)
       // Roles in the CV's order, each ANNOUNCED then followed by its own
       // bullets: a parser reading the text in order must know whose job it is
       // before reading what was done there
+      // The years the CV's dates add up to, in words: a parser filtering on
+      // "10 years of experience" reads them nowhere else, dates excepted
+      const years = experienceYearsLabel(experience as Experience[], language);
+      expect(years, 'le CV de test doit totaliser assez d’années pour écrire la mention').toBeTruthy();
+      at(years!);
+
       const firstRole = at(experience[0].company);
       const secondRole = at(experience[1].company);
       expect(at(info.email)).toBeLessThan(firstRole);

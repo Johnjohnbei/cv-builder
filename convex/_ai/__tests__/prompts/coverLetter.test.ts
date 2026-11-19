@@ -186,6 +186,25 @@ describe('letter output controls and revisions', () => {
 it('accepts a short replacement without requiring the three untouched fields to be nonempty', () => {
   expect(CoverLetterExcerptSchema.parse({ subject: '', greeting: '', body: 'Un passage.', closing: '' }).body).toBe('Un passage.');
 });
+describe('an English letter, where every paragraph writes a contraction', () => {
+  const ctx = {
+    cvData: { personal_info: { name: 'Alex Martin' }, experience: [{ company: 'Acme', description: ['Shipped the payment flow with Figma.'] }] },
+    jobDescription: 'Product Designer at Wero, the payment solution of European Payments Initiative.',
+    companyName: 'Wero',
+    language: 'en' as const,
+  };
+
+  it("reads I'm, I've and a company's possessive as nothing invented", () => {
+    const body = "I'm applying to Wero because Acme's payment work taught me what I've shipped since. "
+      + "European Payments Initiative's scale is what I'm after.";
+    expect(() => validateLetter({ subject: 'Product Designer', greeting: 'Dear Hiring Manager,', body, closing: 'Best regards,' }, ctx)).not.toThrow();
+  });
+
+  it('still refuses an employer neither the CV nor the offer names', () => {
+    expect(() => validateLetter({ subject: 'Product Designer', greeting: 'Dear Hiring Manager,', body: "I've shipped payments at InventedCorp's scale.", closing: 'Best regards,' }, ctx)).toThrow();
+  });
+});
+
 it('does not mistake paragraph-opening words for invented employers', () => {
   expect(() => validateLetter({ subject: 'Designer', greeting: 'Bonjour', body: 'Mon parcours répond à ce besoin.\n\nVotre projet m’intéresse.', closing: 'Merci' }, { cvData: {}, jobDescription: 'Designer' })).not.toThrow();
 });

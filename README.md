@@ -221,6 +221,14 @@ Attribution des principes adaptés de Humanizer, licence MIT :
 >
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+### Entreprise de l’offre et années d’expérience (2026-11-19)
+
+L’analyse de l’offre renvoie, dans le même appel que les exigences, le nom de l’entreprise qui recrute. Le serveur le garde seulement si l’offre l’écrit mot pour mot, en cinq mots au plus (`companyNamed`). Il circule par le cache serveur, le cache navigateur et `CVData.generation.company`, puis nomme la candidature dans la carte de Mes CV, l’en-tête de l’éditeur, le champ Entreprise de la lettre et le nom des fichiers PDF et Word. Il n’entre ni dans le texte du CV ni dans un prompt. La version d’extraction `2026-11-19` invalide les analyses précédentes, qui ne portaient pas ce nom.
+
+Les années d’expérience sont comptées depuis les dates du CV et arrondies à l’entier inférieur (`experience-years.ts`, propriétaire unique du libellé). Elles s’écrivent sous l’intitulé du profil dans l’aperçu, le PDF et le Word, et en première phrase du résumé à la génération comme aux traductions : un ATS qui filtre sur « 10 ans d’expérience » ne lit pas des dates. Jamais deux fois : un résumé qui énonce déjà des années reste intact, un résumé vide le reste. Sous deux ans, ou sans date lisible, rien n’est écrit. L’onglet ATS affiche la durée mesurée, que l’offre demande des années ou non ; `e2e/pdf-legibility.spec.ts` vérifie la mention dans les six PDF réels.
+
+La garde de noms des lettres (`namesStated`) lit un possessif anglais comme le nom seul et une contraction comme aucun nom : « Adyen’s » nomme Adyen, « I’m » ne nomme personne, « O’Brien » reste entier. Sans cela, toute lettre en anglais était refusée.
+
 ### Preuves, langues et présentations (règles 2026-11-15.2)
 
 Le score reste une couverture mesurée des critères de l’offre. Il apparaît dans la barre d’outils ; le bouton ouvre le bilan ATS. Un brouillon sans trace de génération est signalé et peut être adapté à nouveau depuis le CV source. Le diagnostic des qualifications non établies s’affiche déjà pendant la création, sans questionnaire supplémentaire.

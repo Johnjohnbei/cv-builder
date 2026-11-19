@@ -9,7 +9,7 @@ export const acquire = internalMutation({
   handler: async (ctx, { key, token }) => {
     const now = Date.now();
     const entry = await ctx.db.query('atsAnalyses').withIndex('by_key', q => q.eq('key', key)).unique();
-    if (entry && entry.expiresAt > now) return entry.requirements ? { state: 'ready' as const, requirements: entry.requirements } : { state: 'busy' as const };
+    if (entry && entry.expiresAt > now) return entry.requirements ? { state: 'ready' as const, requirements: entry.requirements, company: entry.company } : { state: 'busy' as const, company: undefined };
     const lease = { key, token, expiresAt: now + 130_000 };
     if (entry) await ctx.db.replace(entry._id, lease);
     else await ctx.db.insert('atsAnalyses', lease);
@@ -18,12 +18,12 @@ export const acquire = internalMutation({
 });
 
 export const finish = internalMutation({
-  args: { key: v.string(), token: v.string(), requirements: v.optional(v.array(v.any())) },
-  handler: async (ctx, { key, token, requirements }) => {
+  args: { key: v.string(), token: v.string(), requirements: v.optional(v.array(v.any())), company: v.optional(v.string()) },
+  handler: async (ctx, { key, token, requirements, company }) => {
     const entry = await ctx.db.query('atsAnalyses').withIndex('by_key', q => q.eq('key', key)).unique();
     if (!entry || entry.token !== token || entry.expiresAt <= Date.now()) return;
     if (!requirements?.length) { await ctx.db.delete(entry._id); return; }
-    await ctx.db.patch(entry._id, { requirements, expiresAt: Date.now() + ATS_POLICY.cacheMaxAgeMs });
+    await ctx.db.patch(entry._id, { requirements, company, expiresAt: Date.now() + ATS_POLICY.cacheMaxAgeMs });
   },
 });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { CVData, Experience, JobRequirement } from '@/src/shared/types';
 import { EMPTY_CV } from '@/src/shared/types';
-import { computeATSReport, cvSections, requirementConfirmationKey, scopeEvidenceFor } from './keyword-analysis';
+import { completeSkillCoverage, computeATSReport, cvSections, requirementConfirmationKey, scopeEvidenceFor } from './keyword-analysis';
 import { yearsOfExperience } from './experience-years';
 
 // ─── Fixtures ───
@@ -461,4 +461,39 @@ it('does not count a certification listed only as a transfer objective as a cred
   const pmp = req('PMP', { kind: 'certification', quote: 'PMP certification required' });
   const candidate = cv({ personal_info: { ...cv().personal_info, summary: 'Product designer.\n\nTransfer objectives for this role: PMP certification.' }, skills: [] });
   expect(computeATSReport(candidate, [pmp]).score).toBe(0);
+});
+
+describe('the years of experience written for an ATS', () => {
+  const twelveYears = [
+    exp({ company: 'Acme', start_date: '2014-01', end_date: '2019-12' }),
+    exp({ company: 'Beta', start_date: '2020-01', end_date: '2026-01' }),
+  ];
+
+  it('writes the whole years the dates add up to in front of the summary', () => {
+    const finalized = completeSkillCoverage(cv({ experience: twelveYears }), [], { language: 'fr' });
+    expect(finalized.personal_info.summary).toBe("12 ans d'expérience. Designer produit en SaaS B2B.");
+  });
+
+  it('writes them in the language of the CV', () => {
+    const source = cv({ experience: twelveYears, personal_info: { ...cv().personal_info, summary: 'Product designer in B2B SaaS.' } });
+    expect(completeSkillCoverage(source, [], { language: 'en' }).personal_info.summary)
+      .toBe('12 years of experience. Product designer in B2B SaaS.');
+  });
+
+  it('never writes them twice: a summary already stating years is left alone', () => {
+    const source = cv({ experience: twelveYears, personal_info: { ...cv().personal_info, summary: '12 ans en SaaS B2B.' } });
+    expect(completeSkillCoverage(source, [], { language: 'fr' }).personal_info.summary).toBe('12 ans en SaaS B2B.');
+  });
+
+  it('says nothing when the roles add up to less than two years, or carry no readable date', () => {
+    const short = cv({ experience: [exp({ start_date: '2025-06', end_date: '2026-01' })] });
+    expect(completeSkillCoverage(short, [], { language: 'fr' }).personal_info.summary).toBe('Designer produit en SaaS B2B.');
+    const undated = cv({ experience: [exp({ start_date: '', end_date: '' })] });
+    expect(completeSkillCoverage(undated, [], { language: 'fr' }).personal_info.summary).toBe('Designer produit en SaaS B2B.');
+  });
+
+  it('leaves an empty summary empty: the header line carries the mention', () => {
+    const noSummary = cv({ experience: twelveYears, personal_info: { ...cv().personal_info, summary: '' } });
+    expect(completeSkillCoverage(noSummary, [], { language: 'fr' }).personal_info.summary).toBe('');
+  });
 });

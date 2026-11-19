@@ -28,9 +28,9 @@ export interface ServerlessPDFOptions {
  * targeted role are kept verbatim (accents included) rather than slugified.
  * Only the characters Windows/macOS reject in a filename are stripped.
  */
-export function buildPdfFileName(candidateName?: string, jobTitle?: string): string {
+export function buildPdfFileName(candidateName?: string, jobTitle?: string, company?: string): string {
   const clean = (s?: string) => (s ?? '').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
-  const parts = [clean(candidateName), clean(jobTitle)].filter(Boolean);
+  const parts = [clean(candidateName), clean(jobTitle), clean(company)].filter(Boolean);
   return parts.length > 0 ? parts.join(' - ') : 'CV';
 }
 

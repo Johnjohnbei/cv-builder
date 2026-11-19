@@ -16,6 +16,8 @@ export interface ATSPanelProps {
   onCorrectCheck: (id: ReadabilityCheck['id']) => void;
   onOpenOffer: () => void;
   aiBusy?: boolean;
+  /** The whole years the CV's dates add up to, printed under the title and in the profile */
+  experienceYears?: number;
 }
 
 const SECTION_LABELS: Record<CVSection, string> = {
@@ -30,7 +32,7 @@ const CHECK_LABELS: Record<ReadabilityCheck['id'], string> = {
   size: 'Taille PDF estimée sous 2,5 Mo ; fichier réel contrôlé à l’export',
 };
 
-export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis, onCorrect, onCorrectCheck, onOpenOffer, aiBusy = false }: ATSPanelProps) {
+export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requirementsError, onRetryAnalysis, onCorrect, onCorrectCheck, onOpenOffer, aiBusy = false, experienceYears }: ATSPanelProps) {
   const { report, dismissed, dismiss, restore, notRequirements, reject, unreject, generation, confirmed, confirm, unconfirm } = analysis;
   if (!report) return <p className="text-xs text-gray-600">Chargement de l'analyse ATS...</p>;
   const dismissedIds = dismissed.map(r => r.id);
@@ -54,6 +56,7 @@ export function ATSPanel({ analysis, hasJobDescription, requirementsStatus, requ
           <Button size="sm" disabled={aiBusy} onClick={onRetryAnalysis}>Réessayer</Button>
         </> : <p>{requirementsStatus === 'pending' ? "L'offre sera analysée quand vous quitterez son champ de saisie." : "Analyse de l'offre en cours..."}</p>}
       {lost && <p className="text-amber-800">Le contenu complet couvrait {generation!.initialScore} %. Vérifiez les éléments masqués ou modifiés.<br /><Button size="sm" variant="ghost" onClick={onOpenOffer}>Voir la mise en page</Button></p>}
+      {experienceYears !== undefined && <p className="text-gray-600">Expérience mesurée sur vos dates : {experienceYears} ans{experienceYears >= 2 ? ', écrits en toutes lettres sous votre titre et dans votre profil.' : '. Trop courte pour être écrite en toutes lettres.'}</p>}
       {(generation?.extractionAtLimit || report.requirements.length >= ATS_POLICY.maxRequirements) && <p className="text-amber-800">Offre dense : limite d'extraction atteinte. Vérifiez les critères dans l'offre.</p>}
     </div>
 

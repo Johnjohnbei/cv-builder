@@ -111,7 +111,7 @@ test.describe('Tri auto sur N pages', () => {
       sessionStorage.setItem('guest_access', 'true');
       localStorage.setItem('guest_last_optimized', JSON.stringify(cv));
       localStorage.setItem('guest_last_jd', jd);
-      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements, version: '2026-11-15.2', analyzedAt: Date.now() }]));
+      localStorage.setItem(key, JSON.stringify([{ jobDescription: jd, requirements, version: '2026-11-19', analyzedAt: Date.now() }]));
     }, { cv: VERY_LONG_CV, jd: LONG_CV_JOB_DESCRIPTION, key: REQUIREMENTS_CACHE_KEY, requirements: requirementsOf(MOCK_REQUIREMENT_LABELS) });
     await page.goto('/editor');
     // Leave in the middle of the fit: it takes a few seconds on 20 roles

@@ -60,12 +60,13 @@ export const tailorCV = action({
     await verifyAccessCode(ctx, args.accessCode);
     const { jobDescription, pageLimit, language } = args;
     // A supplied subset must not replace the server-owned extraction.
-    const requirements = await cachedRequirements(ctx, jobDescription, args.accessCode);
-    const result = await tailorPipeline({ cv, jobDescription, requirements, extractionVersion: ATS_POLICY.extractionVersion, pageLimit, detectedLanguage, languageOverride, language }, startedAt);
+    const analysis = await cachedRequirements(ctx, jobDescription, args.accessCode);
+    const result = await tailorPipeline({ cv, jobDescription, requirements: analysis.requirements, company: analysis.company, extractionVersion: ATS_POLICY.extractionVersion, pageLimit, detectedLanguage, languageOverride, language }, startedAt);
     return {
       // The language actually written, so the toggle and the section titles match the content
       cv: respond(result.cv, result.language),
       requirements: result.requirements,
+      company: analysis.company,
       report: result.report,
     };
   },
@@ -128,7 +129,8 @@ export const extractJobRequirements = action({
     assertMaxLength(args.jobDescription, MAX_OFFER_CHARS);
     await verifyAccessCode(ctx, args.accessCode, false);
     // Bounded like in tailorCV
-    return { requirements: await cachedRequirements(ctx, args.jobDescription, args.accessCode), version: ATS_POLICY.extractionVersion };
+    const analysis = await cachedRequirements(ctx, args.jobDescription, args.accessCode);
+    return { requirements: analysis.requirements, company: analysis.company, version: ATS_POLICY.extractionVersion };
   },
 });
 

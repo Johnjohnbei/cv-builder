@@ -91,8 +91,10 @@ describe('attachBilingualCache with the imported CV', () => {
     expect(translate).toHaveBeenCalledTimes(2);
     expect(translate).toHaveBeenCalledWith({ cvData: IMPORTED_FR, targetLanguage: 'en', accessCode: 'CODE' });
     expect(result.personal_info.versions?.summary?.original).toBe(IMPORTED_EN.personal_info.summary);
+    // The translated CV is finalized like a generated one: the years its dates
+    // add up to are written in front of its summary, in its own language
     expect(result._translations?.fr?.personal_info.versions?.summary).toEqual({
-      adapted: 'Chef de produit pour le SaaS B2B.', original: IMPORTED_FR.personal_info.summary,
+      adapted: "6 ans d'expérience. Chef de produit pour le SaaS B2B.", original: IMPORTED_FR.personal_info.summary,
     });
   });
 

@@ -84,6 +84,8 @@ export const JobRequirementSchema = z.object({
 
 /** Items are checked one by one: a single malformed requirement must not reject the list */
 export const JobRequirementsSchema = z.object({
+  /** The recruiting company, checked against the offer by the server before it is kept */
+  company: z.string().optional(),
   requirements: z.array(z.unknown()).default([]),
 }).passthrough();
 

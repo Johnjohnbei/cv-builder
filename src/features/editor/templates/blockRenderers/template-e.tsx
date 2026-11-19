@@ -13,6 +13,8 @@ import { getContinuationMarker, getShortSectionTitle, getSkillCategoryTitle } fr
 import { EditableText } from '../EditableText';
 import type { SkillCategoryKey } from '../../lib/skill-dictionary';
 import type { Experience, SkillCategory, Education, Language, PersonalInfo, CVData, DesignSettings } from '@/src/shared/types';
+import type { HeaderData } from '../../lib/pagination/types';
+import { experienceYearsText } from '../../lib/experience-years';
 
 // ─── Helpers ───
 
@@ -27,7 +29,7 @@ function getSectionHeader(title: string, design: DesignSettings) {
 // ─── Block Renderers ───
 
 function HeaderBlock({ block, designSettings, language, editing }: BlockRendererProps) {
-  const data = block.block.data as PersonalInfo;
+  const data = block.block.data as HeaderData;
   const { primaryColor } = designSettings;
   const showPhoto = designSettings.showPhoto;
   const cvDataShim = { personal_info: data } as CVData;
@@ -45,6 +47,9 @@ function HeaderBlock({ block, designSettings, language, editing }: BlockRenderer
               {data?.title}
             </EditableText>
           </p>
+          {/* The years an ATS filters on, in plain words under the title: a
+              parser reading dates alone finds no "10 years of experience" */}
+          {data?.experienceYears ? <p className="text-xs font-medium text-gray-700">{experienceYearsText(data.experienceYears, language)}</p> : null}
         </div>
       </div>
       {/* gray-600, not gray-500: 10px text below 4.5:1 is unreadable printed */}

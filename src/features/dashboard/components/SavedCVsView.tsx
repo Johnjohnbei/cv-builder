@@ -1,5 +1,6 @@
 import { Calendar, ExternalLink, FileText, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/src/shared/ui/Button';
+import { companyNameOf } from '@/src/features/editor/lib/job-requirements-cache';
 
 /**
  * Saved CV list entry — minimal UI-facing shape. Intentionally narrow: only the
@@ -13,6 +14,8 @@ export interface SavedCVEntry {
   design?: { template?: string };
   /** The offer the version was saved with; absent on versions saved before it was kept */
   jobDescription?: string;
+  /** What the generation recorded, including the company the offer names */
+  generation?: { company?: string };
 }
 
 interface Props {
@@ -78,6 +81,7 @@ export function SavedCVsView({ savedCVs, applications = [], hasMoreApplications,
                 </div>
               </div>
               <div className="p-4 space-y-3">
+                {companyNameOf(cv.generation?.company) && <p className="text-xs text-gray-700 truncate">Candidature : <span className="font-medium">{companyNameOf(cv.generation?.company)}</span></p>}
                 <div className="flex items-center text-[11px] text-gray-500 space-x-2">
                   <Calendar className="w-3 h-3" />
                   <span>

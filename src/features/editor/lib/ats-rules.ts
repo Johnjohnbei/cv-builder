@@ -3,7 +3,7 @@
 /** Release together with the corpus: web changes never mutate these active rules. */
 export const ATS_POLICY = {
   version: '2026-11-15.2',
-  extractionVersion: '2026-11-15.2',
+  extractionVersion: '2026-11-19',
   promptVersion: '2026-11-15.2',
   maxRequirements: 60,
   cacheMaxAgeMs: 30 * 24 * 60 * 60 * 1000,

@@ -13,7 +13,7 @@ import { detectCVLanguage } from "../../src/lib/language-detection";
 import { userError } from "../_shared/errors";
 import { chatJSONThen } from "./chat";
 import { offerLanguageOf, resolveAdaptLanguage } from "./languageDetection";
-import { normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
+import { companyNamed, normalizeCVData, normalizeJobRequirements, withSourceContacts } from "./normalizers";
 import { numbersOf } from "./numbers";
 import { buildAdaptPrompt } from "./prompts/adapt";
 import { buildRepairPrompt } from "./prompts/distribute";
@@ -43,18 +43,30 @@ export const MAX_REPAIRS = 2;
 
 const invalidOutput = () => userError("L'IA a retourné une réponse invalide. Veuillez réessayer.", "AI_INVALID_OUTPUT");
 
+/**
+ * What one analysis of an offer reads: the requirements a recruiter filters on,
+ * and the company that recruits. The company comes from the same call, so
+ * naming it costs nothing: it labels the saved CV, the application and the
+ * exported files, and never enters the CV or a prompt.
+ */
+export interface OfferAnalysis {
+  requirements: JobRequirement[];
+  company?: string;
+}
+
 /** The requirements an offer states, each quoted from it. An answer with none is invalid: thrown inside the transform, it is retried. */
-export async function extractRequirements(jobDescription: string, deadlineAt?: number): Promise<JobRequirement[]> {
+export async function extractRequirements(jobDescription: string, deadlineAt?: number): Promise<OfferAnalysis> {
   return chatJSONThen(buildJobRequirementsPrompt({ jobDescription }), (raw) => {
     const parsed = JobRequirementsSchema.safeParse(raw);
     const found = parsed.success ? normalizeJobRequirements(parsed.data.requirements, jobDescription) : [];
     if (found.length === 0) throw invalidOutput();
-    return found;
+    const company = parsed.success ? companyNamed(parsed.data.company, jobDescription) : undefined;
+    return { requirements: found, ...(company && { company }) };
   }, "fast", deadlineAt);
 }
 
 /** Same account/code and offer share one extraction across tabs, with a bounded wait. */
-export async function cachedRequirements(ctx: ActionCtx, offer: string, code?: string): Promise<JobRequirement[]> {
+export async function cachedRequirements(ctx: ActionCtx, offer: string, code?: string): Promise<OfferAnalysis> {
   const identity = await ctx.auth.getUserIdentity();
   const scope = identity ? [identity.issuer, identity.subject] : ['guest', code?.trim()];
   const key = createHash('sha256').update(JSON.stringify([scope, ATS_POLICY.extractionVersion, offer.replace(/\s+/g, ' ').trim()])).digest('hex');
@@ -62,12 +74,15 @@ export async function cachedRequirements(ctx: ActionCtx, offer: string, code?: s
   const deadline = Date.now() + EXTRACTION_DEADLINE_MS;
   while (Date.now() < deadline) {
     const lease = await ctx.runMutation(internal.ats.acquire, { key, token });
-    if (lease.state === 'ready') return normalizeJobRequirements(lease.requirements, offer);
+    if (lease.state === 'ready') {
+      const company = companyNamed(lease.company, offer);
+      return { requirements: normalizeJobRequirements(lease.requirements, offer), ...(company && { company }) };
+    }
     if (lease.state === 'busy') { await new Promise(resolve => setTimeout(resolve, 1_000)); continue; }
     try {
-      const requirements = await extractRequirements(offer, deadline);
-      await ctx.runMutation(internal.ats.finish, { key, token, requirements });
-      return requirements;
+      const analysis = await extractRequirements(offer, deadline);
+      await ctx.runMutation(internal.ats.finish, { key, token, requirements: analysis.requirements, company: analysis.company });
+      return analysis;
     } catch (error) {
       await ctx.runMutation(internal.ats.finish, { key, token });
       throw error;
@@ -82,6 +97,8 @@ export interface TailorInput {
   jobDescription: string;
   /** Requirements the client already has for this offer, checked again against it */
   requirements?: unknown[];
+  /** The recruiting company the analysis read, checked against the offer */
+  company?: string;
   pageLimit?: number;
   detectedLanguage?: "fr" | "en";
   languageOverride?: "fr" | "en";
@@ -241,10 +258,13 @@ function withSubstantialSummary(cv: CVData, source: CVData, sameLanguage: boolea
   return { ...cv, personal_info: { ...cv.personal_info, summary: fallback } };
 }
 
-/** The client's requirements checked again against the offer, or the offer analyzed when none holds */
-async function requirementsFor(jobDescription: string, given: unknown[] | undefined, startedAt: number, extractionVersion?: string): Promise<JobRequirement[]> {
-  const checked = extractionVersion === ATS_POLICY.extractionVersion ? normalizeJobRequirements(given ?? [], jobDescription) : [];
-  return checked.length > 0 ? checked : extractRequirements(jobDescription, startedAt + EXTRACTION_DEADLINE_MS);
+/** The client's analysis checked again against the offer, or the offer analyzed when none holds */
+async function analysisFor(input: TailorInput, startedAt: number): Promise<OfferAnalysis> {
+  const { jobDescription, requirements, extractionVersion } = input;
+  const checked = extractionVersion === ATS_POLICY.extractionVersion ? normalizeJobRequirements(requirements ?? [], jobDescription) : [];
+  if (checked.length === 0) return extractRequirements(jobDescription, startedAt + EXTRACTION_DEADLINE_MS);
+  const company = companyNamed(input.company, jobDescription);
+  return { requirements: checked, ...(company && { company }) };
 }
 
 /** The language the source is written in: the client strips it off the CV it sends */
@@ -261,7 +281,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
   const source = readSourceCV(input.cv);
   const { jobDescription, pageLimit, detectedLanguage, languageOverride } = input;
   const deadlineAt = startedAt + PIPELINE_DEADLINE_MS;
-  const requirements = await requirementsFor(jobDescription, input.requirements, startedAt, input.extractionVersion);
+  const { requirements, company } = await analysisFor(input, startedAt);
   const scopedYears = scopeEvidenceFor(source);
   const sourceLanguage = sourceLanguageOf(source, input);
   const fields = preparedFields({ ...source, personal_info: { ...source.personal_info, summary: withoutTransferObjectives(source.personal_info.summary) } }, sourceLanguage);
@@ -355,6 +375,7 @@ export async function tailorPipeline(input: TailorInput, startedAt: number = Dat
       rulesVersion: ATS_POLICY.version, extractionVersion: ATS_POLICY.extractionVersion, promptVersion: ATS_POLICY.promptVersion,
       model: AI_MODELS.default, durationMs: Date.now() - startedAt,
       offer: jobDescription.replace(/\s+/g, ' ').trim(), requirements,
+      ...(company && { company }),
       sourceRequirementIds: [...byCV],
       addedRequirementIds: [],
       objectiveRequirementIds: free.map(r => r.id),

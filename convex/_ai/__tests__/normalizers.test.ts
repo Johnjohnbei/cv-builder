@@ -8,6 +8,7 @@ import {
   withoutUserOwnedFields,
   restoreUserOwnedFields,
   normalizeJobRequirements,
+  companyNamed,
 } from "../normalizers";
 import cvClean from "./fixtures/cv-clean.json";
 import cvDirty from "./fixtures/cv-dirty.json";
@@ -584,5 +585,29 @@ describe('ATS normalization: qualifications are not generic design skills', () =
   it('keeps a job based in France out of qualification points', () => {
     const quote = 'This is a permanent role based in France';
     expect(normalizeJobRequirements([item('France', 'location', quote)], quote)[0]).toMatchObject({ kind: 'screening', needsVerification: true });
+  });
+});
+
+describe("companyNamed", () => {
+  const OFFER = "Rejoignez Wero, la solution de paiement de European Payments Initiative. CDI à Paris.";
+
+  it("keeps a name the offer writes, whatever its case and accents", () => {
+    expect(companyNamed("Wero", OFFER)).toBe("Wero");
+    expect(companyNamed("European Payments Initiative", OFFER)).toBe("European Payments Initiative");
+  });
+
+  it("drops a name the offer never writes: the model may not invent the employer", () => {
+    expect(companyNamed("Adyen", OFFER)).toBeUndefined();
+    expect(companyNamed("", OFFER)).toBeUndefined();
+    expect(companyNamed(42, OFFER)).toBeUndefined();
+  });
+
+  it("drops a sentence written around the name, and a name longer than one", () => {
+    expect(companyNamed("Wero, la solution de paiement de European Payments Initiative", OFFER)).toBeUndefined();
+    expect(companyNamed("W".repeat(81), "W".repeat(81))).toBeUndefined();
+  });
+
+  it("reads a trailing stop as punctuation, not as part of the name", () => {
+    expect(companyNamed("Wero.", OFFER)).toBe("Wero");
   });
 });

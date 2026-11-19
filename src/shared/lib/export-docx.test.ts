@@ -188,6 +188,24 @@ describe('buildCvDocument (fr, default)', () => {
   });
 });
 
+describe('the years of experience an ATS reads in the .docx', () => {
+  it('writes the mention under the title, as the PDF header does', async () => {
+    const dated: CVData = {
+      ...mockCV,
+      experience: mockCV.experience.map((exp, index) => index === 0
+        ? { ...exp, start_date: '2014-01', end_date: '2026-01', current: false } : { ...exp, start_date: '', end_date: '' }),
+    };
+    // Word escapes the apostrophe in the document's XML, as it does everywhere else
+    expect(await toXml(dated)).toContain('12 ans d&apos;expérience');
+    expect(await toXml(dated, 'en')).toContain('12 years of experience');
+  });
+
+  it('says nothing when the roles carry no readable date', async () => {
+    const undated: CVData = { ...mockCV, experience: mockCV.experience.map(exp => ({ ...exp, start_date: '', end_date: '', current: false })) };
+    expect(await toXml(undated)).not.toContain('ans d&apos;expérience');
+  });
+});
+
 describe('buildCvDocument (en)', () => {
   it('uses EN section titles, dates and proficiency', async () => {
     const xml = await toXml(mockCV, 'en');

@@ -12,7 +12,7 @@ import { getActionBullets, getIntro, getVisibleSkills, isHidden, isSkillHidden, 
 import { getSkillCategoryTitle } from './ats-rules';
 import type { SkillCategoryKey } from './skill-dictionary';
 import { CEFR_LEVELS, declaresRequestedFluency, LANGUAGE_NAMES, localizeLanguageName, normalizeProficiency, proficiencyLevel } from './formatting';
-import { hasHomogeneousDates, hasReadableDates, yearsOfExperience } from './experience-years';
+import { experienceYearsLabel, hasHomogeneousDates, hasReadableDates, statesExperienceYears, yearsOfExperience } from './experience-years';
 import { fitsParserSizeLimit } from '../../../shared/lib/image-resize';
 import { appendSkill } from './skill-dictionary';
 
@@ -158,6 +158,14 @@ export function completeSkillCoverage(cv: CVData, requirements: JobRequirement[]
     const summary = withoutTransferObjectives(completed.personal_info.summary);
     const label = options.language === 'en' ? 'Transfer objectives for this role' : 'Objectifs de transfert vers ce poste';
     completed = { ...completed, personal_info: { ...completed.personal_info, summary: [summary, `${label}: ${[...new Set(goals)].join(', ')}.`].filter(Boolean).join('\n\n') } };
+  }
+  // The years the CV's dates add up to, written where an ATS parses words and
+  // not dates. Only in front of a summary that exists: a lone sentence prints
+  // worse than no summary at all, and the header line carries the mention anyway.
+  const years = experienceYearsLabel(completed.experience, options.language);
+  const summary = completed.personal_info.summary?.trim();
+  if (years && summary && !statesExperienceYears(summary)) {
+    completed = { ...completed, personal_info: { ...completed.personal_info, summary: `${years}. ${summary}` } };
   }
   return !options.source || options.source.skills.every(cat => !cat.displayMode || cat.displayMode === 'normal')
     ? { ...completed, skills: completed.skills.map(cat => ({ ...cat, displayMode: 'normal' })) } : completed;

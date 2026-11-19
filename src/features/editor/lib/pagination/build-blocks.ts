@@ -4,7 +4,8 @@
 // usePaginationFit replaces them with real DOM measurements right after.
 
 import type { CVData } from '@/src/shared/types';
-import type { ContentBlock, SubBlock } from './types';
+import type { ContentBlock, HeaderData, SubBlock } from './types';
+import { statedExperienceYears, statesEnoughYears } from '../experience-years';
 import { isHidden, isSkillHidden, getVisibleSkills, getActionBullets, getIntro, shouldShowKPI } from '../display-modes';
 
 // ─── Constants ───
@@ -38,12 +39,16 @@ export function buildBlocks(cvData: CVData, includedSections?: string[]): Conten
   // Header
   if (cvData.personal_info) {
     const titleLines = Math.ceil((cvData.personal_info.title?.length || 30) / 40);
+    // Counted here, not stored: the years follow the CV's own dates, so an
+    // edited date never leaves a stale number printed under the title
+    const years = statedExperienceYears(cvData.experience ?? []);
+    const header: HeaderData = { ...cvData.personal_info, ...(statesEnoughYears(years) && { experienceYears: years }) };
     blocks.push({
       id: 'header',
       type: 'header',
-      heightPx: Math.ceil(100 + titleLines * 24 + 20),
+      heightPx: Math.ceil(100 + titleLines * 24 + 20 + (header.experienceYears ? 16 : 0)),
       splittable: false,
-      data: cvData.personal_info,
+      data: header,
     });
   }
 

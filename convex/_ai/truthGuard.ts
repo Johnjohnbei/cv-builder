@@ -100,6 +100,10 @@ const translations = (stem: string) => LANGUAGE_STEMS.find(stems => stems.includ
  */
 export const namesStated = (text: string): string[] =>
   (text.match(/(?<=[^.!?]\s)\p{Lu}[\p{L}\p{N}'’&.-]*|(?<![\p{L}\p{N}])\p{Lu}{2,}(?![\p{L}\p{N}])/gu) ?? [])
+    // An English possessive or contraction is not part of the name: "Adyen's"
+    // names Adyen, and "I'm" names nobody ("I" is one letter, dropped below).
+    // A longer tail belongs to the name itself ("O'Brien", "L'Oreal").
+    .map(name => name.replace(/['’]\p{L}{1,2}$/u, ''))
     // "pour Acme." names Acme: the stop ends the sentence, not the name
     .map(name => normalizeForMatch(name.replace(/[.'’&-]+$/u, '')))
     .filter(name => name.length > 1);

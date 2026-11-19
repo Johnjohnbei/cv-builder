@@ -80,3 +80,36 @@ export function yearsOfExperience(experiences: Experience[], now: Date = new Dat
   }
   return months / 12;
 }
+
+// ─── The years an ATS reads ───
+// A parser looking for "10+ years of experience" finds nothing in a CV that
+// only carries dates: the years are counted here and written where both a
+// human and a parser read them (the header line and the summary's first
+// sentence). Always the CV's own dates, rounded DOWN: a career is never
+// overstated by a rounding.
+
+/** The whole years these roles add up to, 0 when their dates cannot be read */
+export function statedExperienceYears(experiences: Experience[], now?: Date): number {
+  return Math.floor(yearsOfExperience(experiences.filter(hasReadableDates), now));
+}
+
+/** Under two years the mention says nothing a recruiter wants to read, and an ATS filters on none */
+const MIN_STATED_YEARS = 2;
+
+/** The one wording of the mention, printed by the header, the Word export and the summary */
+export const experienceYearsText = (years: number, language: 'fr' | 'en'): string =>
+  language === 'en' ? `${years} years of experience` : `${years} ans d'expérience`;
+
+/** "12 ans d'expérience" / "12 years of experience", or nothing when the CV cannot back it */
+export function experienceYearsLabel(experiences: Experience[], language: 'fr' | 'en', now?: Date): string | null {
+  const years = statedExperienceYears(experiences, now);
+  return years < MIN_STATED_YEARS ? null : experienceYearsText(years, language);
+}
+
+/** Whether these roles state enough years for the mention to be printed */
+export const statesEnoughYears = (years: number): boolean => years >= MIN_STATED_YEARS;
+
+/** Whether a text already states a number of years, in either language: the mention is never written twice */
+export function statesExperienceYears(text: string | undefined): boolean {
+  return /\b\d{1,2}\s*(?:\+\s*)?(?:ans?|années?|years?|yrs?)\b/iu.test(text ?? '');
+}

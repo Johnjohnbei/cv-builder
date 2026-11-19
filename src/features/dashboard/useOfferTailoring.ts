@@ -80,7 +80,7 @@ export function useOfferTailoring({ baseCV, offer, language, getCode, reportAIEr
       setPhase('generating');
       const result = await tailorCV({ baseData: baseCV, jobDescription: offer, requirements: known, extractionVersion: ATS_POLICY.extractionVersion, language, accessCode });
       if (!current()) return;
-      writeCachedRequirements(offer, result.requirements);
+      writeCachedRequirements(offer, result.requirements, result.company);
       // A CV proposed for an offer comes with the portfolio version that offer calls for.
       // Both languages now, so the editor toggle never shows a half-translated mix,
       // each with the imported texts beside the adapted ones: the editor picks, never calls the AI.

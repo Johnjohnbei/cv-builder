@@ -13,6 +13,8 @@ export interface UseExportDeps {
   isAnonymous?: boolean;
   /** Language the .docx section titles are written in */
   language: 'fr' | 'en';
+  /** The company the offer names: the recruiter finds the file by the application it is for */
+  company?: string;
 }
 
 export interface UseExportResult {
@@ -39,15 +41,15 @@ export interface UseExportResult {
  * and has been removed.
  */
 export function useExport(deps: UseExportDeps): UseExportResult {
-  const { cvRef, cvData, designSettings, notify, isAnonymous = false, language } = deps;
+  const { cvRef, cvData, designSettings, notify, isAnonymous = false, language, company } = deps;
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
 
   /** "Marie Dupont - Product Design Leader", identity stripped when anonymized */
   const fileBaseName = isAnonymous
-    ? buildPdfFileName('CV Anonyme', cvData?.personal_info?.title)
-    : buildPdfFileName(cvData?.personal_info?.name, cvData?.personal_info?.title);
+    ? buildPdfFileName('CV Anonyme', cvData?.personal_info?.title, company)
+    : buildPdfFileName(cvData?.personal_info?.name, cvData?.personal_info?.title, company);
 
   // The anonymized render prints no identity: expecting it lowered the ratio
   const printedCV = useMemo(() => (cvData && isAnonymous ? maskPersonalInfo(cvData) : cvData), [cvData, isAnonymous]);

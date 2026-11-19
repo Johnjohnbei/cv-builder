@@ -18,6 +18,8 @@ interface Props {
   letterSaveLabel: string; onRetrySave: () => void;
   onUndo: () => void; canUndo: boolean;
   atsScore: number | null; onOpenATS: () => void;
+  /** The company the offer names, read once by the analysis: which application is open */
+  company?: string;
 }
 
 /** The same mounted header and action slots for both documents, independent of either sidebar. */
@@ -28,7 +30,7 @@ export function EditorHeader({
   isExportingDocx, isSaving, isExporting, hasCvData, canOpenLetter,
   currentLanguage, letterLanguage, onLanguageChange, isLanguageLocked = false, isAnonymous, onToggleAnonymous,
   isAutoSaving = false, lastAutoSaveAt = null, autoSaveFailed = false, isFitting = false,
-  letterSaveLabel, onRetrySave, onUndo, canUndo, atsScore, onOpenATS,
+  letterSaveLabel, onRetrySave, onUndo, canUndo, atsScore, onOpenATS, company,
 }: Props) {
   const isLetter = activeDocument === 'letter';
   const menu = useRef<HTMLDetailsElement>(null);
@@ -47,6 +49,7 @@ export function EditorHeader({
           <button onClick={onOpenCV} aria-current={!isLetter ? 'page' : undefined} className={cn('w-11 h-9 rounded focus-visible:outline-2 focus-visible:outline-blue-600', !isLetter ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-100')}>CV</button>
           <button onClick={onOpenCoverLetter} disabled={!canOpenLetter} aria-label="Lettre de motivation" aria-current={isLetter ? 'page' : undefined} className={cn('w-16 h-9 rounded disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-blue-600', isLetter ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-100')}>Lettre</button>
         </nav>
+        {company && <p className="hidden md:block min-w-0 truncate text-xs text-gray-600" title={`Candidature chez ${company}`}>Candidature : <span className="font-medium text-gray-900">{company}</span></p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <button onClick={onSave} disabled={isSaving || !hasCvData}

@@ -9,7 +9,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { computeRequirementMatch } from '../features/editor/lib/scoring';
 import { experienceText, isWritable, writesRequirement } from '../features/editor/lib/keyword-analysis';
-import { isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
+import { companyOfOffer, isRequirementsSettled } from '../features/editor/lib/job-requirements-cache';
+import { statedExperienceYears } from '../features/editor/lib/experience-years';
 import { dismissedIdsOf, requirementsOfOffer, withoutDismissed } from '../features/editor/lib/dismissed-requirements';
 import { useCVLoader, useAutoZoom, useATSAnalysis, useCVPersistence, useExport, useCoverLetter, useLanguageSwitch, useAutoSaveDraft, useInPlaceEditing } from '../features/editor/hooks';
 import { usePaginationFit } from '../features/editor/hooks/usePaginationFit';
@@ -128,6 +129,9 @@ export default function EditorPage() {
     isGuest,
     notify,
   });
+  // Which application is open: the company this offer was analyzed with. It
+  // labels the header, the exported files and the letter, and never the CV's text.
+  const company = useMemo(() => companyOfOffer(cvData?.generation, jobDescription), [cvData?.generation, jobDescription]);
   const coverLetter = useCoverLetter({
     // The letter speaks of the CV as it prints: never of a requirement the user said they lack
     cvData: printedCV ? { ...printedCV, design: designSettings } : null,
@@ -136,6 +140,7 @@ export default function EditorPage() {
     user,
     notify,
     accessCode: getCode(),
+    company,
   });
   const language = useLanguageSwitch({
     cvData,
@@ -157,6 +162,7 @@ export default function EditorPage() {
     notify,
     isAnonymous,
     language: currentLanguage,
+    company,
   });
   // One AI action at a time: prevents concurrent rewrites clobbering each other
   const aiBusy = language.isRegenerating || coverLetter.isGenerating;
@@ -292,6 +298,7 @@ export default function EditorPage() {
       )}
 
         <EditorHeader
+          company={company}
           atsScore={atsAnalysis.report?.score ?? null}
           onOpenATS={() => { setActiveTab('ats'); setIsSidebarOpen(true); }}
           document={coverLetter.isOpen ? 'letter' : 'cv'}
@@ -358,6 +365,7 @@ export default function EditorPage() {
         weakBullets={weakBullets}
         ats={{
           analysis: atsAnalysis,
+          experienceYears: printedCV ? statedExperienceYears(printedCV.experience) : undefined,
           hasJobDescription: jobDescription.trim().length > 0,
           requirementsStatus,
           requirementsError,

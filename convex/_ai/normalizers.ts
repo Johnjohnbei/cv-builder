@@ -84,6 +84,18 @@ function uniqueTerms(terms: string[]): string[] {
  * offer is quotable too: the prompt fences the offer as data.
  * The id is computed from the label, never taken from the model.
  */
+/**
+ * The recruiting company, kept only when the offer writes it: the model is
+ * asked for a name copied from the text, and a name the offer does not state
+ * is an invention. Five words at most, the length of a company name, and never
+ * a sentence the model wrote around it.
+ */
+export function companyNamed(value: unknown, jobDescription: string): string | undefined {
+  const name = typeof value === 'string' ? value.trim().replace(/[.,;:]+$/u, '') : '';
+  if (!name || name.length > 80 || name.split(/\s+/u).length > 5) return undefined;
+  return matchPhrase(name, prepareText(jobDescription)) ? name : undefined;
+}
+
 export function normalizeJobRequirements(items: unknown[], jobDescription: string): JobRequirement[] {
   const offer = prepareText(jobDescription);
   const ids = new Set<string>();

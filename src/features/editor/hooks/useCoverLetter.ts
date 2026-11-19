@@ -13,13 +13,15 @@ type Notify = (args: { message: string; type: 'success' | 'error' }) => void;
 export interface UseCoverLetterDeps {
   cvData: CVData | null; jobDescription: string; cvId?: string;
   user: unknown; notify: Notify; accessCode?: string;
+  /** The company the offer analysis read: the field is filled before any generation */
+  company?: string;
 }
 export type LetterSelection = { field: keyof CoverLetterData; start: number; end: number };
 export type UseCoverLetterResult = ReturnType<typeof useCoverLetter>;
 const emptyDraft = (): StoredCoverLetterContext => ({ letter: null, companyName: '', motivation: '', tone: 'professionnel et engagé' });
 
 /** One application context, shared with the CV; opening it never calls an AI action. */
-export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, accessCode }: UseCoverLetterDeps) {
+export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, accessCode, company }: UseCoverLetterDeps) {
   const generateAction = useAction(api.ai.generateCoverLetter);
   const saveMutation = useMutation(api.coverLetters.save);
   const [search, setSearch] = useSearchParams();
@@ -51,10 +53,12 @@ export function useCoverLetter({ cvData, jobDescription, cvId, user, notify, acc
     const chosen = local && (!remote || (local.updatedAt ?? 0) > (remote.updatedAt ?? 0)) ? local : remote ?? local;
     const legacy = parseStoredContext(readStoredText(COVER_LETTER_STORAGE_KEY));
     setLegacyDraft(!chosen?.letter && legacy?.letter && (legacy.jobDescription === undefined || isStoredContextForOffer(legacy, jobDescription)) ? legacy : null);
-    setDraft(chosen ?? emptyDraft());
+    // The company the offer names fills an empty field: a draft the user wrote is never overwritten
+    const opened = chosen ?? emptyDraft();
+    setDraft(!opened.companyName?.trim() && company ? { ...opened, companyName: company } : opened);
     setLoadedKey(key);
     setStatus(chosen === local && local?.letter && user ? 'pending' : 'saved');
-  }, [isOpen, key, loadedKey, saved, jobDescription, user]);
+  }, [isOpen, key, loadedKey, saved, jobDescription, user, company]);
 
   type Snapshot = typeof latest.current;
   const localSave = useCallback((current: Snapshot = latest.current) => {
