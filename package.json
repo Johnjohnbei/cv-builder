@@ -13,7 +13,8 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit && tsc --noEmit -p api && npm run check:anti-vibe && npm run check:file-naming",
     "check:anti-vibe": "node scripts/anti-vibe-scan.mjs",
-    "check:file-naming": "node scripts/file-naming-scan.mjs"
+    "check:file-naming": "node scripts/file-naming-scan.mjs",
+    "prepare": "git config core.hooksPath scripts/hooks || true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

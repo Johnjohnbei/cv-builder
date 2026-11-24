@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+
+# Committed graph (graphify-out/) kept current by this hook. A rebuild adds a commit, and git cannot add a commit to a
+# push already under way: so the push is blocked ONCE after a refresh. Missing graphify only warns.
+if ! sh scripts/graphify-sync.sh --check; then
+  head_before=$(git rev-parse HEAD)
+  if sh scripts/graphify-sync.sh --sync; then
+    if [ "$(git rev-parse HEAD)" != "$head_before" ]; then
+      echo "❌ pre-push: the graph was stale; graphify-out/ is rebuilt and committed. Run git push again."
+      exit 1
+    fi
+  else
+    echo "⚠️  pre-push: graph rebuild failed or graphify is not installed (pip install graphifyy); pushing a stale graph."
+  fi
+fi
+
